@@ -266,7 +266,7 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-gold" disabled={!isValid} onClick={() => onSave(form)}>
+          <button className="btn btn-rose" disabled={!isValid} onClick={() => onSave(form)}>
             <Save size={13} /> {isNew ? 'Add class' : 'Save changes'}
           </button>
         </div>
@@ -315,7 +315,7 @@ function TeacherModal({ initial, onClose, onSave }) {
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-gold" disabled={!isValid} onClick={() => onSave(form)}>
+          <button className="btn btn-rose" disabled={!isValid} onClick={() => onSave(form)}>
             <Save size={13} /> {isNew ? 'Add teacher' : 'Save changes'}
           </button>
         </div>

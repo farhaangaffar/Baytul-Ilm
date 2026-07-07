@@ -34,7 +34,7 @@ export default function Settings() {
           </div>
         </div>
         <div style={{ marginTop: 20 }}>
-          <button className="btn btn-teal" onClick={save}><Save size={14} />Save changes</button>
+          <button className="btn btn-rose" onClick={save}><Save size={14} />Save changes</button>
         </div>
       </div>
       {toast && <div className="toast">✓ {toast}</div>}

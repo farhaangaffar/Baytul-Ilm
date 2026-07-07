@@ -5,11 +5,11 @@ import { getSettings } from '../lib/store';
 
 const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
-  { label:'Students',           path:'/students',   icon:Users,          section:'Management' },
+  { label:'Students',           path:'/students',   icon:Users,         section:'Management' },
   { label:'Attendance',         path:'/attendance', icon:CheckSquare },
   { label:'Fees',               path:'/fees',       icon:Coins },
   { label:'Daily records',      path:'/records',    icon:BookOpen },
-  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap,  section:'Setup' },
+  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, section:'Setup' },
   { label:'Reports',            path:'/reports',    icon:FileText },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
 ];
@@ -18,7 +18,6 @@ export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const settings = getSettings();
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -41,9 +40,7 @@ export default function Layout({ children, title, subtitle }) {
           })}
         </nav>
       </aside>
-
       <div className="main-content">
-        {/* Mobile header */}
         <div className="mobile-topbar">
           <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
           <span className="mobile-topbar-title">{title}</span>
@@ -62,7 +59,6 @@ export default function Layout({ children, title, subtitle }) {
             })}
           </div>
         </div>
-
         <div className="topbar">
           <div>
             <div className="topbar-title">{title}</div>

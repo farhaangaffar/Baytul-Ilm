@@ -83,7 +83,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                     <div style={{
                       width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10, fontWeight: 600,
-                      background: i < step ? 'var(--teal)' : i === step ? 'var(--navy)' : 'var(--border)',
+                      background: i < step ? 'var(--rose)' : i === step ? 'var(--navy)' : 'var(--border)',
                       color: i <= step ? '#fff' : 'var(--text-muted)',
                     }}>{i < step ? '✓' : i + 1}</div>
                     <span style={{ color: i === step ? 'var(--text)' : 'var(--text-muted)', fontWeight: i === step ? 600 : 400 }}>{s}</span>
@@ -100,7 +100,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
           {done ? (
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--teal-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <CheckCircle size={28} color="var(--teal)" />
+                <CheckCircle size={28} color="var(--rose)" />
               </div>
               <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Student enrolled</div>
               <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
