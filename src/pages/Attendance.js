@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { getStudents, getAttendance, setAttendance, calcAttendancePct, calcAttendanceCounts, avatarInitials, getClassNames, getWeekDates, SCHOOL_YEARS, currentSchoolYear } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, calcAttendancePct, calcAttendanceCounts, avatarInitials, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from "../lib/store";
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
@@ -12,6 +12,7 @@ export default function Attendance() {
   const [activeClass, setActiveClass] = useState(classNames[0]||'');
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [year, setYear] = useState(currentSchoolYear());
+  const years = getAcademicYears();
   const [attData, setAttData] = useState(() => getAttendance(year));
   const [toast, setToast] = useState('');
   const TODAY = isoToday();
@@ -56,7 +57,7 @@ export default function Attendance() {
           <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
         ))}
         <div className="tab-divider"/>
-        {SCHOOL_YEARS.map(y=>(
+        {years.map(y=>(
           <button key={y} className={`year-tab ${year===y?'active':''}`} onClick={()=>{ setYear(y); refreshAtt(y); }}>{y}</button>
         ))}
       </div>

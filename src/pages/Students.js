@@ -207,7 +207,7 @@ export default function Students() {
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={()=>setEditing(null)}>Cancel</button>
-              <button className="btn btn-rose" onClick={saveEdit}><Save size={13}/>Save changes</button>
+              <button className="btn btn-lime" onClick={saveEdit}><Save size={13}/>Save changes</button>
             </div>
           </div>
         </div>

@@ -83,7 +83,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                     <div style={{
                       width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10, fontWeight: 600,
-                      background: i < step ? 'var(--rose)' : i === step ? 'var(--navy)' : 'var(--border)',
+                      background: i < step ? 'var(--lime)' : i === step ? 'var(--navy)' : 'var(--border)',
                       color: i <= step ? '#fff' : 'var(--text-muted)',
                     }}>{i < step ? '✓' : i + 1}</div>
                     <span style={{ color: i === step ? 'var(--text)' : 'var(--text-muted)', fontWeight: i === step ? 600 : 400 }}>{s}</span>

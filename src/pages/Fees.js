@@ -1,68 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
-import { getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeRecord, deleteFeeRecord, updateFeeAmount, getMondayOf, avatarInitials, getClassNames, SCHOOL_YEARS, currentSchoolYear } from '../lib/store';
-import { Plus, X, Pencil, Check } from 'lucide-react';
+import {
+  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeRecord,
+  deleteFeeRecord, deleteWeekFees, updateFeeAmount, getMondayOf,
+  getWeekStartsForMonth, avatarInitials, getClassNames,
+  getAcademicYears, currentSchoolYear
+} from '../lib/store';
+import { Plus, X, Pencil, Check, Trash2, Calendar } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
+function monthLabel(ym) {
+  const [y,m]=ym.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+}
 
 export default function Fees() {
   const students = getStudents();
   const classNames = getClassNames();
+  const years = getAcademicYears();
   const [year, setYear] = useState(currentSchoolYear());
   const [fees, setFees] = useState(()=>getFees(year));
   const [activeClass, setActiveClass] = useState(classNames[0]||'');
-  const [showCharge, setShowCharge] = useState(false);
-  const [chargeDate, setChargeDate] = useState(isoToday());
+  const [showAddMonth, setShowAddMonth] = useState(false);
+  const [addMonthVal, setAddMonthVal] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
+  const [confirmDelWeek, setConfirmDelWeek] = useState(null);
   const [toast, setToast] = useState('');
 
-  function refreshFees(y) { setFees(getFees(y||year)); }
+  function refresh(y2) { setFees(getFees(y2||year)); }
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
   function togglePaid(fee) {
     if (fee.status==='Paid') markFeeUnpaid(fee.id,year);
     else markFeePaid(fee.id,year);
-    refreshFees();
+    refresh();
     showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid ✓');
   }
 
   function saveEdit(feeId) {
     const val=parseFloat(editCell.val);
-    if (!isNaN(val)&&val>=0) { updateFeeAmount(feeId,val,year); refreshFees(); showToast('Amount updated'); }
+    if (!isNaN(val)&&val>=0) { updateFeeAmount(feeId,val,year); refresh(); showToast('Amount updated'); }
     setEditCell(null);
   }
 
-  function chargeWeek() {
-    const weekStarting=getMondayOf(chargeDate);
+  function addMonth() {
+    const weeks=getWeekStartsForMonth(addMonthVal);
     const classStudents=students.filter(s=>s.status==='Active'&&s.class===activeClass);
-    const existing=new Set(fees.filter(f=>f.weekStarting===weekStarting).map(f=>f.studentId));
+    const existingWeeks=new Set(fees.filter(f=>classStudents.find(s=>s.id===f.studentId)).map(f=>f.weekStarting));
     let count=0;
-    classStudents.forEach(s=>{ if(!existing.has(s.id)){addFeeRecord({studentId:s.id,weekStarting,amount:s.weeklyFee||15,status:'Pending'},year); count++; } });
-    refreshFees();
-    setShowCharge(false);
-    showToast(count>0?`${count} students charged for w/c ${weekStarting}`:'All students already charged for that week');
+    weeks.forEach(w=>{
+      if (!existingWeeks.has(w)) {
+        classStudents.forEach(s=>{ addFeeRecord({studentId:s.id,weekStarting:w,amount:s.weeklyFee||15,status:'Pending'},year); count++; });
+      }
+    });
+    refresh();
+    setShowAddMonth(false);
+    showToast(count>0?`${weeks.length} weeks added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
+  }
+
+  function doDeleteWeek(weekStarting) {
+    deleteWeekFees(weekStarting,year,activeClass,students);
+    refresh();
+    setConfirmDelWeek(null);
+    showToast(`Week of ${weekStarting} removed`);
   }
 
   const classStudents = students.filter(s=>s.class===activeClass);
   const classFees = fees.filter(f=>classStudents.find(s=>s.id===f.studentId));
   const weeks = [...new Set(classFees.map(f=>f.weekStarting))].sort();
 
-  // lookup[studentId][weekStarting] = fee
-  const lookup = {};
-  classFees.forEach(f=>{ if(!lookup[f.studentId])lookup[f.studentId]={}; lookup[f.studentId][f.weekStarting]=f; });
+  const lookup = useMemo(()=>{
+    const m={};
+    classFees.forEach(f=>{ if(!m[f.studentId])m[f.studentId]={}; m[f.studentId][f.weekStarting]=f; });
+    return m;
+  },[classFees]);
 
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
 
+  // Group weeks by month for display
+  const weeksByMonth = useMemo(()=>{
+    const groups={};
+    weeks.forEach(w=>{
+      const ym=w.slice(0,7);
+      if(!groups[ym])groups[ym]=[];
+      groups[ym].push(w);
+    });
+    return groups;
+  },[weeks]);
+
   return (
-    <Layout title="Fee management" subtitle="Grid view — scroll weeks horizontally">
+    <Layout title="Fee management" subtitle="By month — students as rows, weeks as columns">
       <div className="class-tabs">
         {classNames.map(c=>(
           <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
         ))}
         <div className="tab-divider"/>
-        {SCHOOL_YEARS.map(y=>(
-          <button key={y} className={`year-tab ${year===y?'active':''}`} onClick={()=>{ setYear(y); refreshFees(y); }}>{y}</button>
+        {years.map(y=>(
+          <button key={y} className={`year-tab ${year===y?'active':''}`} onClick={()=>{ setYear(y); refresh(y); }}>{y}</button>
         ))}
       </div>
 
@@ -77,39 +112,55 @@ export default function Fees() {
         <div className="card-header">
           <div>
             <div className="card-title">Fee register — {activeClass} · {year}</div>
-            <div className="card-sub">✓ = paid · ✗ = unpaid · click to toggle · click £ pencil to edit</div>
+            <div className="card-sub">✓ = paid · ✗ = due · click to toggle · click £ to edit · 🗑 to remove a week</div>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={()=>setShowCharge(true)}>
-            <Plus size={13}/> Charge a week
+          <button className="btn btn-primary btn-sm" onClick={()=>setShowAddMonth(true)}>
+            <Calendar size={13}/> Add a month
           </button>
         </div>
 
         {weeks.length===0 ? (
-          <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-            No fee records for {activeClass} in {year}. Click "Charge a week" to get started.
+          <div style={{textAlign:'center',padding:48,color:'var(--text-muted)'}}>
+            <Calendar size={36} style={{opacity:.2,marginBottom:12,display:'block',margin:'0 auto 12px'}}/>
+            <div style={{fontWeight:500,marginBottom:6}}>No fee records yet</div>
+            <div style={{fontSize:12}}>Click "Add a month" to generate weeks for {activeClass}</div>
           </div>
         ) : (
-          /* Outer wrapper — overflow hidden, fixed layout */
           <div className="fee-grid-outer">
             <div style={{overflowX:'auto'}}>
               <table className="fee-grid-table">
                 <thead>
                   <tr>
                     <th className="name-col">Student</th>
-                    {weeks.map(w=>(
-                      <th key={w} style={{minWidth:72}}>
-                        <div>{new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
-                        <div style={{fontWeight:400,fontSize:10,opacity:.65}}>w/c</div>
+                    {/* Month group headers */}
+                    {Object.entries(weeksByMonth).map(([ym,wks])=>(
+                      <th key={ym} colSpan={wks.length} style={{borderBottom:'1px solid rgba(255,255,255,0.15)',background:'#2a2a22',color:ym===isoToday().slice(0,7)?'#a3e635':'rgba(255,255,255,.65)',fontSize:11}}>
+                        {monthLabel(ym)}
                       </th>
                     ))}
                     <th className="total-col paid-col" style={{minWidth:90}}>Paid</th>
                     <th className="total-col owed-col" style={{minWidth:90}}>Owed</th>
                   </tr>
+                  <tr>
+                    <th className="name-col" style={{top:'37px'}}></th>
+                    {weeks.map(w=>(
+                      <th key={w} style={{minWidth:72,top:'37px',fontSize:10}}>
+                        <div style={{marginBottom:3}}>{new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+                        <button
+                          onClick={()=>setConfirmDelWeek(w)}
+                          title="Remove this week"
+                          style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,100,100,.7)',padding:0,fontSize:11}}
+                        ><Trash2 size={10}/></button>
+                      </th>
+                    ))}
+                    <th className="total-col paid-col" style={{top:'37px',minWidth:90}}></th>
+                    <th className="total-col owed-col" style={{top:'37px',minWidth:90}}></th>
+                  </tr>
                 </thead>
                 <tbody>
                   {classStudents.map(s=>{
-                    const studentPaid = weeks.reduce((sum,w)=>{ const f=lookup[s.id]?.[w]; return sum+(f&&f.status==='Paid'?Number(f.amount):0); },0);
-                    const studentOwed = weeks.reduce((sum,w)=>{ const f=lookup[s.id]?.[w]; return sum+(f&&f.status!=='Paid'?Number(f.amount):0); },0);
+                    const sPaid=weeks.reduce((sum,w)=>{ const f=lookup[s.id]?.[w]; return sum+(f&&f.status==='Paid'?Number(f.amount):0); },0);
+                    const sOwed=weeks.reduce((sum,w)=>{ const f=lookup[s.id]?.[w]; return sum+(f&&f.status!=='Paid'?Number(f.amount):0); },0);
                     return (
                       <tr key={s.id}>
                         <td className="name-col">
@@ -123,20 +174,22 @@ export default function Fees() {
                         </td>
                         {weeks.map(w=>{
                           const f=lookup[s.id]?.[w];
-                          if (!f) return <td key={w}><div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}><div className="fee-empty">—</div></div></td>;
+                          if (!f) return <td key={w}><div style={{display:'flex',justifyContent:'center'}}><div className="fee-empty">—</div></div></td>;
                           const isEditing=editCell?.feeId===f.id;
                           return (
                             <td key={w}>
                               <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                                <button className={f.status==='Paid'?'fee-tick':'fee-cross'} onClick={()=>togglePaid(f)} title={f.status==='Paid'?'Mark unpaid':'Mark paid'}>
+                                <button className={f.status==='Paid'?'fee-tick':'fee-cross'} onClick={()=>togglePaid(f)}>
                                   {f.status==='Paid'?'✓':'✗'}
                                 </button>
                                 {isEditing ? (
                                   <div style={{display:'flex',alignItems:'center',gap:2}}>
-                                    <input type="number" value={editCell.val} onChange={e=>setEditCell({...editCell,val:e.target.value})}
+                                    <input type="number" value={editCell.val}
+                                      onChange={e=>setEditCell({...editCell,val:e.target.value})}
                                       onKeyDown={e=>{if(e.key==='Enter')saveEdit(f.id);if(e.key==='Escape')setEditCell(null);}}
                                       autoFocus
-                                      style={{width:44,padding:'2px 4px',fontSize:11,border:'1px solid var(--rose)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}/>
+                                      style={{width:44,padding:'2px 4px',fontSize:11,border:'1px solid var(--lime)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}
+                                    />
                                     <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--green)',padding:1}} onClick={()=>saveEdit(f.id)}><Check size={11}/></button>
                                     <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--red)',padding:1}} onClick={()=>setEditCell(null)}><X size={11}/></button>
                                   </div>
@@ -150,22 +203,21 @@ export default function Fees() {
                             </td>
                           );
                         })}
-                        <td className="total-col paid-col" style={{color:'var(--green)'}}>£{studentPaid.toFixed(2)}</td>
-                        <td className="total-col owed-col" style={{color:studentOwed>0?'var(--red)':undefined}}>{studentOwed>0?`£${studentOwed.toFixed(2)}`:'—'}</td>
+                        <td className="total-col paid-col" style={{color:'var(--green)'}}>£{sPaid.toFixed(2)}</td>
+                        <td className="total-col owed-col" style={{color:sOwed>0?'var(--red)':undefined}}>{sOwed>0?`£${sOwed.toFixed(2)}`:'—'}</td>
                       </tr>
                     );
                   })}
-
                   {/* Totals row */}
-                  <tr style={{borderTop:'2px solid var(--border-strong)',background:'var(--blush)'}}>
-                    <td className="name-col" style={{fontWeight:600,fontSize:12,color:'var(--charcoal)'}}>Weekly total</td>
+                  <tr style={{borderTop:'2px solid var(--border-strong)',background:'var(--lime-light)'}}>
+                    <td className="name-col" style={{fontWeight:600,fontSize:12,color:'var(--ink)'}}>Week total</td>
                     {weeks.map(w=>{
-                      const wPaid=classFees.filter(f=>f.weekStarting===w&&f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-                      const wOwed=classFees.filter(f=>f.weekStarting===w&&f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+                      const wP=classFees.filter(f=>f.weekStarting===w&&f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+                      const wO=classFees.filter(f=>f.weekStarting===w&&f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
                       return (
                         <td key={w} style={{textAlign:'center',fontSize:11}}>
-                          <div style={{fontWeight:600,color:'var(--green)'}}>£{wPaid.toFixed(0)}</div>
-                          {wOwed>0&&<div style={{color:'var(--red)',fontSize:10}}>-£{wOwed.toFixed(0)}</div>}
+                          <div style={{fontWeight:600,color:'var(--green)'}}>£{wP.toFixed(0)}</div>
+                          {wO>0&&<div style={{color:'var(--red)',fontSize:10}}>-£{wO.toFixed(0)}</div>}
                         </td>
                       );
                     })}
@@ -179,41 +231,72 @@ export default function Fees() {
         )}
       </div>
 
-      {/* Charge modal */}
-      {showCharge && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowCharge(false)}>
+      {/* Add month modal */}
+      {showAddMonth&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAddMonth(false)}>
           <div className="modal" style={{maxWidth:460}}>
             <div className="modal-header">
-              <div className="modal-title">Charge a week — {activeClass} · {year}</div>
-              <button className="btn btn-icon" onClick={()=>setShowCharge(false)}><X size={16}/></button>
+              <div className="modal-title">Add a month — {activeClass}</div>
+              <button className="btn btn-icon" onClick={()=>setShowAddMonth(false)}><X size={16}/></button>
             </div>
             <div className="modal-body">
               <div className="form-group" style={{marginBottom:16}}>
-                <label>Pick any date in the week to charge</label>
-                <input type="date" value={chargeDate} onChange={e=>setChargeDate(e.target.value)}/>
-                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Week starting Monday: <strong>{getMondayOf(chargeDate)}</strong></span>
+                <label>Select month</label>
+                <input type="month" value={addMonthVal} onChange={e=>setAddMonthVal(e.target.value)}
+                  style={{padding:'9px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
               </div>
-              <p style={{fontSize:13,color:'var(--text-muted)',lineHeight:1.6,marginBottom:14}}>
-                Creates a <strong>Pending</strong> record for every active {activeClass} student at their individual rate. Students already charged that week are skipped.
-              </p>
-              <div style={{background:'var(--bg)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13}}>
-                {classStudents.filter(s=>s.status==='Active').map(s=>(
-                  <div key={s.id} className="flex justify-between" style={{padding:'4px 0',borderBottom:'1px solid var(--border)'}}>
-                    <span>{s.forename} {s.surname}</span>
-                    <span style={{fontWeight:600,color:'var(--charcoal)'}}>£{s.weeklyFee||15}</span>
+              {addMonthVal&&(()=>{
+                const weeks=getWeekStartsForMonth(addMonthVal);
+                return (
+                  <div style={{background:'var(--ink-faint)',borderRadius:'var(--r-md)',padding:'12px 16px',fontSize:13}}>
+                    <div style={{fontWeight:600,marginBottom:8,color:'var(--ink)'}}>
+                      {weeks.length} week{weeks.length!==1?'s':''} will be added for {monthLabel(addMonthVal)}:
+                    </div>
+                    {weeks.map(w=>(
+                      <div key={w} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                        <span style={{color:'var(--text-muted)'}}>w/c {w}</span>
+                        <span style={{fontWeight:500}}>
+                          {classStudents.filter(s=>s.status==='Active').length} students
+                        </span>
+                      </div>
+                    ))}
+                    <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)'}}>
+                      Each student charged at their individual weekly rate. Weeks already added are skipped.
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
             <div className="modal-footer">
-              <button className="btn" onClick={()=>setShowCharge(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={chargeWeek}>Generate charges</button>
+              <button className="btn" onClick={()=>setShowAddMonth(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={addMonth}>Add month</button>
             </div>
           </div>
         </div>
       )}
 
-      {toast && <div className="toast">✓ {toast}</div>}
+      {/* Delete week confirm */}
+      {confirmDelWeek&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDelWeek(null)}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+                <Trash2 size={24} color="var(--red)"/>
+              </div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove week of {confirmDelWeek}?</div>
+              <div style={{color:'var(--text-muted)',fontSize:13}}>
+                This will delete all {activeClass} fee records for this week. Paid records will also be removed.
+              </div>
+            </div>
+            <div className="modal-footer" style={{justifyContent:'center'}}>
+              <button className="btn" onClick={()=>setConfirmDelWeek(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={()=>doDeleteWeek(confirmDelWeek)}><Trash2 size={13}/>Remove week</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );
 }
