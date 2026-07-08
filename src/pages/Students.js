@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
-import { getStudents, deleteStudent, updateStudent, avatarInitials, getClassNames, calcAttendanceCounts } from '../lib/store';
-import { Plus, Search, Eye, Pencil, Trash2, X, Save } from 'lucide-react';
+import { getStudents, deleteStudent, updateStudent, avatarInitials, getClassNames, calcAttendanceCounts, calcAttendancePct, getFees, currentSchoolYear } from '../lib/store';
+import { Plus, Search, Eye, Pencil, Trash2, X, Save, Users, TrendingUp, Coins, AlertCircle } from 'lucide-react';
 
 export default function Students() {
   const [students, setStudents] = useState(getStudents);
@@ -29,10 +29,18 @@ export default function Students() {
     showToast(`${confirmDelete.forename} ${confirmDelete.surname} removed`);
   }
 
-  const filtered = students.filter(s =>
-    s.class===activeClass &&
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const filtered = classStudents.filter(s =>
     `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())
   );
+
+  const year = currentSchoolYear();
+  const yearFees = getFees(year);
+  const classFees = yearFees.filter(f=>classStudents.some(s=>s.id===f.studentId));
+  const activeCount = classStudents.filter(s=>s.status==='Active').length;
+  const avgAtt = classStudents.length ? Math.round(classStudents.reduce((s,st)=>s+calcAttendancePct(st.id,year),0)/classStudents.length) : 0;
+  const collected = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const owed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
 
   return (
     <Layout title="Students" subtitle={`${students.length} enrolled`}>
@@ -42,6 +50,13 @@ export default function Students() {
             {c} ({students.filter(s=>s.class===c).length})
           </button>
         ))}
+      </div>
+
+      <div className="metrics-grid mb-6">
+        <div className="metric-card"><div className="metric-icon dark"><Users size={18}/></div><div className="metric-value">{activeCount}</div><div className="metric-label">Active — {activeClass}</div></div>
+        <div className="metric-card"><div className="metric-icon teal"><TrendingUp size={18}/></div><div className="metric-value">{avgAtt}%</div><div className="metric-label">Avg attendance</div></div>
+        <div className="metric-card"><div className="metric-icon green"><Coins size={18}/></div><div className="metric-value">£{collected.toFixed(2)}</div><div className="metric-label">Fees collected</div></div>
+        <div className="metric-card"><div className="metric-icon red"><AlertCircle size={18}/></div><div className="metric-value">£{owed.toFixed(2)}</div><div className="metric-label">Outstanding</div></div>
       </div>
 
       <div className="card">

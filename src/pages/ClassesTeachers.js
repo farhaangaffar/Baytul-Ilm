@@ -6,7 +6,7 @@ import {
   getTeachers, addTeacher, updateTeacher, deleteTeacher,
   classTeacherName, getStudents,
 } from '../lib/store';
-import { Plus, Pencil, Trash2, X, Save, BookOpen, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle } from 'lucide-react';
 
 export default function ClassesTeachers() {
   const [tab, setTab] = useState('classes');
@@ -24,6 +24,9 @@ export default function ClassesTeachers() {
   function studentCountForClass(name) {
     return students.filter(s => s.class === name).length;
   }
+
+  const activeStudents = students.filter(s => s.status === 'Active').length;
+  const unassigned = classes.filter(c => !c.teacherId).length;
 
   function saveClass(form) {
     if (form.id) { updateClass(form.id, form); showToast('Class updated'); }
@@ -65,6 +68,13 @@ export default function ClassesTeachers() {
         <button className={`btn ${tab === 'teachers' ? 'btn-primary' : ''}`} onClick={() => setTab('teachers')}>
           <Users size={14} /> Teachers ({teachers.length})
         </button>
+      </div>
+
+      <div className="metrics-grid mb-6">
+        <div className="metric-card"><div className="metric-icon dark"><BookOpen size={18}/></div><div className="metric-value">{classes.length}</div><div className="metric-label">Classes</div></div>
+        <div className="metric-card"><div className="metric-icon teal"><Users size={18}/></div><div className="metric-value">{teachers.length}</div><div className="metric-label">Teachers</div></div>
+        <div className="metric-card"><div className="metric-icon green"><Users size={18}/></div><div className="metric-value">{activeStudents}</div><div className="metric-label">Active students</div></div>
+        <div className="metric-card"><div className="metric-icon amber"><AlertCircle size={18}/></div><div className="metric-value">{unassigned}</div><div className="metric-label">Unassigned classes</div></div>
       </div>
 
       {/* Classes tab */}
