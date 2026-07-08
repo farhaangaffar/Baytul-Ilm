@@ -102,7 +102,7 @@ export default function Attendance() {
                 {weekDates.map(d=>(
                   <th key={d} style={{textAlign:'center',fontSize:11,fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',padding:'10px 6px',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1,minWidth:60}}>
                     <div>{new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'})}</div>
-                    <div style={{fontWeight:d===TODAY?700:400,fontSize:10,color:d===TODAY?'var(--rose-dark)':undefined}}>
+                    <div style={{fontWeight:d===TODAY?700:400,fontSize:10,color:d===TODAY?'var(--teal-dark)':undefined}}>
                       {new Date(d+'T12:00:00').getDate()}/{new Date(d+'T12:00:00').getMonth()+1}
                     </div>
                   </th>
@@ -125,7 +125,7 @@ export default function Attendance() {
                     </td>
                     {weekDates.map(date=>{
                       const status=attData[s.id]?.[date];
-                      let bg='var(--charcoal-faint)',color='var(--text-soft)',letter='·';
+                      let bg='#f3f4f6',color='var(--text-soft)',letter='·';
                       if(status==='P'){bg='#276749';color='#fff';letter='P';}
                       else if(status==='L'){bg='#d69e2e';color='#fff';letter='L';}
                       else if(status==='A'){bg='#c53030';color='#fff';letter='A';}

@@ -188,7 +188,7 @@ export default function Fees() {
                                       onChange={e=>setEditCell({...editCell,val:e.target.value})}
                                       onKeyDown={e=>{if(e.key==='Enter')saveEdit(f.id);if(e.key==='Escape')setEditCell(null);}}
                                       autoFocus
-                                      style={{width:44,padding:'2px 4px',fontSize:11,border:'1px solid var(--lime)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}
+                                      style={{width:44,padding:'2px 4px',fontSize:11,border:'1px solid var(--teal)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}
                                     />
                                     <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--green)',padding:1}} onClick={()=>saveEdit(f.id)}><Check size={11}/></button>
                                     <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--red)',padding:1}} onClick={()=>setEditCell(null)}><X size={11}/></button>
@@ -209,7 +209,7 @@ export default function Fees() {
                     );
                   })}
                   {/* Totals row */}
-                  <tr style={{borderTop:'2px solid var(--border-strong)',background:'var(--lime-light)'}}>
+                  <tr style={{borderTop:'2px solid var(--border-strong)',background:'var(--teal-light)'}}>
                     <td className="name-col" style={{fontWeight:600,fontSize:12,color:'var(--ink)'}}>Week total</td>
                     {weeks.map(w=>{
                       const wP=classFees.filter(f=>f.weekStarting===w&&f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
@@ -248,7 +248,7 @@ export default function Fees() {
               {addMonthVal&&(()=>{
                 const weeks=getWeekStartsForMonth(addMonthVal);
                 return (
-                  <div style={{background:'var(--ink-faint)',borderRadius:'var(--r-md)',padding:'12px 16px',fontSize:13}}>
+                  <div style={{background:'#f9fafb',borderRadius:'var(--r-md)',padding:'12px 16px',fontSize:13}}>
                     <div style={{fontWeight:600,marginBottom:8,color:'var(--ink)'}}>
                       {weeks.length} week{weeks.length!==1?'s':''} will be added for {monthLabel(addMonthVal)}:
                     </div>

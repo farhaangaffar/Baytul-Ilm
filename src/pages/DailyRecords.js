@@ -104,7 +104,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               </div>
               <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)',display:'flex',justifyContent:'space-between'}}>
                 <span>{entryCount} {entryCount===1?'record':'records'}</span>
-                <span style={{color:'var(--lime-dark)',fontWeight:500}}>View records →</span>
+                <span style={{color:'var(--teal-dark)',fontWeight:500}}>View records →</span>
               </div>
             </div>
           );
@@ -202,7 +202,7 @@ function StudentRecords({ student, settings, onBack }) {
     const isOpen = expanded[date];
     const hasContent = entry.comment||entry.positive||entry.negative;
     return (
-      <div className="card mb-4" style={{borderLeft:`3px solid ${isToday?'var(--lime)':'var(--border-strong)'}`}}>
+      <div className="card mb-4" style={{borderLeft:`3px solid ${isToday?'var(--teal)':'var(--border-strong)'}`}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',marginBottom:isOpen?12:0}}
           onClick={()=>setExpanded(e=>({...e,[date]:!e[date]}))}>
           <div>
@@ -215,7 +215,7 @@ function StudentRecords({ student, settings, onBack }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isToday&&<span className="badge badge-lime">Today</span>}
+            {isToday&&<span className="badge badge-teal">Today</span>}
             <button className="btn btn-icon btn-sm" style={{color:'var(--red)'}}
               title="Delete" onClick={e=>{e.stopPropagation();setConfirmDel(date);}}><Trash2 size={13}/></button>
             {isOpen?<ChevronUp size={16}/>:<ChevronDown size={16}/>}
@@ -281,10 +281,10 @@ function StudentRecords({ student, settings, onBack }) {
           </div>
 
           {!hasToday&&(
-            <div className="card mb-4" style={{borderLeft:'3px solid var(--lime)'}}>
+            <div className="card mb-4" style={{borderLeft:'3px solid var(--teal)'}}>
               <div className="flex justify-between items-center" style={{marginBottom:10}}>
                 <div style={{fontWeight:600,fontSize:13}}>Today — {fmtDate(isoToday())}</div>
-                <span className="badge badge-lime">Today</span>
+                <span className="badge badge-teal">Today</span>
               </div>
               <div className="form-group" style={{marginBottom:10}}>
                 <label>Daily comment</label>
@@ -318,7 +318,7 @@ function StudentRecords({ student, settings, onBack }) {
             <button className="btn btn-ai" style={{width:'100%',justifyContent:'center',padding:'10px',marginBottom:14}} onClick={summarise} disabled={aiLoading}>
               <Sparkles size={15}/>{aiLoading?'Generating…':'Summarise this month ↗'}
             </button>
-            {aiLoading&&<div className="ai-summary-box"><div style={{color:'var(--lime-dark)',fontStyle:'italic',fontSize:13}}>Reading through {student.forename}'s records…</div></div>}
+            {aiLoading&&<div className="ai-summary-box"><div style={{color:'var(--teal-dark)',fontStyle:'italic',fontSize:13}}>Reading through {student.forename}'s records…</div></div>}
             {aiSummary&&!aiLoading&&(
               <div className="ai-summary-box">
                 <div className="ai-summary-title"><Sparkles size={13}/>Summary — {new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</div>

@@ -140,20 +140,20 @@ export default function Students() {
               </div>
               <div className="form-section-title" style={{marginBottom:10}}>Parent contacts</div>
               <div className="grid-2 mb-4">
-                <div style={{background:'var(--blush)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13}}>
+                <div style={{background:'var(--teal-faint)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13}}>
                   <div style={{fontWeight:600,marginBottom:4}}>Parent 1</div>
                   <div>{selected.parent1Name||'—'}</div>
                   <div className="text-muted">{selected.parent1Phone||'—'}</div>
                 </div>
                 {(selected.parent2Name||selected.parent2Phone)&&(
-                  <div style={{background:'var(--blush)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13}}>
+                  <div style={{background:'var(--teal-faint)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13}}>
                     <div style={{fontWeight:600,marginBottom:4}}>Parent 2</div>
                     <div>{selected.parent2Name||'—'}</div>
                     <div className="text-muted">{selected.parent2Phone||'—'}</div>
                   </div>
                 )}
               </div>
-              {selected.notes&&<div style={{background:'var(--blush)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
+              {selected.notes&&<div style={{background:'var(--teal-faint)',borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>
             <div className="modal-footer">
               <button className="btn btn-danger" onClick={()=>{setSelected(null);setConfirmDelete(selected);}}><Trash2 size={13}/>Delete</button>
@@ -207,7 +207,7 @@ export default function Students() {
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={()=>setEditing(null)}>Cancel</button>
-              <button className="btn btn-lime" onClick={saveEdit}><Save size={13}/>Save changes</button>
+              <button className="btn btn-teal" onClick={saveEdit}><Save size={13}/>Save changes</button>
             </div>
           </div>
         </div>

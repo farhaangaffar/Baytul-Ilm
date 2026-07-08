@@ -82,7 +82,7 @@ export default function Settings() {
           {/* Existing years */}
           <div style={{marginBottom:16}}>
             {years.map(y=>(
-              <div key={y} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderRadius:'var(--r-md)',background:'var(--ink-faint)',marginBottom:6,border:'1px solid var(--border)'}}>
+              <div key={y} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderRadius:'var(--r-md)',background:'#f9fafb',marginBottom:6,border:'1px solid var(--border)'}}>
                 <div style={{fontWeight:600,fontSize:14}}>{y}</div>
                 <button
                   className="btn btn-icon btn-sm"
@@ -106,7 +106,7 @@ export default function Settings() {
               onKeyDown={e=>e.key==='Enter'&&addYear()}
               style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
             />
-            <button className="btn btn-lime" onClick={addYear}><Plus size={13}/>Add</button>
+            <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add</button>
           </div>
           {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:2}}>{yearError}</div>}
           <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>

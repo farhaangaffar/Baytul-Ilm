@@ -188,9 +188,9 @@ export default function Reports() {
               const att=calcAttendancePct(s.id,year);
               const isActive=selected===s.id;
               return (
-                <div key={s.id} onClick={()=>setSelected(s.id)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'var(--ink-faint)':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
+                <div key={s.id} onClick={()=>setSelected(s.id)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
                   <div className="flex items-center gap-2">
-                    <div className="avatar" style={{width:30,height:30,fontSize:10,background:isActive?'var(--charcoal)':undefined,color:isActive?'#fff':undefined}}>{avatarInitials(s.forename+' '+s.surname)}</div>
+                    <div className="avatar" style={{width:30,height:30,fontSize:10,background:isActive?'var(--ink)':undefined,color:isActive?'#fff':undefined}}>{avatarInitials(s.forename+' '+s.surname)}</div>
                     <div>
                       <div style={{fontWeight:500,fontSize:13}}>{s.forename} {s.surname}</div>
                       <div className="text-muted text-sm">{s.class}</div>
