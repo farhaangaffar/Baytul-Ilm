@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
-import { getStudents, getFees, calcAttendancePct, avatarInitials, getClassNames, currentSchoolYear } from '../lib/store';
-import { Users, Coins, TrendingUp, AlertCircle, Plus } from 'lucide-react';
+import { getStudents, getFees, getAttendance, calcAttendancePct, avatarInitials, getClassNames, currentSchoolYear } from '../lib/store';
+import { Plus } from 'lucide-react';
+
+function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
   const [showEnroll, setShowEnroll] = useState(false);
@@ -10,43 +12,42 @@ export default function Dashboard() {
   const classNames = getClassNames();
   const year = currentSchoolYear();
   const fees = getFees(year);
+  const attendance = getAttendance(year);
+  const today = isoToday();
 
-  const active = students.filter(s => s.status === 'Active').length;
-  const avgAtt = students.length
-    ? Math.round(students.reduce((s, st) => s + calcAttendancePct(st.id, year), 0) / students.length)
-    : 0;
-  const outstanding = fees.filter(f => f.status !== 'Paid').length;
+  const active = students.filter(s => s.status === 'Active');
+  const present = active.filter(s => attendance[s.id]?.[today] === 'P').length;
+  const late    = active.filter(s => attendance[s.id]?.[today] === 'L').length;
+  const absent  = active.filter(s => attendance[s.id]?.[today] === 'A').length;
   const collected = fees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
-  const totalOwed = fees.filter(f => f.status !== 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+
+  const outstandingFees = fees.filter(f => f.status !== 'Paid');
+  const owedByStudent = active
+    .map(s => ({ student: s, owed: outstandingFees.filter(f => f.studentId === s.id).reduce((sum, f) => sum + Number(f.amount), 0) }))
+    .filter(x => x.owed > 0)
+    .sort((a, b) => b.owed - a.owed);
+  const totalOwed = owedByStudent.reduce((s, x) => s + x.owed, 0);
+
+  const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <Layout title="Dashboard" subtitle={`Overview · ${year}`}>
-      <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-icon dark"><Users size={18}/></div>
-          <div className="metric-value">{active}</div>
-          <div className="metric-label">Active students</div>
-          <div className="metric-delta">{classNames.map(c=>`${c}: ${students.filter(s=>s.class===c).length}`).join(' · ')}</div>
+      <div className="hero hero-ink">
+        <div>
+          <div className="hero-arabic">السلام عليكم</div>
+          <div className="hero-greeting">Assalamu Alaikum</div>
+          <div className="hero-sub">{dateStr} · {year}</div>
         </div>
-        <div className="metric-card">
-          <div className="metric-icon rose"><TrendingUp size={18}/></div>
-          <div className="metric-value">{avgAtt}%</div>
-          <div className="metric-label">Avg attendance</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-icon green"><Coins size={18}/></div>
-          <div className="metric-value">£{collected.toFixed(2)}</div>
-          <div className="metric-label">Fees collected</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-icon red"><AlertCircle size={18}/></div>
-          <div className="metric-value">{outstanding}</div>
-          <div className="metric-label">Unpaid records</div>
-          <div className="metric-delta" style={{color:'var(--red)'}}>£{totalOwed.toFixed(2)} outstanding</div>
+        <div className="hero-stats">
+          <div className="hero-stat"><div className="n">{active.length}</div><div className="l">Students</div></div>
+          <div className="hero-stat"><div className="n">{present}</div><div className="l">Present</div></div>
+          <div className="hero-stat"><div className="n">{late}</div><div className="l">Late</div></div>
+          <div className="hero-stat"><div className="n">{absent}</div><div className="l">Absent</div></div>
+          <div className="hero-stat"><div className="n">£{collected.toFixed(2)}</div><div className="l">Collected</div></div>
         </div>
       </div>
 
-      <div className="grid-2" style={{marginTop:22}}>
+      <div className="dashboard-cards">
         {classNames.map(cls => {
           const classStudents = students.filter(s => s.class === cls);
           return (
@@ -60,7 +61,6 @@ export default function Dashboard() {
                   <Plus size={13}/> Enroll
                 </button>
               </div>
-              {/* Scrollable table */}
               <div style={{maxHeight:320, overflowY:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead>
@@ -94,6 +94,33 @@ export default function Dashboard() {
             </div>
           );
         })}
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Outstanding fees</div>
+              <div className="card-sub">£{totalOwed.toFixed(2)} across {owedByStudent.length} student{owedByStudent.length!==1?'s':''}</div>
+            </div>
+          </div>
+          <div style={{maxHeight:320, overflowY:'auto'}}>
+            {owedByStudent.length === 0 ? (
+              <div style={{textAlign:'center',padding:'40px 0',color:'var(--text-muted)'}}>
+                <div style={{fontWeight:500,marginBottom:4}}>All fees up to date</div>
+                <div style={{fontSize:12}}>No outstanding balances</div>
+              </div>
+            ) : (
+              owedByStudent.map(({student:s,owed}) => (
+                <div className="list-row" key={s.id}>
+                  <div className="flex items-center gap-2">
+                    <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
+                    <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
+                  </div>
+                  <span className="badge badge-red">£{owed.toFixed(2)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {showEnroll && <EnrollmentForm onClose={() => setShowEnroll(false)} onSaved={() => setStudents(getStudents())}/>}
