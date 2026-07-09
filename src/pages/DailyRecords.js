@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
-import { getStudents, getClassNames, getSettings, getStudentRecords, saveDailyRecord, deleteDailyRecord, avatarInitials, calcAttendanceCounts, currentSchoolYear } from '../lib/store';
+import { getStudents, getClassNames, getSettings, getStudentRecords, saveDailyRecord, deleteDailyRecord, calcAttendanceCounts, currentSchoolYear } from '../lib/store';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -81,12 +81,9 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               onClick={()=>onSelect(s)}
               onMouseEnter={e=>e.currentTarget.style.boxShadow='var(--shadow-md)'}
               onMouseLeave={e=>e.currentTarget.style.boxShadow=''}>
-              <div className="flex items-center gap-3" style={{marginBottom:12}}>
-                <div className="avatar" style={{width:40,height:40,fontSize:14}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                <div>
-                  <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
-                  <div className="text-muted text-sm">{s.class}</div>
-                </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
+                <div className="text-muted text-sm">{s.class}</div>
               </div>
               <div style={{display:'flex',gap:8,fontSize:12}}>
                 <div style={{flex:1,background:'var(--green-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
@@ -262,7 +259,6 @@ function StudentRecords({ student, settings, onBack }) {
     <div>
       <div className="flex items-center gap-3" style={{marginBottom:20}}>
         <button className="btn btn-sm" onClick={onBack}><ArrowLeft size={14}/> All students</button>
-        <div className="avatar" style={{width:40,height:40,fontSize:14}}>{avatarInitials(student.forename+' '+student.surname)}</div>
         <div>
           <div style={{fontWeight:600,fontSize:16}}>{student.forename} {student.surname}</div>
           <div className="text-muted text-sm">{student.class}</div>
