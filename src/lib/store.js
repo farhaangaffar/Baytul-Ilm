@@ -157,19 +157,22 @@ export function getMondayOf(dateStr) {
   const d=new Date(dateStr+'T12:00:00'), day=d.getDay();
   d.setDate(d.getDate()-day+(day===0?-6:1)); return d.toISOString().split('T')[0];
 }
-// Get all Mon–Thu week-start dates for a given month (YYYY-MM)
+// A "month" here always runs from its first Monday to the day before the next month's first Monday
+export function getSchoolMonthRange(yearMonth) {
+  const [y,m]=yearMonth.split('-').map(Number); // m is 1-indexed
+  const start=firstMondayOfMonthISO(y,m-1);
+  const nextY=m===12?y+1:y, nextM0=m%12;
+  const endExclusive=firstMondayOfMonthISO(nextY,nextM0);
+  return { start, endExclusive };
+}
+// Get all Mon week-start dates for a given month (YYYY-MM), using the first-Monday rule above
 export function getWeekStartsForMonth(yearMonth) {
-  const [y,m]=yearMonth.split('-').map(Number);
-  const weeks=[], seen=new Set();
-  const daysInMonth=new Date(y,m,0).getDate();
-  for (let d=1;d<=daysInMonth;d++) {
-    const date=new Date(y,m-1,d);
-    const dow=date.getDay();
-    if (dow>=1&&dow<=4) { // Mon–Thu
-      const mon=new Date(date); mon.setDate(date.getDate()-(dow-1));
-      const monStr=mon.toISOString().split('T')[0];
-      if (!seen.has(monStr)) { seen.add(monStr); weeks.push(monStr); }
-    }
+  const { start, endExclusive } = getSchoolMonthRange(yearMonth);
+  const weeks=[];
+  let d=new Date(start+'T12:00:00');
+  while (d.toISOString().split('T')[0] < endExclusive) {
+    weeks.push(d.toISOString().split('T')[0]);
+    d.setDate(d.getDate()+7);
   }
   return weeks;
 }

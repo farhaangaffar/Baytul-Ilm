@@ -90,16 +90,16 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               </div>
               <div style={{display:'flex',gap:8,fontSize:12}}>
                 <div style={{flex:1,background:'var(--green-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                  <div style={{fontWeight:700,color:'var(--green)',fontSize:16}}>{counts.present}</div>
-                  <div style={{color:'var(--green)',fontSize:11}}>Present</div>
+                  <div style={{fontWeight:700,color:'var(--green-text)',fontSize:16}}>{counts.present}</div>
+                  <div style={{color:'var(--green-text)',fontSize:11}}>Present</div>
                 </div>
                 <div style={{flex:1,background:'var(--amber-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                  <div style={{fontWeight:700,color:'var(--amber)',fontSize:16}}>{counts.late}</div>
-                  <div style={{color:'var(--amber)',fontSize:11}}>Late</div>
+                  <div style={{fontWeight:700,color:'var(--amber-text)',fontSize:16}}>{counts.late}</div>
+                  <div style={{color:'var(--amber-text)',fontSize:11}}>Late</div>
                 </div>
                 <div style={{flex:1,background:'var(--red-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                  <div style={{fontWeight:700,color:'var(--red)',fontSize:16}}>{counts.absent}</div>
-                  <div style={{color:'var(--red)',fontSize:11}}>Absent</div>
+                  <div style={{fontWeight:700,color:'var(--red-text)',fontSize:16}}>{counts.absent}</div>
+                  <div style={{color:'var(--red-text)',fontSize:11}}>Absent</div>
                 </div>
               </div>
               <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)',display:'flex',justifyContent:'space-between'}}>

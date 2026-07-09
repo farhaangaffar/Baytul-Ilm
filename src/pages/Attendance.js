@@ -1,178 +1,147 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { getStudents, getAttendance, setAttendance, calcAttendancePct, calcAttendanceCounts, avatarInitials, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from "../lib/store";
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
+import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
-const CYCLE = ['P','L','A',null];
 
 export default function Attendance() {
   const [students] = useState(getStudents);
   const classNames = getClassNames();
   const [activeClass, setActiveClass] = useState(classNames[0]||'');
-  const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [year, setYear] = useState(currentSchoolYear());
   const years = getAcademicYears();
   const [attData, setAttData] = useState(() => getAttendance(year));
+  const [selectedId, setSelectedId] = useState(null);
+  const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [toast, setToast] = useState('');
   const TODAY = isoToday();
-  const weekDates = getWeekDates(weekAnchor);
 
   function refreshAtt(y) { setAttData(getAttendance(y||year)); }
+  function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2000); }
 
-  function toggle(studentId, date) {
+  function mark(studentId, date, status) {
     const cur = attData[studentId]?.[date]||null;
-    const next = CYCLE[(CYCLE.indexOf(cur)+1)%CYCLE.length];
+    const next = cur===status ? null : status;
     setAttendance(studentId, date, next, year);
     refreshAtt();
     const s = students.find(s=>s.id===studentId);
     showToast(`${s?.forename} ${s?.surname} — ${next?STATUS_LABELS[next]:'Cleared'}`);
   }
 
-  function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2000); }
+  function openStudent(id) { setSelectedId(id); setWeekAnchor(isoToday()); }
+
   function shiftWeek(dir) {
-    const d=new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate()+dir*7);
+    const wd = getWeekDates(weekAnchor);
+    const d = new Date(wd[0]+'T12:00:00'); d.setDate(d.getDate()+dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);
   }
 
-  const filtered = students.filter(s=>s.class===activeClass);
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const thisWeekDates = getWeekDates(TODAY);
 
-  const dailyCounts = weekDates.map(date=>({
-    date,
-    P: filtered.filter(s=>attData[s.id]?.[date]==='P').length,
-    L: filtered.filter(s=>attData[s.id]?.[date]==='L').length,
-    A: filtered.filter(s=>attData[s.id]?.[date]==='A').length,
-    total: filtered.filter(s=>attData[s.id]?.[date]).length,
-  }));
+  function weekCountsFor(studentId, dates) {
+    const days = dates.map(d=>attData[studentId]?.[d]).filter(Boolean);
+    return { P: days.filter(d=>d==='P').length, L: days.filter(d=>d==='L').length, A: days.filter(d=>d==='A').length };
+  }
 
-  const todayCount = dailyCounts.find(d=>d.date===TODAY)||{P:0,L:0,A:0};
-  const avgAtt = filtered.length ? Math.round(filtered.reduce((s,st)=>s+calcAttendancePct(st.id,year),0)/filtered.length) : 0;
-  const weekLabel = `${new Date(weekDates[0]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(weekDates[3]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+  const selected = students.find(s=>s.id===selectedId);
+
+  if (selected) {
+    const weekDates = getWeekDates(weekAnchor);
+    const weekLabel = `${new Date(weekDates[0]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(weekDates[3]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+    const counts = weekCountsFor(selected.id, weekDates);
+    const marked = counts.P + counts.L + counts.A;
+    const pct = marked ? Math.round(((counts.P+counts.L)/marked)*100) : 0;
+
+    return (
+      <Layout title="Attendance" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
+        <div className="card-header" style={{marginBottom:20}}>
+          <div className="flex items-center gap-3">
+            <button className="back-pill" onClick={()=>setSelectedId(null)}><ArrowLeft size={14}/> All students</button>
+            <div>
+              <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
+              <div className="text-muted text-sm">{selected.class}</div>
+            </div>
+          </div>
+          <div className="nav-arrow-row">
+            <button className="nav-arrow-btn" onClick={()=>shiftWeek(-1)}>‹</button>
+            <span>Week of {weekLabel}</span>
+            <button className="nav-arrow-btn" onClick={()=>shiftWeek(1)}>›</button>
+          </div>
+        </div>
+
+        <div className="day-cal-row">
+          {weekDates.map(date=>{
+            const status = attData[selected.id]?.[date];
+            const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
+            const dayDate = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+            const bg = status==='P'?'var(--green-light)':status==='L'?'var(--amber-light)':status==='A'?'var(--red-light)':'#f3f4f6';
+            const dotBg = status==='P'?'var(--green)':status==='L'?'var(--amber)':status==='A'?'var(--red)':'#e5e7eb';
+            return (
+              <div className="day-cal-card" key={date} style={{background:bg}}>
+                <div className="day-cal-name">{dayName}</div>
+                <div className="day-cal-date">{dayDate}</div>
+                <button className="day-cal-status" style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)'}}
+                  onClick={()=>{
+                    const cycle=['P','L','A',null];
+                    const next=cycle[(cycle.indexOf(status||null)+1)%cycle.length];
+                    setAttendance(selected.id,date,next,year); refreshAtt();
+                  }}>
+                  {status||'·'}
+                </button>
+                <div className="day-cal-label">{status?STATUS_LABELS[status]:'Not marked'}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="summary-row-v2">
+          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{counts.P}</div><div className="l">Present</div></div>
+          <div className="summary-box-v2" style={{background:'var(--amber-light)'}}><div className="n">{counts.L}</div><div className="l">Late</div></div>
+          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{counts.A}</div><div className="l">Absent</div></div>
+          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{pct}%</div><div className="l">This week</div></div>
+        </div>
+        {toast && <div className="toast">✓ {toast}</div>}
+      </Layout>
+    );
+  }
 
   return (
-    <Layout title="Attendance" subtitle={`${activeClass} · ${year} · ${weekLabel}`}>
-      {/* Class + Year tabs */}
-      <div className="class-tabs">
+    <Layout title="Attendance" subtitle={`${activeClass} · ${year}`}>
+      <div className="pill-tabs">
         {classNames.map(c=>(
-          <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
+          <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
         ))}
-        <div className="tab-divider"/>
+        <div className="pill-divider"/>
         {years.map(y=>(
-          <button key={y} className={`year-tab ${year===y?'active':''}`} onClick={()=>{ setYear(y); refreshAtt(y); }}>{y}</button>
+          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>{ setYear(y); refreshAtt(y); }}>{y}</button>
         ))}
       </div>
 
-      {/* Metrics */}
-      <div className="metrics-grid mb-6">
-        <div className="metric-card"><div className="metric-icon green"><span style={{fontSize:16}}>✓</span></div><div className="metric-value">{todayCount.P}</div><div className="metric-label">Present today</div></div>
-        <div className="metric-card"><div className="metric-icon amber"><span style={{fontSize:16}}>~</span></div><div className="metric-value">{todayCount.L}</div><div className="metric-label">Late today</div></div>
-        <div className="metric-card"><div className="metric-icon red"><span style={{fontSize:16}}>✗</span></div><div className="metric-value">{todayCount.A}</div><div className="metric-label">Absent today</div></div>
-        <div className="metric-card"><div className="metric-icon dark"><span style={{fontSize:16}}>%</span></div><div className="metric-value">{avgAtt}%</div><div className="metric-label">Avg — {activeClass}</div></div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Register — {activeClass} · {year}</div>
-            <div className="card-sub">Click to cycle P → L → A → Clear · Mon–Thu only</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="btn btn-sm" onClick={()=>shiftWeek(-1)}>← Prev</button>
-            <button className="btn btn-sm btn-primary" onClick={()=>setWeekAnchor(isoToday())}>Today</button>
-            <button className="btn btn-sm" onClick={()=>shiftWeek(1)}>Next →</button>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div style={{display:'flex',gap:12,marginBottom:14,flexWrap:'wrap'}}>
-          {[['#276749','P','Present'],['#d69e2e','L','Late'],['#c53030','A','Absent']].map(([bg,l,label])=>(
-            <div key={label} className="flex items-center gap-2 text-sm text-muted">
-              <div style={{width:26,height:26,borderRadius:6,background:bg,color:'#fff',fontWeight:700,fontSize:12,display:'flex',alignItems:'center',justifyContent:'center'}}>{l}</div>
-              {label}
+      <div className="entity-grid">
+        {classStudents.map(s=>{
+          const todayStatus = attData[s.id]?.[TODAY];
+          const wc = weekCountsFor(s.id, thisWeekDates);
+          return (
+            <div className="entity-card" key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)}>
+              <div>
+                <div className="entity-card-name">{s.forename} {s.surname}</div>
+                <div className="entity-card-sub">{s.class}</div>
+                <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
+              </div>
+              <div className="mark-btn-row" onClick={e=>e.stopPropagation()}>
+                <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
+                <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} onClick={()=>mark(s.id,TODAY,'L')}>L</button>
+                <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} onClick={()=>mark(s.id,TODAY,'A')}>A</button>
+              </div>
             </div>
-          ))}
-        </div>
-
-        {/* Scrollable table container */}
-        <div style={{overflowX:'auto'}}>
-          <table style={{minWidth:480,borderCollapse:'collapse',width:'100%',fontSize:13}}>
-            <thead>
-              <tr>
-                <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'10px 12px 10px 16px',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1,minWidth:170}}>Student</th>
-                {weekDates.map(d=>(
-                  <th key={d} style={{textAlign:'center',fontSize:11,fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',padding:'10px 6px',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1,minWidth:60}}>
-                    <div>{new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'})}</div>
-                    <div style={{fontWeight:d===TODAY?700:400,fontSize:10,color:d===TODAY?'var(--teal-dark)':undefined}}>
-                      {new Date(d+'T12:00:00').getDate()}/{new Date(d+'T12:00:00').getMonth()+1}
-                    </div>
-                  </th>
-                ))}
-                <th style={{textAlign:'center',fontSize:11,fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',padding:'10px 6px',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1,minWidth:160}}>P / L / A / %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Scrollable body */}
-              {filtered.map(s=>{
-                const pct = calcAttendancePct(s.id, year);
-                const c = calcAttendanceCounts(s.id, year);
-                return (
-                  <tr key={s.id}>
-                    <td style={{padding:'10px 12px 10px 16px',borderBottom:'1px solid var(--border)',verticalAlign:'middle'}}>
-                      <div className="flex items-center gap-2">
-                        <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                        <div style={{fontWeight:500,fontSize:13}}>{s.forename} {s.surname}</div>
-                      </div>
-                    </td>
-                    {weekDates.map(date=>{
-                      const status=attData[s.id]?.[date];
-                      let bg='#f3f4f6',color='var(--text-soft)',letter='·';
-                      if(status==='P'){bg='#276749';color='#fff';letter='P';}
-                      else if(status==='L'){bg='#d69e2e';color='#fff';letter='L';}
-                      else if(status==='A'){bg='#c53030';color='#fff';letter='A';}
-                      return (
-                        <td key={date} style={{textAlign:'center',padding:'10px 6px',borderBottom:'1px solid var(--border)',background:date===TODAY?'rgba(225,29,120,0.04)':undefined}}>
-                          <button onClick={()=>toggle(s.id,date)} title={STATUS_LABELS[status]||'Not marked'} className="att-btn" style={{background:bg,color}}>{letter}</button>
-                        </td>
-                      );
-                    })}
-                    {/* P/L/A counts + % in boxes */}
-                    <td style={{textAlign:'center',padding:'10px 6px',borderBottom:'1px solid var(--border)'}}>
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4,flexWrap:'wrap'}}>
-                        <span className="att-stat-box att-stat-p">{c.present}</span>
-                        <span className="att-stat-box att-stat-l">{c.late}</span>
-                        <span className="att-stat-box att-stat-a">{c.absent}</span>
-                        <span className="att-stat-box att-stat-pct">{pct}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {/* Daily count row */}
-              {filtered.length>0 && (
-                <tr style={{borderTop:'2px solid var(--border-strong)'}}>
-                  <td style={{padding:'10px 12px 10px 16px',fontSize:12,fontWeight:600,color:'var(--text-muted)'}}>Daily count</td>
-                  {dailyCounts.map(dc=>(
-                    <td key={dc.date} style={{textAlign:'center',padding:'10px 6px',background:dc.date===TODAY?'rgba(225,29,120,0.04)':undefined}}>
-                      {dc.total>0?(
-                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                          <span className="day-count-box" style={{background:'#276749',color:'#fff'}}>{dc.P}</span>
-                          {dc.L>0 && <span className="day-count-box" style={{background:'#d69e2e',color:'#fff'}}>L:{dc.L}</span>}
-                          {dc.A>0 && <span className="day-count-box" style={{background:'#c53030',color:'#fff'}}>A:{dc.A}</span>}
-                        </div>
-                      ):<span style={{color:'var(--text-soft)',fontSize:12}}>—</span>}
-                    </td>
-                  ))}
-                  <td/>
-                </tr>
-              )}
-
-              {filtered.length===0 && (
-                <tr><td colSpan={6} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>No students in {activeClass}.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          );
+        })}
+        {classStudents.length===0&&(
+          <div className="card" style={{gridColumn:'1 / -1',textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
+        )}
       </div>
       {toast && <div className="toast">✓ {toast}</div>}
     </Layout>
