@@ -73,7 +73,7 @@ export default function Dashboard() {
           <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>navigate('/attendance')}>View all →</div>
         </div>
         <div className="stat-card-v2">
-          <div className="n">£{monthOutstanding.toFixed(0)}</div>
+          <div className="n">£{monthOutstanding.toFixed(2)}</div>
           <div className="l">Outstanding this month</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/fees')}>View all →</div>
         </div>
@@ -102,8 +102,8 @@ export default function Dashboard() {
             <div className="ring-inner"><div className="n">{monthCollectedPct}%</div><div className="l">Collected</div></div>
           </div>
           <div className="ring-breakdown">
-            <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: £{monthCollected.toFixed(0)}</span>
-            <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: £{monthOutstanding.toFixed(0)}</span>
+            <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: £{monthCollected.toFixed(2)}</span>
+            <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: £{monthOutstanding.toFixed(2)}</span>
           </div>
         </div>
       </div>

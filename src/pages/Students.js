@@ -55,8 +55,8 @@ export default function Students() {
       <div className="stat-grid-v2">
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active — {activeClass}</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
-        <div className="stat-card-v2"><div className="n">£{collected.toFixed(0)}</div><div className="l">Fees collected</div></div>
-        <div className="stat-card-v2"><div className="n">£{owed.toFixed(0)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">£{collected.toFixed(2)}</div><div className="l">Fees collected</div></div>
+        <div className="stat-card-v2"><div className="n">£{owed.toFixed(2)}</div><div className="l">Outstanding</div></div>
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>

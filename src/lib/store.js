@@ -137,9 +137,11 @@ export function getWeekDates(anchor) {
 // ── Fees (keyed by year) ──
 function feesKey(year) { return `madrasah_fees_${year}`; }
 export function getFees(year)       { init(); return load(feesKey(year||currentSchoolYear()))||[]; }
+let feeIdSeq = 0;
 export function addFeeRecord(rec,year) {
   const y=year||currentSchoolYear(), list=getFees(y);
-  const id='F'+String(Date.now()).slice(-8)+Math.floor(Math.random()*100);
+  feeIdSeq += 1;
+  const id='F'+Date.now()+'-'+feeIdSeq;
   const f={status:'Pending',paidDate:null,...rec,id};
   list.push(f); save(feesKey(y),list); return f;
 }

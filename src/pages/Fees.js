@@ -160,9 +160,9 @@ export default function Fees() {
         </div>
 
         <div className="summary-row-v2">
-          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">£{paid.toFixed(0)}</div><div className="l">Paid</div></div>
-          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">£{owed.toFixed(0)}</div><div className="l">Owed</div></div>
-          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">£{billed.toFixed(0)}</div><div className="l">Billed this month</div></div>
+          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">£{paid.toFixed(2)}</div><div className="l">Paid</div></div>
+          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">£{owed.toFixed(2)}</div><div className="l">Owed</div></div>
+          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">£{billed.toFixed(2)}</div><div className="l">Billed this month</div></div>
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{collectedPct}%</div><div className="l">Collected</div></div>
         </div>
 
@@ -207,8 +207,8 @@ export default function Fees() {
       </div>
 
       <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{totalPaid.toFixed(0)}</div><div className="l">Collected — {activeClass}</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{totalOwed.toFixed(0)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{totalPaid.toFixed(2)}</div><div className="l">Collected — {activeClass}</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{totalOwed.toFixed(2)}</div><div className="l">Outstanding</div></div>
         <div className="stat-card-v2"><div className="n">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid records</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.filter(s=>s.status==='Active').length}</div><div className="l">Active students</div></div>
       </div>
@@ -228,7 +228,7 @@ export default function Fees() {
               <div>
                 <div className="entity-card-name">{s.forename} {s.surname}</div>
                 <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
-                <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(0)} paid · £{monthOwed.toFixed(0)} due</div>
+                <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
               </div>
               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}} onClick={e=>e.stopPropagation()}>
                 <div style={{display:'flex',gap:5}}>
