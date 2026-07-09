@@ -74,7 +74,7 @@ export default function Dashboard() {
         </div>
         <div className="stat-card-v2">
           <div className="n">£{monthOutstanding.toFixed(0)}</div>
-          <div className="l">Outstanding fees</div>
+          <div className="l">Outstanding this month</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/fees')}>View all →</div>
         </div>
       </div>

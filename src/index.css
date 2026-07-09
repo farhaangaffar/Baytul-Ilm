@@ -73,7 +73,7 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 
 /* ── Dashboard hero ── */
 .hero { margin-bottom:16px; }
-.hero-arabic { font-family:var(--font-arabic); font-size:20px; color:var(--blue); margin-bottom:1px; }
+.hero-arabic { font-family:var(--font-arabic); font-size:20px; color:var(--ink); margin-bottom:1px; }
 .hero-greeting { font-size:16px; font-weight:600; }
 .hero-sub { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
 
