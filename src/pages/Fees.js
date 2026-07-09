@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeRecord,
-  updateFeeAmount, getMondayOf, getWeekStartsForMonth, getClassNames,
+  updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
-import { X, Pencil, Check, Calendar, ArrowLeft } from 'lucide-react';
+import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -30,6 +30,7 @@ export default function Fees() {
   const [selectedId, setSelectedId] = useState(null);
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
+  const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [toast, setToast] = useState('');
 
   function refresh(y2) { setFees(getFees(y2||year)); }
@@ -121,7 +122,13 @@ export default function Fees() {
             const bg = f.status==='Paid' ? 'var(--green-light)' : 'var(--red-light)';
             const dotBg = f.status==='Paid' ? 'var(--green)' : 'var(--red)';
             return (
-              <div className="day-cal-card" key={w} style={{background:bg}}>
+              <div className="day-cal-card" key={w} style={{background:bg, position:'relative'}}>
+                <button
+                  onClick={()=>setConfirmDeleteWeek(w)}
+                  title={`Remove week of ${dateLabel} for all of ${selected.class} (e.g. holidays)`}
+                  style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--text-soft)',padding:2,lineHeight:0}}>
+                  <Trash2 size={12}/>
+                </button>
                 <div className="day-cal-name">W/C</div>
                 <div className="day-cal-date">{dateLabel}</div>
                 <button className="day-cal-status" style={{background:dotBg}} onClick={()=>togglePaid(f)}>
@@ -153,6 +160,30 @@ export default function Fees() {
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">£{billed.toFixed(0)}</div><div className="l">Billed this month</div></div>
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{collectedPct}%</div><div className="l">Collected</div></div>
         </div>
+
+        {confirmDeleteWeek&&(
+          <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDeleteWeek(null)}>
+            <div className="modal" style={{maxWidth:400}}>
+              <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+                <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
+                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove this week?</div>
+                <div style={{color:'var(--text-muted)',fontSize:13}}>
+                  Week of {new Date(confirmDeleteWeek+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long'})} will be removed for every student in {selected.class}.
+                  <br/><span style={{fontSize:12}}>Useful for holiday weeks. This cannot be undone.</span>
+                </div>
+              </div>
+              <div className="modal-footer" style={{justifyContent:'center'}}>
+                <button className="btn" onClick={()=>setConfirmDeleteWeek(null)}>Cancel</button>
+                <button className="btn btn-danger" onClick={()=>{
+                  deleteWeekFees(confirmDeleteWeek, year, selected.class, students);
+                  refresh();
+                  setConfirmDeleteWeek(null);
+                  showToast(`Week removed for ${selected.class}`);
+                }}><Trash2 size={13}/>Remove week</button>
+              </div>
+            </div>
+          </div>
+        )}
         {toast&&<div className="toast">✓ {toast}</div>}
       </Layout>
     );

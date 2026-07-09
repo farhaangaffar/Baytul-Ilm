@@ -194,7 +194,7 @@ function StudentRecords({ student, settings, onBack }) {
     setAiLoading(false);
   }
 
-  const dates = Object.keys(records).sort((a,b)=>b.localeCompare(a));
+  const dates = Object.keys(records).sort((a,b)=>a.localeCompare(b));
   const hasToday = records[isoToday()]!==undefined;
 
   function DayEntry({date, isToday}) {
