@@ -70,6 +70,7 @@ export default function Fees() {
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonth = getCurrentSchoolMonth();
+  const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
   const thisWeekMonday = getMondayOf(isoToday());
 
   const selected = students.find(s=>s.id===selectedId);
@@ -183,7 +184,6 @@ export default function Fees() {
 
       <div className="entity-grid">
         {classStudents.map(s=>{
-          const weekFee = fees.find(f=>f.studentId===s.id && f.weekStarting===thisWeekMonday);
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
           const monthOwed = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
@@ -194,18 +194,27 @@ export default function Fees() {
                 <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
                 <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(0)} paid · £{monthOwed.toFixed(0)} due</div>
               </div>
-              {weekFee ? (
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}} onClick={e=>e.stopPropagation()}>
-                  <button className="mark-btn" style={weekFee.status==='Paid'?{background:'var(--green)',borderColor:'var(--green)',color:'#fff'}:{background:'var(--red)',borderColor:'var(--red)',color:'#fff'}}
-                    onClick={()=>togglePaid(weekFee)}>{weekFee.status==='Paid'?'✓':'✗'}</button>
-                  <span style={{fontSize:9.5,color:'var(--text-soft)',textTransform:'uppercase',letterSpacing:'.03em'}}>This wk</span>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}} onClick={e=>e.stopPropagation()}>
+                <div style={{display:'flex',gap:5}}>
+                  {schoolMonthWeeks.map(w=>{
+                    const f = monthFees.find(fee=>fee.weekStarting===w);
+                    const dayNum = new Date(w+'T12:00:00').getDate();
+                    const dateLabel = new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+                    const isCurrent = w===thisWeekMonday;
+                    if (!f) {
+                      return <button key={w} className={`mark-btn-sm ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>{dayNum}</button>;
+                    }
+                    const paid = f.status==='Paid';
+                    return (
+                      <button key={w} className={`mark-btn-sm ${isCurrent?'is-current':''}`}
+                        style={paid?{background:'var(--green)',borderColor:'var(--green)',color:'#fff'}:{background:'var(--red)',borderColor:'var(--red)',color:'#fff'}}
+                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'} (click to toggle)`}
+                        onClick={()=>togglePaid(f)}>{dayNum}</button>
+                    );
+                  })}
                 </div>
-              ) : (
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-                  <button className="mark-btn" style={{color:'var(--text-soft)'}} disabled>—</button>
-                  <span style={{fontSize:9.5,color:'var(--text-soft)',textTransform:'uppercase',letterSpacing:'.03em'}}>This wk</span>
-                </div>
-              )}
+                <span style={{fontSize:9.5,color:'var(--text-soft)',textTransform:'uppercase',letterSpacing:'.03em'}}>This month</span>
+              </div>
             </div>
           );
         })}

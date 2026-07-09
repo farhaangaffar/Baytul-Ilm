@@ -170,6 +170,11 @@ tbody tr:hover td { background: #f9fafb; }
 .mark-btn.on-l { background: var(--amber); border-color: var(--amber); color: #fff; }
 .mark-btn.on-a { background: var(--red); border-color: var(--red); color: #fff; }
 
+.mark-btn-sm { width: 25px; height: 25px; border-radius: 50%; border: 2px solid #e7eaf0; background: #fff; font-family: var(--font-num); font-weight: 600; font-size: 10px; color: var(--text-soft); cursor: pointer; transition: all 0.12s; }
+.mark-btn-sm:hover:not(:disabled) { transform: scale(1.12); }
+.mark-btn-sm:disabled { cursor: default; }
+.mark-btn-sm.is-current { box-shadow: 0 0 0 2px var(--blue); }
+
 .back-pill { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 9999px; font-size: 12.5px; font-weight: 600; border: none; background: #fff; color: var(--text-muted); cursor: pointer; box-shadow: var(--shadow-md); font-family: var(--font); }
 .nav-arrow-row { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--text-muted); font-family: var(--font-num); }
 .nav-arrow-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: #fff; box-shadow: var(--shadow-md); color: var(--text-muted); cursor: pointer; font-size: 14px; font-family: var(--font); }
