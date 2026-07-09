@@ -153,6 +153,11 @@ export function deleteWeekFees(weekStarting,year,cls,students) {
   const classIds=new Set(students.filter(s=>s.class===cls).map(s=>s.id));
   save(feesKey(y),getFees(y).filter(f=>!(f.weekStarting===weekStarting&&classIds.has(f.studentId))));
 }
+export function clearClassFees(year,cls,students) {
+  const y=year||currentSchoolYear();
+  const classIds=new Set(students.filter(s=>s.class===cls).map(s=>s.id));
+  save(feesKey(y),getFees(y).filter(f=>!classIds.has(f.studentId)));
+}
 export function getMondayOf(dateStr) {
   const d=new Date(dateStr+'T12:00:00'), day=d.getDay();
   d.setDate(d.getDate()-day+(day===0?-6:1)); return d.toISOString().split('T')[0];

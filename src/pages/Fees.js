@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeRecord,
-  updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
+  updateFeeAmount, deleteWeekFees, clearClassFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
@@ -31,6 +31,7 @@ export default function Fees() {
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
+  const [confirmClearClass, setConfirmClearClass] = useState(false);
   const [toast, setToast] = useState('');
 
   function refresh(y2) { setFees(getFees(y2||year)); }
@@ -215,7 +216,12 @@ export default function Fees() {
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
         <div className="text-muted text-sm">Click a student's card to view their full month</div>
-        <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
+        <div className="flex items-center gap-2">
+          {classFees.length>0&&(
+            <button className="btn" style={{color:'var(--red-text)'}} onClick={()=>setConfirmClearClass(true)}><Trash2 size={13}/> Clear all fees</button>
+          )}
+          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
+        </div>
       </div>
 
       <div className="entity-grid">
@@ -298,6 +304,30 @@ export default function Fees() {
             <div className="modal-footer">
               <button className="btn" onClick={()=>setShowAddMonth(false)}>Cancel</button>
               <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={addMonth}>Add month</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmClearClass&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmClearClass(false)}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Clear all fees for {activeClass}?</div>
+              <div style={{color:'var(--text-muted)',fontSize:13}}>
+                Every fee record ever added for {activeClass} — every month, every week — will be removed.
+                <br/><span style={{fontSize:12}}>This cannot be undone.</span>
+              </div>
+            </div>
+            <div className="modal-footer" style={{justifyContent:'center'}}>
+              <button className="btn" onClick={()=>setConfirmClearClass(false)}>Cancel</button>
+              <button className="btn btn-danger" onClick={()=>{
+                clearClassFees(year, activeClass, students);
+                refresh();
+                setConfirmClearClass(false);
+                showToast(`All fees cleared for ${activeClass}`);
+              }}><Trash2 size={13}/>Clear all fees</button>
             </div>
           </div>
         </div>
