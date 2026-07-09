@@ -4,11 +4,11 @@
   --ink:          #111827;
   --ink-light:    #1f2937;
   --ink-darker:   #0b0f17;
-  --teal:         #0d9488;
-  --teal-light:   #ccfbf1;
-  --teal-mid:     #5eead4;
-  --teal-dark:    #0f766e;
-  --teal-faint:   #f0fdfa;
+  --teal:         #2f80ed;
+  --teal-light:   #eaf2fd;
+  --teal-mid:     #5b9cf0;
+  --teal-dark:    #1f5bb8;
+  --teal-faint:   #f3f8fe;
   --blue:         #2f80ed;
   --blue-light:   #eaf2fd;
   --green:        #97CB61;
@@ -53,7 +53,7 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 .sidebar-section-label { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.18); letter-spacing: 0.09em; text-transform: uppercase; padding: 16px 20px 5px; }
 .nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.45); cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: all 0.15s; border-left: 3px solid transparent; text-decoration: none; font-family: var(--font); }
 .nav-link:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); }
-.nav-link.active { color: #fff; background: rgba(13,148,136,0.15); border-left-color: var(--teal); }
+.nav-link.active { color: #fff; background: rgba(47,128,237,0.15); border-left-color: var(--teal); }
 .nav-link svg { opacity: 0.55; flex-shrink: 0; }
 .nav-link.active svg { opacity: 1; color: var(--teal-mid); }
 
@@ -228,7 +228,7 @@ tbody tr:hover td { background: #f9fafb; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; }
 .form-group input, .form-group select, .form-group textarea { padding: 10px 14px; border: none; border-radius: var(--r-md); font-size: 13px; font-family: var(--font); color: var(--text); background: #f9fafb; transition: box-shadow 0.15s, background 0.15s; outline: none; }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { background: #fff; box-shadow: 0 0 0 2px var(--teal), 0 4px 12px rgba(13,148,136,0.10); }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { background: #fff; box-shadow: 0 0 0 2px var(--teal), 0 4px 12px rgba(47,128,237,0.10); }
 .form-section-title { font-size: 13px; font-weight: 600; color: var(--ink); padding-bottom: 10px; border-bottom: 1px solid #f3f4f6; margin-bottom: 4px; display: flex; align-items: center; gap: 7px; }
 .required { color: var(--red); margin-left: 2px; }
 
