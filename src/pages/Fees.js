@@ -52,16 +52,21 @@ export default function Fees() {
   function addMonth() {
     const weeks=getWeekStartsForMonth(addMonthVal);
     const classStudents=students.filter(s=>s.status==='Active'&&s.class===activeClass);
-    const existingWeeks=new Set(fees.filter(f=>classStudents.find(s=>s.id===f.studentId)).map(f=>f.weekStarting));
+    const existingKeys=new Set(fees.filter(f=>classStudents.some(s=>s.id===f.studentId)).map(f=>f.studentId+'|'+f.weekStarting));
     let count=0;
     weeks.forEach(w=>{
-      if (!existingWeeks.has(w)) {
-        classStudents.forEach(s=>{ addFeeRecord({studentId:s.id,weekStarting:w,amount:s.weeklyFee||15,status:'Pending'},year); count++; });
-      }
+      classStudents.forEach(s=>{
+        const key=s.id+'|'+w;
+        if (!existingKeys.has(key)) {
+          addFeeRecord({studentId:s.id,weekStarting:w,amount:s.weeklyFee||15,status:'Pending'},year);
+          existingKeys.add(key);
+          count++;
+        }
+      });
     });
     refresh();
     setShowAddMonth(false);
-    showToast(count>0?`${weeks.length} weeks added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
+    showToast(count>0?`${count} fee record${count!==1?'s':''} added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
   }
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor(isoToday().slice(0,7)); }
