@@ -49,12 +49,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid-2" style={{marginTop:22}}>
+      <div className="grid-2" style={{marginTop:14}}>
         {classNames.map(cls => {
           const classStudents = students.filter(s => s.class === cls);
           return (
-            <div className="card" key={cls}>
-              <div className="card-header">
+            <div className="card" style={{padding:'14px 16px'}} key={cls}>
+              <div className="card-header" style={{marginBottom:10}}>
                 <div>
                   <div className="card-title">{cls}</div>
                   <div className="card-sub">{classStudents.length} students</div>
@@ -63,13 +63,13 @@ export default function Dashboard() {
                   <Plus size={13}/> Enroll
                 </button>
               </div>
-              <div style={{maxHeight:320, overflowY:'auto'}}>
+              <div style={{maxHeight:180, overflowY:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead>
                     <tr>
-                      <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'8px 12px 8px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Name</th>
-                      <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'8px 12px 8px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Parent contact</th>
-                      <th style={{textAlign:'center',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'8px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Att.</th>
+                      <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'6px 12px 6px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Name</th>
+                      <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'6px 12px 6px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Parent contact</th>
+                      <th style={{textAlign:'center',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'6px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Att.</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -78,14 +78,14 @@ export default function Dashboard() {
                       const badgeColor = att>=90?'green':att>=75?'amber':att>0?'red':'gray';
                       return (
                         <tr key={s.id}>
-                          <td style={{padding:'9px 12px 9px 0',borderBottom:'1px solid var(--border)'}}>
+                          <td style={{padding:'6px 12px 6px 0',borderBottom:'1px solid var(--border)'}}>
                             <div className="flex items-center gap-2">
-                              <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
+                              <div className="avatar" style={{width:22,height:22,fontSize:9}}>{avatarInitials(s.forename+' '+s.surname)}</div>
                               <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
                             </div>
                           </td>
-                          <td style={{padding:'9px 12px 9px 0',borderBottom:'1px solid var(--border)',color:'var(--text-muted)',fontSize:12}}>{s.parent1Phone}</td>
-                          <td style={{padding:'9px 0',borderBottom:'1px solid var(--border)',textAlign:'center'}}>
+                          <td style={{padding:'6px 12px 6px 0',borderBottom:'1px solid var(--border)',color:'var(--text-muted)',fontSize:12}}>{s.parent1Phone}</td>
+                          <td style={{padding:'6px 0',borderBottom:'1px solid var(--border)',textAlign:'center'}}>
                             <span className={`badge badge-${badgeColor}`}>{att>0?`${att}%`:'—'}</span>
                           </td>
                         </tr>
@@ -99,24 +99,24 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div className="card" style={{marginTop:16}}>
-        <div className="card-header">
+      <div className="card" style={{marginTop:10,padding:'14px 16px'}}>
+        <div className="card-header" style={{marginBottom:8}}>
           <div>
             <div className="card-title">Outstanding fees</div>
             <div className="card-sub">£{totalOwed.toFixed(2)} across {owedByStudent.length} student{owedByStudent.length!==1?'s':''} · {schoolMonth.label}</div>
           </div>
         </div>
-        <div style={{maxHeight:320, overflowY:'auto'}}>
+        <div style={{maxHeight:150, overflowY:'auto'}}>
           {owedByStudent.length === 0 ? (
-            <div style={{textAlign:'center',padding:'40px 0',color:'var(--text-muted)'}}>
+            <div style={{textAlign:'center',padding:'20px 0',color:'var(--text-muted)'}}>
               <div style={{fontWeight:500,marginBottom:4}}>All fees up to date</div>
               <div style={{fontSize:12}}>No outstanding balances this month</div>
             </div>
           ) : (
             owedByStudent.map(({student:s,owed}) => (
-              <div className="list-row" key={s.id}>
+              <div className="list-row" key={s.id} style={{padding:'6px 0'}}>
                 <div className="flex items-center gap-2">
-                  <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
+                  <div className="avatar" style={{width:22,height:22,fontSize:9}}>{avatarInitials(s.forename+' '+s.surname)}</div>
                   <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
                 </div>
                 <span className="badge badge-red">£{owed.toFixed(2)}</span>
