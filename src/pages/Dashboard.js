@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
-import { getStudents, getFees, getAttendance, calcAttendancePct, avatarInitials, getClassNames, currentSchoolYear } from '../lib/store';
+import { getStudents, getFees, getAttendance, avatarInitials, getClassNames, currentSchoolYear, getCurrentSchoolMonth } from '../lib/store';
 import { Plus } from 'lucide-react';
-
-function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
   const [showEnroll, setShowEnroll] = useState(false);
@@ -13,20 +11,26 @@ export default function Dashboard() {
   const year = currentSchoolYear();
   const fees = getFees(year);
   const attendance = getAttendance(year);
-  const today = isoToday();
+  const schoolMonth = getCurrentSchoolMonth();
 
   const active = students.filter(s => s.status === 'Active');
-  const present = active.filter(s => attendance[s.id]?.[today] === 'P').length;
-  const late    = active.filter(s => attendance[s.id]?.[today] === 'L').length;
-  const absent  = active.filter(s => attendance[s.id]?.[today] === 'A').length;
-  const collected = fees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
 
-  const outstandingFees = fees.filter(f => f.status !== 'Paid');
+  const monthFees = fees.filter(f => f.weekStarting >= schoolMonth.start && f.weekStarting < schoolMonth.endExclusive);
+  const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+  const monthOutstandingFees = monthFees.filter(f => f.status !== 'Paid');
+
   const owedByStudent = active
-    .map(s => ({ student: s, owed: outstandingFees.filter(f => f.studentId === s.id).reduce((sum, f) => sum + Number(f.amount), 0) }))
+    .map(s => ({ student: s, owed: monthOutstandingFees.filter(f => f.studentId === s.id).reduce((sum, f) => sum + Number(f.amount), 0) }))
     .filter(x => x.owed > 0)
     .sort((a, b) => b.owed - a.owed);
   const totalOwed = owedByStudent.reduce((s, x) => s + x.owed, 0);
+
+  function monthAttendancePct(studentId) {
+    const rec = attendance[studentId] || {};
+    const days = Object.entries(rec).filter(([date]) => date >= schoolMonth.start && date < schoolMonth.endExclusive).map(([,status]) => status);
+    if (!days.length) return 0;
+    return Math.round((days.filter(d => d==='P'||d==='L').length / days.length) * 100);
+  }
 
   const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -36,18 +40,16 @@ export default function Dashboard() {
         <div>
           <div className="hero-arabic">السلام عليكم</div>
           <div className="hero-greeting">Assalamu Alaikum</div>
-          <div className="hero-sub">{dateStr} · {year}</div>
+          <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
         </div>
         <div className="hero-stats">
           <div className="hero-stat"><div className="n">{active.length}</div><div className="l">Students</div></div>
-          <div className="hero-stat"><div className="n">{present}</div><div className="l">Present</div></div>
-          <div className="hero-stat"><div className="n">{late}</div><div className="l">Late</div></div>
-          <div className="hero-stat"><div className="n">{absent}</div><div className="l">Absent</div></div>
           <div className="hero-stat"><div className="n">£{collected.toFixed(2)}</div><div className="l">Collected</div></div>
+          <div className="hero-stat"><div className="n">£{totalOwed.toFixed(2)}</div><div className="l">Outstanding</div></div>
         </div>
       </div>
 
-      <div className="dashboard-cards">
+      <div className="grid-2" style={{marginTop:22}}>
         {classNames.map(cls => {
           const classStudents = students.filter(s => s.class === cls);
           return (
@@ -72,7 +74,8 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {classStudents.map(s => {
-                      const att = calcAttendancePct(s.id, year);
+                      const att = monthAttendancePct(s.id);
+                      const badgeColor = att>=90?'green':att>=75?'amber':att>0?'red':'gray';
                       return (
                         <tr key={s.id}>
                           <td style={{padding:'9px 12px 9px 0',borderBottom:'1px solid var(--border)'}}>
@@ -82,8 +85,8 @@ export default function Dashboard() {
                             </div>
                           </td>
                           <td style={{padding:'9px 12px 9px 0',borderBottom:'1px solid var(--border)',color:'var(--text-muted)',fontSize:12}}>{s.parent1Phone}</td>
-                          <td style={{padding:'9px 0',borderBottom:'1px solid var(--border)',textAlign:'center',fontWeight:600,color:att>=90?'var(--green)':att>=75?'var(--amber)':att>0?'var(--red)':'var(--text-soft)'}}>
-                            {att>0?`${att}%`:'—'}
+                          <td style={{padding:'9px 0',borderBottom:'1px solid var(--border)',textAlign:'center'}}>
+                            <span className={`badge badge-${badgeColor}`}>{att>0?`${att}%`:'—'}</span>
                           </td>
                         </tr>
                       );
@@ -94,32 +97,32 @@ export default function Dashboard() {
             </div>
           );
         })}
+      </div>
 
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Outstanding fees</div>
-              <div className="card-sub">£{totalOwed.toFixed(2)} across {owedByStudent.length} student{owedByStudent.length!==1?'s':''}</div>
+      <div className="card" style={{marginTop:16}}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">Outstanding fees</div>
+            <div className="card-sub">£{totalOwed.toFixed(2)} across {owedByStudent.length} student{owedByStudent.length!==1?'s':''} · {schoolMonth.label}</div>
+          </div>
+        </div>
+        <div style={{maxHeight:320, overflowY:'auto'}}>
+          {owedByStudent.length === 0 ? (
+            <div style={{textAlign:'center',padding:'40px 0',color:'var(--text-muted)'}}>
+              <div style={{fontWeight:500,marginBottom:4}}>All fees up to date</div>
+              <div style={{fontSize:12}}>No outstanding balances this month</div>
             </div>
-          </div>
-          <div style={{maxHeight:320, overflowY:'auto'}}>
-            {owedByStudent.length === 0 ? (
-              <div style={{textAlign:'center',padding:'40px 0',color:'var(--text-muted)'}}>
-                <div style={{fontWeight:500,marginBottom:4}}>All fees up to date</div>
-                <div style={{fontSize:12}}>No outstanding balances</div>
-              </div>
-            ) : (
-              owedByStudent.map(({student:s,owed}) => (
-                <div className="list-row" key={s.id}>
-                  <div className="flex items-center gap-2">
-                    <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                    <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
-                  </div>
-                  <span className="badge badge-red">£{owed.toFixed(2)}</span>
+          ) : (
+            owedByStudent.map(({student:s,owed}) => (
+              <div className="list-row" key={s.id}>
+                <div className="flex items-center gap-2">
+                  <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
+                  <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
                 </div>
-              ))
-            )}
-          </div>
+                <span className="badge badge-red">£{owed.toFixed(2)}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

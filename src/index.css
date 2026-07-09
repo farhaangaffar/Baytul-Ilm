@@ -76,7 +76,6 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 .hero-stat .l { font-size:10.5px; opacity:.85; margin-top:4px; text-transform:uppercase; letter-spacing:0.05em; }
 
 /* ── Dashboard card grid ── */
-.dashboard-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:16px; margin-top:22px; }
 .list-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f9fafb; }
 .list-row:last-child { border-bottom:none; }
 
@@ -269,7 +268,6 @@ tbody tr:hover td { background: #f9fafb; }
   .metrics-grid { grid-template-columns: repeat(2,1fr); }
   .hero { padding: 20px; }
   .hero-stats { width: 100%; overflow-x: auto; }
-  .dashboard-cards { grid-template-columns: 1fr; }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .record-panels { grid-template-columns: 1fr; }

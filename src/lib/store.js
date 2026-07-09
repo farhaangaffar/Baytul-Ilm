@@ -69,6 +69,25 @@ export function currentSchoolYear() {
   return years.includes(label) ? label : years[years.length-1];
 }
 
+// ── School month — every month runs from its first Monday to the day before the next month's first Monday ──
+function firstMondayOfMonthISO(year, monthIndex0) {
+  const d = new Date(year, monthIndex0, 1, 12);
+  d.setDate(d.getDate() + (1 - d.getDay() + 7) % 7);
+  return d.toISOString().split('T')[0];
+}
+export function getCurrentSchoolMonth(refIso) {
+  const ref = refIso || new Date().toISOString().split('T')[0];
+  const refDate = new Date(ref+'T12:00:00');
+  const y = refDate.getFullYear(), m = refDate.getMonth();
+  const thisFirstMon = firstMondayOfMonthISO(y, m);
+  if (ref >= thisFirstMon) {
+    const nextY = m===11 ? y+1 : y, nextM = (m+1)%12;
+    return { start: thisFirstMon, endExclusive: firstMondayOfMonthISO(nextY, nextM), label: refDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'}) };
+  }
+  const prevY = m===0 ? y-1 : y, prevM = (m+11)%12;
+  return { start: firstMondayOfMonthISO(prevY, prevM), endExclusive: thisFirstMon, label: new Date(prevY,prevM,1,12).toLocaleDateString('en-GB',{month:'long',year:'numeric'}) };
+}
+
 // ── Students ──
 export function getStudents()       { init(); return load(KEYS.students)||[]; }
 export function getStudent(id)      { return getStudents().find(s=>s.id===id); }
