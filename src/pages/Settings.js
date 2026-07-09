@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Layout from '../components/Layout';
-import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear } from '../lib/store';
-import { Save, Plus, Trash2, X } from 'lucide-react';
+import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData } from '../lib/store';
+import { Save, Plus, Trash2, X, Download, Upload } from 'lucide-react';
 
 export default function Settings() {
   const [form, setForm] = useState(getSettings);
@@ -10,6 +10,8 @@ export default function Settings() {
   const [yearError, setYearError] = useState('');
   const [toast, setToast] = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
+  const [pendingRestore, setPendingRestore] = useState(null);
+  const fileInputRef = useRef(null);
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
@@ -39,6 +41,44 @@ export default function Settings() {
     setYears(getAcademicYears());
     setConfirmDel(null);
     showToast(`${y} removed`);
+  }
+
+  function handleExport() {
+    const payload = exportAllData();
+    const blob = new Blob([JSON.stringify(payload,null,2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `baytul-ilm-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { setPendingRestore(JSON.parse(reader.result)); }
+      catch { showToast("Could not read that file — is it a valid backup?"); }
+    };
+    reader.readAsText(file);
+  }
+
+  function confirmRestore() {
+    try {
+      importAllData(pendingRestore);
+      setPendingRestore(null);
+      showToast('Backup restored — reloading…');
+      setTimeout(()=>window.location.reload(),800);
+    } catch (err) {
+      showToast(err.message || 'Restore failed');
+      setPendingRestore(null);
+    }
   }
 
   return (
@@ -115,6 +155,19 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Backup & restore */}
+      <div className="card" style={{marginTop:16}}>
+        <div className="card-title" style={{marginBottom:6}}>Backup &amp; restore</div>
+        <div className="card-sub" style={{marginBottom:16}}>
+          Everything in this app — students, attendance, fees, daily records — lives only in this browser, with no server copy. Download a backup regularly, and especially before switching browsers or devices.
+        </div>
+        <div className="flex items-center gap-2" style={{flexWrap:'wrap'}}>
+          <button className="btn btn-primary" onClick={handleExport}><Download size={14}/>Download backup</button>
+          <button className="btn" onClick={()=>fileInputRef.current?.click()}><Upload size={14}/>Restore from backup</button>
+          <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
+        </div>
+      </div>
+
       {/* Delete year confirm */}
       {confirmDel&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDel(null)}>
@@ -131,6 +184,28 @@ export default function Settings() {
             <div className="modal-footer" style={{justifyContent:'center'}}>
               <button className="btn" onClick={()=>setConfirmDel(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={()=>doDelete(confirmDel)}><Trash2 size={13}/>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingRestore&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>
+          <div className="modal" style={{maxWidth:420}}>
+            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+                <Upload size={24} color="var(--red)"/>
+              </div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Restore this backup?</div>
+              <div style={{color:'var(--text-muted)',fontSize:13}}>
+                Everything currently in this browser — students, attendance, fees, daily records — will be replaced with the contents of
+                {' '}{pendingRestore.exportedAt ? `the backup from ${new Date(pendingRestore.exportedAt).toLocaleString('en-GB')}` : 'this file'}.
+                <br/><span style={{fontSize:12}}>This cannot be undone. The page will reload once it's done.</span>
+              </div>
+            </div>
+            <div className="modal-footer" style={{justifyContent:'center'}}>
+              <button className="btn" onClick={()=>setPendingRestore(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={confirmRestore}><Upload size={13}/>Restore backup</button>
             </div>
           </div>
         </div>

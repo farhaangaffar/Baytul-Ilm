@@ -215,3 +215,19 @@ export function deleteDailyRecord(studentId,date) {
   if (all[studentId]) { delete all[studentId][date]; try { localStorage.setItem(DR_KEY,JSON.stringify(all)); } catch{} }
 }
 export function getStudentRecords(studentId){ return getDailyRecords()[studentId]||{}; }
+
+// ── Backup & restore (every localStorage key the app uses, all prefixed madrasah_) ──
+export function exportAllData() {
+  const data = {};
+  for (let i=0; i<localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('madrasah_')) data[key] = localStorage.getItem(key);
+  }
+  return { app:'baytul-ilm-madrasah', exportedAt:new Date().toISOString(), data };
+}
+export function importAllData(payload) {
+  if (!payload || typeof payload.data !== 'object' || !payload.data) throw new Error('That file doesn\'t look like a Baytul \'Ilm backup.');
+  Object.entries(payload.data).forEach(([key,value])=>{
+    if (key.startsWith('madrasah_')) localStorage.setItem(key,value);
+  });
+}
