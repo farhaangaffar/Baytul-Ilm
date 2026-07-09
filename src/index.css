@@ -141,11 +141,11 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: #f9fafb; }
 
 /* ── Attendance stat boxes ── */
-.att-stat-box { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 22px; border-radius: var(--r-btn); font-size: 11px; font-weight: 700; padding: 0 8px; }
-.att-stat-p   { background: var(--green); color: #fff; }
-.att-stat-l   { background: var(--amber); color: #fff; }
-.att-stat-a   { background: var(--red); color: #fff; }
-.att-stat-pct { background: var(--ink); color: #fff; }
+.att-stat-box { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 26px; border-radius: var(--r-md); font-size: 12px; font-weight: 700; padding: 0 10px; }
+.att-stat-p   { background: var(--green-light); color: var(--green); }
+.att-stat-l   { background: var(--amber-light); color: var(--amber); }
+.att-stat-a   { background: var(--red-light); color: var(--red); }
+.att-stat-pct { background: #f3f4f6; color: var(--ink); }
 
 /* ── Attendance buttons ── */
 .att-btn { width: 36px; height: 28px; border-radius: var(--r-btn); border: none; cursor: pointer; font-weight: 700; font-size: 12px; font-family: var(--font); transition: all 0.12s; color: #fff; box-shadow: var(--shadow-sm); }
@@ -170,11 +170,11 @@ tbody tr:hover td { background: #f9fafb; }
 .fee-grid-table tr:hover td { background: #f9fafb; }
 .fee-grid-table tr:hover td.name-col { background: #f9fafb; }
 .fee-grid-table tr:hover td.total-col { background: #e0fdf8; }
-.fee-tick  { width: 30px; height: 26px; border-radius: var(--r-btn); background: var(--green); color: #fff; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: none; font-family: var(--font); transition: all 0.1s; }
-.fee-tick:hover { opacity: 0.82; }
-.fee-cross { width: 30px; height: 26px; border-radius: var(--r-btn); background: var(--red-light); color: var(--red); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: none; font-family: var(--font); transition: all 0.1s; }
+.fee-tick  { width: 32px; height: 28px; border-radius: var(--r-md); background: var(--green-light); color: var(--green); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: none; font-family: var(--font); transition: all 0.1s; }
+.fee-tick:hover { background: #bbf7d0; }
+.fee-cross { width: 32px; height: 28px; border-radius: var(--r-md); background: var(--red-light); color: var(--red); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: none; font-family: var(--font); transition: all 0.1s; }
 .fee-cross:hover { background: #fecaca; }
-.fee-empty { width: 30px; height: 26px; border-radius: var(--r-btn); background: #f9fafb; color: var(--text-soft); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+.fee-empty { width: 32px; height: 28px; border-radius: var(--r-md); background: #f9fafb; color: var(--text-soft); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
 
 /* ── Forms ── */
 .form-grid { display: grid; gap: 18px; }

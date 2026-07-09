@@ -203,8 +203,8 @@ export default function Fees() {
                             </td>
                           );
                         })}
-                        <td className="total-col paid-col" style={{color:'var(--green)'}}>£{sPaid.toFixed(2)}</td>
-                        <td className="total-col owed-col" style={{color:sOwed>0?'var(--red)':undefined}}>{sOwed>0?`£${sOwed.toFixed(2)}`:'—'}</td>
+                        <td className="total-col paid-col"><span className="badge badge-green">£{sPaid.toFixed(2)}</span></td>
+                        <td className="total-col owed-col">{sOwed>0?<span className="badge badge-red">£{sOwed.toFixed(2)}</span>:<span className="text-muted">—</span>}</td>
                       </tr>
                     );
                   })}
@@ -221,8 +221,8 @@ export default function Fees() {
                         </td>
                       );
                     })}
-                    <td className="total-col paid-col" style={{color:'var(--green)',fontWeight:700}}>£{totalPaid.toFixed(2)}</td>
-                    <td className="total-col owed-col" style={{color:totalOwed>0?'var(--red)':undefined,fontWeight:700}}>{totalOwed>0?`£${totalOwed.toFixed(2)}`:'—'}</td>
+                    <td className="total-col paid-col"><span className="badge badge-green" style={{fontWeight:700}}>£{totalPaid.toFixed(2)}</span></td>
+                    <td className="total-col owed-col">{totalOwed>0?<span className="badge badge-red" style={{fontWeight:700}}>£{totalOwed.toFixed(2)}</span>:<span className="text-muted">—</span>}</td>
                   </tr>
                 </tbody>
               </table>
