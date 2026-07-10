@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
-import { getStudents, getClassNames, getSettings, getStudentRecords, saveDailyRecord, deleteDailyRecord, calcAttendanceCounts, currentSchoolYear } from '../lib/store';
+import { LoadingState, ErrorState } from '../components/DataState';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear } from '../lib/store';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -63,7 +64,7 @@ function CommentBox({ initialValue, onSave, placeholder }) {
   );
 }
 
-function StudentList({ students, activeClass, classNames, setActiveClass, onSelect }) {
+function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords }) {
   return (
     <div>
       <div className="class-tabs">
@@ -73,9 +74,8 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
       </div>
       <div className="grid-2">
         {students.filter(s=>s.class===activeClass).map(s=>{
-          const counts=calcAttendanceCounts(s.id,currentSchoolYear());
-          const records=getStudentRecords(s.id);
-          const entryCount=Object.keys(records).length;
+          const counts=attendanceCountsFrom(attendance, s.id);
+          const entryCount=Object.keys(allRecords[s.id]||{}).length;
           return (
             <div key={s.id} className="card" style={{cursor:'pointer',borderLeft:'3px solid var(--border-strong)',transition:'box-shadow 0.15s'}}
               onClick={()=>onSelect(s)}
@@ -112,7 +112,8 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
 }
 
 function StudentRecords({ student, settings, onBack }) {
-  const [records, setRecords] = useState(()=>getStudentRecords(student.id));
+  const [records, setRecords] = useState({});
+  const [loadingRecords, setLoadingRecords] = useState(true);
   const [expanded, setExpanded] = useState({[isoToday()]:true});
   const [newDate, setNewDate] = useState(isoToday());
   const [aiSummary, setAiSummary] = useState('');
@@ -121,50 +122,66 @@ function StudentRecords({ student, settings, onBack }) {
   const [toast, setToast] = useState('');
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2000); }
-  function refresh() { setRecords(getStudentRecords(student.id)); }
+  const refresh = useCallback(async () => {
+    try { setRecords(await getStudentRecords(student.id)); }
+    catch (err) { showToast(err.message || 'Could not load records'); }
+  }, [student.id]);
+
+  useEffect(() => {
+    setLoadingRecords(true);
+    refresh().finally(() => setLoadingRecords(false));
+  }, [refresh]);
 
   // Stable field save — doesn't cause re-render of the textarea
   const saveField = useCallback((date, field, value) => {
-    saveDailyRecord(student.id, date, {[field]:value});
+    saveDailyRecord(student.id, date, {[field]:value}).catch(err => showToast(err.message || 'Could not save'));
     // Don't call refresh() here — it would unmount the textarea and lose focus
   }, [student.id]);
 
   function getEntry(date) { return records[date]||{comment:'',positive:'',negative:''}; }
 
-  function addDay() {
+  async function addDay() {
     if (!newDate) return;
-    const existing = getStudentRecords(student.id);
-    if (!existing[newDate]) {
-      saveDailyRecord(student.id, newDate, {comment:'',positive:'',negative:''});
+    try {
+      if (!records[newDate]) {
+        await saveDailyRecord(student.id, newDate, {comment:'',positive:'',negative:''});
+      }
+      await refresh();
+      setExpanded(e=>({...e,[newDate]:true}));
+      showToast(`Entry added for ${fmtDate(newDate)}`);
+    } catch (err) {
+      showToast(err.message || 'Could not add entry');
     }
-    refresh();
-    setExpanded(e=>({...e,[newDate]:true}));
-    showToast(`Entry added for ${fmtDate(newDate)}`);
   }
 
-  function doDelete(date) {
-    deleteDailyRecord(student.id, date);
-    refresh();
-    setConfirmDel(null);
-    showToast('Record deleted');
+  async function doDelete(date) {
+    try {
+      await deleteDailyRecord(student.id, date);
+      await refresh();
+      setConfirmDel(null);
+      showToast('Record deleted');
+    } catch (err) {
+      showToast(err.message || 'Could not delete record');
+    }
   }
 
   async function summarise() {
     const month=currentMonth();
-    const recs=getStudentRecords(student.id);
-    const monthDates=Object.keys(recs).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
+    const monthDates=Object.keys(records).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
     if (!monthDates.length) {
       setAiSummary('No records found for this month. Add some daily entries first.');
       return;
     }
     const entries=monthDates.map(d=>{
-      const e=recs[d]||{};
+      const e=records[d]||{};
       return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
     }).join('\n\n');
-    const counts=calcAttendanceCounts(student.id, currentSchoolYear());
-    const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Around 150-200 words, paragraph form only. Do not use bullet points.`;
     setAiLoading(true); setAiSummary('');
     try {
+      const year = await currentSchoolYear();
+      const attendanceForYear = await getAttendance(year);
+      const counts = attendanceCountsFrom(attendanceForYear, student.id);
+      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Around 150-200 words, paragraph form only. Do not use bullet points.`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -174,19 +191,7 @@ function StudentRecords({ student, settings, onBack }) {
       const data = await res.json();
       setAiSummary(data.summary || 'Unable to generate summary.');
     } catch {
-      // Fallback: try Anthropic directly
-      try {
-        const res2 = await fetch('https://api.anthropic.com/v1/messages', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json', 'anthropic-version':'2023-06-01', 'x-api-key': '' },
-          body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, messages:[{role:'user',content:prompt}] })
-        });
-        const data2 = await res2.json();
-        if (data2.content?.[0]?.text) { setAiSummary(data2.content[0].text); }
-        else { setAiSummary('AI summary is available when this app is connected to a server. For now, you can copy the daily records and paste them into Claude.ai for a summary.'); }
-      } catch {
-        setAiSummary('AI summary is available when this app is connected to a server. For now, copy the daily records and paste them into Claude.ai to generate a summary.');
-      }
+      setAiSummary('AI summary is available when this app is connected to a server. For now, copy the daily records and paste them into Claude.ai to generate a summary.');
     }
     setAiLoading(false);
   }
@@ -254,6 +259,8 @@ function StudentRecords({ student, settings, onBack }) {
       </div>
     );
   }
+
+  if (loadingRecords) return <LoadingState />;
 
   return (
     <div>
@@ -331,9 +338,9 @@ function StudentRecords({ student, settings, onBack }) {
           <div className="card" style={{marginTop:14}}>
             <div className="card-title" style={{marginBottom:12}}>This month</div>
             {(()=>{
-              const month=currentMonth(), recs=getStudentRecords(student.id);
-              const md=Object.keys(recs).filter(d=>d.startsWith(month));
-              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>recs[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>recs[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>recs[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
+              const month=currentMonth();
+              const md=Object.keys(records).filter(d=>d.startsWith(month));
+              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
                 <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
                   <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>
                 </div>
@@ -364,16 +371,42 @@ function StudentRecords({ student, settings, onBack }) {
 }
 
 export default function DailyRecords() {
-  const students=getStudents();
-  const classNames=getClassNames();
-  const settings=getSettings();
-  const [activeClass,setActiveClass]=useState(classNames[0]||'');
-  const [selectedStudent,setSelectedStudent]=useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [classNames, setClassNames] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [attendance, setAttendance] = useState({});
+  const [allRecords, setAllRecords] = useState({});
+  const [activeClass, setActiveClass] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const year = await currentSchoolYear();
+      const [studentsData, classNamesData, settingsData, attendanceData, recordsData] = await Promise.all([
+        getStudents(), getClassNames(), getSettings(), getAttendance(year), getDailyRecords(),
+      ]);
+      setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
+      setAttendance(attendanceData); setAllRecords(recordsData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Layout title="Daily records"><LoadingState /></Layout>;
+  if (error) return <Layout title="Daily records"><ErrorState error={error} onRetry={load} /></Layout>;
+
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} onBack={()=>setSelectedStudent(null)}/>
-        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent}/>
+        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords}/>
       }
     </Layout>
   );

@@ -2,6 +2,7 @@
   "name": "madrasah-system",
   "version": "1.0.0",
   "private": true,
+  "proxy": "http://localhost:3001",
   "dependencies": {
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",

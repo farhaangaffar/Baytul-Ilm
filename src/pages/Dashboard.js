@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear } from '../lib/store';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [students] = useState(getStudents);
-  const [classes] = useState(getClasses);
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
-  const year = currentSchoolYear();
-  const fees = getFees(year);
-  const attendance = getAttendance(year);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [year, setYear] = useState('');
+  const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [attendance, setAttendance] = useState({});
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classesData, feesData, attendanceData] = await Promise.all([
+        getStudents(), getClasses(), getFees(y), getAttendance(y),
+      ]);
+      setYear(y); setStudents(studentsData); setClasses(classesData); setFees(feesData); setAttendance(attendanceData);
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   const schoolMonth = getCurrentSchoolMonth();
   const weekDates = getWeekDates(weekAnchor);
+
+  if (loading) return <Layout title="Dashboard"><LoadingState /></Layout>;
+  if (error) return <Layout title="Dashboard"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const active = students.filter(s => s.status === 'Active');
 

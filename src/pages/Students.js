@@ -1,44 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
-import { getStudents, deleteStudent, updateStudent, avatarInitials, getClassNames, calcAttendanceCounts, calcAttendancePct, getFees, currentSchoolYear } from '../lib/store';
+import { LoadingState, ErrorState } from '../components/DataState';
+import { getStudents, deleteStudent, updateStudent, avatarInitials, getClassNames, attendanceCountsFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
 import { Plus, Search, Pencil, Trash2, X, Save } from 'lucide-react';
 
 export default function Students() {
-  const [students, setStudents] = useState(getStudents);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [classNames, setClassNames] = useState([]);
+  const [year, setYear] = useState('');
+  const [fees, setFees] = useState([]);
+  const [attendance, setAttendance] = useState({});
+
   const [showEnroll, setShowEnroll] = useState(false);
   const [search, setSearch] = useState('');
-  const classNames = getClassNames();
-  const [activeClass, setActiveClass] = useState(classNames[0]||'');
+  const [activeClass, setActiveClass] = useState('');
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [toast, setToast] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classNamesData, feesData, attendanceData] = await Promise.all([
+        getStudents(), getClassNames(), getFees(y), getAttendance(y),
+      ]);
+      setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(feesData); setAttendance(attendanceData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
   function startEdit(s) { setEditForm({...s}); setEditing(s.id); setSelected(null); }
-  function saveEdit() {
-    updateStudent(editing,{...editForm,weeklyFee:Number(editForm.weeklyFee)});
-    setStudents(getStudents()); setEditing(null); setEditForm(null);
-    showToast('Student updated');
+
+  async function saveEdit() {
+    setSaving(true);
+    try {
+      await updateStudent(editing, {...editForm, weeklyFee: Number(editForm.weeklyFee)});
+      await load();
+      setEditing(null); setEditForm(null);
+      showToast('Student updated');
+    } catch (err) {
+      showToast(err.message || 'Could not save changes');
+    }
+    setSaving(false);
   }
-  function confirmAndDelete() {
-    deleteStudent(confirmDelete.id); setStudents(getStudents());
-    setConfirmDelete(null); setSelected(null);
-    showToast(`${confirmDelete.forename} ${confirmDelete.surname} removed`);
+
+  async function confirmAndDelete() {
+    setSaving(true);
+    try {
+      await deleteStudent(confirmDelete.id);
+      await load();
+      const name = `${confirmDelete.forename} ${confirmDelete.surname}`;
+      setConfirmDelete(null); setSelected(null);
+      showToast(`${name} removed`);
+    } catch (err) {
+      showToast(err.message || 'Could not delete student');
+    }
+    setSaving(false);
   }
+
+  if (loading) return <Layout title="Students"><LoadingState /></Layout>;
+  if (error) return <Layout title="Students"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const classStudents = students.filter(s=>s.class===activeClass);
   const filtered = classStudents.filter(s =>
     `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const year = currentSchoolYear();
-  const yearFees = getFees(year);
-  const classFees = yearFees.filter(f=>classStudents.some(s=>s.id===f.studentId));
+  const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const activeCount = classStudents.filter(s=>s.status==='Active').length;
-  const avgAtt = classStudents.length ? Math.round(classStudents.reduce((s,st)=>s+calcAttendancePct(st.id,year),0)/classStudents.length) : 0;
+  const studentAttPct = st => {
+    const c = attendanceCountsFrom(attendance, st.id);
+    return c.total ? Math.round(((c.present+c.late)/c.total)*100) : 0;
+  };
+  const avgAtt = classStudents.length ? Math.round(classStudents.reduce((s,st)=>s+studentAttPct(st),0)/classStudents.length) : 0;
   const collected = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const owed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
 
@@ -72,7 +119,7 @@ export default function Students() {
 
       <div className="entity-grid">
         {filtered.map(s=>{
-          const c = calcAttendanceCounts(s.id, year);
+          const c = attendanceCountsFrom(attendance, s.id);
           return (
             <div className="entity-card" key={s.id} onClick={()=>setSelected(s)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
@@ -120,7 +167,7 @@ export default function Students() {
                 <div>
                   <div className="form-section-title" style={{marginBottom:10}}>Attendance</div>
                   {(()=>{
-                    const c=calcAttendanceCounts(selected.id, year);
+                    const c=attendanceCountsFrom(attendance, selected.id);
                     return [['Present',c.present,'var(--green-text)'],['Late',c.late,'var(--amber-text)'],['Absent',c.absent,'var(--red-text)'],['Total days',c.total,undefined]].map(([l,v,col])=>(
                       <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
                         <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col}}>{v}</span>
@@ -198,7 +245,7 @@ export default function Students() {
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={()=>setEditing(null)}>Cancel</button>
-              <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={saveEdit}><Save size={13}/>Save changes</button>
+              <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={saveEdit} disabled={saving}><Save size={13}/>{saving?'Saving…':'Save changes'}</button>
             </div>
           </div>
         </div>
@@ -215,14 +262,14 @@ export default function Students() {
             </div>
             <div className="modal-footer" style={{justifyContent:'center'}}>
               <button className="btn" onClick={()=>setConfirmDelete(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={confirmAndDelete}><Trash2 size={13}/>Yes, delete</button>
+              <button className="btn btn-danger" onClick={confirmAndDelete} disabled={saving}><Trash2 size={13}/>{saving?'Deleting…':'Yes, delete'}</button>
             </div>
           </div>
         </div>
       )}
 
       {toast&&<div className="toast">✓ {toast}</div>}
-      {showEnroll&&<EnrollmentForm onClose={()=>setShowEnroll(false)} onSaved={()=>setStudents(getStudents())}/>}
+      {showEnroll&&<EnrollmentForm onClose={()=>setShowEnroll(false)} onSaved={load}/>}
     </Layout>
   );
 }

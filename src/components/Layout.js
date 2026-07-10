@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen } from 'lucide-react';
-import { getSettings } from '../lib/store';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut } from 'lucide-react';
+import { getSettings, logout } from '../lib/store';
 
 const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
@@ -14,10 +14,20 @@ const navItems = [
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
 ];
 
+const FALLBACK_SETTINGS = { schoolName: "Baytul 'Ilm Madrasah", schoolNameArabic: 'بيت العلم' };
+
 export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const settings = getSettings();
+  const [settings, setSettings] = useState(FALLBACK_SETTINGS);
+
+  useEffect(() => { getSettings().then(setSettings).catch(() => {}); }, []);
+
+  async function handleLogout() {
+    await logout().catch(() => {});
+    window.location.reload();
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -39,6 +49,9 @@ export default function Layout({ children, title, subtitle }) {
             );
           })}
         </nav>
+        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}}>
+          <LogOut size={16}/><span>Log out</span>
+        </button>
       </aside>
       <div className="main-content">
         <div className="mobile-topbar">

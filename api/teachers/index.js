@@ -11,7 +11,7 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'POST') {
     const b = req.body || {};
     if (!b.name) { res.status(400).json({ error: 'name is required' }); return; }
-    const id = 'T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const id = b.id || 'T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const { rows } = await query(
       'INSERT INTO teachers (id, name, phone, email, subjects) VALUES ($1,$2,$3,$4,$5) RETURNING id, name, phone, email, subjects',
       [id, b.name, b.phone || '', b.email || '', JSON.stringify(b.subjects || [])]

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
 import { ArrowLeft } from 'lucide-react';
 
@@ -7,27 +8,54 @@ function isoToday() { return new Date().toISOString().split('T')[0]; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
 
 export default function Attendance() {
-  const [students] = useState(getStudents);
-  const classNames = getClassNames();
-  const [activeClass, setActiveClass] = useState(classNames[0]||'');
-  const [year, setYear] = useState(currentSchoolYear());
-  const years = getAcademicYears();
-  const [attData, setAttData] = useState(() => getAttendance(year));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [classNames, setClassNames] = useState([]);
+  const [years, setYears] = useState([]);
+  const [activeClass, setActiveClass] = useState('');
+  const [year, setYear] = useState('');
+  const [attData, setAttData] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [toast, setToast] = useState('');
   const TODAY = isoToday();
 
-  function refreshAtt(y) { setAttData(getAttendance(y||year)); }
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classNamesData, yearsData, attendanceData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), getAttendance(y),
+      ]);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setAttData(attendanceData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function switchYear(y) {
+    setYear(y);
+    try { setAttData(await getAttendance(y)); } catch (err) { showToast(err.message || 'Could not load that year'); }
+  }
+
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2000); }
 
-  function mark(studentId, date, status) {
+  async function mark(studentId, date, status) {
     const cur = attData[studentId]?.[date]||null;
     const next = cur===status ? null : status;
-    setAttendance(studentId, date, next, year);
-    refreshAtt();
     const s = students.find(s=>s.id===studentId);
-    showToast(`${s?.forename} ${s?.surname} — ${next?STATUS_LABELS[next]:'Cleared'}`);
+    try {
+      await setAttendance(studentId, date, next, year);
+      setAttData(await getAttendance(year));
+      showToast(`${s?.forename} ${s?.surname} — ${next?STATUS_LABELS[next]:'Cleared'}`);
+    } catch (err) {
+      showToast(err.message || 'Could not save attendance');
+    }
   }
 
   function openStudent(id) { setSelectedId(id); setWeekAnchor(isoToday()); }
@@ -37,6 +65,9 @@ export default function Attendance() {
     const d = new Date(wd[0]+'T12:00:00'); d.setDate(d.getDate()+dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);
   }
+
+  if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
+  if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const classStudents = students.filter(s=>s.class===activeClass);
   const thisWeekDates = getWeekDates(TODAY);
@@ -84,10 +115,11 @@ export default function Attendance() {
                 <div className="day-cal-name">{dayName}</div>
                 <div className="day-cal-date">{dayDate}</div>
                 <button className="day-cal-status" style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)'}}
-                  onClick={()=>{
+                  onClick={async ()=>{
                     const cycle=['P','L','A',null];
                     const next=cycle[(cycle.indexOf(status||null)+1)%cycle.length];
-                    setAttendance(selected.id,date,next,year); refreshAtt();
+                    try { await setAttendance(selected.id,date,next,year); setAttData(await getAttendance(year)); }
+                    catch (err) { showToast(err.message || 'Could not save attendance'); }
                   }}>
                   {status||'·'}
                 </button>
@@ -116,7 +148,7 @@ export default function Attendance() {
         ))}
         <div className="pill-divider"/>
         {years.map(y=>(
-          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>{ setYear(y); refreshAtt(y); }}>{y}</button>
+          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>switchYear(y)}>{y}</button>
         ))}
       </div>
 

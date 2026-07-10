@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import { LoadingState, ErrorState } from '../components/DataState';
 import {
-  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeRecord,
+  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
@@ -19,57 +20,88 @@ function shiftMonth(ym, dir) {
 }
 
 export default function Fees() {
-  const students = getStudents();
-  const classNames = getClassNames();
-  const years = getAcademicYears();
-  const [year, setYear] = useState(currentSchoolYear());
-  const [fees, setFees] = useState(()=>getFees(year));
-  const [activeClass, setActiveClass] = useState(classNames[0]||'');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [classNames, setClassNames] = useState([]);
+  const [years, setYears] = useState([]);
+  const [year, setYear] = useState('');
+  const [fees, setFees] = useState([]);
+  const [activeClass, setActiveClass] = useState('');
+
   const [showAddMonth, setShowAddMonth] = useState(false);
   const [addMonthVal, setAddMonthVal] = useState(isoToday().slice(0,7));
+  const [addingMonth, setAddingMonth] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [toast, setToast] = useState('');
 
-  function refresh(y2) { setFees(getFees(y2||year)); }
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), getFees(y),
+      ]);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function refresh(y2) { setFees(await getFees(y2||year)); }
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
-  function togglePaid(fee) {
-    if (fee.status==='Paid') markFeeUnpaid(fee.id,year);
-    else markFeePaid(fee.id,year);
-    refresh();
-    showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid ✓');
+  async function switchYear(y) {
+    setYear(y);
+    try { await refresh(y); } catch (err) { showToast(err.message || 'Could not load that year'); }
   }
 
-  function saveEdit(feeId) {
+  async function togglePaid(fee) {
+    try {
+      if (fee.status==='Paid') await markFeeUnpaid(fee.id,year);
+      else await markFeePaid(fee.id,year);
+      await refresh();
+      showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid ✓');
+    } catch (err) {
+      showToast(err.message || 'Could not update this record');
+    }
+  }
+
+  async function saveEdit(feeId) {
     const val=parseFloat(editCell.val);
-    if (!isNaN(val)&&val>=0) { updateFeeAmount(feeId,val,year); refresh(); showToast('Amount updated'); }
+    if (!isNaN(val)&&val>=0) {
+      try { await updateFeeAmount(feeId,val,year); await refresh(); showToast('Amount updated'); }
+      catch (err) { showToast(err.message || 'Could not update amount'); }
+    }
     setEditCell(null);
   }
 
-  function addMonth() {
+  async function addMonth() {
     const weeks=getWeekStartsForMonth(addMonthVal);
     const classStudents=students.filter(s=>s.status==='Active'&&s.class===activeClass);
-    const existingKeys=new Set(fees.filter(f=>classStudents.some(s=>s.id===f.studentId)).map(f=>f.studentId+'|'+f.weekStarting));
-    let count=0;
-    weeks.forEach(w=>{
-      classStudents.forEach(s=>{
-        const key=s.id+'|'+w;
-        if (!existingKeys.has(key)) {
-          addFeeRecord({studentId:s.id,weekStarting:w,amount:s.weeklyFee||15,status:'Pending'},year);
-          existingKeys.add(key);
-          count++;
-        }
-      });
-    });
-    refresh();
-    setShowAddMonth(false);
-    showToast(count>0?`${count} fee record${count!==1?'s':''} added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
+    setAddingMonth(true);
+    try {
+      const { created } = await addFeeMonth(year, weeks, classStudents);
+      await refresh();
+      setShowAddMonth(false);
+      showToast(created>0?`${created} fee record${created!==1?'s':''} added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
+    } catch (err) {
+      showToast(err.message || 'Could not add this month');
+    }
+    setAddingMonth(false);
   }
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor(isoToday().slice(0,7)); }
+
+  if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
+  if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const classStudents = students.filter(s=>s.class===activeClass);
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
@@ -179,11 +211,15 @@ export default function Fees() {
               </div>
               <div className="modal-footer" style={{justifyContent:'center'}}>
                 <button className="btn" onClick={()=>setConfirmDeleteWeek(null)}>Cancel</button>
-                <button className="btn btn-danger" onClick={()=>{
-                  deleteWeekFees(confirmDeleteWeek, year, selected.class, students);
-                  refresh();
-                  setConfirmDeleteWeek(null);
-                  showToast(`Week removed for ${selected.class}`);
+                <button className="btn btn-danger" onClick={async ()=>{
+                  try {
+                    await deleteWeekFees(confirmDeleteWeek, year, selected.class);
+                    await refresh();
+                    setConfirmDeleteWeek(null);
+                    showToast(`Week removed for ${selected.class}`);
+                  } catch (err) {
+                    showToast(err.message || 'Could not remove week');
+                  }
                 }}><Trash2 size={13}/>Remove week</button>
               </div>
             </div>
@@ -202,7 +238,7 @@ export default function Fees() {
         ))}
         <div className="pill-divider"/>
         {years.map(y=>(
-          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>{ setYear(y); refresh(y); }}>{y}</button>
+          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>switchYear(y)}>{y}</button>
         ))}
       </div>
 
@@ -297,7 +333,7 @@ export default function Fees() {
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={()=>setShowAddMonth(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={addMonth}>Add month</button>
+              <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={addMonth} disabled={addingMonth}>{addingMonth?'Adding…':'Add month'}</button>
             </div>
           </div>
         </div>

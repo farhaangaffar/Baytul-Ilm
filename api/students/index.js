@@ -29,7 +29,9 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'POST') {
     const b = req.body || {};
     if (!b.forename || !b.surname || !b.class) { res.status(400).json({ error: 'forename, surname and class are required' }); return; }
-    const id = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    // Preserve a client-supplied id when restoring a backup, so records that reference the
+    // original student id (fees, attendance, daily records) still resolve after import.
+    const id = b.id || 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const { rows } = await query(
       `INSERT INTO students (id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, status, notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
