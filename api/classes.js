@@ -30,14 +30,24 @@ module.exports = requireAuth(async (req, res) => {
 
   if (req.method === 'PATCH') {
     const b = req.body || {};
+    const { rows: existing } = await query('SELECT name FROM classes WHERE id = $1', [id]);
+    if (!existing.length) { res.status(404).json({ error: 'Class not found' }); return; }
+    const oldName = existing[0].name;
+
     const sets = [];
     const values = [];
     if (b.name !== undefined) { values.push(b.name); sets.push(`name = $${values.length}`); }
     if (b.teacherId !== undefined) { values.push(b.teacherId || null); sets.push(`teacher_id = $${values.length}`); }
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
     values.push(id);
-    const { rows } = await query(`UPDATE classes SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id`, values);
-    if (!rows.length) { res.status(404).json({ error: 'Class not found' }); return; }
+    await query(`UPDATE classes SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
+
+    // students.class stores the class name as plain text, not a foreign key, so a
+    // rename has to be cascaded manually or every student in that class becomes
+    // orphaned (no longer matches any class tab in the UI).
+    if (b.name !== undefined && b.name !== oldName) {
+      await query('UPDATE students SET class = $1 WHERE class = $2', [b.name, oldName]);
+    }
     res.status(200).json({ ok: true });
     return;
   }
