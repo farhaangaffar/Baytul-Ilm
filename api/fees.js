@@ -1,5 +1,5 @@
-const { query } = require('../_db');
-const { requireAuth } = require('../_auth');
+const { query } = require('./_db');
+const { requireAuth } = require('./_auth');
 
 function toClient(row) {
   return {
@@ -12,14 +12,54 @@ function toClient(row) {
   };
 }
 
-// Consolidates /api/fees (collection), /api/fees/:id (item), /api/fees/add-month
-// (batch insert) and /api/fees/week (holiday-week bulk delete) into one function —
-// see the note in students/[[...params]].js on why these are merged.
+// Single flat file, dispatching on ?action= (add-month / week) and ?id= for
+// item ops — Vercel's file-based /api routing only reliably supports plain
+// files and single [id] segments outside Next.js, not the [[...params]]
+// optional catch-all, so everything here goes through query strings.
 module.exports = requireAuth(async (req, res) => {
-  const params = req.query.params || [];
-  const first = params[0];
+  const { action, id } = req.query;
 
-  if (!first) {
+  if (action === 'add-month') {
+    // Batch-adds fee records for every (week x active student in a class), skipping any
+    // that already exist. The DB's unique(year, student_id, week_starting) constraint
+    // enforces this atomically per-student-per-week — no client-side gap/duplicate bugs.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { year, weeks, students } = req.body || {};
+    if (!year || !Array.isArray(weeks) || !Array.isArray(students) || !weeks.length || !students.length) {
+      res.status(400).json({ error: 'year, weeks[] and students[] ({id, weeklyFee}) are required' });
+      return;
+    }
+    let created = 0;
+    for (const week of weeks) {
+      for (const s of students) {
+        const { rowCount } = await query(
+          `INSERT INTO fees (year, student_id, week_starting, amount, status) VALUES ($1,$2,$3,$4,'Pending')
+           ON CONFLICT (year, student_id, week_starting) DO NOTHING`,
+          [year, s.id, week, s.weeklyFee ?? 15]
+        );
+        created += rowCount;
+      }
+    }
+    res.status(200).json({ ok: true, created });
+    return;
+  }
+
+  if (action === 'week') {
+    // Deletes every fee record for a given week across every student in a class —
+    // used for holiday weeks that shouldn't be billed.
+    if (req.method !== 'DELETE') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { year, weekStarting, className } = req.body || {};
+    if (!year || !weekStarting || !className) { res.status(400).json({ error: 'year, weekStarting and className are required' }); return; }
+    await query(
+      `DELETE FROM fees WHERE year = $1 AND week_starting = $2
+       AND student_id IN (SELECT id FROM students WHERE class = $3)`,
+      [year, weekStarting, className]
+    );
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (!id) {
     if (req.method === 'GET') {
       const { year } = req.query;
       if (!year) { res.status(400).json({ error: 'year is required' }); return; }
@@ -45,48 +85,6 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
-  if (first === 'add-month') {
-    // Batch-adds fee records for every (week x active student in a class), skipping any
-    // that already exist. The DB's unique(year, student_id, week_starting) constraint
-    // enforces this atomically per-student-per-week — no client-side gap/duplicate bugs.
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
-    const { year, weeks, students } = req.body || {};
-    if (!year || !Array.isArray(weeks) || !Array.isArray(students) || !weeks.length || !students.length) {
-      res.status(400).json({ error: 'year, weeks[] and students[] ({id, weeklyFee}) are required' });
-      return;
-    }
-    let created = 0;
-    for (const week of weeks) {
-      for (const s of students) {
-        const { rowCount } = await query(
-          `INSERT INTO fees (year, student_id, week_starting, amount, status) VALUES ($1,$2,$3,$4,'Pending')
-           ON CONFLICT (year, student_id, week_starting) DO NOTHING`,
-          [year, s.id, week, s.weeklyFee ?? 15]
-        );
-        created += rowCount;
-      }
-    }
-    res.status(200).json({ ok: true, created });
-    return;
-  }
-
-  if (first === 'week') {
-    // Deletes every fee record for a given week across every student in a class —
-    // used for holiday weeks that shouldn't be billed.
-    if (req.method !== 'DELETE') { res.status(405).json({ error: 'Method not allowed' }); return; }
-    const { year, weekStarting, className } = req.body || {};
-    if (!year || !weekStarting || !className) { res.status(400).json({ error: 'year, weekStarting and className are required' }); return; }
-    await query(
-      `DELETE FROM fees WHERE year = $1 AND week_starting = $2
-       AND student_id IN (SELECT id FROM students WHERE class = $3)`,
-      [year, weekStarting, className]
-    );
-    res.status(200).json({ ok: true });
-    return;
-  }
-
-  // /api/fees/:id
-  const id = first;
   if (req.method === 'PATCH') {
     const b = req.body || {};
     const sets = [];

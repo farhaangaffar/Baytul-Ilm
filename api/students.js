@@ -1,5 +1,5 @@
-const { query } = require('../_db');
-const { requireAuth } = require('../_auth');
+const { query } = require('./_db');
+const { requireAuth } = require('./_auth');
 
 function toClient(row) {
   return {
@@ -26,13 +26,12 @@ const FIELD_MAP = {
   weeklyFee: 'weekly_fee', enrollDate: 'enroll_date', status: 'status', notes: 'notes',
 };
 
-// Handles both /api/students (collection) and /api/students/:id (item) in one
-// function — Vercel's Hobby plan caps a deployment at 12 serverless functions,
-// so index+[id] pairs are consolidated via an optional catch-all route instead
-// of one file each. URL paths the client calls are unchanged.
+// Single flat file, dispatching on ?id= for item ops — Vercel's file-based
+// /api routing only reliably supports plain files and single [id] segments
+// outside Next.js, not the [[...params]] optional catch-all, so id-style
+// operations go through a query string instead of a path segment.
 module.exports = requireAuth(async (req, res) => {
-  const params = req.query.params || [];
-  const id = params[0];
+  const id = req.query.id;
 
   if (!id) {
     if (req.method === 'GET') {

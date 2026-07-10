@@ -1,11 +1,11 @@
-const { query } = require('../_db');
-const { requireAuth } = require('../_auth');
+const { query } = require('./_db');
+const { requireAuth } = require('./_auth');
 
 const FIELD_MAP = { name: 'name', phone: 'phone', email: 'email' };
 
+// Single flat file, dispatching on ?id= for item ops — see students.js for why.
 module.exports = requireAuth(async (req, res) => {
-  const params = req.query.params || [];
-  const id = params[0];
+  const id = req.query.id;
 
   if (!id) {
     if (req.method === 'GET') {

@@ -1,9 +1,12 @@
-const { query } = require('../_db');
-const { requireAuth } = require('../_auth');
+const { query } = require('./_db');
+const { requireAuth } = require('./_auth');
 
+// Single flat file, dispatching on ?year= for item ops — Vercel's file-based
+// /api routing only reliably supports plain files and single [id] segments
+// outside Next.js, not the [[...params]] optional catch-all, so id-style
+// operations go through a query string instead of a path segment.
 module.exports = requireAuth(async (req, res) => {
-  const params = req.query.params || [];
-  const year = params[0];
+  const year = req.query.year;
 
   if (!year) {
     if (req.method === 'GET') {

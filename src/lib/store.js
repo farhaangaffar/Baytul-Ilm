@@ -41,7 +41,7 @@ export async function checkSession() {
 // ── Academic years ──
 export async function getAcademicYears() { return apiFetch('/api/academic-years'); }
 export async function addAcademicYear(y) { return apiFetch('/api/academic-years', { method: 'POST', body: JSON.stringify({ year: y }) }); }
-export async function removeAcademicYear(y) { return apiFetch(`/api/academic-years/${encodeURIComponent(y)}`, { method: 'DELETE' }); }
+export async function removeAcademicYear(y) { return apiFetch(`/api/academic-years?year=${encodeURIComponent(y)}`, { method: 'DELETE' }); }
 export async function currentSchoolYear() {
   const years = await getAcademicYears();
   const now = new Date(), m = now.getMonth(), yr = now.getFullYear();
@@ -73,8 +73,8 @@ export function getCurrentSchoolMonth(refIso) {
 export async function getStudents() { return apiFetch('/api/students'); }
 export async function getStudent(id) { const list = await getStudents(); return list.find(s => s.id === id); }
 export async function addStudent(student) { return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
-export async function updateStudent(id, data) { return apiFetch(`/api/students/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
-export async function deleteStudent(id) { return apiFetch(`/api/students/${id}`, { method: 'DELETE' }); }
+export async function updateStudent(id, data) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function deleteStudent(id) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 export function avatarInitials(name) { return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
 
 // ── Attendance (keyed by year) ──
@@ -119,12 +119,12 @@ export async function addFeeRecord(rec, year) {
   return apiFetch('/api/fees', { method: 'POST', body: JSON.stringify({ ...rec, year }) });
 }
 export async function addFeeMonth(year, weeks, students) {
-  return apiFetch('/api/fees/add-month', { method: 'POST', body: JSON.stringify({ year, weeks, students }) });
+  return apiFetch('/api/fees?action=add-month', { method: 'POST', body: JSON.stringify({ year, weeks, students }) });
 }
-export async function markFeePaid(feeId, year) { return apiFetch(`/api/fees/${feeId}`, { method: 'PATCH', body: JSON.stringify({ status: 'Paid' }) }); }
-export async function markFeeUnpaid(feeId, year) { return apiFetch(`/api/fees/${feeId}`, { method: 'PATCH', body: JSON.stringify({ status: 'Pending' }) }); }
-export async function deleteFeeRecord(feeId, year) { return apiFetch(`/api/fees/${feeId}`, { method: 'DELETE' }); }
-export async function updateFeeAmount(feeId, amount, year) { return apiFetch(`/api/fees/${feeId}`, { method: 'PATCH', body: JSON.stringify({ amount: Number(amount) }) }); }
+export async function markFeePaid(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'Paid' }) }); }
+export async function markFeeUnpaid(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'Pending' }) }); }
+export async function deleteFeeRecord(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'DELETE' }); }
+export async function updateFeeAmount(feeId, amount, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ amount: Number(amount) }) }); }
 export async function getStudentFees(studentId, year) {
   const fees = await getFees(year);
   return fees.filter(f => f.studentId === studentId).sort((a, b) => b.weekStarting.localeCompare(a.weekStarting));
@@ -134,7 +134,7 @@ export function studentFeesFrom(feesForYear, studentId) {
   return feesForYear.filter(f => f.studentId === studentId).sort((a, b) => b.weekStarting.localeCompare(a.weekStarting));
 }
 export async function deleteWeekFees(weekStarting, year, cls) {
-  return apiFetch('/api/fees/week', { method: 'DELETE', body: JSON.stringify({ year, weekStarting, className: cls }) });
+  return apiFetch('/api/fees?action=week', { method: 'DELETE', body: JSON.stringify({ year, weekStarting, className: cls }) });
 }
 export function getMondayOf(dateStr) {
   const d = new Date(dateStr + 'T12:00:00'), day = d.getDay();
@@ -164,8 +164,8 @@ export function getWeekStartsForMonth(yearMonth) {
 export async function getClasses() { return apiFetch('/api/classes'); }
 export async function getClass(id) { const list = await getClasses(); return list.find(c => c.id === id); }
 export async function addClass(cls) { return apiFetch('/api/classes', { method: 'POST', body: JSON.stringify(cls) }); }
-export async function updateClass(id, data) { return apiFetch(`/api/classes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
-export async function deleteClass(id) { return apiFetch(`/api/classes/${id}`, { method: 'DELETE' }); }
+export async function updateClass(id, data) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function deleteClass(id) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 export async function getClassNames() { const c = await getClasses(); return c.length ? c.map(c => c.name) : ['Class 1', 'Class 2']; }
 export async function classTeacherName(tid) { if (!tid) return 'Unassigned'; const t = await getTeacher(tid); return t ? t.name : 'Unassigned'; }
 
@@ -173,8 +173,8 @@ export async function classTeacherName(tid) { if (!tid) return 'Unassigned'; con
 export async function getTeachers() { return apiFetch('/api/teachers'); }
 export async function getTeacher(id) { const list = await getTeachers(); return list.find(t => t.id === id); }
 export async function addTeacher(t) { return apiFetch('/api/teachers', { method: 'POST', body: JSON.stringify(t) }); }
-export async function updateTeacher(id, data) { return apiFetch(`/api/teachers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
-export async function deleteTeacher(id) { return apiFetch(`/api/teachers/${id}`, { method: 'DELETE' }); }
+export async function updateTeacher(id, data) { return apiFetch(`/api/teachers?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function deleteTeacher(id) { return apiFetch(`/api/teachers?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 
 // ── Settings ──
 const DEFAULT_WEEKLY_FEE = 15;
