@@ -305,6 +305,8 @@ tbody tr:hover td { background: #f9fafb; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 18px; flex-shrink: 0; }
   .mobile-topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
   .mobile-topbar-arabic { font-family: var(--font-arabic); font-size: 17px; color: #ffffff; }
+  .mobile-topbar-logout { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #ffffff; opacity: 0.8; cursor: pointer; flex-shrink: 0; }
+  .mobile-topbar-logout:active { background: rgba(255,255,255,0.12); }
   .mobile-chips-wrap { display: block; background: var(--surface); box-shadow: var(--shadow-sm); flex-shrink: 0; }
   .mobile-chips { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; }
   .mobile-chips::-webkit-scrollbar { display: none; }

@@ -57,7 +57,9 @@ export default function Layout({ children, title, subtitle }) {
         <div className="mobile-topbar">
           <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
           <span className="mobile-topbar-title">{title}</span>
-          <span style={{width:40}}/>
+          <button className="mobile-topbar-logout" onClick={handleLogout} aria-label="Log out">
+            <LogOut size={18}/>
+          </button>
         </div>
         <div className="mobile-chips-wrap">
           <div className="mobile-chips">
