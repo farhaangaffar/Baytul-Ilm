@@ -10,12 +10,16 @@ app.use(express.json());
 
 const apiDir = path.join(__dirname, '..', 'api');
 
-function mountRoute(expressPath, full) {
+function mountRoute(expressPath, full, { catchAll } = {}) {
   const handler = require(full);
   app.all(expressPath, (req, res) => {
     // Express 5 makes req.query getter-only, so define an own property to
     // fold in the dynamic route params (mirrors how Vercel merges them in prod).
-    Object.defineProperty(req, 'query', { value: { ...req.query, ...req.params }, configurable: true });
+    // For optional catch-all routes, Vercel exposes the extra path segments as
+    // req.query.params (an array); Express 5's *splat wildcard already gives us
+    // that array directly in req.params.splat.
+    const params = catchAll ? { params: req.params.splat } : req.params;
+    Object.defineProperty(req, 'query', { value: { ...req.query, ...params }, configurable: true });
     handler(req, res).catch(err => {
       console.error(err);
       res.status(500).json({ error: err.message });
@@ -45,11 +49,18 @@ function mount(dir, routePrefix) {
     }
     if (!entry.name.endsWith('.js')) continue;
     const base = entry.name.replace(/\.js$/, '');
-    let expressPath;
-    if (base === 'index') expressPath = routePrefix || '/';
-    else if (base.startsWith('[') && base.endsWith(']')) expressPath = `${routePrefix}/:${base.slice(1, -1)}`;
-    else expressPath = `${routePrefix}/${base}`;
-    mountRoute(expressPath, full);
+    if (base === 'index') {
+      mountRoute(routePrefix || '/', full);
+    } else if (base.startsWith('[[...') && base.endsWith(']]')) {
+      // Optional catch-all — matches the base path with zero segments AND any
+      // number of sub-segments (req.query.params is [] or undefined for zero).
+      mountRoute(routePrefix || '/', full, { catchAll: true });
+      mountRoute(`${routePrefix}/*splat`, full, { catchAll: true });
+    } else if (base.startsWith('[') && base.endsWith(']')) {
+      mountRoute(`${routePrefix}/:${base.slice(1, -1)}`, full);
+    } else {
+      mountRoute(`${routePrefix}/${base}`, full);
+    }
   }
 }
 
