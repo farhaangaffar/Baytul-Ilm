@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
-import { getStudents, calcAttendanceCounts, calcAttendancePct, getStudentFees, getStudentRecords, avatarInitials, getSettings, currentSchoolYear } from '../lib/store';
+import { LoadingState, ErrorState } from '../components/DataState';
+import { getStudents, attendanceCountsFrom, attendancePctFrom, studentFeesFrom, getAttendance, getFees, getStudentRecords, avatarInitials, getSettings, currentSchoolYear } from '../lib/store';
 import { FileText, Download, Sparkles } from 'lucide-react';
 
 function fmtDate(iso) { try { return new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); } catch{ return iso; } }
 function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
-async function generateReportPDF(student, counts, fees, schoolName, aiSummary) {
+async function generateReportPDF(student, counts, fees, schoolName, aiSummary, year) {
   const { jsPDF } = await import('jspdf');
   await import('jspdf-autotable');
   const doc=new jsPDF({unit:'mm',format:'a4'});
@@ -19,7 +20,7 @@ async function generateReportPDF(student, counts, fees, schoolName, aiSummary) {
   doc.text(schoolName.toUpperCase(),W/2,13,{align:'center'});
   doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','normal');
   doc.text('Student Progress Report',W/2,21,{align:'center'});
-  doc.text('Academic Year '+currentSchoolYear(),W/2,28,{align:'center'});
+  doc.text('Academic Year '+year,W/2,28,{align:'center'});
   y=46;
 
   // Student info
@@ -43,7 +44,7 @@ async function generateReportPDF(student, counts, fees, schoolName, aiSummary) {
 
   // Attendance
   section('Attendance Summary');
-  const att=calcAttendancePct(student.id,currentSchoolYear());
+  const att = counts.total ? Math.round(((counts.present+counts.late)/counts.total)*100) : 0;
   const attStatus=att>=90?'Excellent':att>=75?'Satisfactory':'Needs improvement';
   doc.autoTable({
     startY:y,
@@ -121,20 +122,42 @@ async function generateReportPDF(student, counts, fees, schoolName, aiSummary) {
 }
 
 export default function Reports() {
-  const students=getStudents();
-  const settings=getSettings();
-  const year=currentSchoolYear();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [year, setYear] = useState('');
+  const [attendance, setAttendance] = useState({});
+  const [fees, setFees] = useState([]);
   const [selected,setSelected]=useState(null);
   const [generating,setGenerating]=useState('');
   const [aiSummaries,setAiSummaries]=useState({});
   const [aiLoading,setAiLoading]=useState('');
   const [toast,setToast]=useState('');
 
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, settingsData, attendanceData, feesData] = await Promise.all([
+        getStudents(), getSettings(), getAttendance(y), getFees(y),
+      ]);
+      setStudents(studentsData); setSettings(settingsData); setYear(y); setAttendance(attendanceData); setFees(feesData);
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(''),3000);}
 
   async function generateAI(student) {
     const month=currentMonth();
-    const records=getStudentRecords(student.id);
+    let records;
+    try { records = await getStudentRecords(student.id); }
+    catch (err) { showToast(err.message || 'Could not load records'); return; }
     const dates=Object.keys(records).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
     if (!dates.length) {
       setAiSummaries(p=>({...p,[student.id]:'No daily records found for this month. Add records in the Daily Records section first.'}));
@@ -144,7 +167,7 @@ export default function Reports() {
       const e=records[d]||{};
       return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
     }).join('\n\n');
-    const counts=calcAttendanceCounts(student.id,year);
+    const counts=attendanceCountsFrom(attendance, student.id);
     const prompt=`You are a helpful Madrasah assistant. Below are daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm professional monthly progress summary for this student's report. Cover: overall attitude, key positives, recurring concerns, brief recommendation. 150–200 words, paragraph form.`;
     setAiLoading(student.id);
     try {
@@ -158,14 +181,17 @@ export default function Reports() {
   async function download(student) {
     setGenerating(student.id);
     try {
-      const counts=calcAttendanceCounts(student.id,year);
-      const fees=getStudentFees(student.id,year);
+      const counts=attendanceCountsFrom(attendance, student.id);
+      const studentFees=studentFeesFrom(fees, student.id);
       const ai=aiSummaries[student.id]||'';
-      await generateReportPDF(student,counts,fees,settings.schoolName,ai);
+      await generateReportPDF(student,counts,studentFees,settings.schoolName,ai,year);
       showToast(`Report downloaded for ${student.forename} ${student.surname}`);
     } catch(e) { showToast('Error generating PDF — try again.'); }
     setGenerating('');
   }
+
+  if (loading) return <Layout title="Reports"><LoadingState /></Layout>;
+  if (error) return <Layout title="Reports"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const preview=selected?students.find(s=>s.id===selected):null;
 
@@ -178,14 +204,17 @@ export default function Reports() {
             <div><div className="card-title">Select a student</div><div className="card-sub">Click to preview · download button for PDF</div></div>
             <button className="btn btn-primary btn-sm" onClick={async()=>{
               setGenerating('all');
-              for(const s of students){ const counts=calcAttendanceCounts(s.id,year),fees=getStudentFees(s.id,year),ai=aiSummaries[s.id]||''; await generateReportPDF(s,counts,fees,settings.schoolName,ai); }
+              for(const s of students){
+                const counts=attendanceCountsFrom(attendance, s.id), studentFees=studentFeesFrom(fees, s.id), ai=aiSummaries[s.id]||'';
+                await generateReportPDF(s,counts,studentFees,settings.schoolName,ai,year);
+              }
               setGenerating(''); showToast(`${students.length} reports downloaded`);
             }}>{generating==='all'?'Generating…':<><Download size={13}/>All reports</>}</button>
           </div>
           {/* Scrollable list */}
           <div style={{maxHeight:480,overflowY:'auto'}}>
             {students.map(s=>{
-              const att=calcAttendancePct(s.id,year);
+              const att=attendancePctFrom(attendance, s.id);
               const isActive=selected===s.id;
               return (
                 <div key={s.id} onClick={()=>setSelected(s.id)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
@@ -221,7 +250,7 @@ export default function Reports() {
                   </button>
                 </div>
               </div>
-              <ReportPreview student={preview} schoolName={settings.schoolName} year={year} aiSummary={aiSummaries[preview.id]||''}/>
+              <ReportPreview student={preview} schoolName={settings.schoolName} year={year} aiSummary={aiSummaries[preview.id]||''} attendance={attendance} fees={fees}/>
             </div>
           ):(
             <div className="card" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:400,color:'var(--text-muted)'}}>
@@ -237,11 +266,11 @@ export default function Reports() {
   );
 }
 
-function ReportPreview({ student, schoolName, year, aiSummary }) {
-  const counts=calcAttendanceCounts(student.id,year);
-  const att=calcAttendancePct(student.id,year);
-  const fees=getStudentFees(student.id,year);
-  const outstanding=fees.filter(f=>f.status!=='Paid');
+function ReportPreview({ student, schoolName, year, aiSummary, attendance, fees }) {
+  const counts=attendanceCountsFrom(attendance, student.id);
+  const att=attendancePctFrom(attendance, student.id);
+  const studentFees=studentFeesFrom(fees, student.id);
+  const outstanding=studentFees.filter(f=>f.status!=='Paid');
   const attStatus=att>=90?'Excellent':att>=75?'Satisfactory':'Needs improvement';
   return (
     <div className="report-preview">

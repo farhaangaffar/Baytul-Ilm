@@ -1,233 +1,297 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import { LoadingState, ErrorState } from '../components/DataState';
 import {
-  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeRecord,
-  deleteFeeRecord, deleteWeekFees, updateFeeAmount, getMondayOf,
-  getWeekStartsForMonth, avatarInitials, getClassNames,
-  getAcademicYears, currentSchoolYear
+  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
+  updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
-import { Plus, X, Pencil, Check, Trash2, Calendar } from 'lucide-react';
+import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
   const [y,m]=ym.split('-').map(Number);
   return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
 }
+function shiftMonth(ym, dir) {
+  const [y,m]=ym.split('-').map(Number);
+  const d=new Date(y,m-1+dir,1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
 
 export default function Fees() {
-  const students = getStudents();
-  const classNames = getClassNames();
-  const years = getAcademicYears();
-  const [year, setYear] = useState(currentSchoolYear());
-  const [fees, setFees] = useState(()=>getFees(year));
-  const [activeClass, setActiveClass] = useState(classNames[0]||'');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [classNames, setClassNames] = useState([]);
+  const [years, setYears] = useState([]);
+  const [year, setYear] = useState('');
+  const [fees, setFees] = useState([]);
+  const [activeClass, setActiveClass] = useState('');
+
   const [showAddMonth, setShowAddMonth] = useState(false);
   const [addMonthVal, setAddMonthVal] = useState(isoToday().slice(0,7));
+  const [addingMonth, setAddingMonth] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
-  const [confirmDelWeek, setConfirmDelWeek] = useState(null);
+  const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [toast, setToast] = useState('');
 
-  function refresh(y2) { setFees(getFees(y2||year)); }
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), getFees(y),
+      ]);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function refresh(y2) { setFees(await getFees(y2||year)); }
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
-  function togglePaid(fee) {
-    if (fee.status==='Paid') markFeeUnpaid(fee.id,year);
-    else markFeePaid(fee.id,year);
-    refresh();
-    showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid ✓');
+  async function switchYear(y) {
+    setYear(y);
+    try { await refresh(y); } catch (err) { showToast(err.message || 'Could not load that year'); }
   }
 
-  function saveEdit(feeId) {
+  async function togglePaid(fee) {
+    try {
+      if (fee.status==='Paid') await markFeeUnpaid(fee.id,year);
+      else await markFeePaid(fee.id,year);
+      await refresh();
+      showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid ✓');
+    } catch (err) {
+      showToast(err.message || 'Could not update this record');
+    }
+  }
+
+  async function saveEdit(feeId) {
     const val=parseFloat(editCell.val);
-    if (!isNaN(val)&&val>=0) { updateFeeAmount(feeId,val,year); refresh(); showToast('Amount updated'); }
+    if (!isNaN(val)&&val>=0) {
+      try { await updateFeeAmount(feeId,val,year); await refresh(); showToast('Amount updated'); }
+      catch (err) { showToast(err.message || 'Could not update amount'); }
+    }
     setEditCell(null);
   }
 
-  function addMonth() {
+  async function addMonth() {
     const weeks=getWeekStartsForMonth(addMonthVal);
     const classStudents=students.filter(s=>s.status==='Active'&&s.class===activeClass);
-    const existingWeeks=new Set(fees.filter(f=>classStudents.find(s=>s.id===f.studentId)).map(f=>f.weekStarting));
-    let count=0;
-    weeks.forEach(w=>{
-      if (!existingWeeks.has(w)) {
-        classStudents.forEach(s=>{ addFeeRecord({studentId:s.id,weekStarting:w,amount:s.weeklyFee||15,status:'Pending'},year); count++; });
-      }
-    });
-    refresh();
-    setShowAddMonth(false);
-    showToast(count>0?`${weeks.length} weeks added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
+    setAddingMonth(true);
+    try {
+      const { created } = await addFeeMonth(year, weeks, classStudents);
+      await refresh();
+      setShowAddMonth(false);
+      showToast(created>0?`${created} fee record${created!==1?'s':''} added for ${monthLabel(addMonthVal)}`:`All weeks already exist for ${monthLabel(addMonthVal)}`);
+    } catch (err) {
+      showToast(err.message || 'Could not add this month');
+    }
+    setAddingMonth(false);
   }
 
-  function doDeleteWeek(weekStarting) {
-    deleteWeekFees(weekStarting,year,activeClass,students);
-    refresh();
-    setConfirmDelWeek(null);
-    showToast(`Week of ${weekStarting} removed`);
-  }
+  function openStudent(id) { setSelectedId(id); setMonthAnchor(isoToday().slice(0,7)); }
+
+  if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
+  if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const classStudents = students.filter(s=>s.class===activeClass);
-  const classFees = fees.filter(f=>classStudents.find(s=>s.id===f.studentId));
-  const weeks = [...new Set(classFees.map(f=>f.weekStarting))].sort();
-
-  const lookup = useMemo(()=>{
-    const m={};
-    classFees.forEach(f=>{ if(!m[f.studentId])m[f.studentId]={}; m[f.studentId][f.weekStarting]=f; });
-    return m;
-  },[classFees]);
-
+  const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const schoolMonth = getCurrentSchoolMonth();
+  const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
+  const thisWeekMonday = getMondayOf(isoToday());
 
-  // Group weeks by month for display
-  const weeksByMonth = useMemo(()=>{
-    const groups={};
-    weeks.forEach(w=>{
-      const ym=w.slice(0,7);
-      if(!groups[ym])groups[ym]=[];
-      groups[ym].push(w);
-    });
-    return groups;
-  },[weeks]);
+  const selected = students.find(s=>s.id===selectedId);
 
-  return (
-    <Layout title="Fee management" subtitle="By month — students as rows, weeks as columns">
-      <div className="class-tabs">
-        {classNames.map(c=>(
-          <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
-        ))}
-        <div className="tab-divider"/>
-        {years.map(y=>(
-          <button key={y} className={`year-tab ${year===y?'active':''}`} onClick={()=>{ setYear(y); refresh(y); }}>{y}</button>
-        ))}
-      </div>
+  if (selected) {
+    const monthWeeks = getWeekStartsForMonth(monthAnchor);
+    const studentFees = fees.filter(f=>f.studentId===selected.id);
+    const lookup = {};
+    studentFees.forEach(f=>{ lookup[f.weekStarting]=f; });
+    const monthFeesForStudent = monthWeeks.map(w=>lookup[w]).filter(Boolean);
+    const paid = monthFeesForStudent.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+    const owed = monthFeesForStudent.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+    const billed = paid+owed;
+    const collectedPct = billed ? Math.round((paid/billed)*100) : 0;
 
-      <div className="metrics-grid mb-6">
-        <div className="metric-card"><div className="metric-icon green"/><div className="metric-value" style={{color:'var(--green)'}}>£{totalPaid.toFixed(2)}</div><div className="metric-label">Collected — {activeClass}</div></div>
-        <div className="metric-card"><div className="metric-icon red"/><div className="metric-value" style={{color:'var(--red)'}}>£{totalOwed.toFixed(2)}</div><div className="metric-label">Outstanding</div></div>
-        <div className="metric-card"><div className="metric-icon amber"/><div className="metric-value">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="metric-label">Unpaid records</div></div>
-        <div className="metric-card"><div className="metric-icon dark"/><div className="metric-value">{classStudents.filter(s=>s.status==='Active').length}</div><div className="metric-label">Active students</div></div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Fee register — {activeClass} · {year}</div>
-            <div className="card-sub">✓ = paid · ✗ = due · click to toggle · click £ to edit · 🗑 to remove a week</div>
-          </div>
-          <button className="btn btn-primary btn-sm" onClick={()=>setShowAddMonth(true)}>
-            <Calendar size={13}/> Add a month
-          </button>
-        </div>
-
-        {weeks.length===0 ? (
-          <div style={{textAlign:'center',padding:48,color:'var(--text-muted)'}}>
-            <Calendar size={36} style={{opacity:.2,marginBottom:12,display:'block',margin:'0 auto 12px'}}/>
-            <div style={{fontWeight:500,marginBottom:6}}>No fee records yet</div>
-            <div style={{fontSize:12}}>Click "Add a month" to generate weeks for {activeClass}</div>
-          </div>
-        ) : (
-          <div className="fee-grid-outer">
-            <div style={{overflowX:'auto'}}>
-              <table className="fee-grid-table">
-                <thead>
-                  <tr>
-                    <th className="name-col">Student</th>
-                    {/* Month group headers */}
-                    {Object.entries(weeksByMonth).map(([ym,wks])=>(
-                      <th key={ym} colSpan={wks.length} style={{borderBottom:'1px solid rgba(255,255,255,0.15)',background:'#2a2a22',color:ym===isoToday().slice(0,7)?'#a3e635':'rgba(255,255,255,.65)',fontSize:11}}>
-                        {monthLabel(ym)}
-                      </th>
-                    ))}
-                    <th className="total-col paid-col" style={{minWidth:90}}>Paid</th>
-                    <th className="total-col owed-col" style={{minWidth:90}}>Owed</th>
-                  </tr>
-                  <tr>
-                    <th className="name-col" style={{top:'37px'}}></th>
-                    {weeks.map(w=>(
-                      <th key={w} style={{minWidth:72,top:'37px',fontSize:10}}>
-                        <div style={{marginBottom:3}}>{new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
-                        <button
-                          onClick={()=>setConfirmDelWeek(w)}
-                          title="Remove this week"
-                          style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,100,100,.7)',padding:0,fontSize:11}}
-                        ><Trash2 size={10}/></button>
-                      </th>
-                    ))}
-                    <th className="total-col paid-col" style={{top:'37px',minWidth:90}}></th>
-                    <th className="total-col owed-col" style={{top:'37px',minWidth:90}}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classStudents.map(s=>{
-                    const sPaid=weeks.reduce((sum,w)=>{ const f=lookup[s.id]?.[w]; return sum+(f&&f.status==='Paid'?Number(f.amount):0); },0);
-                    const sOwed=weeks.reduce((sum,w)=>{ const f=lookup[s.id]?.[w]; return sum+(f&&f.status!=='Paid'?Number(f.amount):0); },0);
-                    return (
-                      <tr key={s.id}>
-                        <td className="name-col">
-                          <div className="flex items-center gap-2">
-                            <div className="avatar" style={{width:24,height:24,fontSize:9}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                            <div>
-                              <div style={{fontWeight:500,fontSize:12}}>{s.forename} {s.surname}</div>
-                              <div style={{fontSize:10,color:'var(--text-muted)'}}>£{s.weeklyFee}/wk</div>
-                            </div>
-                          </div>
-                        </td>
-                        {weeks.map(w=>{
-                          const f=lookup[s.id]?.[w];
-                          if (!f) return <td key={w}><div style={{display:'flex',justifyContent:'center'}}><div className="fee-empty">—</div></div></td>;
-                          const isEditing=editCell?.feeId===f.id;
-                          return (
-                            <td key={w}>
-                              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                                <button className={f.status==='Paid'?'fee-tick':'fee-cross'} onClick={()=>togglePaid(f)}>
-                                  {f.status==='Paid'?'✓':'✗'}
-                                </button>
-                                {isEditing ? (
-                                  <div style={{display:'flex',alignItems:'center',gap:2}}>
-                                    <input type="number" value={editCell.val}
-                                      onChange={e=>setEditCell({...editCell,val:e.target.value})}
-                                      onKeyDown={e=>{if(e.key==='Enter')saveEdit(f.id);if(e.key==='Escape')setEditCell(null);}}
-                                      autoFocus
-                                      style={{width:44,padding:'2px 4px',fontSize:11,border:'1px solid var(--teal)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}
-                                    />
-                                    <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--green)',padding:1}} onClick={()=>saveEdit(f.id)}><Check size={11}/></button>
-                                    <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--red)',padding:1}} onClick={()=>setEditCell(null)}><X size={11}/></button>
-                                  </div>
-                                ) : (
-                                  <button style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'var(--text-muted)',display:'flex',alignItems:'center',gap:2,fontFamily:'var(--font)',padding:'1px 3px',borderRadius:3}}
-                                    title="Edit amount" onClick={()=>setEditCell({feeId:f.id,val:String(f.amount)})}>
-                                    £{Number(f.amount).toFixed(2)}<Pencil size={9} style={{opacity:.5}}/>
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          );
-                        })}
-                        <td className="total-col paid-col" style={{color:'var(--green)'}}>£{sPaid.toFixed(2)}</td>
-                        <td className="total-col owed-col" style={{color:sOwed>0?'var(--red)':undefined}}>{sOwed>0?`£${sOwed.toFixed(2)}`:'—'}</td>
-                      </tr>
-                    );
-                  })}
-                  {/* Totals row */}
-                  <tr style={{borderTop:'2px solid var(--border-strong)',background:'var(--teal-light)'}}>
-                    <td className="name-col" style={{fontWeight:600,fontSize:12,color:'var(--ink)'}}>Week total</td>
-                    {weeks.map(w=>{
-                      const wP=classFees.filter(f=>f.weekStarting===w&&f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-                      const wO=classFees.filter(f=>f.weekStarting===w&&f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
-                      return (
-                        <td key={w} style={{textAlign:'center',fontSize:11}}>
-                          <div style={{fontWeight:600,color:'var(--green)'}}>£{wP.toFixed(0)}</div>
-                          {wO>0&&<div style={{color:'var(--red)',fontSize:10}}>-£{wO.toFixed(0)}</div>}
-                        </td>
-                      );
-                    })}
-                    <td className="total-col paid-col" style={{color:'var(--green)',fontWeight:700}}>£{totalPaid.toFixed(2)}</td>
-                    <td className="total-col owed-col" style={{color:totalOwed>0?'var(--red)':undefined,fontWeight:700}}>{totalOwed>0?`£${totalOwed.toFixed(2)}`:'—'}</td>
-                  </tr>
-                </tbody>
-              </table>
+    return (
+      <Layout title="Fees" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
+        <div className="card-header" style={{marginBottom:20}}>
+          <div className="flex items-center gap-3">
+            <button className="back-pill" onClick={()=>setSelectedId(null)}><ArrowLeft size={14}/> All students</button>
+            <div>
+              <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
+              <div className="text-muted text-sm">{selected.class} · £{selected.weeklyFee}/wk</div>
             </div>
           </div>
+          <div className="nav-arrow-row">
+            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,-1))}>‹</button>
+            <span>{monthLabel(monthAnchor)}</span>
+            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,1))}>›</button>
+          </div>
+        </div>
+
+        <div className="day-cal-row" style={{gridTemplateColumns:`repeat(${monthWeeks.length},1fr)`}}>
+          {monthWeeks.map(w=>{
+            const f = lookup[w];
+            const dateLabel = new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+            const isEditing = f && editCell?.feeId===f.id;
+            if (!f) {
+              return (
+                <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
+                  <div className="day-cal-name">W/C</div>
+                  <div className="day-cal-date">{dateLabel}</div>
+                  <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>
+                  <div className="day-cal-label">Not added</div>
+                </div>
+              );
+            }
+            const bg = f.status==='Paid' ? 'var(--green-light)' : 'var(--red-light)';
+            const dotBg = f.status==='Paid' ? 'var(--green)' : 'var(--red)';
+            return (
+              <div className="day-cal-card" key={w} style={{background:bg, position:'relative'}}>
+                <button
+                  onClick={()=>setConfirmDeleteWeek(w)}
+                  title={`Remove week of ${dateLabel} for all of ${selected.class} (e.g. holidays)`}
+                  style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--text-soft)',padding:2,lineHeight:0}}>
+                  <Trash2 size={12}/>
+                </button>
+                <div className="day-cal-name">W/C</div>
+                <div className="day-cal-date">{dateLabel}</div>
+                <button className="day-cal-status" style={{background:dotBg}} onClick={()=>togglePaid(f)}>
+                  {f.status==='Paid'?'✓':'✗'}
+                </button>
+                {isEditing ? (
+                  <div className="flex items-center gap-2" style={{justifyContent:'center',marginTop:10}} onClick={e=>e.stopPropagation()}>
+                    <input type="number" value={editCell.val} autoFocus
+                      onChange={e=>setEditCell({...editCell,val:e.target.value})}
+                      onKeyDown={e=>{if(e.key==='Enter')saveEdit(f.id);if(e.key==='Escape')setEditCell(null);}}
+                      style={{width:50,padding:'3px 5px',fontSize:11,border:'1px solid var(--blue)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}/>
+                    <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--green-text)'}} onClick={()=>saveEdit(f.id)}><Check size={12}/></button>
+                    <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--red-text)'}} onClick={()=>setEditCell(null)}><X size={12}/></button>
+                  </div>
+                ) : (
+                  <div className="day-cal-label" style={{cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}
+                    onClick={()=>setEditCell({feeId:f.id,val:String(f.amount)})}>
+                    £{Number(f.amount).toFixed(2)}<Pencil size={9} style={{opacity:.5}}/>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="summary-row-v2">
+          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">£{paid.toFixed(2)}</div><div className="l">Paid</div></div>
+          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">£{owed.toFixed(2)}</div><div className="l">Owed</div></div>
+          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">£{billed.toFixed(2)}</div><div className="l">Billed this month</div></div>
+          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{collectedPct}%</div><div className="l">Collected</div></div>
+        </div>
+
+        {confirmDeleteWeek&&(
+          <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDeleteWeek(null)}>
+            <div className="modal" style={{maxWidth:400}}>
+              <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+                <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
+                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove this week?</div>
+                <div style={{color:'var(--text-muted)',fontSize:13}}>
+                  Week of {new Date(confirmDeleteWeek+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long'})} will be removed for every student in {selected.class}.
+                  <br/><span style={{fontSize:12}}>Useful for holiday weeks. This cannot be undone.</span>
+                </div>
+              </div>
+              <div className="modal-footer" style={{justifyContent:'center'}}>
+                <button className="btn" onClick={()=>setConfirmDeleteWeek(null)}>Cancel</button>
+                <button className="btn btn-danger" onClick={async ()=>{
+                  try {
+                    await deleteWeekFees(confirmDeleteWeek, year, selected.class);
+                    await refresh();
+                    setConfirmDeleteWeek(null);
+                    showToast(`Week removed for ${selected.class}`);
+                  } catch (err) {
+                    showToast(err.message || 'Could not remove week');
+                  }
+                }}><Trash2 size={13}/>Remove week</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {toast&&<div className="toast">✓ {toast}</div>}
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout title="Fees" subtitle={`${activeClass} · ${year}`}>
+      <div className="pill-tabs">
+        {classNames.map(c=>(
+          <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
+        ))}
+        <div className="pill-divider"/>
+        {years.map(y=>(
+          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>switchYear(y)}>{y}</button>
+        ))}
+      </div>
+
+      <div className="stat-grid-v2">
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{totalPaid.toFixed(2)}</div><div className="l">Collected — {activeClass}</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{totalOwed.toFixed(2)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid records</div></div>
+        <div className="stat-card-v2"><div className="n">{classStudents.filter(s=>s.status==='Active').length}</div><div className="l">Active students</div></div>
+      </div>
+
+      <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
+        <div className="text-muted text-sm">Click a student's card to view their full month</div>
+        <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
+      </div>
+
+      <div className="entity-grid">
+        {classStudents.map(s=>{
+          const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
+          const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+          const monthOwed = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+          return (
+            <div className="entity-card" key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)}>
+              <div>
+                <div className="entity-card-name">{s.forename} {s.surname}</div>
+                <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
+                <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}} onClick={e=>e.stopPropagation()}>
+                <div style={{display:'flex',gap:5}}>
+                  {schoolMonthWeeks.map(w=>{
+                    const f = monthFees.find(fee=>fee.weekStarting===w);
+                    const dayNum = new Date(w+'T12:00:00').getDate();
+                    const dateLabel = new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+                    const isCurrent = w===thisWeekMonday;
+                    if (!f) {
+                      return <button key={w} className={`mark-btn-sm ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>{dayNum}</button>;
+                    }
+                    const paid = f.status==='Paid';
+                    return (
+                      <button key={w} className={`mark-btn-sm ${isCurrent?'is-current':''}`}
+                        style={paid?{background:'var(--green)',borderColor:'var(--green)',color:'#fff'}:{background:'var(--red)',borderColor:'var(--red)',color:'#fff'}}
+                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'} (click to toggle)`}
+                        onClick={()=>togglePaid(f)}>{dayNum}</button>
+                    );
+                  })}
+                </div>
+                <span style={{fontSize:9.5,color:'var(--text-soft)',textTransform:'uppercase',letterSpacing:'.03em'}}>This month</span>
+              </div>
+            </div>
+          );
+        })}
+        {classStudents.length===0&&(
+          <div className="card" style={{gridColumn:'1 / -1',textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
         )}
       </div>
 
@@ -269,28 +333,7 @@ export default function Fees() {
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={()=>setShowAddMonth(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={addMonth}>Add month</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete week confirm */}
-      {confirmDelWeek&&(
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDelWeek(null)}>
-          <div className="modal" style={{maxWidth:400}}>
-            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
-              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
-                <Trash2 size={24} color="var(--red)"/>
-              </div>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove week of {confirmDelWeek}?</div>
-              <div style={{color:'var(--text-muted)',fontSize:13}}>
-                This will delete all {activeClass} fee records for this week. Paid records will also be removed.
-              </div>
-            </div>
-            <div className="modal-footer" style={{justifyContent:'center'}}>
-              <button className="btn" onClick={()=>setConfirmDelWeek(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={()=>doDeleteWeek(confirmDelWeek)}><Trash2 size={13}/>Remove week</button>
+              <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={addMonth} disabled={addingMonth}>{addingMonth?'Adding…':'Add month'}</button>
             </div>
           </div>
         </div>

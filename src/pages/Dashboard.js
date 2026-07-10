@@ -1,129 +1,173 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import EnrollmentForm from '../components/EnrollmentForm';
-import { getStudents, getFees, getAttendance, calcAttendancePct, avatarInitials, getClassNames, currentSchoolYear } from '../lib/store';
-import { Plus } from 'lucide-react';
+import { LoadingState, ErrorState } from '../components/DataState';
+import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear } from '../lib/store';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
-  const [showEnroll, setShowEnroll] = useState(false);
-  const [students, setStudents] = useState(getStudents);
-  const classNames = getClassNames();
-  const year = currentSchoolYear();
-  const fees = getFees(year);
-  const attendance = getAttendance(year);
-  const today = isoToday();
+  const navigate = useNavigate();
+  const [weekAnchor, setWeekAnchor] = useState(isoToday());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [year, setYear] = useState('');
+  const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [attendance, setAttendance] = useState({});
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classesData, feesData, attendanceData] = await Promise.all([
+        getStudents(), getClasses(), getFees(y), getAttendance(y),
+      ]);
+      setYear(y); setStudents(studentsData); setClasses(classesData); setFees(feesData); setAttendance(attendanceData);
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const schoolMonth = getCurrentSchoolMonth();
+  const weekDates = getWeekDates(weekAnchor);
+
+  if (loading) return <Layout title="Dashboard"><LoadingState /></Layout>;
+  if (error) return <Layout title="Dashboard"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const active = students.filter(s => s.status === 'Active');
-  const present = active.filter(s => attendance[s.id]?.[today] === 'P').length;
-  const late    = active.filter(s => attendance[s.id]?.[today] === 'L').length;
-  const absent  = active.filter(s => attendance[s.id]?.[today] === 'A').length;
-  const collected = fees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
 
-  const outstandingFees = fees.filter(f => f.status !== 'Paid');
-  const owedByStudent = active
-    .map(s => ({ student: s, owed: outstandingFees.filter(f => f.studentId === s.id).reduce((sum, f) => sum + Number(f.amount), 0) }))
-    .filter(x => x.owed > 0)
-    .sort((a, b) => b.owed - a.owed);
-  const totalOwed = owedByStudent.reduce((s, x) => s + x.owed, 0);
+  // ── This week's attendance (Mon–Thu, both classes) ──
+  const dailyCounts = weekDates.map(date => ({
+    date,
+    P: active.filter(s => attendance[s.id]?.[date] === 'P').length,
+    L: active.filter(s => attendance[s.id]?.[date] === 'L').length,
+    A: active.filter(s => attendance[s.id]?.[date] === 'A').length,
+  }));
+  const weekPresent = dailyCounts.reduce((s, d) => s + d.P, 0);
+  const weekLate = dailyCounts.reduce((s, d) => s + d.L, 0);
+  const weekAbsent = dailyCounts.reduce((s, d) => s + d.A, 0);
+  const weekMarked = weekPresent + weekLate + weekAbsent;
+  const weekAttPct = weekMarked ? Math.round(((weekPresent + weekLate) / weekMarked) * 100) : 0;
+  const weekLabel = `${new Date(weekDates[0]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(weekDates[3]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+  function shiftWeek(dir) {
+    const d = new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate() + dir*7);
+    setWeekAnchor(d.toISOString().split('T')[0]);
+  }
+
+  // ── This school month's fees ──
+  const monthFees = fees.filter(f => f.weekStarting >= schoolMonth.start && f.weekStarting < schoolMonth.endExclusive);
+  const monthCollected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+  const monthOutstanding = monthFees.filter(f => f.status !== 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+  const monthBilled = monthCollected + monthOutstanding;
+  const monthCollectedPct = monthBilled ? Math.round((monthCollected / monthBilled) * 100) : 0;
 
   const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+  const yMax = Math.max(5, Math.ceil(active.length / 5) * 5);
+  const yTicks = [yMax, yMax*0.75, yMax*0.5, yMax*0.25, 0];
+
   return (
     <Layout title="Dashboard" subtitle={`Overview · ${year}`}>
-      <div className="hero hero-ink">
-        <div>
-          <div className="hero-arabic">السلام عليكم</div>
-          <div className="hero-greeting">Assalamu Alaikum</div>
-          <div className="hero-sub">{dateStr} · {year}</div>
+      <div className="card hero">
+        <div className="hero-arabic">السلام عليكم</div>
+        <div className="hero-greeting">Assalamu Alaikum</div>
+        <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
+      </div>
+
+      <div className="stat-grid-v2">
+        <div className="stat-card-v2">
+          <div className="n">{active.length}</div>
+          <div className="l">Students</div>
+          <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/students')}>View all →</div>
         </div>
-        <div className="hero-stats">
-          <div className="hero-stat"><div className="n">{active.length}</div><div className="l">Students</div></div>
-          <div className="hero-stat"><div className="n">{present}</div><div className="l">Present</div></div>
-          <div className="hero-stat"><div className="n">{late}</div><div className="l">Late</div></div>
-          <div className="hero-stat"><div className="n">{absent}</div><div className="l">Absent</div></div>
-          <div className="hero-stat"><div className="n">£{collected.toFixed(2)}</div><div className="l">Collected</div></div>
+        <div className="stat-card-v2">
+          <div className="n">{classes.length}</div>
+          <div className="l">Classes</div>
+          <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>navigate('/classes')}>View all →</div>
+        </div>
+        <div className="stat-card-v2">
+          <div className="n">{weekAttPct}%</div>
+          <div className="l">Attendance this week</div>
+          <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>navigate('/attendance')}>View all →</div>
+        </div>
+        <div className="stat-card-v2">
+          <div className="n">£{monthOutstanding.toFixed(2)}</div>
+          <div className="l">Outstanding this month</div>
+          <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/fees')}>View all →</div>
         </div>
       </div>
 
-      <div className="dashboard-cards">
-        {classNames.map(cls => {
-          const classStudents = students.filter(s => s.class === cls);
-          return (
-            <div className="card" key={cls}>
-              <div className="card-header">
-                <div>
-                  <div className="card-title">{cls}</div>
-                  <div className="card-sub">{classStudents.length} students</div>
-                </div>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowEnroll(true)}>
-                  <Plus size={13}/> Enroll
-                </button>
-              </div>
-              <div style={{maxHeight:320, overflowY:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-                  <thead>
-                    <tr>
-                      <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'8px 12px 8px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Name</th>
-                      <th style={{textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'8px 12px 8px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Parent contact</th>
-                      <th style={{textAlign:'center',fontSize:11,fontWeight:600,letterSpacing:'0.04em',color:'var(--text-muted)',textTransform:'uppercase',padding:'8px 0',borderBottom:'1px solid var(--border)',position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>Att.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classStudents.map(s => {
-                      const att = calcAttendancePct(s.id, year);
-                      return (
-                        <tr key={s.id}>
-                          <td style={{padding:'9px 12px 9px 0',borderBottom:'1px solid var(--border)'}}>
-                            <div className="flex items-center gap-2">
-                              <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                              <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
-                            </div>
-                          </td>
-                          <td style={{padding:'9px 12px 9px 0',borderBottom:'1px solid var(--border)',color:'var(--text-muted)',fontSize:12}}>{s.parent1Phone}</td>
-                          <td style={{padding:'9px 0',borderBottom:'1px solid var(--border)',textAlign:'center',fontWeight:600,color:att>=90?'var(--green)':att>=75?'var(--amber)':att>0?'var(--red)':'var(--text-soft)'}}>
-                            {att>0?`${att}%`:'—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })}
-
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Outstanding fees</div>
-              <div className="card-sub">£{totalOwed.toFixed(2)} across {owedByStudent.length} student{owedByStudent.length!==1?'s':''}</div>
-            </div>
+      <div className="ring-row">
+        <div className="card ring-card">
+          <div className="card-title">Attendance — this week</div>
+          <div className="card-sub">Present or late, both classes</div>
+          <div className="ring-wrap">
+            <div className="ring" style={{background:`conic-gradient(var(--green) 0% ${weekAttPct}%, var(--red) ${weekAttPct}% 100%)`}}/>
+            <div className="ring-inner"><div className="n">{weekAttPct}%</div><div className="l">Present/Late</div></div>
           </div>
-          <div style={{maxHeight:320, overflowY:'auto'}}>
-            {owedByStudent.length === 0 ? (
-              <div style={{textAlign:'center',padding:'40px 0',color:'var(--text-muted)'}}>
-                <div style={{fontWeight:500,marginBottom:4}}>All fees up to date</div>
-                <div style={{fontSize:12}}>No outstanding balances</div>
-              </div>
-            ) : (
-              owedByStudent.map(({student:s,owed}) => (
-                <div className="list-row" key={s.id}>
-                  <div className="flex items-center gap-2">
-                    <div className="avatar" style={{width:26,height:26,fontSize:10}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                    <div style={{fontWeight:500}}>{s.forename} {s.surname}</div>
-                  </div>
-                  <span className="badge badge-red">£{owed.toFixed(2)}</span>
-                </div>
-              ))
-            )}
+          <div className="ring-breakdown">
+            <span><span className="dot" style={{background:'var(--green)'}}/>Present: {weekPresent}</span>
+            <span><span className="dot" style={{background:'var(--amber)'}}/>Late: {weekLate}</span>
+            <span><span className="dot" style={{background:'var(--red)'}}/>Absent: {weekAbsent}</span>
+          </div>
+        </div>
+
+        <div className="card ring-card">
+          <div className="card-title">Fees — {schoolMonth.label}</div>
+          <div className="card-sub">£{monthBilled.toFixed(2)} due this month</div>
+          <div className="ring-wrap">
+            <div className="ring" style={{background:`conic-gradient(var(--blue) 0% ${monthCollectedPct}%, #eef0f4 ${monthCollectedPct}% 100%)`}}/>
+            <div className="ring-inner"><div className="n">{monthCollectedPct}%</div><div className="l">Collected</div></div>
+          </div>
+          <div className="ring-breakdown">
+            <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: £{monthCollected.toFixed(2)}</span>
+            <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: £{monthOutstanding.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
-      {showEnroll && <EnrollmentForm onClose={() => setShowEnroll(false)} onSaved={() => setStudents(getStudents())}/>}
+      <div className="card">
+        <div className="card-header" style={{marginBottom:16}}>
+          <div>
+            <div className="card-title">Daily attendance</div>
+            <div className="card-sub" style={{marginBottom:0}}>Present / late / absent per day, both classes</div>
+          </div>
+          <div className="nav-arrow-row">
+            <button className="nav-arrow-btn" onClick={()=>shiftWeek(-1)}>‹</button>
+            <span>{weekLabel}</span>
+            <button className="nav-arrow-btn" onClick={()=>shiftWeek(1)}>›</button>
+          </div>
+        </div>
+
+        <div className="axis-chart">
+          <div className="axis-yaxis">{yTicks.map(t=><span key={t}>{Math.round(t)}</span>)}</div>
+          <div className="axis-plot">
+            <div className="axis-grid"><div/><div/><div/><div/><div/></div>
+            <div className="axis-bars">
+              {dailyCounts.map(dc=>(
+                <div className="stack-bar-wrap" key={dc.date}>
+                  <div className="stack-seg" style={{height:`${(dc.P/yMax)*100}%`, background:'var(--green)'}}/>
+                  <div className="stack-seg" style={{height:`${(dc.L/yMax)*100}%`, background:'var(--amber)'}}/>
+                  <div className="stack-seg" style={{height:`${(dc.A/yMax)*100}%`, background:'var(--red)'}}/>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="axis-xaxis">
+          {weekDates.map(d=><span key={d}>{new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'})}</span>)}
+        </div>
+        <div className="chart-legend">
+          <div className="chart-legend-item"><span className="chart-legend-dot" style={{background:'var(--green)'}}/>Present</div>
+          <div className="chart-legend-item"><span className="chart-legend-dot" style={{background:'var(--amber)'}}/>Late</div>
+          <div className="chart-legend-item"><span className="chart-legend-dot" style={{background:'var(--red)'}}/>Absent</div>
+        </div>
+      </div>
     </Layout>
   );
 }

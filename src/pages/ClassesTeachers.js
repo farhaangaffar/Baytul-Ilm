@@ -1,58 +1,95 @@
 // pages/ClassesTeachers.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getClasses, addClass, updateClass, deleteClass,
   getTeachers, addTeacher, updateTeacher, deleteTeacher,
-  classTeacherName, getStudents,
+  getStudents,
 } from '../lib/store';
-import { Plus, Pencil, Trash2, X, Save, BookOpen, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle } from 'lucide-react';
 
 export default function ClassesTeachers() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [tab, setTab] = useState('classes');
-  const [classes, setClasses] = useState(() => getClasses());
-  const [teachers, setTeachers] = useState(() => getTeachers());
-  const [students] = useState(() => getStudents());
+  const [classes, setClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [students, setStudents] = useState([]);
 
   const [classModal, setClassModal] = useState(null);
   const [teacherModal, setTeacherModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [toast, setToast] = useState('');
 
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [classesData, teachersData, studentsData] = await Promise.all([getClasses(), getTeachers(), getStudents()]);
+      setClasses(classesData); setTeachers(teachersData); setStudents(studentsData);
+    } catch (err) {
+      setError(err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500); }
 
   function studentCountForClass(name) {
     return students.filter(s => s.class === name).length;
   }
-
-  function saveClass(form) {
-    if (form.id) { updateClass(form.id, form); showToast('Class updated'); }
-    else { addClass(form); showToast('Class added'); }
-    setClasses(getClasses());
-    setClassModal(null);
+  function teacherName(id) {
+    if (!id) return 'Unassigned';
+    return teachers.find(t => t.id === id)?.name || 'Unassigned';
   }
 
-  function saveTeacher(form) {
+  if (loading) return <Layout title="Classes & Teachers"><LoadingState /></Layout>;
+  if (error) return <Layout title="Classes & Teachers"><ErrorState error={error} onRetry={load} /></Layout>;
+
+  const activeStudents = students.filter(s => s.status === 'Active').length;
+  const unassigned = classes.filter(c => !c.teacherId).length;
+
+  async function saveClass(form) {
+    try {
+      if (form.id) { await updateClass(form.id, form); showToast('Class updated'); }
+      else { await addClass(form); showToast('Class added'); }
+      await load();
+      setClassModal(null);
+    } catch (err) {
+      showToast(err.message || 'Could not save class');
+    }
+  }
+
+  async function saveTeacher(form) {
     const subjects = (form.subjectsText || '').split(',').map(s => s.trim()).filter(Boolean);
     const data = { ...form, subjects };
     delete data.subjectsText;
-    if (form.id) { updateTeacher(form.id, data); showToast('Teacher updated'); }
-    else { addTeacher(data); showToast('Teacher added'); }
-    setTeachers(getTeachers());
-    setTeacherModal(null);
+    try {
+      if (form.id) { await updateTeacher(form.id, data); showToast('Teacher updated'); }
+      else { await addTeacher(data); showToast('Teacher added'); }
+      await load();
+      setTeacherModal(null);
+    } catch (err) {
+      showToast(err.message || 'Could not save teacher');
+    }
   }
 
-  function doDelete() {
-    if (confirmDelete.type === 'class') {
-      deleteClass(confirmDelete.item.id);
-      setClasses(getClasses());
-      showToast(`${confirmDelete.item.name} deleted`);
-    } else {
-      deleteTeacher(confirmDelete.item.id);
-      setTeachers(getTeachers());
-      showToast(`${confirmDelete.item.name} removed`);
+  async function doDelete() {
+    try {
+      if (confirmDelete.type === 'class') {
+        await deleteClass(confirmDelete.item.id);
+        showToast(`${confirmDelete.item.name} deleted`);
+      } else {
+        await deleteTeacher(confirmDelete.item.id);
+        showToast(`${confirmDelete.item.name} removed`);
+      }
+      await load();
+      setConfirmDelete(null);
+    } catch (err) {
+      showToast(err.message || 'Could not delete');
     }
-    setConfirmDelete(null);
   }
 
   return (
@@ -65,6 +102,13 @@ export default function ClassesTeachers() {
         <button className={`btn ${tab === 'teachers' ? 'btn-primary' : ''}`} onClick={() => setTab('teachers')}>
           <Users size={14} /> Teachers ({teachers.length})
         </button>
+      </div>
+
+      <div className="metrics-grid mb-6">
+        <div className="metric-card"><div className="metric-icon dark"><BookOpen size={18}/></div><div className="metric-value">{classes.length}</div><div className="metric-label">Classes</div></div>
+        <div className="metric-card"><div className="metric-icon teal"><Users size={18}/></div><div className="metric-value">{teachers.length}</div><div className="metric-label">Teachers</div></div>
+        <div className="metric-card"><div className="metric-icon green"><Users size={18}/></div><div className="metric-value">{activeStudents}</div><div className="metric-label">Active students</div></div>
+        <div className="metric-card"><div className="metric-icon amber"><AlertCircle size={18}/></div><div className="metric-value">{unassigned}</div><div className="metric-label">Unassigned classes</div></div>
       </div>
 
       {/* Classes tab */}
@@ -98,7 +142,7 @@ export default function ClassesTeachers() {
                   {classes.map(c => (
                     <tr key={c.id}>
                       <td style={{ fontWeight: 500 }}>{c.name}</td>
-                      <td className="text-muted text-sm">{classTeacherName(c.teacherId)}</td>
+                      <td className="text-muted text-sm">{teacherName(c.teacherId)}</td>
                       <td className="text-muted text-sm">{studentCountForClass(c.name)} enrolled</td>
                       <td>
                         <div className="flex items-center gap-2">
