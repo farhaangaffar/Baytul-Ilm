@@ -74,9 +74,12 @@ export default function Dashboard() {
   return (
     <Layout title="Dashboard" subtitle={`Overview · ${year}`}>
       <div className="card hero">
-        <div className="hero-arabic">السلام عليكم</div>
-        <div className="hero-greeting">Assalamu Alaikum</div>
-        <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
+        <div style={{minWidth:0}}>
+          <div className="hero-arabic">السلام عليكم</div>
+          <div className="hero-greeting">Assalamu Alaikum</div>
+          <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
+        </div>
+        <img src="/logo.png" alt="" className="hero-logo" />
       </div>
 
       <div className="stat-grid-v2">
