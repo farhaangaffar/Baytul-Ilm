@@ -48,7 +48,11 @@ html { overscroll-behavior-y: none; }
 body { font-family: var(--font); background: var(--page); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
 
 /* ── Layout ── */
-.app-shell { display: flex; height: 100vh; overflow: hidden; }
+/* 100vh is frozen at the browser's address-bar-visible viewport size; on mobile the
+   address bar hides/reappears as you scroll, so a plain 100vh cuts off content once it
+   comes back. 100dvh tracks the real, current viewport and is layered on top as a
+   progressive enhancement — older browsers that don't understand it keep using 100vh. */
+.app-shell { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 
 /* ── Sidebar ── */
 .sidebar { width: 224px; background: var(--sidebar-bg); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
@@ -328,7 +332,7 @@ tbody tr:hover td { background: #f9fafb; }
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .app-shell { flex-direction: column; }
-  .main-content { height: 100vh; }
+  .main-content { height: 100vh; height: 100dvh; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 18px; flex-shrink: 0; }
   .mobile-topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
   .mobile-topbar-arabic { font-family: var(--font-arabic); font-size: 17px; color: #ffffff; }
@@ -340,7 +344,7 @@ tbody tr:hover td { background: #f9fafb; }
   .mobile-chip { display: flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: var(--r-btn); font-size: 13px; font-weight: 500; white-space: nowrap; border: none; background: #f3f4f6; color: var(--text-muted); cursor: pointer; font-family: var(--font); flex-shrink: 0; transition: all 0.15s; box-shadow: var(--shadow-sm); }
   .mobile-chip.active { background: var(--ink); color: #fff; }
   .topbar { display: none; }
-  .page-body { padding: 16px; }
+  .page-body { padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
   .metrics-grid { grid-template-columns: repeat(2,1fr); }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
