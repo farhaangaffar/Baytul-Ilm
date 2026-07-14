@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut } from 'lucide-react';
-import { getSettings, logout } from '../lib/store';
+import { logout } from '../lib/store';
+import { useSettings } from '../lib/SettingsContext';
 
 const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
@@ -14,15 +15,11 @@ const navItems = [
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
 ];
 
-const FALLBACK_SETTINGS = { schoolName: "Baytul 'Ilm Madrasah", schoolNameArabic: 'بيت العلم' };
-
 export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [settings, setSettings] = useState(FALLBACK_SETTINGS);
+  const settings = useSettings();
   const activeChipRef = useRef(null);
-
-  useEffect(() => { getSettings().then(setSettings).catch(() => {}); }, []);
 
   // Layout remounts fresh on every navigation (each page renders its own <Layout>), so
   // the chip row's scroll position resets to 0 by default — re-center the active chip
