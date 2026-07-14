@@ -75,7 +75,11 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 .page-body { padding: 24px 28px; flex: 1; }
 
 /* ── Cards — shadow only, no border ── */
-.card { background: var(--surface); border-radius: var(--r-card); padding: 22px 24px; box-shadow: var(--shadow-md); }
+/* min-width: 0 lets a grid/flex item shrink to its track's actual size instead of being
+   held to its content's default min-content width — without it, a card placed in a
+   narrower column than its content "wants" forces the whole grid to overflow sideways
+   rather than the card's own text/inputs wrapping or shrinking to fit. */
+.card { background: var(--surface); border-radius: var(--r-card); padding: 22px 24px; box-shadow: var(--shadow-md); min-width: 0; }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
@@ -88,7 +92,12 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 
 /* ── Metrics ── */
 .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 22px; }
-.metric-card { background: var(--surface); border-radius: var(--r-card); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+/* Between the sidebar-collapse breakpoint (768px) and ~900px, the desktop sidebar is
+   still showing but there isn't quite enough room left for 4 columns of bold currency
+   figures without clipping (e.g. "£630.00") — drop to 2 columns a bit earlier than the
+   general mobile breakpoint to give each stat card enough room. */
+@media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2,1fr); } }
+.metric-card { background: var(--surface); border-radius: var(--r-card); padding: 18px 20px; box-shadow: var(--shadow-sm); min-width: 0; }
 .metric-icon { width: 36px; height: 36px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
 .metric-icon.teal  { background: var(--teal-light); color: var(--teal-dark); }
 .metric-icon.green { background: var(--green-light); color: var(--green-text); }
@@ -155,15 +164,15 @@ tbody tr:hover td { background: #f9fafb; }
 .pill-divider { width: 1px; height: 22px; background: #e2e6ee; margin: 0 4px; }
 
 .stat-grid-v2 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 16px; }
-.stat-card-v2 { background: var(--surface); border-radius: var(--r-card); padding: 18px; box-shadow: var(--shadow-md); }
+.stat-card-v2 { background: var(--surface); border-radius: var(--r-card); padding: 18px; box-shadow: var(--shadow-md); min-width: 0; }
 .stat-card-v2 .n { font-family: var(--font-num); font-size: 30px; font-weight: 600; line-height: 1; color: var(--text); }
 .stat-card-v2 .l { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
 .stat-card-v2 .view-all { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; margin-top: 12px; }
-@media (max-width: 768px) { .stat-grid-v2 { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 900px) { .stat-grid-v2 { grid-template-columns: repeat(2,1fr); } }
 
 .entity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 720px) { .entity-grid { grid-template-columns: 1fr; } }
-.entity-card { background: var(--surface); border-radius: var(--r-card); padding: 20px 22px; box-shadow: var(--shadow-md); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+.entity-card { background: var(--surface); border-radius: var(--r-card); padding: 20px 22px; box-shadow: var(--shadow-md); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; min-width: 0; flex-wrap: wrap; row-gap: 10px; }
 .entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .entity-card-name { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; }
 .entity-card-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 2px; }
@@ -173,7 +182,7 @@ tbody tr:hover td { background: #f9fafb; }
 .drag-handle:active { cursor: grabbing; }
 
 .mini-stat-row { display: flex; gap: 8px; margin: 14px 0; }
-.mini-stat-box { flex: 1; border-radius: var(--r-md); padding: 8px 10px; text-align: center; }
+.mini-stat-box { flex: 1; min-width: 0; border-radius: var(--r-md); padding: 8px 10px; text-align: center; }
 .mini-stat-box .n { font-family: var(--font-num); font-size: 17px; font-weight: 600; color: #4b5563; }
 .mini-stat-box .l { font-size: 10.5px; margin-top: 2px; color: #4b5563; }
 
