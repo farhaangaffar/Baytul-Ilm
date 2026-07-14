@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut } from 'lucide-react';
 import { getSettings, logout } from '../lib/store';
@@ -20,8 +20,16 @@ export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [settings, setSettings] = useState(FALLBACK_SETTINGS);
+  const activeChipRef = useRef(null);
 
   useEffect(() => { getSettings().then(setSettings).catch(() => {}); }, []);
+
+  // Layout remounts fresh on every navigation (each page renders its own <Layout>), so
+  // the chip row's scroll position resets to 0 by default — re-center the active chip
+  // every time instead of leaving the user to scroll back to find their place.
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [pathname]);
 
   async function handleLogout() {
     await logout().catch(() => {});
@@ -67,7 +75,7 @@ export default function Layout({ children, title, subtitle }) {
               const Icon = item.icon;
               const active = pathname === item.path;
               return (
-                <button key={item.path} className={`mobile-chip ${active?'active':''}`} onClick={() => navigate(item.path)}>
+                <button key={item.path} ref={active ? activeChipRef : null} className={`mobile-chip ${active?'active':''}`} onClick={() => navigate(item.path)}>
                   <Icon size={14}/>{item.label}
                 </button>
               );

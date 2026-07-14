@@ -2,12 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
-  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, reorderStudents,
+  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
-import ReorderableGrid from '../components/ReorderableGrid';
-import { X, Pencil, Check, Calendar, ArrowLeft, Trash2, GripVertical } from 'lucide-react';
+import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -41,26 +40,20 @@ export default function Fees() {
   const [toggling, setToggling] = useState(false);
   const [toast, setToast] = useState('');
 
-  const fetchData = useCallback(async () => {
-    const y = await currentSchoolYear();
-    const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
-      getStudents(), getClassNames(), getAcademicYears(), getFees(y),
-    ]);
-    setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
-    setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { await fetchData(); } catch (err) { setError(err); }
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), getFees(y),
+      ]);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
     setLoading(false);
-  }, [fetchData]);
-
-  // Re-fetches without the loading skeleton — used after a reorder, where flashing the
-  // whole page blank on every drop would look like the page keeps reloading.
-  const silentRefresh = useCallback(async () => {
-    try { await fetchData(); } catch (err) { showToast(err.message || 'Could not refresh'); }
-  }, [fetchData]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -293,27 +286,18 @@ export default function Fees() {
         <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
       </div>
 
-      <ReorderableGrid
-        items={classStudents}
-        getId={s=>s.id}
-        className="entity-grid"
-        onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
-        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
+      <div className="entity-grid">
+        {classStudents.map(s=>{
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
           const monthOwed = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
           return (
-            <div className={`entity-card ${isDragging?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs}>
-              <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
-                <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
-                <div style={{minWidth:0}}>
-                  <div className="entity-card-name">{s.forename} {s.surname}</div>
-                  <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
-                  <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
-                </div>
-              </div>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}} onClick={e=>e.stopPropagation()}>
-                <div className="week-pill-row">
+            <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
+              <div className="entity-card-name">{s.forename} {s.surname}</div>
+              <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
+              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6,marginBottom:14}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}} onClick={e=>e.stopPropagation()}>
+                <div className="week-pill-row" style={{justifyContent:'center'}}>
                   {schoolMonthWeeks.map(w=>{
                     const f = monthFees.find(fee=>fee.weekStarting===w);
                     const dayNum = new Date(w+'T12:00:00').getDate();
@@ -340,8 +324,8 @@ export default function Fees() {
               </div>
             </div>
           );
-        }}
-      />
+        })}
+      </div>
       {classStudents.length===0&&(
         <div className="card" style={{textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
       )}

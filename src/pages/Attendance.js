@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, reorderStudents, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
-import ReorderableGrid from '../components/ReorderableGrid';
-import { ArrowLeft, GripVertical } from 'lucide-react';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
+import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
@@ -22,26 +21,20 @@ export default function Attendance() {
   const [toast, setToast] = useState('');
   const TODAY = isoToday();
 
-  const fetchData = useCallback(async () => {
-    const y = await currentSchoolYear();
-    const [studentsData, classNamesData, yearsData, attendanceData] = await Promise.all([
-      getStudents(), getClassNames(), getAcademicYears(), getAttendance(y),
-    ]);
-    setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setAttData(attendanceData);
-    setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { await fetchData(); } catch (err) { setError(err); }
+    try {
+      const y = await currentSchoolYear();
+      const [studentsData, classNamesData, yearsData, attendanceData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), getAttendance(y),
+      ]);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setAttData(attendanceData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+    } catch (err) {
+      setError(err);
+    }
     setLoading(false);
-  }, [fetchData]);
-
-  // Re-fetches without the loading skeleton — used after a reorder, where flashing the
-  // whole page blank on every drop would look like the page keeps reloading.
-  const silentRefresh = useCallback(async () => {
-    try { await fetchData(); } catch (err) { showToast(err.message || 'Could not refresh'); }
-  }, [fetchData]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -181,33 +174,24 @@ export default function Attendance() {
         ))}
       </div>
 
-      <ReorderableGrid
-        items={classStudents}
-        getId={s=>s.id}
-        className="entity-grid"
-        onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
-        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
+      <div className="entity-grid">
+        {classStudents.map(s=>{
           const todayStatus = attData[s.id]?.[TODAY];
           const wc = weekCountsFor(s.id, thisWeekDates);
           return (
-            <div className={`entity-card ${isDragging?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs}>
-              <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
-                <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
-                <div style={{minWidth:0}}>
-                  <div className="entity-card-name">{s.forename} {s.surname}</div>
-                  <div className="entity-card-sub">{s.class}</div>
-                  <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
-                </div>
-              </div>
-              <div className="mark-btn-row" onClick={e=>e.stopPropagation()}>
+            <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
+              <div className="entity-card-name">{s.forename} {s.surname}</div>
+              <div className="entity-card-sub">{s.class}</div>
+              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6,marginBottom:14}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
+              <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
                 <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
                 <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} onClick={()=>mark(s.id,TODAY,'L')}>L</button>
                 <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} onClick={()=>mark(s.id,TODAY,'A')}>A</button>
               </div>
             </div>
           );
-        }}
-      />
+        })}
+      </div>
       {classStudents.length===0&&(
         <div className="card" style={{textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
       )}
