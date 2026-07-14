@@ -37,7 +37,6 @@ export default function Layout({ children, title, subtitle }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <img src="/logo.png" alt="" className="sidebar-logo-img" />
           <div className="sidebar-logo-arabic">{settings.schoolNameArabic}</div>
           <div className="sidebar-logo-en">{settings.schoolName}</div>
         </div>
@@ -62,7 +61,6 @@ export default function Layout({ children, title, subtitle }) {
       <div className="main-content">
         <div className="mobile-topbar">
           <div className="mobile-topbar-brand">
-            <img src="/logo.png" alt="" className="mobile-topbar-logo-img" />
             <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
           </div>
           <span className="mobile-topbar-title">{title}</span>
