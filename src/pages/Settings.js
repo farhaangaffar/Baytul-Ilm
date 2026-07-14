@@ -182,7 +182,7 @@ export default function Settings() {
 
           {/* Add new year */}
           <div className="form-section-title" style={{marginBottom:12}}><Plus size={13}/>Add academic year</div>
-          <div className="flex items-center gap-2" style={{marginBottom:6}}>
+          <div className="flex items-center gap-2" style={{marginBottom:6,flexWrap:'wrap'}}>
             <input
               value={newYear}
               onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
