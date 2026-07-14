@@ -57,6 +57,7 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 /* ── Sidebar ── */
 .sidebar { width: 224px; background: var(--sidebar-bg); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
 .sidebar-logo { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.sidebar-logo-img { width: 56px; height: 56px; display: block; margin-bottom: 12px; object-fit: contain; }
 .sidebar-logo-arabic { font-family: var(--font-arabic); font-size: 20px; color: #ffffff; line-height: 1.2; margin-bottom: 4px; }
 .sidebar-logo-en { font-size: 10px; font-weight: 600; color: #ffffff; letter-spacing: 0.08em; text-transform: uppercase; }
 .sidebar-nav { padding: 12px 0; flex: 1; }
@@ -349,6 +350,8 @@ tbody tr:hover td { background: #f9fafb; }
   .main-content { height: 100vh; height: 100dvh; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 18px; flex-shrink: 0; }
   .mobile-topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
+  .mobile-topbar-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .mobile-topbar-logo-img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
   .mobile-topbar-arabic { font-family: var(--font-arabic); font-size: 17px; color: #ffffff; }
   .mobile-topbar-logout { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #ffffff; opacity: 0.8; cursor: pointer; flex-shrink: 0; }
   .mobile-topbar-logout:active { background: rgba(255,255,255,0.12); }
