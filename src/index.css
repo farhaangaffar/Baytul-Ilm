@@ -1,5 +1,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+@font-face {
+  font-family: 'Kidzhood Arabic';
+  src: url('./fonts/kidzhood-arabic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ink:          #111827;
   --ink-light:    #1f2937;
@@ -37,6 +45,7 @@
   --r-sm:         6px;
   --font:         'Comfortaa', system-ui, sans-serif;
   --font-arabic:  'Amiri', serif;
+  --font-arabic-brand: 'Kidzhood Arabic', 'Amiri', serif;
   --font-num:     'Inter', system-ui, sans-serif;
 }
 
@@ -57,7 +66,7 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 /* ── Sidebar ── */
 .sidebar { width: 224px; background: var(--sidebar-bg); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
 .sidebar-logo { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: center; }
-.sidebar-logo-arabic { font-family: var(--font-arabic); font-size: 22px; color: #ffffff; line-height: 1.2; margin-bottom: 4px; }
+.sidebar-logo-arabic { font-family: var(--font-arabic-brand); font-size: 22px; color: #ffffff; line-height: 1.2; margin-bottom: 4px; }
 .sidebar-logo-en { font-size: 10px; font-weight: 600; color: #ffffff; letter-spacing: 0.08em; text-transform: uppercase; }
 .sidebar-nav { padding: 12px 0; flex: 1; }
 .sidebar-section-label { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.22); letter-spacing: 0.09em; text-transform: uppercase; padding: 16px 20px 5px; }
@@ -89,7 +98,7 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 .hero-arabic { font-family:var(--font-arabic); font-size:20px; color:var(--ink); margin-bottom:1px; }
 .hero-greeting { font-size:16px; font-weight:600; }
 .hero-sub { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
-.hero-logo-arabic { font-family:var(--font-arabic); color:var(--ink); font-size:clamp(30px, 8vw, 62px); line-height:1; min-width:0; }
+.hero-logo-arabic { font-family:var(--font-arabic-brand); color:var(--ink); font-size:clamp(30px, 8vw, 62px); line-height:1; min-width:0; }
 
 /* ── Metrics ── */
 .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 22px; }
@@ -351,7 +360,7 @@ tbody tr:hover td { background: #f9fafb; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 18px; flex-shrink: 0; }
   .mobile-topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
   .mobile-topbar-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .mobile-topbar-arabic { font-family: var(--font-arabic); font-size: 21px; color: #ffffff; }
+  .mobile-topbar-arabic { font-family: var(--font-arabic-brand); font-size: 21px; color: #ffffff; }
   .mobile-topbar-logout { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #ffffff; opacity: 0.8; cursor: pointer; flex-shrink: 0; }
   .mobile-topbar-logout:active { background: rgba(255,255,255,0.12); }
   .mobile-chips-wrap { display: block; background: var(--surface); box-shadow: var(--shadow-sm); flex-shrink: 0; }
