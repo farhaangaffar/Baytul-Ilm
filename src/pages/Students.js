@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
-import { useReorder } from '../lib/useReorder';
+import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical } from 'lucide-react';
 
 export default function Students() {
@@ -72,16 +72,11 @@ export default function Students() {
     setSaving(false);
   }
 
-  const classStudents = students.filter(s=>s.class===activeClass);
-  const { list: orderedStudents, isDragging, handleProps, cardAttrs } = useReorder(
-    classStudents, s => s.id,
-    async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
-  );
-
   if (loading) return <Layout title="Students"><LoadingState /></Layout>;
   if (error) return <Layout title="Students"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const filtered = orderedStudents.filter(s =>
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const filtered = classStudents.filter(s =>
     `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -123,14 +118,18 @@ export default function Students() {
         <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
       </div>
 
-      <div className="entity-grid">
-        {filtered.map(s=>{
+      <ReorderableGrid
+        items={filtered}
+        getId={s=>s.id}
+        className="entity-grid"
+        onReordered={async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
           const c = attendanceCountsFrom(attendance, s.id);
           return (
-            <div className={`entity-card ${isDragging(s.id)?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs(s.id)}>
+            <div className={`entity-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
               <div className="flex items-center justify-between">
                 <div className="entity-card-name">{s.forename} {s.surname}</div>
-                {!search && <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
+                {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
               </div>
               <div className="entity-card-sub">{s.class} · £{s.weeklyFee}/wk</div>
               <div className="mini-stat-row">
@@ -144,13 +143,13 @@ export default function Students() {
               </div>
             </div>
           );
-        })}
-        {filtered.length===0&&(
-          <div className="card" style={{gridColumn:'1 / -1',textAlign:'center',padding:28,color:'var(--text-muted)'}}>
-            {search?'No students match your search.':`No students in ${activeClass} yet.`}
-          </div>
-        )}
-      </div>
+        }}
+      />
+      {filtered.length===0&&(
+        <div className="card" style={{textAlign:'center',padding:28,color:'var(--text-muted)'}}>
+          {search?'No students match your search.':`No students in ${activeClass} yet.`}
+        </div>
+      )}
 
       {/* View modal */}
       {selected&&(

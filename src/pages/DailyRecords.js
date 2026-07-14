@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, reorderStudents, attendanceCountsFrom, getAttendance, currentSchoolYear } from '../lib/store';
-import { useReorder } from '../lib/useReorder';
+import ReorderableGrid from '../components/ReorderableGrid';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, GripVertical } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -69,10 +69,6 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
   const [toast, setToast] = useState('');
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
   const classStudents = students.filter(s=>s.class===activeClass);
-  const { list: orderedClassStudents, isDragging, handleProps, cardAttrs } = useReorder(
-    classStudents, s => s.id,
-    async ids => { try { await reorderStudents(ids); await onReordered(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
-  );
 
   return (
     <div>
@@ -81,22 +77,26 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
           <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
         ))}
       </div>
-      <div className="grid-2">
-        {orderedClassStudents.map(s=>{
+      <ReorderableGrid
+        items={classStudents}
+        getId={s=>s.id}
+        className="grid-2"
+        onReordered={async ids => { try { await reorderStudents(ids); await onReordered(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
           const counts=attendanceCountsFrom(attendance, s.id);
           const entryCount=Object.keys(allRecords[s.id]||{}).length;
           return (
-            <div key={s.id} className={`card ${isDragging(s.id)?'is-dragging':''}`} style={{cursor:'pointer',borderLeft:'3px solid var(--border-strong)',transition:'box-shadow 0.15s'}}
+            <div key={s.id} className={`card ${isDragging?'is-dragging':''}`} style={{cursor:'pointer',borderLeft:'3px solid var(--border-strong)',transition:'box-shadow 0.15s'}}
               onClick={()=>onSelect(s)}
               onMouseEnter={e=>e.currentTarget.style.boxShadow='var(--shadow-md)'}
               onMouseLeave={e=>e.currentTarget.style.boxShadow=''}
-              {...cardAttrs(s.id)}>
+              {...cardAttrs}>
               <div style={{marginBottom:12,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
                 <div>
                   <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
                   <div className="text-muted text-sm">{s.class}</div>
                 </div>
-                <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
+                <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
               </div>
               <div style={{display:'flex',gap:8,fontSize:12}}>
                 <div style={{flex:1,background:'var(--green-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
@@ -118,8 +118,8 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               </div>
             </div>
           );
-        })}
-      </div>
+        }}
+      />
       {toast&&<div className="toast">✓ {toast}</div>}
     </div>
   );
