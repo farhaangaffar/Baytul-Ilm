@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear } from '../lib/store';
+import { useSettings } from '../lib/SettingsContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const settings = useSettings();
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -79,7 +81,7 @@ export default function Dashboard() {
           <div className="hero-greeting">Assalamu Alaikum</div>
           <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
         </div>
-        <img src="/logo.png" alt="" className="hero-logo" />
+        <div className="hero-logo-arabic">{settings.schoolNameArabic}</div>
       </div>
 
       <div className="stat-grid-v2">
