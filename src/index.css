@@ -40,7 +40,12 @@
   --font-num:     'Inter', system-ui, sans-serif;
 }
 
-body { font-family: var(--font); background: var(--page); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+/* Stops mobile Chrome's native pull-to-refresh from firing mid-drag — that gesture is
+   governed by overscroll-behavior, a separate mechanism from the touch-action already
+   set on the drag handles, and reloading the page mid-drag reads as "the whole page
+   refreshes on every move". */
+html { overscroll-behavior-y: none; }
+body { font-family: var(--font); background: var(--page); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
 
 /* ── Layout ── */
 .app-shell { display: flex; height: 100vh; overflow: hidden; }
@@ -59,7 +64,7 @@ body { font-family: var(--font); background: var(--page); color: var(--text); fo
 .nav-link.active svg { opacity: 1; color: #ffffff; }
 
 /* ── Main ── */
-.main-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
+.main-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; overscroll-behavior-y: contain; }
 .topbar { background: var(--surface); box-shadow: var(--shadow-sm); padding: 0 28px; height: 58px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
 .topbar-title { font-size: 16px; font-weight: 600; color: var(--text); }
 .topbar-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
