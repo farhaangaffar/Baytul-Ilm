@@ -41,20 +41,26 @@ export default function Fees() {
   const [toggling, setToggling] = useState(false);
   const [toast, setToast] = useState('');
 
+  const fetchData = useCallback(async () => {
+    const y = await currentSchoolYear();
+    const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
+      getStudents(), getClassNames(), getAcademicYears(), getFees(y),
+    ]);
+    setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
+    setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try {
-      const y = await currentSchoolYear();
-      const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
-        getStudents(), getClassNames(), getAcademicYears(), getFees(y),
-      ]);
-      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
-      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
-    } catch (err) {
-      setError(err);
-    }
+    try { await fetchData(); } catch (err) { setError(err); }
     setLoading(false);
-  }, []);
+  }, [fetchData]);
+
+  // Re-fetches without the loading skeleton — used after a reorder, where flashing the
+  // whole page blank on every drop would look like the page keeps reloading.
+  const silentRefresh = useCallback(async () => {
+    try { await fetchData(); } catch (err) { showToast(err.message || 'Could not refresh'); }
+  }, [fetchData]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -291,7 +297,7 @@ export default function Fees() {
         items={classStudents}
         getId={s=>s.id}
         className="entity-grid"
-        onReordered={async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+        onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
         renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);

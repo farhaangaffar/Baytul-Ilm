@@ -25,20 +25,26 @@ export default function Students() {
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const fetchData = useCallback(async () => {
+    const y = await currentSchoolYear();
+    const [studentsData, classNamesData, feesData, attendanceData] = await Promise.all([
+      getStudents(), getClassNames(), getFees(y), getAttendance(y),
+    ]);
+    setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(feesData); setAttendance(attendanceData);
+    setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try {
-      const y = await currentSchoolYear();
-      const [studentsData, classNamesData, feesData, attendanceData] = await Promise.all([
-        getStudents(), getClassNames(), getFees(y), getAttendance(y),
-      ]);
-      setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(feesData); setAttendance(attendanceData);
-      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
-    } catch (err) {
-      setError(err);
-    }
+    try { await fetchData(); } catch (err) { setError(err); }
     setLoading(false);
-  }, []);
+  }, [fetchData]);
+
+  // Re-fetches without the loading skeleton — used after a reorder, where flashing the
+  // whole page blank on every drop would look like the page keeps reloading.
+  const silentRefresh = useCallback(async () => {
+    try { await fetchData(); } catch (err) { showToast(err.message || 'Could not refresh'); }
+  }, [fetchData]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -122,7 +128,7 @@ export default function Students() {
         items={filtered}
         getId={s=>s.id}
         className="entity-grid"
-        onReordered={async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+        onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
         renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
           const c = attendanceCountsFrom(attendance, s.id);
           return (
