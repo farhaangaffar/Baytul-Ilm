@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear } from '../lib/store';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, reorderStudents, attendanceCountsFrom, getAttendance, currentSchoolYear } from '../lib/store';
+import { useReorder } from '../lib/useReorder';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, GripVertical } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -64,7 +65,15 @@ function CommentBox({ initialValue, onSave, placeholder }) {
   );
 }
 
-function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords }) {
+function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, onReordered }) {
+  const [toast, setToast] = useState('');
+  function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const { list: orderedClassStudents, isDragging, handleProps, cardAttrs } = useReorder(
+    classStudents, s => s.id,
+    async ids => { try { await reorderStudents(ids); await onReordered(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
+  );
+
   return (
     <div>
       <div className="class-tabs">
@@ -73,17 +82,21 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
         ))}
       </div>
       <div className="grid-2">
-        {students.filter(s=>s.class===activeClass).map(s=>{
+        {orderedClassStudents.map(s=>{
           const counts=attendanceCountsFrom(attendance, s.id);
           const entryCount=Object.keys(allRecords[s.id]||{}).length;
           return (
-            <div key={s.id} className="card" style={{cursor:'pointer',borderLeft:'3px solid var(--border-strong)',transition:'box-shadow 0.15s'}}
+            <div key={s.id} className={`card ${isDragging(s.id)?'is-dragging':''}`} style={{cursor:'pointer',borderLeft:'3px solid var(--border-strong)',transition:'box-shadow 0.15s'}}
               onClick={()=>onSelect(s)}
               onMouseEnter={e=>e.currentTarget.style.boxShadow='var(--shadow-md)'}
-              onMouseLeave={e=>e.currentTarget.style.boxShadow=''}>
-              <div style={{marginBottom:12}}>
-                <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
-                <div className="text-muted text-sm">{s.class}</div>
+              onMouseLeave={e=>e.currentTarget.style.boxShadow=''}
+              {...cardAttrs(s.id)}>
+              <div style={{marginBottom:12,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
+                <div>
+                  <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
+                  <div className="text-muted text-sm">{s.class}</div>
+                </div>
+                <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
               </div>
               <div style={{display:'flex',gap:8,fontSize:12}}>
                 <div style={{flex:1,background:'var(--green-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
@@ -107,6 +120,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
           );
         })}
       </div>
+      {toast&&<div className="toast">✓ {toast}</div>}
     </div>
   );
 }
@@ -406,7 +420,7 @@ export default function DailyRecords() {
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} onBack={()=>setSelectedStudent(null)}/>
-        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords}/>
+        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords} onReordered={load}/>
       }
     </Layout>
   );

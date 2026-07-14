@@ -75,6 +75,9 @@ export async function getStudent(id) { const list = await getStudents(); return 
 export async function addStudent(student) { return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
 export async function updateStudent(id, data) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteStudent(id) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+// ids is the full new card order for whichever class was just reordered — every
+// other student's position is left alone (see api/students.js for how nulls sort).
+export async function reorderStudents(ids) { return apiFetch('/api/students?action=reorder', { method: 'POST', body: JSON.stringify({ ids }) }); }
 export function avatarInitials(name) { return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
 
 // ── Attendance (keyed by year) ──

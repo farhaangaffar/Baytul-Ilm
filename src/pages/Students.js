@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, avatarInitials, getClassNames, attendanceCountsFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
-import { Plus, Search, Pencil, Trash2, X, Save } from 'lucide-react';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
+import { useReorder } from '../lib/useReorder';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical } from 'lucide-react';
 
 export default function Students() {
   const [loading, setLoading] = useState(true);
@@ -71,11 +72,16 @@ export default function Students() {
     setSaving(false);
   }
 
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const { list: orderedStudents, isDragging, handleProps, cardAttrs } = useReorder(
+    classStudents, s => s.id,
+    async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
+  );
+
   if (loading) return <Layout title="Students"><LoadingState /></Layout>;
   if (error) return <Layout title="Students"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const classStudents = students.filter(s=>s.class===activeClass);
-  const filtered = classStudents.filter(s =>
+  const filtered = orderedStudents.filter(s =>
     `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -121,8 +127,11 @@ export default function Students() {
         {filtered.map(s=>{
           const c = attendanceCountsFrom(attendance, s.id);
           return (
-            <div className="entity-card" key={s.id} onClick={()=>setSelected(s)}>
-              <div className="entity-card-name">{s.forename} {s.surname}</div>
+            <div className={`entity-card ${isDragging(s.id)?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs(s.id)}>
+              <div className="flex items-center justify-between">
+                <div className="entity-card-name">{s.forename} {s.surname}</div>
+                {!search && <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
+              </div>
               <div className="entity-card-sub">{s.class} · £{s.weeklyFee}/wk</div>
               <div className="mini-stat-row">
                 <div className="mini-stat-box" style={{background:'var(--green-light)'}}><div className="n">{c.present}</div><div className="l">Present</div></div>

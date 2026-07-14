@@ -32,10 +32,25 @@ const FIELD_MAP = {
 // operations go through a query string instead of a path segment.
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
+  const action = req.query.action;
+
+  if (action === 'reorder') {
+    // Persists a manually-dragged card order. sort_order is nulled out for any
+    // student not included (e.g. after a merge), so they fall back to
+    // alphabetical and sort after everyone with an explicit position.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) { res.status(400).json({ error: 'ids[] is required' }); return; }
+    for (let i = 0; i < ids.length; i++) {
+      await query('UPDATE students SET sort_order = $1 WHERE id = $2', [i, ids[i]]);
+    }
+    res.status(200).json({ ok: true });
+    return;
+  }
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query('SELECT * FROM students ORDER BY forename, surname');
+      const { rows } = await query('SELECT * FROM students ORDER BY sort_order NULLS LAST, forename, surname');
       res.status(200).json(rows.map(toClient));
       return;
     }

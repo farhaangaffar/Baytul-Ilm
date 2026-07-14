@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
-import { ArrowLeft } from 'lucide-react';
+import { getStudents, getAttendance, setAttendance, reorderStudents, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
+import { useReorder } from '../lib/useReorder';
+import { ArrowLeft, GripVertical } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
@@ -66,15 +67,27 @@ export default function Attendance() {
     setWeekAnchor(d.toISOString().split('T')[0]);
   }
 
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const { list: orderedClassStudents, isDragging, handleProps, cardAttrs } = useReorder(
+    classStudents, s => s.id,
+    async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
+  );
+
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const classStudents = students.filter(s=>s.class===activeClass);
   const thisWeekDates = getWeekDates(TODAY);
 
   function weekCountsFor(studentId, dates) {
     const days = dates.map(d=>attData[studentId]?.[d]).filter(Boolean);
     return { P: days.filter(d=>d==='P').length, L: days.filter(d=>d==='L').length, A: days.filter(d=>d==='A').length };
+  }
+
+  // Present today (P or L both count as attended) out of active students, per class.
+  function todayCountFor(className) {
+    const inClass = students.filter(s=>s.class===className && s.status==='Active');
+    const present = inClass.filter(s=>{ const st=attData[s.id]?.[TODAY]; return st==='P'||st==='L'; }).length;
+    return { present, total: inClass.length };
   }
 
   const selected = students.find(s=>s.id===selectedId);
@@ -142,6 +155,21 @@ export default function Attendance() {
 
   return (
     <Layout title="Attendance" subtitle={`${activeClass} · ${year}`}>
+      <div className="count-row">
+        {classNames.map(c=>{
+          const tc = todayCountFor(c);
+          const pct = tc.total ? Math.round((tc.present/tc.total)*100) : 0;
+          return (
+            <div className="count-chip" key={c}>
+              <div className="count-ring" style={{background:`conic-gradient(var(--green) 0% ${pct}%, #f3f4f6 ${pct}% 100%)`}}>{pct}%</div>
+              <div>
+                <div className="figure">{tc.present}<span> / {tc.total} present</span></div>
+                <div className="label">{c} — today</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
       <div className="pill-tabs">
         {classNames.map(c=>(
           <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
@@ -153,15 +181,18 @@ export default function Attendance() {
       </div>
 
       <div className="entity-grid">
-        {classStudents.map(s=>{
+        {orderedClassStudents.map(s=>{
           const todayStatus = attData[s.id]?.[TODAY];
           const wc = weekCountsFor(s.id, thisWeekDates);
           return (
-            <div className="entity-card" key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)}>
-              <div>
-                <div className="entity-card-name">{s.forename} {s.surname}</div>
-                <div className="entity-card-sub">{s.class}</div>
-                <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
+            <div className={`entity-card ${isDragging(s.id)?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs(s.id)}>
+              <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
+                <div style={{minWidth:0}}>
+                  <div className="entity-card-name">{s.forename} {s.surname}</div>
+                  <div className="entity-card-sub">{s.class}</div>
+                  <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
+                </div>
               </div>
               <div className="mark-btn-row" onClick={e=>e.stopPropagation()}>
                 <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
