@@ -68,7 +68,7 @@ export default function Fees() {
       if (fee.status==='Paid') await markFeeUnpaid(fee.id,year);
       else await markFeePaid(fee.id,year);
       await refresh();
-      showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid ✓');
+      showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid');
     } catch (err) {
       showToast(err.message || 'Could not update this record');
     }
