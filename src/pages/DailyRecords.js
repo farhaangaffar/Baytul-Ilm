@@ -395,21 +395,30 @@ export default function DailyRecords() {
   const [activeClass, setActiveClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
 
+  const fetchData = useCallback(async () => {
+    const year = await currentSchoolYear();
+    const [studentsData, classNamesData, settingsData, attendanceData, recordsData] = await Promise.all([
+      getStudents(), getClassNames(), getSettings(), getAttendance(year), getDailyRecords(),
+    ]);
+    setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
+    setAttendance(attendanceData); setAllRecords(recordsData);
+    setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+  }, []);
+
+  // Re-fetches without the loading skeleton — used after a reorder, where flashing the
+  // whole page blank on every drop would look like the page keeps reloading. Errors
+  // propagate to StudentList's own try/catch, which already shows a toast.
+  const silentRefresh = fetchData;
+
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const year = await currentSchoolYear();
-      const [studentsData, classNamesData, settingsData, attendanceData, recordsData] = await Promise.all([
-        getStudents(), getClassNames(), getSettings(), getAttendance(year), getDailyRecords(),
-      ]);
-      setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
-      setAttendance(attendanceData); setAllRecords(recordsData);
-      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+      await fetchData();
     } catch (err) {
       setError(err);
     }
     setLoading(false);
-  }, []);
+  }, [fetchData]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -420,7 +429,7 @@ export default function DailyRecords() {
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} onBack={()=>setSelectedStudent(null)}/>
-        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords} onReordered={load}/>
+        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords} onReordered={silentRefresh}/>
       }
     </Layout>
   );
