@@ -10,6 +10,7 @@ import Reports         from './pages/Reports';
 import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import { checkSession } from './lib/store';
+import { SettingsProvider } from './lib/SettingsContext';
 
 export default function App() {
   const [authed, setAuthed] = useState(null); // null = still checking
@@ -27,17 +28,19 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/"           element={<Dashboard />} />
-        <Route path="/students"   element={<Students />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/fees"       element={<Fees />} />
-        <Route path="/records"    element={<DailyRecords />} />
-        <Route path="/classes"    element={<ClassesTeachers />} />
-        <Route path="/reports"    element={<Reports />} />
-        <Route path="/settings"   element={<SettingsPage />} />
-      </Routes>
-    </BrowserRouter>
+    <SettingsProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/"           element={<Dashboard />} />
+          <Route path="/students"   element={<Students />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/fees"       element={<Fees />} />
+          <Route path="/records"    element={<DailyRecords />} />
+          <Route path="/classes"    element={<ClassesTeachers />} />
+          <Route path="/reports"    element={<Reports />} />
+          <Route path="/settings"   element={<SettingsPage />} />
+        </Routes>
+      </BrowserRouter>
+    </SettingsProvider>
   );
 }
