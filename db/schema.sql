@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS students (
   weekly_fee     NUMERIC(10,2) NOT NULL DEFAULT 15,
   enroll_date    DATE,
   status         TEXT NOT NULL DEFAULT 'Active',
-  notes          TEXT NOT NULL DEFAULT ''
+  notes          TEXT NOT NULL DEFAULT '',
+  sort_order     INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS academic_years (

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
-  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
+  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, reorderStudents,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
-import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
+import { useReorder } from '../lib/useReorder';
+import { X, Pencil, Check, Calendar, ArrowLeft, Trash2, GripVertical } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -36,6 +37,8 @@ export default function Fees() {
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
+  const [confirmToggle, setConfirmToggle] = useState(null);
+  const [toggling, setToggling] = useState(false);
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
@@ -63,15 +66,19 @@ export default function Fees() {
     try { await refresh(y); } catch (err) { showToast(err.message || 'Could not load that year'); }
   }
 
-  async function togglePaid(fee) {
+  async function confirmTogglePaid() {
+    const fee = confirmToggle;
+    setToggling(true);
     try {
       if (fee.status==='Paid') await markFeeUnpaid(fee.id,year);
       else await markFeePaid(fee.id,year);
       await refresh();
       showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid');
+      setConfirmToggle(null);
     } catch (err) {
       showToast(err.message || 'Could not update this record');
     }
+    setToggling(false);
   }
 
   async function saveEdit(feeId) {
@@ -100,10 +107,15 @@ export default function Fees() {
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor(isoToday().slice(0,7)); }
 
+  const classStudents = students.filter(s=>s.class===activeClass);
+  const { list: orderedClassStudents, isDragging, handleProps, cardAttrs } = useReorder(
+    classStudents, s => s.id,
+    async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
+  );
+
   if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
   if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const classStudents = students.filter(s=>s.class===activeClass);
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
@@ -112,6 +124,31 @@ export default function Fees() {
   const thisWeekMonday = getMondayOf(isoToday());
 
   const selected = students.find(s=>s.id===selectedId);
+  const toggleStudent = confirmToggle && students.find(s=>s.id===confirmToggle.studentId);
+  const willBePaid = confirmToggle?.status!=='Paid';
+  const confirmToggleModal = confirmToggle&&(
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&!toggling&&setConfirmToggle(null)}>
+      <div className="modal" style={{maxWidth:360}}>
+        <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+          <div style={{width:48,height:48,borderRadius:'50%',background:willBePaid?'var(--green-light)':'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+            {willBePaid?<Check size={22} color="var(--green-text)"/>:<X size={22} color="var(--red-text)"/>}
+          </div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>
+            Mark week of {new Date(confirmToggle.weekStarting+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long'})} as {willBePaid?'paid':'unpaid'}?
+          </div>
+          <div style={{color:'var(--text-muted)',fontSize:12.5}}>
+            {toggleStudent?`${toggleStudent.forename} ${toggleStudent.surname}`:''} — £{Number(confirmToggle.amount).toFixed(2)} for this week.
+          </div>
+        </div>
+        <div className="modal-footer" style={{justifyContent:'center'}}>
+          <button className="btn" onClick={()=>setConfirmToggle(null)} disabled={toggling}>Cancel</button>
+          <button className={willBePaid?'btn btn-green':'btn btn-danger'} onClick={confirmTogglePaid} disabled={toggling}>
+            {willBePaid?<Check size={13}/>:<X size={13}/>}{toggling?'Saving…':(willBePaid?'Mark paid':'Mark unpaid')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (selected) {
     const monthWeeks = getWeekStartsForMonth(monthAnchor);
@@ -168,7 +205,7 @@ export default function Fees() {
                 </button>
                 <div className="day-cal-name">W/C</div>
                 <div className="day-cal-date">{dateLabel}</div>
-                <button className="day-cal-status" style={{background:dotBg}} onClick={()=>togglePaid(f)}>
+                <button className="day-cal-status" style={{background:dotBg}} onClick={()=>setConfirmToggle(f)}>
                   {f.status==='Paid'?'✓':'✗'}
                 </button>
                 {isEditing ? (
@@ -225,6 +262,7 @@ export default function Fees() {
             </div>
           </div>
         )}
+        {confirmToggleModal}
         {toast&&<div className="toast">✓ {toast}</div>}
       </Layout>
     );
@@ -255,33 +293,41 @@ export default function Fees() {
       </div>
 
       <div className="entity-grid">
-        {classStudents.map(s=>{
+        {orderedClassStudents.map(s=>{
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
           const monthOwed = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
           return (
-            <div className="entity-card" key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)}>
-              <div>
-                <div className="entity-card-name">{s.forename} {s.surname}</div>
-                <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
-                <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
+            <div className={`entity-card ${isDragging(s.id)?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs(s.id)}>
+              <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
+                <div style={{minWidth:0}}>
+                  <div className="entity-card-name">{s.forename} {s.surname}</div>
+                  <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
+                  <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
+                </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}} onClick={e=>e.stopPropagation()}>
-                <div style={{display:'flex',gap:5}}>
+                <div className="week-pill-row">
                   {schoolMonthWeeks.map(w=>{
                     const f = monthFees.find(fee=>fee.weekStarting===w);
                     const dayNum = new Date(w+'T12:00:00').getDate();
                     const dateLabel = new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
-                      return <button key={w} className={`mark-btn-sm ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>{dayNum}</button>;
+                      return (
+                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>
+                          <span className="d">{dayNum}</span><span className="m">—</span>
+                        </button>
+                      );
                     }
                     const paid = f.status==='Paid';
                     return (
-                      <button key={w} className={`mark-btn-sm ${isCurrent?'is-current':''}`}
-                        style={paid?{background:'var(--green)',borderColor:'var(--green)',color:'#fff'}:{background:'var(--red)',borderColor:'var(--red)',color:'#fff'}}
+                      <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
                         title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'} (click to toggle)`}
-                        onClick={()=>togglePaid(f)}>{dayNum}</button>
+                        onClick={()=>setConfirmToggle(f)}>
+                        <span className="d">{dayNum}</span><span className="m">{paid?'paid':'due'}</span>
+                      </button>
                     );
                   })}
                 </div>
@@ -339,6 +385,7 @@ export default function Fees() {
         </div>
       )}
 
+      {confirmToggleModal}
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );
