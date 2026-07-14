@@ -6,7 +6,7 @@ import {
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
 } from '../lib/store';
-import { useReorder } from '../lib/useReorder';
+import ReorderableGrid from '../components/ReorderableGrid';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2, GripVertical } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -107,15 +107,10 @@ export default function Fees() {
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor(isoToday().slice(0,7)); }
 
-  const classStudents = students.filter(s=>s.class===activeClass);
-  const { list: orderedClassStudents, isDragging, handleProps, cardAttrs } = useReorder(
-    classStudents, s => s.id,
-    async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
-  );
-
   if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
   if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
 
+  const classStudents = students.filter(s=>s.class===activeClass);
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
@@ -292,15 +287,19 @@ export default function Fees() {
         <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
       </div>
 
-      <div className="entity-grid">
-        {orderedClassStudents.map(s=>{
+      <ReorderableGrid
+        items={classStudents}
+        getId={s=>s.id}
+        className="entity-grid"
+        onReordered={async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
           const monthOwed = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
           return (
-            <div className={`entity-card ${isDragging(s.id)?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs(s.id)}>
+            <div className={`entity-card ${isDragging?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs}>
               <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
-                <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
+                <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
                 <div style={{minWidth:0}}>
                   <div className="entity-card-name">{s.forename} {s.surname}</div>
                   <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
@@ -335,11 +334,11 @@ export default function Fees() {
               </div>
             </div>
           );
-        })}
-        {classStudents.length===0&&(
-          <div className="card" style={{gridColumn:'1 / -1',textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
-        )}
-      </div>
+        }}
+      />
+      {classStudents.length===0&&(
+        <div className="card" style={{textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
+      )}
 
       {/* Add month modal */}
       {showAddMonth&&(

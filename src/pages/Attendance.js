@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getAttendance, setAttendance, reorderStudents, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
-import { useReorder } from '../lib/useReorder';
+import ReorderableGrid from '../components/ReorderableGrid';
 import { ArrowLeft, GripVertical } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -67,15 +67,10 @@ export default function Attendance() {
     setWeekAnchor(d.toISOString().split('T')[0]);
   }
 
-  const classStudents = students.filter(s=>s.class===activeClass);
-  const { list: orderedClassStudents, isDragging, handleProps, cardAttrs } = useReorder(
-    classStudents, s => s.id,
-    async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }
-  );
-
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
+  const classStudents = students.filter(s=>s.class===activeClass);
   const thisWeekDates = getWeekDates(TODAY);
 
   function weekCountsFor(studentId, dates) {
@@ -180,14 +175,18 @@ export default function Attendance() {
         ))}
       </div>
 
-      <div className="entity-grid">
-        {orderedClassStudents.map(s=>{
+      <ReorderableGrid
+        items={classStudents}
+        getId={s=>s.id}
+        className="entity-grid"
+        onReordered={async ids => { try { await reorderStudents(ids); await load(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
           const todayStatus = attData[s.id]?.[TODAY];
           const wc = weekCountsFor(s.id, thisWeekDates);
           return (
-            <div className={`entity-card ${isDragging(s.id)?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs(s.id)}>
+            <div className={`entity-card ${isDragging?'is-dragging':''}`} key={s.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}} onClick={()=>openStudent(s.id)} {...cardAttrs}>
               <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
-                <div className="drag-handle" {...handleProps(s.id)} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
+                <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>
                 <div style={{minWidth:0}}>
                   <div className="entity-card-name">{s.forename} {s.surname}</div>
                   <div className="entity-card-sub">{s.class}</div>
@@ -201,11 +200,11 @@ export default function Attendance() {
               </div>
             </div>
           );
-        })}
-        {classStudents.length===0&&(
-          <div className="card" style={{gridColumn:'1 / -1',textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
-        )}
-      </div>
+        }}
+      />
+      {classStudents.length===0&&(
+        <div className="card" style={{textAlign:'center',padding:28,color:'var(--text-muted)'}}>No students in {activeClass}.</div>
+      )}
       {toast && <div className="toast">✓ {toast}</div>}
     </Layout>
   );
