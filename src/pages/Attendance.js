@@ -49,11 +49,12 @@ export default function Attendance() {
     const cur = attData[studentId]?.[date]||null;
     const next = cur===status ? null : status;
     const s = students.find(s=>s.id===studentId);
+    setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: next } }));
+    showToast(`${s?.forename} ${s?.surname} — ${next?STATUS_LABELS[next]:'Cleared'}`);
     try {
       await setAttendance(studentId, date, next, year);
-      setAttData(await getAttendance(year));
-      showToast(`${s?.forename} ${s?.surname} — ${next?STATUS_LABELS[next]:'Cleared'}`);
     } catch (err) {
+      setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: cur } }));
       showToast(err.message || 'Could not save attendance');
     }
   }
@@ -125,8 +126,12 @@ export default function Attendance() {
                   onClick={async ()=>{
                     const cycle=['P','L','A',null];
                     const next=cycle[(cycle.indexOf(status||null)+1)%cycle.length];
-                    try { await setAttendance(selected.id,date,next,year); setAttData(await getAttendance(year)); }
-                    catch (err) { showToast(err.message || 'Could not save attendance'); }
+                    setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: next } }));
+                    try { await setAttendance(selected.id,date,next,year); }
+                    catch (err) {
+                      setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: status } }));
+                      showToast(err.message || 'Could not save attendance');
+                    }
                   }}>
                   {status||'·'}
                 </button>

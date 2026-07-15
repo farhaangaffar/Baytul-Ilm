@@ -67,14 +67,18 @@ export default function Fees() {
 
   async function confirmTogglePaid() {
     const fee = confirmToggle;
+    const wasPaid = fee.status === 'Paid';
+    const nextStatus = wasPaid ? 'Pending' : 'Paid';
+    const nextPaidDate = wasPaid ? null : isoToday();
     setToggling(true);
+    setFees(prev => prev.map(f => f.id===fee.id ? { ...f, status: nextStatus, paidDate: nextPaidDate } : f));
     try {
-      if (fee.status==='Paid') await markFeeUnpaid(fee.id,year);
+      if (wasPaid) await markFeeUnpaid(fee.id,year);
       else await markFeePaid(fee.id,year);
-      await refresh();
-      showToast(fee.status==='Paid'?'Marked as unpaid':'Marked as paid');
+      showToast(wasPaid?'Marked as unpaid':'Marked as paid');
       setConfirmToggle(null);
     } catch (err) {
+      setFees(prev => prev.map(f => f.id===fee.id ? { ...f, status: fee.status, paidDate: fee.paidDate } : f));
       showToast(err.message || 'Could not update this record');
     }
     setToggling(false);
