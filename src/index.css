@@ -186,6 +186,17 @@ tbody tr:hover td { background: #f9fafb; }
 .mini-stat-box .n { font-family: var(--font-num); font-size: 17px; font-weight: 600; color: #4b5563; }
 .mini-stat-box .l { font-size: 10.5px; margin-top: 2px; color: #4b5563; }
 
+/* Students page — one column per class, side by side, with compact cards
+   (no attendance mini-stats, which already live on the Daily Records cards). */
+.student-columns { display: grid; gap: 20px; align-items: start; }
+@media (max-width: 720px) { .student-columns { grid-template-columns: 1fr !important; } }
+.student-column-header { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; margin-bottom: 10px; padding: 0 2px; }
+.student-compact-list { display: flex; flex-direction: column; gap: 8px; }
+.student-compact-card { background: var(--surface); border-radius: var(--r-card); padding: 11px 14px; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.student-compact-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.student-compact-name { font-size: 13.5px; font-weight: 600; }
+.student-compact-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
 .mark-btn-row { display: flex; gap: 8px; flex-shrink: 0; }
 .mark-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 16px; color: var(--text-muted); cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
 .mark-btn:hover { transform: translateY(-2px); }

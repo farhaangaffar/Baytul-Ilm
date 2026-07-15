@@ -264,8 +264,11 @@ function StudentRecords({ student, settings, onBack }) {
   async function addToReport() {
     setSavingSummary(true);
     try {
-      await saveAiSummary(student.id, currentMonth(), { summary: aiSummary, instructions: aiInstructions });
-      await refreshSummaries();
+      await saveAiSummary(student.id, currentMonth(), { summary: aiSummary, instructions: aiInstructions, behavior });
+      // Cleared rather than reloaded from what was just saved — once pushed,
+      // this compose area is ready for the next report rather than sitting
+      // there showing what was already submitted.
+      setAiSummary(''); setAiInstructions(''); setBehavior('');
       showToast('Added to report');
     } catch (err) {
       showToast(err.message || 'Could not save summary');
