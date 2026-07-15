@@ -16,6 +16,9 @@ async function ensureTable() {
       UNIQUE (student_id, month)
     )
   `);
+  // Added after the table already existed in production — ALTER rather than
+  // relying on CREATE TABLE IF NOT EXISTS, which is a no-op once the table exists.
+  await query(`ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS behavior TEXT NOT NULL DEFAULT ''`);
 }
 
 module.exports = requireAuth(async (req, res) => {
@@ -24,7 +27,7 @@ module.exports = requireAuth(async (req, res) => {
     const { studentId, month } = req.query;
     if (studentId) {
       const { rows } = await query(
-        `SELECT student_id AS "studentId", month, summary, instructions, updated_at AS "updatedAt"
+        `SELECT student_id AS "studentId", month, summary, instructions, behavior, updated_at AS "updatedAt"
          FROM ai_summaries WHERE student_id = $1 ORDER BY month DESC`,
         [studentId]
       );
@@ -33,7 +36,7 @@ module.exports = requireAuth(async (req, res) => {
     }
     if (month) {
       const { rows } = await query(
-        `SELECT student_id AS "studentId", month, summary, instructions, updated_at AS "updatedAt"
+        `SELECT student_id AS "studentId", month, summary, instructions, behavior, updated_at AS "updatedAt"
          FROM ai_summaries WHERE month = $1`,
         [month]
       );
@@ -46,13 +49,16 @@ module.exports = requireAuth(async (req, res) => {
 
   if (req.method === 'PUT') {
     await ensureTable();
-    const { studentId, month, summary, instructions } = req.body || {};
+    const { studentId, month, summary, instructions, behavior } = req.body || {};
     if (!studentId || !month) { res.status(400).json({ error: 'studentId and month are required' }); return; }
+    // behavior is optional on this call (e.g. the AI-summary "Add to report" flow
+    // doesn't know it) — COALESCE keeps whatever was saved before when omitted,
+    // rather than clobbering it with ''.
     await query(
-      `INSERT INTO ai_summaries (student_id, month, summary, instructions, updated_at)
-       VALUES ($1,$2,$3,$4,now())
-       ON CONFLICT (student_id, month) DO UPDATE SET summary = EXCLUDED.summary, instructions = EXCLUDED.instructions, updated_at = now()`,
-      [studentId, month, summary || '', instructions || '']
+      `INSERT INTO ai_summaries (student_id, month, summary, instructions, behavior, updated_at)
+       VALUES ($1,$2,$3,$4,COALESCE($5,''),now())
+       ON CONFLICT (student_id, month) DO UPDATE SET summary = EXCLUDED.summary, instructions = EXCLUDED.instructions, behavior = COALESCE($5, ai_summaries.behavior), updated_at = now()`,
+      [studentId, month, summary || '', instructions || '', behavior === undefined ? null : behavior]
     );
     res.status(200).json({ ok: true });
     return;

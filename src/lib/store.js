@@ -202,8 +202,8 @@ export async function getStudentRecords(studentId) { return apiFetch(`/api/daily
 // Vercel's Hobby-plan 12-function limit. ──
 export async function getAiSummaries(studentId) { return apiFetch(`/api/ai-summary?studentId=${encodeURIComponent(studentId)}`); }
 export async function getAiSummariesForMonth(month) { return apiFetch(`/api/ai-summary?month=${encodeURIComponent(month)}`); }
-export async function saveAiSummary(studentId, month, { summary, instructions }) {
-  return apiFetch('/api/ai-summary', { method: 'PUT', body: JSON.stringify({ studentId, month, summary, instructions }) });
+export async function saveAiSummary(studentId, month, { summary, instructions, behavior }) {
+  return apiFetch('/api/ai-summary', { method: 'PUT', body: JSON.stringify({ studentId, month, summary, instructions, behavior }) });
 }
 
 // ── Backup & restore — now a full snapshot of the API rather than localStorage ──
