@@ -4,9 +4,9 @@
   "private": true,
   "proxy": "http://localhost:3001",
   "dependencies": {
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2",
+    "@pdf-lib/fontkit": "^1.1.1",
     "lucide-react": "^0.383.0",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.22.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -142,6 +142,8 @@ function StudentRecords({ student, settings, onBack }) {
   const [aiInstructions, setAiInstructions] = useState('');
   const [previousSummaries, setPreviousSummaries] = useState([]);
   const [savingSummary, setSavingSummary] = useState(false);
+  const [behavior, setBehavior] = useState('');
+  const [savingBehavior, setSavingBehavior] = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
   const [toast, setToast] = useState('');
 
@@ -158,6 +160,7 @@ function StudentRecords({ student, settings, onBack }) {
       const current = all.find(s => s.month === month);
       setAiSummary(current?.summary || '');
       setAiInstructions(current?.instructions || '');
+      setBehavior(current?.behavior || '');
       setPreviousSummaries(all.filter(s => s.month !== month));
     } catch { /* saved summaries are a bonus, not required to use the page */ }
   }, [student.id]);
@@ -235,6 +238,18 @@ function StudentRecords({ student, settings, onBack }) {
       setAiSummary(err.message || 'Could not generate a summary. Please try again.');
     }
     setAiLoading(false);
+  }
+
+  async function setBehaviorRating(val) {
+    const next = behavior === val ? '' : val; // click again to clear
+    setBehavior(next); setSavingBehavior(val);
+    try {
+      await saveAiSummary(student.id, currentMonth(), { summary: aiSummary, instructions: aiInstructions, behavior: next });
+    } catch (err) {
+      showToast(err.message || 'Could not save behaviour rating');
+      setBehavior(behavior); // revert on failure
+    }
+    setSavingBehavior('');
   }
 
   async function addToReport() {
@@ -370,6 +385,22 @@ function StudentRecords({ student, settings, onBack }) {
             <div className="card-title" style={{marginBottom:4}}>Monthly summary</div>
             <div className="card-sub" style={{marginBottom:14}}>
               AI report paragraph for {student.forename} — {new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}
+            </div>
+
+            <div className="form-group" style={{marginBottom:14}}>
+              <label>Class behaviour (for report)</label>
+              <div className="flex gap-2" style={{marginTop:4}}>
+                {['Excellent','Good','Fair','Poor'].map(opt=>{
+                  const active = behavior===opt;
+                  return (
+                    <button key={opt} type="button" className="btn btn-sm" onClick={()=>setBehaviorRating(opt)}
+                      disabled={!!savingBehavior}
+                      style={{flex:1,justifyContent:'center',background:active?'var(--ink)':undefined,color:active?'#fff':undefined,borderColor:active?'var(--ink)':undefined}}>
+                      {savingBehavior===opt?'…':opt}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="form-group" style={{marginBottom:12}}>

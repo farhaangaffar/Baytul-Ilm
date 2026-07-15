@@ -2,123 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, attendanceCountsFrom, attendancePctFrom, studentFeesFrom, getAttendance, getFees, getStudentRecords, avatarInitials, getSettings, currentSchoolYear, getAiSummariesForMonth, saveAiSummary } from '../lib/store';
+import { generateReportPdfBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { FileText, Download, Sparkles } from 'lucide-react';
 
 function fmtDate(iso) { try { return new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); } catch{ return iso; } }
 function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
-async function generateReportPDF(student, counts, fees, schoolName, aiSummary, year) {
-  const { jsPDF } = await import('jspdf');
-  await import('jspdf-autotable');
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210,margin=18,cW=W-margin*2;
-  let y=0;
-
-  // Header
-  doc.setFillColor(42,42,42); doc.rect(0,0,W,36,'F');
-  doc.setTextColor(249,210,224); doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text(schoolName.toUpperCase(),W/2,13,{align:'center'});
-  doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text('Student Progress Report',W/2,21,{align:'center'});
-  doc.text('Academic Year '+year,W/2,28,{align:'center'});
-  y=46;
-
-  // Student info
-  doc.setFillColor(253,242,244); doc.setDrawColor(240,200,212);
-  doc.roundedRect(margin,y,cW,28,3,3,'FD');
-  doc.setTextColor(42,42,42); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text(`${student.forename} ${student.surname}`,margin+8,y+10);
-  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(107,76,88);
-  doc.text(`Class: ${student.class}`,margin+8,y+17);
-  doc.text(`Date of birth: ${student.dob}`,margin+8,y+23);
-  doc.text(`Enrolled: ${student.enrollDate}`,margin+80,y+17);
-  doc.text(`Weekly fee: £${student.weeklyFee}/wk`,margin+80,y+23);
-  y+=36;
-
-  const section=(title)=>{
-    doc.setFillColor(42,42,42); doc.rect(margin,y,cW,7,'F');
-    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-    doc.text(title.toUpperCase(),margin+4,y+5);
-    y+=11;
-  };
-
-  // Attendance
-  section('Attendance Summary');
-  const att = counts.total ? Math.round(((counts.present+counts.late)/counts.total)*100) : 0;
-  const attStatus=att>=90?'Excellent':att>=75?'Satisfactory':'Needs improvement';
-  doc.autoTable({
-    startY:y,
-    head:[['Present','Late','Absent','Total days','Attendance %','Status']],
-    body:[[counts.present,counts.late,counts.absent,counts.total,`${att}%`,attStatus]],
-    margin:{left:margin,right:margin},
-    headStyles:{fillColor:[253,242,244],textColor:[42,42,42],fontStyle:'bold',fontSize:9},
-    bodyStyles:{fontSize:9,textColor:[26,26,26]},
-  });
-  y=doc.lastAutoTable.finalY+10;
-
-  // Fees — outstanding only
-  section('Fee Status');
-  const outstanding=fees.filter(f=>f.status!=='Paid');
-  if (outstanding.length===0) {
-    doc.setTextColor(39,103,73); doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text('✓  Fees are up to date — no outstanding payments.',margin+4,y+5);
-    y+=14;
-  } else {
-    doc.autoTable({
-      startY:y,
-      head:[['Week starting','Amount','Status']],
-      body:outstanding.map(f=>[f.weekStarting,`£${Number(f.amount).toFixed(2)}`,f.status]),
-      margin:{left:margin,right:margin},
-      headStyles:{fillColor:[253,242,244],textColor:[42,42,42],fontStyle:'bold',fontSize:9},
-      bodyStyles:{fontSize:9,textColor:[26,26,26]},
-      didParseCell:data=>{ if(data.column.index===2&&data.section==='body'){ data.cell.styles.textColor=[197,48,48]; data.cell.styles.fontStyle='bold'; } }
-    });
-    y=doc.lastAutoTable.finalY+10;
-  }
-
-  // Parent contacts
-  section('Parent / Guardian Contacts');
-  const contactRows=[[student.parent1Name||'—',student.parent1Phone||'—','Parent 1']];
-  if (student.parent2Name||student.parent2Phone) contactRows.push([student.parent2Name||'—',student.parent2Phone||'—','Parent 2']);
-  doc.autoTable({
-    startY:y,
-    head:[['Name','Phone','Relation']],
-    body:contactRows,
-    margin:{left:margin,right:margin},
-    headStyles:{fillColor:[253,242,244],textColor:[42,42,42],fontStyle:'bold',fontSize:9},
-    bodyStyles:{fontSize:9,textColor:[26,26,26]},
-  });
-  y=doc.lastAutoTable.finalY+10;
-
-  // AI summary if available
-  if (aiSummary) {
-    section("Teacher's Notes & Monthly Summary");
-    doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont('helvetica','italic');
-    const lines=doc.splitTextToSize(aiSummary,cW-8);
-    doc.text(lines,margin+4,y);
-    y+=lines.length*4.5+8;
-  } else if (student.notes) {
-    section("Notes");
-    doc.setTextColor(26,26,26); doc.setFontSize(9); doc.setFont('helvetica','italic');
-    const lines=doc.splitTextToSize(student.notes,cW-8);
-    doc.text(lines,margin+4,y);
-    y+=lines.length*4.5+8;
-  }
-
-  // Signatures
-  const sigY=Math.max(y+10,245);
-  doc.setDrawColor(42,42,42);
-  doc.line(margin,sigY,margin+55,sigY); doc.line(margin+90,sigY,margin+145,sigY);
-  doc.setFontSize(8); doc.setTextColor(107,76,88);
-  doc.text('Class Teacher',margin,sigY+5);
-  doc.text('Head of Madrasah',margin+90,sigY+5);
-
-  // Footer
-  doc.setFillColor(42,42,42); doc.rect(0,285,W,12,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(7.5);
-  doc.text(`${schoolName}  ·  Confidential  ·  ${new Date().toLocaleDateString('en-GB')}`,W/2,292,{align:'center'});
-
-  doc.save(`Report_${student.forename}_${student.surname}.pdf`);
+async function generateReportPDF(student, counts, studentFees, aiSummary, behavior) {
+  const bytes = await generateReportPdfBytes({ student, counts, studentFees, aiSummary, behavior, reportDate: new Date() });
+  downloadPdfBytes(bytes, `Report_${student.forename}_${student.surname}.pdf`);
 }
 
 export default function Reports() {
@@ -133,6 +25,7 @@ export default function Reports() {
   const [generating,setGenerating]=useState('');
   const [aiSummaries,setAiSummaries]=useState({});
   const [savedInstructions,setSavedInstructions]=useState({});
+  const [behaviors,setBehaviors]=useState({});
   const [aiLoading,setAiLoading]=useState('');
   const [toast,setToast]=useState('');
 
@@ -146,9 +39,9 @@ export default function Reports() {
       setStudents(studentsData); setSettings(settingsData); setYear(y); setAttendance(attendanceData); setFees(feesData);
       // Pre-load any summaries already saved from the Daily Records page (or a
       // previous visit here) so they don't disappear on navigating back.
-      const summaryMap = {}; const instrMap = {};
-      savedSummaries.forEach(s => { summaryMap[s.studentId] = s.summary; instrMap[s.studentId] = s.instructions; });
-      setAiSummaries(summaryMap); setSavedInstructions(instrMap);
+      const summaryMap = {}; const instrMap = {}; const behaviorMap = {};
+      savedSummaries.forEach(s => { summaryMap[s.studentId] = s.summary; instrMap[s.studentId] = s.instructions; behaviorMap[s.studentId] = s.behavior; });
+      setAiSummaries(summaryMap); setSavedInstructions(instrMap); setBehaviors(behaviorMap);
     } catch (err) {
       setError(err);
     }
@@ -195,7 +88,7 @@ export default function Reports() {
       const counts=attendanceCountsFrom(attendance, student.id);
       const studentFees=studentFeesFrom(fees, student.id);
       const ai=aiSummaries[student.id]||'';
-      await generateReportPDF(student,counts,studentFees,settings.schoolName,ai,year);
+      await generateReportPDF(student,counts,studentFees,ai,behaviors[student.id]||'');
       showToast(`Report downloaded for ${student.forename} ${student.surname}`);
     } catch(e) { showToast('Error generating PDF — try again.'); }
     setGenerating('');
@@ -217,7 +110,7 @@ export default function Reports() {
               setGenerating('all');
               for(const s of students){
                 const counts=attendanceCountsFrom(attendance, s.id), studentFees=studentFeesFrom(fees, s.id), ai=aiSummaries[s.id]||'';
-                await generateReportPDF(s,counts,studentFees,settings.schoolName,ai,year);
+                await generateReportPDF(s,counts,studentFees,ai,behaviors[s.id]||'');
               }
               setGenerating(''); showToast(`${students.length} reports downloaded`);
             }}>{generating==='all'?'Generating…':<><Download size={13}/>All reports</>}</button>

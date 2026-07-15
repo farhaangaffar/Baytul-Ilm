@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
   month        TEXT NOT NULL,
   summary      TEXT NOT NULL DEFAULT '',
   instructions TEXT NOT NULL DEFAULT '',
+  behavior     TEXT NOT NULL DEFAULT '',
   updated_at   TIMESTAMP NOT NULL DEFAULT now(),
   UNIQUE (student_id, month)
 );
