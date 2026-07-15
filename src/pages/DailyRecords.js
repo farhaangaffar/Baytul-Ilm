@@ -402,13 +402,13 @@ function StudentRecords({ student, settings, onBack }) {
 
             <div className="form-group" style={{marginBottom:14}}>
               <label>Class behaviour (for report)</label>
-              <div className="flex gap-2" style={{marginTop:4}}>
+              <div className="flex gap-2" style={{marginTop:4,flexWrap:'wrap'}}>
                 {['Excellent','Good','Fair','Poor'].map(opt=>{
                   const active = behavior===opt;
                   return (
                     <button key={opt} type="button" className="btn btn-sm" onClick={()=>setBehaviorRating(opt)}
                       disabled={!!savingBehavior}
-                      style={{flex:1,justifyContent:'center',background:active?'var(--ink)':undefined,color:active?'#fff':undefined,borderColor:active?'var(--ink)':undefined}}>
+                      style={{flex:'1 1 80px',minWidth:0,justifyContent:'center',background:active?'var(--ink)':undefined,color:active?'#fff':undefined,borderColor:active?'var(--ink)':undefined}}>
                       {savingBehavior===opt?'…':opt}
                     </button>
                   );
