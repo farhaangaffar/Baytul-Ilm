@@ -8,6 +8,12 @@ import fontkit from '@pdf-lib/fontkit';
 
 const PAGE_W = 595.5;
 const PAGE_H = 842.25;
+// The template's MediaBox is [0, 7.8299813, 595.5, 850.07996] — its origin
+// is NOT (0,0), a Canva export quirk. Every drawn coordinate is in absolute
+// PDF user space, so this offset must be added back in, or everything ends
+// up rendered ~7.8pt too low (PAGE_H alone only captures the page's size).
+const MEDIABOX_Y0 = 7.8299813;
+const MEDIABOX_TOP = MEDIABOX_Y0 + PAGE_H;
 
 const COLORS = {
   ink: rgb(0.1, 0.1, 0.1),
@@ -22,8 +28,11 @@ const COLORS = {
 };
 
 // Convert a top-down (pdftotext-style, origin top-left) y coordinate to
-// pdf-lib's bottom-up page space.
-function pdfY(yTopDown) { return PAGE_H - yTopDown; }
+// pdf-lib's bottom-up, ABSOLUTE user-space page coordinate. `pageTop` is the
+// absolute y of that specific page's visible top edge — MEDIABOX_TOP for the
+// template page, PAGE_H for a freshly-created continuation page (whose
+// MediaBox origin is a normal (0,0), unlike the template's).
+function pdfY(yTopDown, pageTop = MEDIABOX_TOP) { return pageTop - yTopDown; }
 
 async function fetchBytes(url) {
   const res = await fetch(url);
@@ -31,9 +40,9 @@ async function fetchBytes(url) {
   return res.arrayBuffer();
 }
 
-function centerText(page, text, font, size, cx, yTop, color) {
+function centerText(page, text, font, size, cx, yTop, color, pageTop = MEDIABOX_TOP) {
   const w = font.widthOfTextAtSize(text, size);
-  page.drawText(text, { x: cx - w / 2, y: pdfY(yTop), size, font, color });
+  page.drawText(text, { x: cx - w / 2, y: pdfY(yTop, pageTop), size, font, color });
 }
 
 // Local-space donut wedge as an SVG path. drawSvgPath flips Y around the
@@ -84,29 +93,15 @@ function drawDonut(page, cxTop, cyTop, rOuter, rInner, segments) {
   }
 }
 
-// bounds = the safe box (top-down) callouts must stay inside — a dominant
-// segment's midpoint angle can point anywhere, including straight up/down
-// where the ring already nearly touches the box edge, so the anchor point
-// is clamped into the box rather than left to drift outside it.
-function drawDonutCallouts(page, cxTop, cyTop, rOuter, segments, font, size, bounds) {
-  const total = segments.reduce((s, seg) => s + seg.value, 0);
-  if (total <= 0) return;
-  const startTop = Math.PI / 2;
-  let frac = 0;
-  const pad = 32;
+// Actual counts next to each pre-printed legend item (dot + label), instead
+// of percentage callouts floating around the ring. `items` maps a segment
+// label to the legend text's own bbox (top-down), measured off the template,
+// so the number lands right after it regardless of donut proportions.
+function drawLegendCounts(page, segments, items, font, size) {
   for (const seg of segments) {
-    if (seg.value <= 0) { continue; }
-    const f0 = frac, f1 = frac + seg.value / total;
-    const mid = startTop - ((f0 + f1) / 2) * 2 * Math.PI;
-    frac = f1;
-    const pct = Math.round((seg.value / total) * 100);
-    const calloutR = rOuter + 13;
-    let anchorX = cxTop + calloutR * Math.cos(mid);
-    let anchorYTop = cyTop - calloutR * Math.sin(mid); // top-down: subtract, mirrors wedgePath's flip
-    anchorX = Math.min(Math.max(anchorX, bounds.x0 + pad), bounds.x1 - pad);
-    anchorYTop = Math.min(Math.max(anchorYTop, bounds.y0 + 8), bounds.y1 - 8);
-    centerText(page, seg.label, font, size, anchorX, anchorYTop - size * 0.9, COLORS.ink);
-    centerText(page, `${pct}%`, font, size, anchorX, anchorYTop + size * 0.9, COLORS.ink);
+    const box = items[seg.label];
+    if (!box) continue;
+    page.drawText(String(seg.value), { x: box.x1 + 4, y: pdfY(box.y1 - 2.5), size, font, color: COLORS.ink });
   }
 }
 
@@ -149,31 +144,34 @@ function wrapText(text, font, size, maxWidth) {
 // The template is a flat single-page design, so a continuation page can't
 // reuse its artwork — this builds a plain page styled to match (same bands,
 // fonts, colors) for whatever summary text didn't fit on page one.
+// A freshly created page has a normal (0,0)-origin MediaBox — unlike the
+// template page, its "top" for pdfY() purposes is plain PAGE_H, not
+// MEDIABOX_TOP — so every conversion below passes PAGE_H explicitly.
 function newContinuationPage(doc, fonts, studentLabel, reportDate) {
   const page = doc.addPage([PAGE_W, PAGE_H]);
   const bandTop = 40, bandH = 30;
-  page.drawRectangle({ x: 41, y: pdfY(bandTop + bandH), width: 517, height: bandH, color: COLORS.summaryBand });
-  centerText(page, `Report Summary (continued) — ${studentLabel}`, fonts.semibold, 11, PAGE_W / 2, bandTop + bandH - 10, COLORS.ink);
+  page.drawRectangle({ x: 41, y: pdfY(bandTop + bandH, PAGE_H), width: 517, height: bandH, color: COLORS.summaryBand });
+  centerText(page, `Report Summary (continued) — ${studentLabel}`, fonts.semibold, 11, PAGE_W / 2, bandTop + bandH - 10, COLORS.ink, PAGE_H);
 
   const footBandTop = PAGE_H - 60, footBandH = 28;
-  page.drawRectangle({ x: 41, y: pdfY(footBandTop + footBandH), width: 517, height: footBandH, color: COLORS.gray });
+  page.drawRectangle({ x: 41, y: pdfY(footBandTop + footBandH, PAGE_H), width: 517, height: footBandH, color: COLORS.gray });
   centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
-    fonts.regular, 9, PAGE_W / 2, footBandTop + footBandH - 11, COLORS.muted);
+    fonts.regular, 9, PAGE_W / 2, footBandTop + footBandH - 11, COLORS.muted, PAGE_H);
 
-  return { page, contentTop: bandTop + bandH + 20, contentBottom: footBandTop - 15 };
+  return { page, pageTop: PAGE_H, contentTop: bandTop + bandH + 20, contentBottom: footBandTop - 15 };
 }
 
 // Draws wrapped lines starting on `firstPage`, spilling onto as many
 // continuation pages as needed (via `makeContinuationPage`) rather than
 // truncating or shrinking text to force a fit.
-function drawFlowingText(doc, lines, { firstPage, x, startTop, limitTop, font, size, lineHeight, color, makeContinuationPage }) {
-  let page = firstPage, yTop = startTop, limit = limitTop;
+function drawFlowingText(doc, lines, { firstPage, firstPageTop, x, startTop, limitTop, font, size, lineHeight, color, makeContinuationPage }) {
+  let page = firstPage, pageTop = firstPageTop, yTop = startTop, limit = limitTop;
   for (const line of lines) {
     if (yTop + size > limit) {
       const cont = makeContinuationPage();
-      page = cont.page; yTop = cont.contentTop; limit = cont.contentBottom;
+      page = cont.page; pageTop = cont.pageTop; yTop = cont.contentTop; limit = cont.contentBottom;
     }
-    page.drawText(line, { x, y: pdfY(yTop), size, font, color });
+    page.drawText(line, { x, y: pdfY(yTop, pageTop), size, font, color });
     yTop += lineHeight;
   }
 }
@@ -196,18 +194,21 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
 
   // Subtitle under the masthead, in the gap before the "Details" band.
   centerText(page, `Student Progress Report · ${reportDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`,
-    regular, 9, PAGE_W / 2, 64, COLORS.muted);
+    regular, 8, PAGE_W / 2, 64, COLORS.muted);
 
-  // Details grid values, placed right after each pre-printed label.
+  // Details grid values, placed right after each pre-printed label, on the
+  // label's own baseline — pdftotext's bbox yMax runs ~3pt below the true
+  // baseline (it uses the font's descent metric, not actual glyph ink), so
+  // that value is nudged up rather than used directly.
   const valueSize = 10;
-  page.drawText(`${student.forename} ${student.surname}`, { x: 141, y: pdfY(124.57), size: valueSize, font: semibold, color: COLORS.ink });
-  page.drawText('Shaikh Farhaan', { x: 434, y: pdfY(124.57), size: valueSize, font: semibold, color: COLORS.ink });
-  page.drawText(student.class || '—', { x: 85, y: pdfY(156.30), size: valueSize, font: regular, color: COLORS.ink });
-  page.drawText(reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), { x: 338, y: pdfY(156.30), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText(`${student.forename} ${student.surname}`, { x: 141, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText('Shaikh Farhaan', { x: 434, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText(student.class || '—', { x: 85, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText(reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), { x: 338, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
 
   // Attendance donut (Present / Late / Absent). Erase the template's sample
   // chart + callouts first (but not the static legend row above it).
-  const attBounds = { x0: 41, x1: 297, y0: 234, y1: 424 };
+  const attBounds = { x0: 41, x1: 297, y0: 231, y1: 424 };
   eraseChartArea(page, attBounds.x0, attBounds.x1, attBounds.y0, attBounds.y1);
   const attSegs = [
     { label: 'Present', value: counts.present, color: COLORS.green },
@@ -215,10 +216,12 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
     { label: 'Absent', value: counts.absent, color: COLORS.red },
   ];
   drawDonut(page, 169.44, 328.32, 88.9, 44.5, attSegs);
-  drawDonutCallouts(page, 169.44, 328.32, 88.9, attSegs, numFont, 8, attBounds);
+  drawLegendCounts(page, attSegs, {
+    Present: { x1: 141.31, y1: 230.50 }, Late: { x1: 180.43, y1: 230.50 }, Absent: { x1: 229.41, y1: 230.50 },
+  }, numFont, 9);
 
   // Fees donut (Paid / Unpaid), by week count.
-  const feeBounds = { x0: 301, x1: 558, y0: 234, y1: 424 };
+  const feeBounds = { x0: 301, x1: 558, y0: 231, y1: 424 };
   eraseChartArea(page, feeBounds.x0, feeBounds.x1, feeBounds.y0, feeBounds.y1);
   const paidCount = studentFees.filter(f => f.status === 'Paid').length;
   const unpaidCount = studentFees.length - paidCount;
@@ -227,7 +230,9 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
     { label: 'Unpaid', value: unpaidCount, color: COLORS.gray },
   ];
   drawDonut(page, 429.12, 328.32, 88.9, 44.5, feeSegs);
-  drawDonutCallouts(page, 429.12, 328.32, 88.9, feeSegs, numFont, 8, feeBounds);
+  drawLegendCounts(page, feeSegs, {
+    Paid: { x1: 415.04, y1: 229.52 }, Unpaid: { x1: 464.72, y1: 229.52 },
+  }, numFont, 9);
 
   // Class behaviour checkbox.
   if (behavior && CHECKBOXES[behavior]) drawCheckmark(page, CHECKBOXES[behavior]);
@@ -237,7 +242,7 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   const summaryText = aiSummary || 'No summary has been generated for this student yet.';
   const lines = wrapText(summaryText, regular, 10, 495);
   drawFlowingText(doc, lines, {
-    firstPage: page, x: 52, startTop: 548.64 + 14, limitTop: 767,
+    firstPage: page, firstPageTop: MEDIABOX_TOP, x: 52, startTop: 548.64 + 14, limitTop: 767,
     font: regular, size: 10, lineHeight: 15, color: COLORS.ink,
     makeContinuationPage: () => newContinuationPage(doc, { semibold, regular }, `${student.forename} ${student.surname}`, reportDate),
   });
@@ -245,8 +250,10 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   // Footer date — the template ships with a sample date baked in; cover the
   // whole band plus the white gap just above it (glyph ink can bleed above
   // the bbox pdftotext reports) and redraw with the real generation date.
-  page.drawRectangle({ x: 41, y: pdfY(781.4), width: 517, height: 781.4 - 768, color: COLORS.white });
-  page.drawRectangle({ x: 41, y: pdfY(809.5), width: 517, height: 809.5 - 781.4, color: COLORS.gray });
+  // Bounds match the band's actual border lines exactly (measured off the
+  // template), not an approximation — a mismatched fill reads as misaligned.
+  page.drawRectangle({ x: 40.3, y: pdfY(782.4), width: 518.9, height: 782.4 - 768, color: COLORS.white });
+  page.drawRectangle({ x: 40.3, y: pdfY(810.24), width: 518.9, height: 810.24 - 782.4, color: COLORS.gray });
   centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
     regular, 9, PAGE_W / 2, 799, COLORS.muted);
 
