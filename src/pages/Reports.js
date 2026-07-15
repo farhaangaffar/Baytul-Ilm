@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, attendanceCountsFrom, studentFeesFrom, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { getStudents, attendanceCountsForMonth, getAttendance, getFees, avatarInitials, currentSchoolYear, getCurrentSchoolMonth, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
 import { generateReportPdfBytes } from '../lib/reportPdf';
 import { FileText, Download, Plus } from 'lucide-react';
 
 function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function monthLabelFor(monthStr) { const [y,m]=monthStr.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 
-async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate }) {
-  const counts = attendanceCountsFrom(attendance, student.id);
-  const studentFees = studentFeesFrom(fees, student.id);
-  return generateReportPdfBytes({ student, counts, studentFees, aiSummary: summary, behavior, reportDate });
+// dataMonth ("YYYY-MM") controls which month's attendance/fees the charts
+// show — decoupled from reportDate (which is just the "Date:" field/footer
+// timestamp) so a historical report shows that month's own numbers rather
+// than whatever month it happens to be reprinted in.
+async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth }) {
+  const monthRange = getCurrentSchoolMonth(`${dataMonth}-15`);
+  const counts = attendanceCountsForMonth(attendance, student.id, monthRange);
+  const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= monthRange.start && f.weekStarting < monthRange.endExclusive);
+  const billed = monthFees.reduce((s, f) => s + Number(f.amount), 0);
+  const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: monthRange.label, aiSummary: summary, behavior, reportDate });
 }
 
 function downloadBytes(bytes, filename) {
@@ -75,7 +82,8 @@ export default function Reports() {
       const summary = entry ? entry.summary : (currentSummaries[student.id]?.summary || '');
       const behavior = entry ? entry.behavior : (currentSummaries[student.id]?.behavior || '');
       const reportDate = entry ? new Date(entry.updatedAt) : new Date();
-      const bytes = await buildReportBytes(student, attendance, fees, { summary, behavior, reportDate });
+      const dataMonth = entry ? entry.month : currentMonth();
+      const bytes = await buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth });
       setPreview(URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })), bytes);
     } catch (err) {
       showToast('Could not generate the PDF preview.');
@@ -96,7 +104,7 @@ export default function Reports() {
     setGenerating(student.id);
     try {
       const bytes = await buildReportBytes(student, attendance, fees, {
-        summary: currentSummaries[student.id]?.summary || '', behavior: currentSummaries[student.id]?.behavior || '', reportDate: new Date(),
+        summary: currentSummaries[student.id]?.summary || '', behavior: currentSummaries[student.id]?.behavior || '', reportDate: new Date(), dataMonth: currentMonth(),
       });
       downloadBytes(bytes, `Report_${student.forename}_${student.surname}.pdf`);
       showToast(`Report downloaded for ${student.forename} ${student.surname}`);
@@ -131,7 +139,7 @@ export default function Reports() {
                 setGenerating('all');
                 for(const s of students){
                   const bytes = await buildReportBytes(s, attendance, fees, {
-                    summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(),
+                    summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(), dataMonth: currentMonth(),
                   });
                   downloadBytes(bytes, `Report_${s.forename}_${s.surname}.pdf`);
                 }

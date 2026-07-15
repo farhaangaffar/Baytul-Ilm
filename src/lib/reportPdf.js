@@ -27,16 +27,22 @@ export const SUMMARY_BOX = {
 // live checker and the actual PDF could disagree on where line 14 lands.
 SUMMARY_BOX.maxLines = Math.floor((SUMMARY_BOX.limitTop - SUMMARY_BOX.startTop - SUMMARY_BOX.fontSize) / SUMMARY_BOX.lineHeight) + 1;
 
+// Matches the app's own Dashboard donut rings exactly (src/index.css
+// --green/--amber/--red/--blue, and the literal #eef0f4 used for the
+// unfilled "Outstanding" segment) rather than colors picked to match the
+// template — the whole point is these are the same charts as the Dashboard.
 const COLORS = {
   ink: rgb(0.1, 0.1, 0.1),
   muted: rgb(51 / 255, 51 / 255, 51 / 255),
-  green: rgb(126 / 255, 217 / 255, 87 / 255),
-  amber: rgb(255 / 255, 222 / 255, 89 / 255),
-  red: rgb(255 / 255, 49 / 255, 49 / 255),
-  blue: rgb(81 / 255, 112 / 255, 255 / 255),
-  gray: rgb(217 / 255, 217 / 255, 217 / 255),
+  green: rgb(151 / 255, 203 / 255, 97 / 255),
+  amber: rgb(253 / 255, 221 / 255, 62 / 255),
+  red: rgb(216 / 255, 80 / 255, 64 / 255),
+  blue: rgb(47 / 255, 128 / 255, 237 / 255),
+  track: rgb(238 / 255, 240 / 255, 244 / 255), // unfilled donut segment / empty-state ring
+  textSoft: rgb(156 / 255, 163 / 255, 175 / 255), // Dashboard uses this (not `track`) for the Outstanding legend dot — #eef0f4 is too pale to read as a dot on white
+  gray: rgb(217 / 255, 217 / 255, 217 / 255), // the template's own band fill (now uniform gray throughout)
   white: rgb(1, 1, 1),
-  summaryBand: rgb(182 / 255, 226 / 255, 211 / 255), // same teal-green as the "Details"/"Report Summary" bands
+  summaryBand: rgb(217 / 255, 217 / 255, 217 / 255), // matches the template's now-uniform gray bands
 };
 
 // Convert a top-down (pdftotext-style, origin top-left) y coordinate to
@@ -74,47 +80,59 @@ function wedgePath(rOuter, rInner, a0, a1, steps = 40) {
   return d + 'Z';
 }
 
-// Wipes the template's sample chart — both the sample donut AND its
-// percentage callout text, which sits further out than the ring itself, so a
-// simple circle isn't enough. Covers the whole white content box below the
-// static legend row (which is kept) down to the section's border.
-function eraseChartArea(page, xTop0, xTop1, yTop0, yTop1) {
-  page.drawRectangle({
-    x: xTop0, y: pdfY(yTop1), width: xTop1 - xTop0, height: yTop1 - yTop0,
-    color: COLORS.white,
-  });
-}
-
-function drawDonut(page, cxTop, cyTop, rOuter, rInner, segments) {
+// Ring geometry matches the Dashboard's own .ring/.ring-inner CSS proportions
+// (132px outer / 14px inset -> rInner/rOuter ≈ 0.79) rather than a thicker
+// donut, so this reads as the same chart, just on paper.
+function drawRingWedges(page, cxTop, cyTop, rOuter, rInner, segments) {
   const cx = cxTop, cy = pdfY(cyTop);
   const total = segments.reduce((s, seg) => s + seg.value, 0);
   if (total <= 0) {
-    page.drawEllipse({ x: cx, y: cy, xScale: rOuter, yScale: rOuter, color: COLORS.gray });
-    page.drawEllipse({ x: cx, y: cy, xScale: rInner, yScale: rInner, color: COLORS.white });
-    return;
+    page.drawEllipse({ x: cx, y: cy, xScale: rOuter, yScale: rOuter, color: COLORS.track });
+  } else {
+    const startTop = Math.PI / 2;
+    let frac = 0;
+    for (const seg of segments) {
+      if (seg.value <= 0) continue;
+      const f0 = frac, f1 = frac + seg.value / total;
+      frac = f1;
+      const a0 = startTop - f0 * 2 * Math.PI;
+      const a1 = startTop - f1 * 2 * Math.PI;
+      page.drawSvgPath(wedgePath(rOuter, rInner, a0, a1), { x: cx, y: cy, color: seg.color });
+    }
   }
-  const startTop = Math.PI / 2;
-  let frac = 0;
-  for (const seg of segments) {
-    if (seg.value <= 0) continue;
-    const f0 = frac, f1 = frac + seg.value / total;
-    frac = f1;
-    const a0 = startTop - f0 * 2 * Math.PI;
-    const a1 = startTop - f1 * 2 * Math.PI;
-    page.drawSvgPath(wedgePath(rOuter, rInner, a0, a1), { x: cx, y: cy, color: seg.color });
+  page.drawEllipse({ x: cx, y: cy, xScale: rInner, yScale: rInner, color: COLORS.white });
+}
+
+// Centered "dot  label" row, e.g. "● Present: 12   ● Late: 1   ● Absent: 2"
+// — mirrors the Dashboard ring's .ring-breakdown row. Width is measured
+// first so the whole row can be centered as a group, not just each item.
+function drawLegendRow(page, items, cxTop, yTop, font, size) {
+  const dotR = 3, dotGap = 4, itemGap = 14;
+  const widths = items.map(it => dotR * 2 + dotGap + font.widthOfTextAtSize(it.text, size));
+  const totalW = widths.reduce((a, b) => a + b, 0) + itemGap * (items.length - 1);
+  let x = cxTop - totalW / 2;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    page.drawEllipse({ x: x + dotR, y: pdfY(yTop - size * 0.32), xScale: dotR, yScale: dotR, color: it.color });
+    page.drawText(it.text, { x: x + dotR * 2 + dotGap, y: pdfY(yTop), size, font, color: COLORS.muted });
+    x += widths[i] + itemGap;
   }
 }
 
-// Actual counts next to each pre-printed legend item (dot + label), instead
-// of percentage callouts floating around the ring. `items` maps a segment
-// label to the legend text's own bbox (top-down), measured off the template,
-// so the number lands right after it regardless of donut proportions.
-function drawLegendCounts(page, segments, items, font, size) {
-  for (const seg of segments) {
-    const box = items[seg.label];
-    if (!box) continue;
-    page.drawText(String(seg.value), { x: box.x1 + 4, y: pdfY(box.y1 - 2.5), size, font, color: COLORS.ink });
-  }
+// The full ring block: subtitle (which month), donut with a center
+// percentage + label (matching Dashboard's ring-inner), and the legend row
+// below — all vertically centered as a group inside the given box.
+function drawDonutBlock(page, box, { subtitle, segments, centerPct, centerLabel, legendItems, fonts }) {
+  const cx = (box.x0 + box.x1) / 2;
+  const rOuter = 62, rInner = 49;
+  const blockH = 10 + 12 + rOuter * 2 + 24 + 10;
+  let y = box.y0 + (box.y1 - box.y0 - blockH) / 2;
+  centerText(page, subtitle, fonts.regular, 9, cx, y + 8, COLORS.muted);
+  const donutCy = y + 10 + 12 + rOuter;
+  drawRingWedges(page, cx, donutCy, rOuter, rInner, segments);
+  centerText(page, `${centerPct}%`, fonts.bold, 16, cx, donutCy - 2, COLORS.ink);
+  centerText(page, centerLabel, fonts.regular, 7.5, cx, donutCy + 10, COLORS.muted);
+  drawLegendRow(page, legendItems, cx, donutCy + rOuter + 24, fonts.regular, 9);
 }
 
 // Checkbox squares measured from the template — {left, top, right, bottom} in
@@ -188,7 +206,7 @@ function drawFlowingText(doc, lines, { firstPage, firstPageTop, x, startTop, lim
   }
 }
 
-export async function generateReportPdfBytes({ student, counts, studentFees, aiSummary, behavior, reportDate }) {
+export async function generateReportPdfBytes({ student, counts, feeTotals, monthLabel, aiSummary, behavior, reportDate }) {
   const [templateBytes, comfortaaReg, comfortaaSemi, comfortaaBold] = await Promise.all([
     fetchBytes('/report-template.pdf'),
     fetchBytes('/fonts/Comfortaa-Regular.ttf'),
@@ -205,8 +223,7 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   const page = doc.getPage(0);
 
   // Subtitle under the masthead, in the gap before the "Details" band.
-  centerText(page, `Student Progress Report · ${reportDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`,
-    regular, 8, PAGE_W / 2, 64, COLORS.muted);
+  centerText(page, `Student Progress Report · ${monthLabel}`, regular, 8, PAGE_W / 2, 64, COLORS.muted);
 
   // Details grid values, placed right after each pre-printed label, on the
   // label's own baseline — pdftotext's bbox yMax runs ~3pt below the true
@@ -218,33 +235,44 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   page.drawText(student.class || '—', { x: 85, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
   page.drawText(reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), { x: 338, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
 
-  // Attendance donut (Present / Late / Absent). Erase the template's sample
-  // chart + callouts first (but not the static legend row above it).
-  const attBounds = { x0: 41, x1: 297, y0: 231, y1: 424 };
-  eraseChartArea(page, attBounds.x0, attBounds.x1, attBounds.y0, attBounds.y1);
-  const attSegs = [
-    { label: 'Present', value: counts.present, color: COLORS.green },
-    { label: 'Late', value: counts.late, color: COLORS.amber },
-    { label: 'Absent', value: counts.absent, color: COLORS.red },
-  ];
-  drawDonut(page, 169.44, 328.32, 88.9, 44.5, attSegs);
-  drawLegendCounts(page, attSegs, {
-    Present: { x1: 141.31, y1: 230.50 }, Late: { x1: 180.43, y1: 230.50 }, Absent: { x1: 229.41, y1: 230.50 },
-  }, numFont, 9);
+  // Attendance & fees — the same donut rings the Dashboard shows, just for
+  // one student and one month instead of the whole class/year. The template's
+  // Attendance/Fees boxes are blank (no more sample chart to erase).
+  const fonts = { regular, semibold, bold: numFont };
+  const attTotal = counts.present + counts.late + counts.absent;
+  const attPct = attTotal ? Math.round(((counts.present + counts.late) / attTotal) * 100) : 0;
+  drawDonutBlock(page, { x0: 41, x1: 297, y0: 209, y1: 426 }, {
+    subtitle: monthLabel,
+    segments: [
+      { value: counts.present, color: COLORS.green },
+      { value: counts.late, color: COLORS.amber },
+      { value: counts.absent, color: COLORS.red },
+    ],
+    centerPct: attPct, centerLabel: 'Present/Late',
+    legendItems: [
+      { text: `Present: ${counts.present}`, color: COLORS.green },
+      { text: `Late: ${counts.late}`, color: COLORS.amber },
+      { text: `Absent: ${counts.absent}`, color: COLORS.red },
+    ],
+    fonts,
+  });
 
-  // Fees donut (Paid / Unpaid), by week count.
-  const feeBounds = { x0: 301, x1: 558, y0: 231, y1: 424 };
-  eraseChartArea(page, feeBounds.x0, feeBounds.x1, feeBounds.y0, feeBounds.y1);
-  const paidCount = studentFees.filter(f => f.status === 'Paid').length;
-  const unpaidCount = studentFees.length - paidCount;
-  const feeSegs = [
-    { label: 'Paid', value: paidCount, color: COLORS.blue },
-    { label: 'Unpaid', value: unpaidCount, color: COLORS.gray },
-  ];
-  drawDonut(page, 429.12, 328.32, 88.9, 44.5, feeSegs);
-  drawLegendCounts(page, feeSegs, {
-    Paid: { x1: 415.04, y1: 229.52 }, Unpaid: { x1: 464.72, y1: 229.52 },
-  }, numFont, 9);
+  const { billed = 0, collected = 0 } = feeTotals || {};
+  const outstanding = Math.max(0, billed - collected);
+  const collectedPct = billed ? Math.round((collected / billed) * 100) : 0;
+  drawDonutBlock(page, { x0: 301, x1: 558, y0: 209, y1: 426 }, {
+    subtitle: monthLabel,
+    segments: [
+      { value: collected, color: COLORS.blue },
+      { value: outstanding, color: COLORS.track },
+    ],
+    centerPct: collectedPct, centerLabel: 'Collected',
+    legendItems: [
+      { text: `Collected: £${collected.toFixed(2)}`, color: COLORS.blue },
+      { text: `Outstanding: £${outstanding.toFixed(2)}`, color: COLORS.textSoft },
+    ],
+    fonts,
+  });
 
   // Class behaviour checkbox.
   if (behavior && CHECKBOXES[behavior]) drawCheckmark(page, CHECKBOXES[behavior]);
