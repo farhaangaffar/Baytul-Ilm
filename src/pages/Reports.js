@@ -1,47 +1,56 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, attendanceCountsFrom, attendancePctFrom, studentFeesFrom, getAttendance, getFees, getStudentRecords, avatarInitials, getSettings, currentSchoolYear, getAiSummariesForMonth, saveAiSummary } from '../lib/store';
-import { generateReportPdfBytes, downloadPdfBytes } from '../lib/reportPdf';
-import { FileText, Download, Sparkles } from 'lucide-react';
+import { getStudents, attendanceCountsFrom, studentFeesFrom, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { generateReportPdfBytes } from '../lib/reportPdf';
+import { FileText, Download, Plus } from 'lucide-react';
 
-function fmtDate(iso) { try { return new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); } catch{ return iso; } }
 function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function monthLabelFor(monthStr) { const [y,m]=monthStr.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 
-async function generateReportPDF(student, counts, studentFees, aiSummary, behavior) {
-  const bytes = await generateReportPdfBytes({ student, counts, studentFees, aiSummary, behavior, reportDate: new Date() });
-  downloadPdfBytes(bytes, `Report_${student.forename}_${student.surname}.pdf`);
+async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate }) {
+  const counts = attendanceCountsFrom(attendance, student.id);
+  const studentFees = studentFeesFrom(fees, student.id);
+  return generateReportPdfBytes({ student, counts, studentFees, aiSummary: summary, behavior, reportDate });
+}
+
+function downloadBytes(bytes, filename) {
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
-  const [settings, setSettings] = useState(null);
-  const [year, setYear] = useState('');
   const [attendance, setAttendance] = useState({});
   const [fees, setFees] = useState([]);
-  const [selected,setSelected]=useState(null);
-  const [generating,setGenerating]=useState('');
-  const [aiSummaries,setAiSummaries]=useState({});
-  const [savedInstructions,setSavedInstructions]=useState({});
-  const [behaviors,setBehaviors]=useState({});
-  const [aiLoading,setAiLoading]=useState('');
-  const [toast,setToast]=useState('');
+  const [currentSummaries, setCurrentSummaries] = useState({}); // studentId -> {summary, behavior} for this month, used for bulk download + "Add new report"
+  const [selected, setSelected] = useState(null);
+  const [studentReports, setStudentReports] = useState([]); // all saved ai_summaries rows for the selected student
+  const [activeMonth, setActiveMonth] = useState(null); // month string of whichever report is in the preview, or null = "new" (current, live)
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewBytes, setPreviewBytes] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [generating, setGenerating] = useState('');
+  const [toast, setToast] = useState('');
+  const previewUrlRef = useRef('');
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const y = await currentSchoolYear();
-      const [studentsData, settingsData, attendanceData, feesData, savedSummaries] = await Promise.all([
-        getStudents(), getSettings(), getAttendance(y), getFees(y), getAiSummariesForMonth(currentMonth()).catch(()=>[]),
+      const [studentsData, attendanceData, feesData, savedSummaries] = await Promise.all([
+        getStudents(), getAttendance(y), getFees(y), getAiSummariesForMonth(currentMonth()).catch(()=>[]),
       ]);
-      setStudents(studentsData); setSettings(settingsData); setYear(y); setAttendance(attendanceData); setFees(feesData);
-      // Pre-load any summaries already saved from the Daily Records page (or a
-      // previous visit here) so they don't disappear on navigating back.
-      const summaryMap = {}; const instrMap = {}; const behaviorMap = {};
-      savedSummaries.forEach(s => { summaryMap[s.studentId] = s.summary; instrMap[s.studentId] = s.instructions; behaviorMap[s.studentId] = s.behavior; });
-      setAiSummaries(summaryMap); setSavedInstructions(instrMap); setBehaviors(behaviorMap);
+      setStudents(studentsData); setAttendance(attendanceData); setFees(feesData);
+      const map = {};
+      savedSummaries.forEach(s => { map[s.studentId] = { summary: s.summary, behavior: s.behavior }; });
+      setCurrentSummaries(map);
     } catch (err) {
       setError(err);
     }
@@ -49,68 +58,80 @@ export default function Reports() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }, []);
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(''),3000);}
 
-  async function generateAI(student) {
-    const month=currentMonth();
-    let records;
-    try { records = await getStudentRecords(student.id); }
-    catch (err) { showToast(err.message || 'Could not load records'); return; }
-    const dates=Object.keys(records).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
-    if (!dates.length) {
-      setAiSummaries(p=>({...p,[student.id]:'No daily records found for this month. Add records in the Daily Records section first.'}));
-      return;
-    }
-    const entries=dates.map(d=>{
-      const e=records[d]||{};
-      return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
-    }).join('\n\n');
-    const counts=attendanceCountsFrom(attendance, student.id);
-    const prompt=`You are a helpful Madrasah assistant. Below are daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm professional monthly progress summary for this student's report. Cover: overall attitude, key positives, recurring concerns, brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.`;
-    setAiLoading(student.id);
-    try {
-      const res=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});
-      const data=await res.json();
-      if (!res.ok) throw new Error(data.error || 'API error');
-      const summary=data.summary||'Unable to generate summary.';
-      setAiSummaries(p=>({...p,[student.id]:summary}));
-      // Save immediately — otherwise this only lives in local state and
-      // disappears the moment this page is left and come back to.
-      saveAiSummary(student.id, month, { summary, instructions: savedInstructions[student.id]||'' }).catch(()=>{});
-    } catch (err) { setAiSummaries(p=>({...p,[student.id]:err.message || 'Connection error. Please try again.'})); }
-    setAiLoading('');
+  function setPreview(url, bytes) {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = url;
+    setPreviewUrl(url); setPreviewBytes(bytes);
   }
 
-  async function download(student) {
+  const generateAndPreview = useCallback(async (student, entry) => {
+    setPreviewLoading(true);
+    setActiveMonth(entry ? entry.month : null);
+    try {
+      const summary = entry ? entry.summary : (currentSummaries[student.id]?.summary || '');
+      const behavior = entry ? entry.behavior : (currentSummaries[student.id]?.behavior || '');
+      const reportDate = entry ? new Date(entry.updatedAt) : new Date();
+      const bytes = await buildReportBytes(student, attendance, fees, { summary, behavior, reportDate });
+      setPreview(URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })), bytes);
+    } catch (err) {
+      showToast('Could not generate the PDF preview.');
+    }
+    setPreviewLoading(false);
+  }, [attendance, fees, currentSummaries]);
+
+  async function selectStudent(student) {
+    setSelected(student.id);
+    setStudentReports([]);
+    let reports = [];
+    try { reports = await getAiSummaries(student.id); } catch { /* history is a bonus, not required */ }
+    setStudentReports(reports);
+    generateAndPreview(student, null);
+  }
+
+  async function quickDownload(student) {
     setGenerating(student.id);
     try {
-      const counts=attendanceCountsFrom(attendance, student.id);
-      const studentFees=studentFeesFrom(fees, student.id);
-      const ai=aiSummaries[student.id]||'';
-      await generateReportPDF(student,counts,studentFees,ai,behaviors[student.id]||'');
+      const bytes = await buildReportBytes(student, attendance, fees, {
+        summary: currentSummaries[student.id]?.summary || '', behavior: currentSummaries[student.id]?.behavior || '', reportDate: new Date(),
+      });
+      downloadBytes(bytes, `Report_${student.forename}_${student.surname}.pdf`);
       showToast(`Report downloaded for ${student.forename} ${student.surname}`);
-    } catch(e) { showToast('Error generating PDF — try again.'); }
+    } catch { showToast('Error generating PDF — try again.'); }
     setGenerating('');
   }
 
   if (loading) return <Layout title="Reports"><LoadingState /></Layout>;
   if (error) return <Layout title="Reports"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const preview=selected?students.find(s=>s.id===selected):null;
+  const preview = selected ? students.find(s => s.id === selected) : null;
+
+  // Sectioned by academic year, newest year and newest month first.
+  const reportsByYear = {};
+  studentReports.forEach(r => {
+    const yr = academicYearOfMonth(r.month);
+    (reportsByYear[yr] = reportsByYear[yr] || []).push(r);
+  });
+  const years = Object.keys(reportsByYear).sort().reverse();
+  years.forEach(y => reportsByYear[y].sort((a, b) => b.month.localeCompare(a.month)));
 
   return (
     <Layout title="Reports" subtitle="Generate PDF progress reports">
-      <div className="grid-2">
+      <div className="grid-2" style={{alignItems:'start'}}>
         {/* Student list */}
         <div className="card">
           <div className="card-header">
-            <div><div className="card-title">Select a student</div><div className="card-sub">Click to preview · download button for PDF</div></div>
+            <div><div className="card-title">Select a student</div><div className="card-sub">Click a name for their report history</div></div>
             <button className="btn btn-primary btn-sm" onClick={async()=>{
               setGenerating('all');
               for(const s of students){
-                const counts=attendanceCountsFrom(attendance, s.id), studentFees=studentFeesFrom(fees, s.id), ai=aiSummaries[s.id]||'';
-                await generateReportPDF(s,counts,studentFees,ai,behaviors[s.id]||'');
+                const bytes = await buildReportBytes(s, attendance, fees, {
+                  summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(),
+                });
+                downloadBytes(bytes, `Report_${s.forename}_${s.surname}.pdf`);
               }
               setGenerating(''); showToast(`${students.length} reports downloaded`);
             }}>{generating==='all'?'Generating…':<><Download size={13}/>All reports</>}</button>
@@ -118,10 +139,9 @@ export default function Reports() {
           {/* Scrollable list */}
           <div style={{maxHeight:480,overflowY:'auto'}}>
             {students.map(s=>{
-              const att=attendancePctFrom(attendance, s.id);
               const isActive=selected===s.id;
               return (
-                <div key={s.id} onClick={()=>setSelected(s.id)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
+                <div key={s.id} onClick={()=>selectStudent(s)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
                   <div className="flex items-center gap-2">
                     <div className="avatar" style={{width:30,height:30,fontSize:10,background:isActive?'var(--ink)':undefined,color:isActive?'#fff':undefined}}>{avatarInitials(s.forename+' '+s.surname)}</div>
                     <div>
@@ -129,10 +149,7 @@ export default function Reports() {
                       <div className="text-muted text-sm">{s.class}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span style={{fontSize:12,fontWeight:600,color:att>=90?'var(--green)':att>=75?'var(--amber)':att>0?'var(--red)':'var(--text-soft)'}}>{att>0?`${att}%`:'—'}</span>
-                    <button className="btn btn-sm" onClick={e=>{e.stopPropagation();download(s);}} disabled={!!generating}>{generating===s.id?'…':<Download size={12}/>}</button>
-                  </div>
+                  <button className="btn btn-sm" onClick={e=>{e.stopPropagation();quickDownload(s);}} disabled={!!generating} title="Download this month's report">{generating===s.id?'…':<Download size={12}/>}</button>
                 </div>
               );
             })}
@@ -144,17 +161,48 @@ export default function Reports() {
           {preview?(
             <div>
               <div className="flex justify-between items-center mb-4">
-                <div style={{fontWeight:600,fontSize:14}}>Preview — {preview.forename} {preview.surname}</div>
-                <div className="flex items-center gap-2">
-                  <button className="btn btn-ai btn-sm" onClick={()=>generateAI(preview)} disabled={aiLoading===preview.id}>
-                    <Sparkles size={13}/>{aiLoading===preview.id?'Generating…':'AI summary'}
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={()=>download(preview)} disabled={!!generating}>
-                    <Download size={13}/>{generating===preview.id?'Generating…':'Download PDF'}
+                <div style={{fontWeight:600,fontSize:14}}>{preview.forename} {preview.surname}</div>
+                <button className="btn btn-primary btn-sm" onClick={()=>generateAndPreview(preview, null)} disabled={previewLoading}>
+                  <Plus size={13}/>{previewLoading&&activeMonth===null?'Generating…':'Add new report'}
+                </button>
+              </div>
+
+              <div className="card mb-4">
+                <div className="card-title" style={{marginBottom:10}}>Previous reports</div>
+                {years.length===0?(
+                  <div className="text-muted text-sm">No reports saved yet for {preview.forename} — write a summary on their Daily Records page, then come back here.</div>
+                ):years.map(yr=>(
+                  <div key={yr} style={{marginBottom:12}}>
+                    <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Academic year {yr}</div>
+                    {reportsByYear[yr].map(r=>{
+                      const isActive = activeMonth===r.month;
+                      return (
+                        <div key={r.month} onClick={()=>generateAndPreview(preview, r)}
+                          style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,fontSize:13}}>
+                          <span>{monthLabelFor(r.month)}</span>
+                          {previewLoading&&isActive?<span className="text-muted text-sm">Loading…</span>:<Download size={13} className="text-muted"/>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              <div className="card" style={{padding:0,overflow:'hidden'}}>
+                <div className="flex justify-between items-center" style={{padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
+                  <div style={{fontWeight:500,fontSize:13}}>{activeMonth?monthLabelFor(activeMonth):'New report — current month'}</div>
+                  <button className="btn btn-sm" disabled={!previewBytes} onClick={()=>downloadBytes(previewBytes, `Report_${preview.forename}_${preview.surname}.pdf`)}>
+                    <Download size={12}/>Download
                   </button>
                 </div>
+                {previewLoading?(
+                  <div style={{height:600,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Generating preview…</div>
+                ):previewUrl?(
+                  <iframe title="Report preview" src={`${previewUrl}#toolbar=0&navpanes=0`} style={{width:'100%',height:600,border:'none',display:'block'}}/>
+                ):(
+                  <div style={{height:600,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Could not load preview.</div>
+                )}
               </div>
-              <ReportPreview student={preview} schoolName={settings.schoolName} year={year} aiSummary={aiSummaries[preview.id]||''} attendance={attendance} fees={fees}/>
             </div>
           ):(
             <div className="card" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:400,color:'var(--text-muted)'}}>
@@ -167,63 +215,5 @@ export default function Reports() {
       </div>
       {toast&&<div className="toast"><FileText size={14}/> {toast}</div>}
     </Layout>
-  );
-}
-
-function ReportPreview({ student, schoolName, year, aiSummary, attendance, fees }) {
-  const counts=attendanceCountsFrom(attendance, student.id);
-  const att=attendancePctFrom(attendance, student.id);
-  const studentFees=studentFeesFrom(fees, student.id);
-  const outstanding=studentFees.filter(f=>f.status!=='Paid');
-  const attStatus=att>=90?'Excellent':att>=75?'Satisfactory':'Needs improvement';
-  return (
-    <div className="report-preview">
-      <div className="report-header">
-        <div className="report-arabic">بيت العلم</div>
-        <div className="report-school">{schoolName}</div>
-        <div className="report-sub">Student Progress Report · {year}</div>
-      </div>
-      <div className="report-section">
-        <div className="report-section-title">Student details</div>
-        {[['Name',`${student.forename} ${student.surname}`],['Class',student.class],['DOB',student.dob],['Enrolled',student.enrollDate],['Weekly fee',`£${student.weeklyFee}/wk`]].map(([k,v])=>(
-          <div key={k} className="report-row"><span className="report-key">{k}</span><span className="report-val">{v}</span></div>
-        ))}
-      </div>
-      <div className="report-section">
-        <div className="report-section-title">Attendance</div>
-        {[['Present',counts.present,'var(--green)'],['Late',counts.late,'var(--amber)'],['Absent',counts.absent,'var(--red)'],['Total days',counts.total,undefined],['Attendance %',`${att}%`,att>=90?'var(--green)':att>=75?'var(--amber)':'var(--red)'],['Status',attStatus,undefined]].map(([k,v,col])=>(
-          <div key={k} className="report-row"><span className="report-key">{k}</span><span className="report-val" style={{color:col}}>{v}</span></div>
-        ))}
-      </div>
-      <div className="report-section">
-        <div className="report-section-title">Fee status</div>
-        {outstanding.length===0?(
-          <div style={{color:'var(--green)',fontWeight:600,fontSize:13,padding:'6px 0'}}>✓ Fees are up to date — no outstanding payments.</div>
-        ):(
-          outstanding.map(f=>(
-            <div key={f.id} className="report-row">
-              <span className="report-key">w/c {f.weekStarting}</span>
-              <span className="report-val" style={{color:'var(--red)'}}>£{Number(f.amount).toFixed(2)} outstanding</span>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="report-section">
-        <div className="report-section-title">Parent contacts</div>
-        <div className="report-row"><span className="report-key">Parent 1</span><span className="report-val">{student.parent1Name} · {student.parent1Phone}</span></div>
-        {student.parent2Name&&<div className="report-row"><span className="report-key">Parent 2</span><span className="report-val">{student.parent2Name} · {student.parent2Phone}</span></div>}
-      </div>
-      {aiSummary&&(
-        <div className="report-section">
-          <div className="report-section-title">Monthly summary</div>
-          <p style={{fontSize:12,lineHeight:1.7,color:'var(--text)'}}>{aiSummary}</p>
-        </div>
-      )}
-      <div className="report-sig-row">
-        <div className="report-sig"><div className="report-sig-line"/><div className="report-sig-label">Class teacher</div></div>
-        <div className="report-sig"><div className="report-sig-line"/><div className="report-sig-label">Head of Madrasah</div></div>
-      </div>
-      <div className="report-footer">{schoolName} · Confidential · {new Date().toLocaleDateString('en-GB')}</div>
-    </div>
   );
 }

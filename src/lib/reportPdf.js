@@ -265,6 +265,11 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   // band itself exactly to its border coordinates (measured off the template).
   page.drawRectangle({ x: 40.3, y: pdfY(781.0), width: 518.9, height: 781.0 - 768, color: COLORS.white });
   page.drawRectangle({ x: 40.3, y: pdfY(810.24), width: 518.9, height: 810.24 - 782.4, color: COLORS.gray });
+  // The template's own border around this box is inconsistent — its right
+  // edge renders ~0.72pt vs ~0.96pt on the other three sides (a Canva export
+  // quirk present even in the untouched source file). Redraw a uniform
+  // stroke over it rather than leave that asymmetry visible.
+  page.drawRectangle({ x: 40.3, y: pdfY(810.4), width: 518.9, height: 810.4 - 781.3, borderColor: COLORS.ink, borderWidth: 0.9 });
   centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
     regular, 9, PAGE_W / 2, 799, COLORS.muted);
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical } from 'lucide-react';
 
@@ -17,7 +17,6 @@ export default function Students() {
 
   const [showEnroll, setShowEnroll] = useState(false);
   const [search, setSearch] = useState('');
-  const [activeClass, setActiveClass] = useState('');
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -31,7 +30,6 @@ export default function Students() {
       getStudents(), getClassNames(), getFees(y), getAttendance(y),
     ]);
     setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(feesData); setAttendance(attendanceData);
-    setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
   }, []);
 
   const load = useCallback(async () => {
@@ -81,33 +79,15 @@ export default function Students() {
   if (loading) return <Layout title="Students"><LoadingState /></Layout>;
   if (error) return <Layout title="Students"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const classStudents = students.filter(s=>s.class===activeClass);
-  const filtered = classStudents.filter(s =>
-    `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
-  const activeCount = classStudents.filter(s=>s.status==='Active').length;
-  const studentAttPct = st => {
-    const c = attendanceCountsFrom(attendance, st.id);
-    return c.total ? Math.round(((c.present+c.late)/c.total)*100) : 0;
-  };
-  const avgAtt = classStudents.length ? Math.round(classStudents.reduce((s,st)=>s+studentAttPct(st),0)/classStudents.length) : 0;
-  const collected = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const owed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const activeCount = students.filter(s=>s.status==='Active').length;
+  const avgAtt = students.length ? Math.round(students.reduce((s,st)=>s+attendancePctFrom(attendance, st.id),0)/students.length) : 0;
+  const collected = fees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const owed = fees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
 
   return (
     <Layout title="Students" subtitle={`${students.length} enrolled`}>
-      <div className="pill-tabs">
-        {classNames.map(c=>(
-          <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>
-            {c} ({students.filter(s=>s.class===c).length})
-          </button>
-        ))}
-      </div>
-
       <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active — {activeClass}</div></div>
+        <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active students</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
         <div className="stat-card-v2"><div className="n">£{collected.toFixed(2)}</div><div className="l">Fees collected</div></div>
         <div className="stat-card-v2"><div className="n">£{owed.toFixed(2)}</div><div className="l">Outstanding</div></div>
@@ -124,38 +104,37 @@ export default function Students() {
         <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
       </div>
 
-      <ReorderableGrid
-        items={filtered}
-        getId={s=>s.id}
-        className="entity-grid"
-        onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
-        renderItem={(s, {isDragging, handleProps, cardAttrs}) => {
-          const c = attendanceCountsFrom(attendance, s.id);
+      <div className="student-columns" style={{gridTemplateColumns:`repeat(${classNames.length||1},1fr)`}}>
+        {classNames.map(c=>{
+          const classStudents = students.filter(s=>s.class===c);
+          const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
           return (
-            <div className={`entity-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
-              <div className="flex items-center justify-between">
-                <div className="entity-card-name">{s.forename} {s.surname}</div>
-                {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
-              </div>
-              <div className="entity-card-sub">{s.class} · £{s.weeklyFee}/wk</div>
-              <div className="mini-stat-row">
-                <div className="mini-stat-box" style={{background:'var(--green-light)'}}><div className="n">{c.present}</div><div className="l">Present</div></div>
-                <div className="mini-stat-box" style={{background:'var(--amber-light)'}}><div className="n">{c.late}</div><div className="l">Late</div></div>
-                <div className="mini-stat-box" style={{background:'var(--red-light)'}}><div className="n">{c.absent}</div><div className="l">Absent</div></div>
-              </div>
-              <div className="card-footer" style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--text-muted)'}}>
-                <span>{s.parent1Name} · {s.parent1Phone}</span>
-                <span style={{color:'var(--blue)',fontWeight:600}}>View profile →</span>
-              </div>
+            <div key={c}>
+              <div className="student-column-header"><span>{c}</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{classStudents.length}</span></div>
+              <ReorderableGrid
+                items={filtered}
+                getId={s=>s.id}
+                className="student-compact-list"
+                onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+                renderItem={(s, {isDragging, handleProps, cardAttrs}) => (
+                  <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
+                    <div style={{minWidth:0}}>
+                      <div className="student-compact-name">{s.forename} {s.surname}</div>
+                      <div className="student-compact-sub">£{s.weeklyFee}/wk · {s.parent1Name}</div>
+                    </div>
+                    {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
+                  </div>
+                )}
+              />
+              {filtered.length===0&&(
+                <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>
+                  {search?'No students match your search.':`No students in ${c} yet.`}
+                </div>
+              )}
             </div>
           );
-        }}
-      />
-      {filtered.length===0&&(
-        <div className="card" style={{textAlign:'center',padding:28,color:'var(--text-muted)'}}>
-          {search?'No students match your search.':`No students in ${activeClass} yet.`}
-        </div>
-      )}
+        })}
+      </div>
 
       {/* View modal */}
       {selected&&(

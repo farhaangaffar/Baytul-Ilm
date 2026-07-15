@@ -49,6 +49,14 @@ export async function currentSchoolYear() {
   const label = `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
   return years.includes(label) ? label : years[years.length - 1];
 }
+// Same Sep–Aug school-year convention as currentSchoolYear(), applied to any
+// "YYYY-MM" month string rather than just "now" — used to bucket saved
+// per-month report data (ai_summaries rows) into academic-year sections.
+export function academicYearOfMonth(monthStr) {
+  const [yyyy, mm] = monthStr.split('-').map(Number);
+  const start = mm - 1 >= 8 ? yyyy : yyyy - 1;
+  return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+}
 
 // ── School month — every month runs from its first Monday to the day before the next month's first Monday ──
 function firstMondayOfMonthISO(year, monthIndex0) {
