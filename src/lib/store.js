@@ -223,6 +223,12 @@ export async function saveAiSummary(studentId, month, { summary, instructions, b
   return apiFetch('/api/ai-summary', { method: 'PUT', body: JSON.stringify({ studentId, month, summary, instructions, behavior }) });
 }
 
+// ── "Ask AI" — free-form Q&A over the whole school's fees/attendance data ──
+export async function askAi(question, year) {
+  const { answer } = await apiFetch('/api/ai-summary?action=ask', { method: 'POST', body: JSON.stringify({ question, year }) });
+  return answer;
+}
+
 // ── Backup & restore — now a full snapshot of the API rather than localStorage ──
 export async function exportAllData() {
   const years = await getAcademicYears();
