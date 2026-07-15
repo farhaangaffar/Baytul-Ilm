@@ -6,6 +6,8 @@ import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarIniti
 import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical } from 'lucide-react';
 
+function fmtDob(dob) { try { return new Date(dob+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch { return dob; } }
+
 export default function Students() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -120,7 +122,7 @@ export default function Students() {
                   <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
                     <div style={{minWidth:0}}>
                       <div className="student-compact-name">{s.forename} {s.surname}</div>
-                      <div className="student-compact-sub">£{s.weeklyFee}/wk · {s.parent1Name}</div>
+                      <div className="student-compact-sub">£{s.weeklyFee}/wk · {fmtDob(s.dob)}</div>
                     </div>
                     {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                   </div>

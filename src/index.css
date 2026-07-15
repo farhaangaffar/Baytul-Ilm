@@ -345,6 +345,12 @@ tbody tr:hover td { background: #f9fafb; }
 .mb-4 { margin-bottom: 16px; } .mb-5 { margin-bottom: 20px; } .mb-6 { margin-bottom: 24px; }
 .text-muted { color: var(--text-muted); } .text-sm { font-size: 12px; } .font-600 { font-weight: 600; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* Grid tracks default to min-width:auto, so a child with unbreakable content
+   (a button row, a long line) can force the whole grid wider than its
+   container instead of shrinking/wrapping — this is what clipped the right
+   column's content off-screen on narrower-but-not-mobile viewports (e.g. an
+   unfolded Z Fold). min-width:0 lets tracks actually shrink to fit. */
+.grid-2 > * { min-width: 0; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -353,6 +359,16 @@ tbody tr:hover td { background: #f9fafb; }
 /* ── Mobile ── */
 .mobile-topbar { display: none; }
 .mobile-chips-wrap { display: none; }
+
+/* Mobile browsers generally won't render a blob-URL PDF inline inside an
+   iframe (it shows an inert "open" placeholder), so below this breakpoint
+   swap the embed for a button that opens the PDF in its own tab instead. */
+.report-preview-embed { display: block; }
+.report-preview-mobile-open { display: none; }
+@media (max-width: 768px) {
+  .report-preview-embed { display: none; }
+  .report-preview-mobile-open { display: flex; }
+}
 
 @media (max-width: 768px) {
   .sidebar { display: none; }

@@ -298,8 +298,7 @@ export default function Fees() {
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
-              <div className="entity-card-sub">£{s.weeklyFee}/wk</div>
-              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6,marginBottom:14}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</div>
+              <div className="entity-card-sub" style={{marginBottom:14}}>£{s.weeklyFee}/wk</div>
               <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}} onClick={e=>e.stopPropagation()}>
                 <div className="week-pill-row" style={{justifyContent:'center'}}>
                   {schoolMonthWeeks.map(w=>{
@@ -324,7 +323,7 @@ export default function Fees() {
                     );
                   })}
                 </div>
-                <span style={{fontSize:9.5,color:'var(--text-soft)',textTransform:'uppercase',letterSpacing:'.03em'}}>This month</span>
+                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</span>
               </div>
             </div>
           );
