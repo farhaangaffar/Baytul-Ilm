@@ -24,12 +24,21 @@ function StableTextarea({ initialValue, onSave, placeholder, style }) {
     }, 400);
   };
 
+  // Flush immediately when focus leaves — otherwise a click elsewhere (e.g.
+  // "Add day") can fire before the debounce timer does, and the edit is
+  // never saved before this field's data gets refreshed from the server.
+  const handleBlur = () => {
+    clearTimeout(timer.current);
+    if (ref.current) onSave(ref.current.value);
+  };
+
   return (
     <textarea
       ref={ref}
       defaultValue={initialValue}
       placeholder={placeholder}
       onChange={handleChange}
+      onBlur={handleBlur}
       style={{
         width:'100%', border:'none', background:'transparent', resize:'none',
         fontFamily:'var(--font)', fontSize:13, color:'var(--text)', outline:'none',
@@ -47,12 +56,18 @@ function CommentBox({ initialValue, onSave, placeholder }) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => { if(ref.current) onSave(ref.current.value); }, 400);
   };
+  // Flush immediately when focus leaves — see StableTextarea for why.
+  const handleBlur = () => {
+    clearTimeout(timer.current);
+    if (ref.current) onSave(ref.current.value);
+  };
   return (
     <textarea
       ref={ref}
       defaultValue={initialValue}
       placeholder={placeholder}
       onChange={handleChange}
+      onBlur={handleBlur}
       rows={2}
       style={{
         resize:'vertical', border:'1px solid var(--border)', borderRadius:'var(--r-md)',
