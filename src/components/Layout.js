@@ -22,10 +22,11 @@ export default function Layout({ children, title, subtitle }) {
   const activeChipRef = useRef(null);
 
   // Layout remounts fresh on every navigation (each page renders its own <Layout>), so
-  // the chip row's scroll position resets to 0 by default — re-center the active chip
-  // every time instead of leaving the user to scroll back to find their place.
+  // the chip row's scroll position resets to 0 by default — scroll the active chip
+  // back into view if the reset hid it. 'nearest' (not 'center') means this is a
+  // no-op when the chip is already visible, instead of re-centering it every time.
   useEffect(() => {
-    activeChipRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    activeChipRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }, [pathname]);
 
   async function handleLogout() {
