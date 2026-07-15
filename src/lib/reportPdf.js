@@ -15,6 +15,18 @@ const PAGE_H = 842.25;
 const MEDIABOX_Y0 = 7.8299813;
 const MEDIABOX_TOP = MEDIABOX_Y0 + PAGE_H;
 
+// The "Report Summary" box's geometry (top-down, measured off the template)
+// — shared with summaryFit.js so the live in-app fit check uses the exact
+// same box a generated PDF will actually use, not a separate guess at it.
+export const SUMMARY_BOX = {
+  x: 52, maxWidth: 495, fontSize: 10, lineHeight: 15,
+  startTop: 548.64 + 14, limitTop: 767,
+};
+// Mirrors drawFlowingText's own per-line "yTop + size > limit" cutoff exactly
+// — this must stay derived from the same box, not just eyeballed, or the
+// live checker and the actual PDF could disagree on where line 14 lands.
+SUMMARY_BOX.maxLines = Math.floor((SUMMARY_BOX.limitTop - SUMMARY_BOX.startTop - SUMMARY_BOX.fontSize) / SUMMARY_BOX.lineHeight) + 1;
+
 const COLORS = {
   ink: rgb(0.1, 0.1, 0.1),
   muted: rgb(51 / 255, 51 / 255, 51 / 255),
@@ -124,7 +136,7 @@ function drawCheckmark(page, box) {
   );
 }
 
-function wrapText(text, font, size, maxWidth) {
+export function wrapText(text, font, size, maxWidth) {
   const words = (text || '').split(/\s+/).filter(Boolean);
   const lines = [];
   let line = '';
@@ -240,19 +252,18 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   // Report summary paragraph — spills onto continuation page(s) instead of
   // being truncated or shrunk if it doesn't fit the template's box.
   const summaryText = aiSummary || 'No summary has been generated for this student yet.';
-  const lines = wrapText(summaryText, regular, 10, 495);
+  const lines = wrapText(summaryText, regular, SUMMARY_BOX.fontSize, SUMMARY_BOX.maxWidth);
   drawFlowingText(doc, lines, {
-    firstPage: page, firstPageTop: MEDIABOX_TOP, x: 52, startTop: 548.64 + 14, limitTop: 767,
-    font: regular, size: 10, lineHeight: 15, color: COLORS.ink,
+    firstPage: page, firstPageTop: MEDIABOX_TOP, x: SUMMARY_BOX.x, startTop: SUMMARY_BOX.startTop, limitTop: SUMMARY_BOX.limitTop,
+    font: regular, size: SUMMARY_BOX.fontSize, lineHeight: SUMMARY_BOX.lineHeight, color: COLORS.ink,
     makeContinuationPage: () => newContinuationPage(doc, { semibold, regular }, `${student.forename} ${student.surname}`, reportDate),
   });
 
-  // Footer date — the template ships with a sample date baked in; cover the
-  // whole band plus the white gap just above it (glyph ink can bleed above
-  // the bbox pdftotext reports) and redraw with the real generation date.
-  // Bounds match the band's actual border lines exactly (measured off the
-  // template), not an approximation — a mismatched fill reads as misaligned.
-  page.drawRectangle({ x: 40.3, y: pdfY(782.4), width: 518.9, height: 782.4 - 768, color: COLORS.white });
+  // Footer date — the template ships with a sample date baked in; cover just
+  // the white gap above the band (768–781, well short of the band's own top
+  // border at ~781.4) so that border line is left untouched, then fill the
+  // band itself exactly to its border coordinates (measured off the template).
+  page.drawRectangle({ x: 40.3, y: pdfY(781.0), width: 518.9, height: 781.0 - 768, color: COLORS.white });
   page.drawRectangle({ x: 40.3, y: pdfY(810.24), width: 518.9, height: 810.24 - 782.4, color: COLORS.gray });
   centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
     regular, 9, PAGE_W / 2, 799, COLORS.muted);

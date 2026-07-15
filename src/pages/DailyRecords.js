@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary } from '../lib/store';
+import { checkSummaryFit } from '../lib/summaryFit';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -144,6 +145,14 @@ function StudentRecords({ student, settings, onBack }) {
   const [savingSummary, setSavingSummary] = useState(false);
   const [behavior, setBehavior] = useState('');
   const [savingBehavior, setSavingBehavior] = useState('');
+  const [summaryFit, setSummaryFit] = useState(null);
+
+  useEffect(() => {
+    if (!aiSummary) { setSummaryFit(null); return; }
+    let cancelled = false;
+    checkSummaryFit(aiSummary).then(res => { if (!cancelled) setSummaryFit(res); });
+    return () => { cancelled = true; };
+  }, [aiSummary]);
   const [confirmDel, setConfirmDel] = useState(null);
   const [toast, setToast] = useState('');
 
@@ -225,7 +234,7 @@ function StudentRecords({ student, settings, onBack }) {
       const year = await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
       const counts = attendanceCountsFrom(attendanceForYear, student.id);
-      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Around 150-200 words, plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -428,6 +437,13 @@ function StudentRecords({ student, settings, onBack }) {
                   rows={8}
                   style={{width:'100%',border:'none',background:'transparent',resize:'vertical',outline:'none',padding:0,fontFamily:'inherit',fontSize:'inherit',lineHeight:'inherit',color:'inherit'}}
                 />
+                {summaryFit&&(
+                  <div style={{fontSize:11,marginTop:6,color:summaryFit.fits?'var(--text-muted)':'var(--red)'}}>
+                    {summaryFit.fits
+                      ? `Fits the report's summary box (${summaryFit.lines}/${summaryFit.maxLines} lines)`
+                      : `Won't fit the summary box — ${summaryFit.overflowLines} line${summaryFit.overflowLines===1?'':'s'} will spill onto a second page`}
+                  </div>
+                )}
                 <button className="btn btn-primary btn-sm" style={{width:'100%',justifyContent:'center',marginTop:10}} onClick={addToReport} disabled={savingSummary}>
                   {savingSummary?'Saving…':'Add to report'}
                 </button>
