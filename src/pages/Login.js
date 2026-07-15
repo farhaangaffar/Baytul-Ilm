@@ -24,7 +24,7 @@ export default function Login({ onSuccess }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
       <div className="card" style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Kidzhood Arabic', 'Amiri', serif", fontSize: 30, color: 'var(--ink)', marginBottom: 4 }}>بيت العلم</div>
+        <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>بيت العلم</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Baytul 'Ilm Madrasah</div>
         <form onSubmit={submit}>
           <div className="form-group" style={{ textAlign: 'left', marginBottom: 16 }}>
