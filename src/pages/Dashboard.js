@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Sparkles, X, Send } from 'lucide-react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear } from '../lib/store';
+import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi } from '../lib/store';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -16,6 +17,11 @@ export default function Dashboard() {
   const [classes, setClasses] = useState([]);
   const [fees, setFees] = useState([]);
   const [attendance, setAttendance] = useState({});
+  const [showAsk, setShowAsk] = useState(false);
+  const [askQuestion, setAskQuestion] = useState('');
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState(null);
+  const [askHistory, setAskHistory] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -59,6 +65,25 @@ export default function Dashboard() {
     setWeekAnchor(d.toISOString().split('T')[0]);
   }
 
+  async function handleAsk(e) {
+    e.preventDefault();
+    const q = askQuestion.trim();
+    if (!q || asking) return;
+    setAsking(true); setAskError(null);
+    try {
+      const answer = await askAi(q, year);
+      setAskHistory(h => [...h, { question: q, answer }]);
+      setAskQuestion('');
+    } catch (err) {
+      setAskError(err);
+    }
+    setAsking(false);
+  }
+
+  function closeAsk() {
+    setShowAsk(false); setAskQuestion(''); setAskError(null); setAskHistory([]);
+  }
+
   // ── This school month's fees ──
   const monthFees = fees.filter(f => f.weekStarting >= schoolMonth.start && f.weekStarting < schoolMonth.endExclusive);
   const monthCollected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
@@ -74,9 +99,16 @@ export default function Dashboard() {
   return (
     <Layout title="Dashboard" subtitle={`Overview · ${year}`}>
       <div className="card hero">
-        <div className="hero-arabic">السلام عليكم</div>
-        <div className="hero-greeting">Assalamu Alaikum</div>
-        <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
+          <div>
+            <div className="hero-arabic">السلام عليكم</div>
+            <div className="hero-greeting">Assalamu Alaikum</div>
+            <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
+          </div>
+          <button className="btn btn-primary" style={{background:'var(--blue)',flexShrink:0}} onClick={()=>setShowAsk(true)}>
+            <Sparkles size={15}/> Ask AI
+          </button>
+        </div>
       </div>
 
       <div className="stat-grid-v2">
@@ -168,6 +200,49 @@ export default function Dashboard() {
           <div className="chart-legend-item"><span className="chart-legend-dot" style={{background:'var(--red)'}}/>Absent</div>
         </div>
       </div>
+
+      {showAsk && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeAsk()}>
+          <div className="modal" style={{maxWidth:520}}>
+            <div className="modal-header">
+              <div className="modal-title"><Sparkles size={16} style={{verticalAlign:'-3px',marginRight:6}}/>Ask AI</div>
+              <button className="btn btn-icon" onClick={closeAsk}><X size={16}/></button>
+            </div>
+            <div className="modal-body">
+              <div className="card-sub" style={{marginBottom:14}}>
+                Ask about fees or attendance across the school, e.g. "What's the total fees collected so far this year?" or "What's Ahmed's attendance like this year?"
+              </div>
+
+              {askHistory.length > 0 && (
+                <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:16,maxHeight:320,overflowY:'auto'}}>
+                  {askHistory.map((h, i) => (
+                    <div key={i}>
+                      <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{h.question}</div>
+                      <div style={{fontSize:13,color:'var(--text)',whiteSpace:'pre-wrap',background:'#f9fafb',borderRadius:'var(--r-md)',padding:'10px 12px'}}>{h.answer}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {askError && <div style={{color:'var(--red)',fontSize:12.5,marginBottom:10}}>{askError.message || 'Something went wrong — please try again.'}</div>}
+
+              <form onSubmit={handleAsk} style={{display:'flex',gap:8}}>
+                <input
+                  autoFocus
+                  value={askQuestion}
+                  onChange={e=>setAskQuestion(e.target.value)}
+                  placeholder="Ask a question…"
+                  disabled={asking}
+                  style={{flex:1,padding:'10px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
+                />
+                <button type="submit" className="btn btn-primary" style={{background:'var(--blue)'}} disabled={asking || !askQuestion.trim()}>
+                  {asking ? '…' : <Send size={15}/>}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
