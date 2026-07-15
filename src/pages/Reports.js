@@ -120,112 +120,114 @@ export default function Reports() {
 
   return (
     <Layout title="Reports" subtitle="Generate PDF progress reports">
-      <div className="grid-2" style={{alignItems:'start'}}>
-        {/* Student list */}
-        <div className="card">
-          <div className="card-header">
-            <div><div className="card-title">Select a student</div><div className="card-sub">Click a name for their report history</div></div>
-            <button className="btn btn-primary btn-sm" onClick={async()=>{
-              setGenerating('all');
-              for(const s of students){
-                const bytes = await buildReportBytes(s, attendance, fees, {
-                  summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(),
-                });
-                downloadBytes(bytes, `Report_${s.forename}_${s.surname}.pdf`);
-              }
-              setGenerating(''); showToast(`${students.length} reports downloaded`);
-            }}>{generating==='all'?'Generating…':<><Download size={13}/>All reports</>}</button>
-          </div>
-          {/* Scrollable list */}
-          <div style={{maxHeight:480,overflowY:'auto'}}>
-            {students.map(s=>{
-              const isActive=selected===s.id;
-              return (
-                <div key={s.id} onClick={()=>selectStudent(s)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
-                  <div className="flex items-center gap-2">
-                    <div className="avatar" style={{width:30,height:30,fontSize:10,background:isActive?'var(--ink)':undefined,color:isActive?'#fff':undefined}}>{avatarInitials(s.forename+' '+s.surname)}</div>
-                    <div>
-                      <div style={{fontWeight:500,fontSize:13}}>{s.forename} {s.surname}</div>
-                      <div className="text-muted text-sm">{s.class}</div>
+      {/* Unified top box: student picker on the left, selected student's
+          header + report history on the right, inside one card. */}
+      <div className="card mb-4" style={{padding:0}}>
+        <div className="reports-top-grid">
+          <div className="reports-top-col" style={{borderRight:'1px solid var(--border)'}}>
+            <div className="card-header" style={{marginBottom:10}}>
+              <div><div className="card-title">Select a student</div><div className="card-sub">Click a name for their report history</div></div>
+              <button className="btn btn-primary btn-sm" onClick={async()=>{
+                setGenerating('all');
+                for(const s of students){
+                  const bytes = await buildReportBytes(s, attendance, fees, {
+                    summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(),
+                  });
+                  downloadBytes(bytes, `Report_${s.forename}_${s.surname}.pdf`);
+                }
+                setGenerating(''); showToast(`${students.length} reports downloaded`);
+              }}>{generating==='all'?'Generating…':<><Download size={13}/>All reports</>}</button>
+            </div>
+            {/* Scrollable list */}
+            <div style={{maxHeight:420,overflowY:'auto'}}>
+              {students.map(s=>{
+                const isActive=selected===s.id;
+                return (
+                  <div key={s.id} onClick={()=>selectStudent(s)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
+                    <div className="flex items-center gap-2">
+                      <div className="avatar" style={{width:30,height:30,fontSize:10,background:isActive?'var(--ink)':undefined,color:isActive?'#fff':undefined}}>{avatarInitials(s.forename+' '+s.surname)}</div>
+                      <div>
+                        <div style={{fontWeight:500,fontSize:13}}>{s.forename} {s.surname}</div>
+                        <div className="text-muted text-sm">{s.class}</div>
+                      </div>
                     </div>
+                    <button className="btn btn-sm" onClick={e=>{e.stopPropagation();quickDownload(s);}} disabled={!!generating} title="Download this month's report">{generating===s.id?'…':<Download size={12}/>}</button>
                   </div>
-                  <button className="btn btn-sm" onClick={e=>{e.stopPropagation();quickDownload(s);}} disabled={!!generating} title="Download this month's report">{generating===s.id?'…':<Download size={12}/>}</button>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* Preview */}
-        <div>
-          {preview?(
-            <div>
-              <div className="card mb-4">
-                <div className="card-header">
+          <div className="reports-top-col">
+            {preview?(
+              <>
+                <div className="card-header" style={{marginBottom:10}}>
                   <div><div className="card-title">{preview.forename} {preview.surname}</div><div className="card-sub">{preview.class}</div></div>
                   <button className="btn btn-primary btn-sm" onClick={()=>generateAndPreview(preview, null)} disabled={previewLoading}>
                     <Plus size={13}/>{previewLoading&&activeMonth===null?'Generating…':'Add new report'}
                   </button>
                 </div>
-              </div>
-
-              <div className="card mb-4">
-                <div className="card-title" style={{marginBottom:10}}>Previous reports</div>
-                {years.length===0?(
-                  <div className="text-muted text-sm">No reports saved yet for {preview.forename} — write a summary on their Daily Records page, then come back here.</div>
-                ):years.map(yr=>(
-                  <div key={yr} style={{marginBottom:12}}>
-                    <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Academic year {yr}</div>
-                    {reportsByYear[yr].map(r=>{
-                      const isActive = activeMonth===r.month;
-                      return (
-                        <div key={r.month} onClick={()=>generateAndPreview(preview, r)}
-                          style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,fontSize:13}}>
-                          <span>{monthLabelFor(r.month)}</span>
-                          {previewLoading&&isActive?<span className="text-muted text-sm">Loading…</span>:<Download size={13} className="text-muted"/>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-
-              <div className="card" style={{padding:0,overflow:'hidden'}}>
-                <div className="flex justify-between items-center" style={{padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontWeight:500,fontSize:13}}>{activeMonth?monthLabelFor(activeMonth):'New report — current month'}</div>
-                  <button className="btn btn-sm" disabled={!previewBytes} onClick={()=>downloadBytes(previewBytes, `Report_${preview.forename}_${preview.surname}.pdf`)}>
-                    <Download size={12}/>Download
-                  </button>
-                </div>
-                {previewLoading?(
-                  <div style={{height:600,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Generating preview…</div>
-                ):previewUrl?(
-                  <>
-                    {/* Mobile browsers generally can't embed a blob PDF inline in an
-                        iframe — it renders as an inert "open" placeholder that does
-                        nothing when tapped. Below the breakpoint, open it in a real
-                        tab instead, where the OS's own PDF viewer takes over. */}
-                    <iframe title="Report preview" className="report-preview-embed" src={`${previewUrl}#toolbar=0&navpanes=0`} style={{width:'100%',height:600,border:'none'}}/>
-                    <div className="report-preview-mobile-open" style={{height:300,flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:'var(--text-muted)'}}>
-                      <FileText size={36} style={{opacity:.3}}/>
-                      <div style={{fontSize:13}}>Preview isn't supported on this device</div>
-                      <button className="btn btn-primary btn-sm" onClick={()=>window.open(previewUrl,'_blank')}>Open report</button>
+                <div style={{maxHeight:420,overflowY:'auto'}}>
+                  <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Previous reports</div>
+                  {years.length===0?(
+                    <div className="text-muted text-sm">No reports saved yet for {preview.forename} — write a summary on their Daily Records page, then come back here.</div>
+                  ):years.map(yr=>(
+                    <div key={yr} style={{marginBottom:12}}>
+                      <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Academic year {yr}</div>
+                      {reportsByYear[yr].map(r=>{
+                        const isActive = activeMonth===r.month;
+                        return (
+                          <div key={r.month} onClick={()=>generateAndPreview(preview, r)}
+                            style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,fontSize:13}}>
+                            <span>{monthLabelFor(r.month)}</span>
+                            {previewLoading&&isActive?<span className="text-muted text-sm">Loading…</span>:<Download size={13} className="text-muted"/>}
+                          </div>
+                        );
+                      })}
                     </div>
-                  </>
-                ):(
-                  <div style={{height:600,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Could not load preview.</div>
-                )}
+                  ))}
+                </div>
+              </>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:300,color:'var(--text-muted)'}}>
+                <FileText size={40} style={{marginBottom:12,opacity:.25}}/>
+                <div style={{fontWeight:500}}>Select a student to preview</div>
+                <div className="text-sm" style={{marginTop:4}}>Reports include attendance, fee status and AI summary</div>
               </div>
-            </div>
-          ):(
-            <div className="card" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:400,color:'var(--text-muted)'}}>
-              <FileText size={40} style={{marginBottom:12,opacity:.25}}/>
-              <div style={{fontWeight:500}}>Select a student to preview</div>
-              <div className="text-sm" style={{marginTop:4}}>Reports include attendance, fee status and AI summary</div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Preview — one big box, full width. */}
+      {preview&&(
+        <div className="card" style={{padding:0,overflow:'hidden'}}>
+          <div className="flex justify-between items-center" style={{padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
+            <div style={{fontWeight:500,fontSize:13}}>{activeMonth?monthLabelFor(activeMonth):'New report — current month'}</div>
+            <button className="btn btn-sm" disabled={!previewBytes} onClick={()=>downloadBytes(previewBytes, `Report_${preview.forename}_${preview.surname}.pdf`)}>
+              <Download size={12}/>Download
+            </button>
+          </div>
+          {previewLoading?(
+            <div style={{height:800,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Generating preview…</div>
+          ):previewUrl?(
+            <>
+              {/* Mobile browsers generally can't embed a blob PDF inline in an
+                  iframe — it renders as an inert "open" placeholder that does
+                  nothing when tapped. Below the breakpoint, open it in a real
+                  tab instead, where the OS's own PDF viewer takes over. */}
+              <iframe title="Report preview" className="report-preview-embed" src={`${previewUrl}#toolbar=0&navpanes=0`} style={{width:'100%',height:800,border:'none'}}/>
+              <div className="report-preview-mobile-open" style={{height:300,flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:'var(--text-muted)'}}>
+                <FileText size={36} style={{opacity:.3}}/>
+                <div style={{fontSize:13}}>Preview isn't supported on this device</div>
+                <button className="btn btn-primary btn-sm" onClick={()=>window.open(previewUrl,'_blank')}>Open report</button>
+              </div>
+            </>
+          ):(
+            <div style={{height:800,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Could not load preview.</div>
+          )}
+        </div>
+      )}
       {toast&&<div className="toast"><FileText size={14}/> {toast}</div>}
     </Layout>
   );
