@@ -196,6 +196,14 @@ export async function deleteDailyRecord(studentId, date) {
 }
 export async function getStudentRecords(studentId) { return apiFetch(`/api/daily-records?studentId=${encodeURIComponent(studentId)}`); }
 
+// ── AI monthly summaries — saved separately from a one-off generation, so a
+// summary attached to a report survives navigating away and back. ──
+export async function getAiSummaries(studentId) { return apiFetch(`/api/ai-summaries?studentId=${encodeURIComponent(studentId)}`); }
+export async function getAiSummariesForMonth(month) { return apiFetch(`/api/ai-summaries?month=${encodeURIComponent(month)}`); }
+export async function saveAiSummary(studentId, month, { summary, instructions }) {
+  return apiFetch('/api/ai-summaries', { method: 'PUT', body: JSON.stringify({ studentId, month, summary, instructions }) });
+}
+
 // ── Backup & restore — now a full snapshot of the API rather than localStorage ──
 export async function exportAllData() {
   const years = await getAcademicYears();
