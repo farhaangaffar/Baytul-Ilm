@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, attendanceCountsFrom, attendancePctFrom, studentFeesFrom, getAttendance, getFees, getStudentRecords, avatarInitials, getSettings, currentSchoolYear } from '../lib/store';
+import { getStudents, attendanceCountsFrom, attendancePctFrom, studentFeesFrom, getAttendance, getFees, getStudentRecords, avatarInitials, getSettings, currentSchoolYear, getAiSummariesForMonth, saveAiSummary } from '../lib/store';
 import { FileText, Download, Sparkles } from 'lucide-react';
 
 function fmtDate(iso) { try { return new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); } catch{ return iso; } }
@@ -132,6 +132,7 @@ export default function Reports() {
   const [selected,setSelected]=useState(null);
   const [generating,setGenerating]=useState('');
   const [aiSummaries,setAiSummaries]=useState({});
+  const [savedInstructions,setSavedInstructions]=useState({});
   const [aiLoading,setAiLoading]=useState('');
   const [toast,setToast]=useState('');
 
@@ -139,10 +140,15 @@ export default function Reports() {
     setLoading(true); setError(null);
     try {
       const y = await currentSchoolYear();
-      const [studentsData, settingsData, attendanceData, feesData] = await Promise.all([
-        getStudents(), getSettings(), getAttendance(y), getFees(y),
+      const [studentsData, settingsData, attendanceData, feesData, savedSummaries] = await Promise.all([
+        getStudents(), getSettings(), getAttendance(y), getFees(y), getAiSummariesForMonth(currentMonth()).catch(()=>[]),
       ]);
       setStudents(studentsData); setSettings(settingsData); setYear(y); setAttendance(attendanceData); setFees(feesData);
+      // Pre-load any summaries already saved from the Daily Records page (or a
+      // previous visit here) so they don't disappear on navigating back.
+      const summaryMap = {}; const instrMap = {};
+      savedSummaries.forEach(s => { summaryMap[s.studentId] = s.summary; instrMap[s.studentId] = s.instructions; });
+      setAiSummaries(summaryMap); setSavedInstructions(instrMap);
     } catch (err) {
       setError(err);
     }
@@ -174,7 +180,11 @@ export default function Reports() {
       const res=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});
       const data=await res.json();
       if (!res.ok) throw new Error(data.error || 'API error');
-      setAiSummaries(p=>({...p,[student.id]:data.summary||'Unable to generate summary.'}));
+      const summary=data.summary||'Unable to generate summary.';
+      setAiSummaries(p=>({...p,[student.id]:summary}));
+      // Save immediately — otherwise this only lives in local state and
+      // disappears the moment this page is left and come back to.
+      saveAiSummary(student.id, month, { summary, instructions: savedInstructions[student.id]||'' }).catch(()=>{});
     } catch (err) { setAiSummaries(p=>({...p,[student.id]:err.message || 'Connection error. Please try again.'})); }
     setAiLoading('');
   }

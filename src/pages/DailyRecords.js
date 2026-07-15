@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear } from '../lib/store';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary } from '../lib/store';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -10,6 +10,10 @@ function fmtDate(iso) {
   catch { return iso; }
 }
 function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function monthLabelFor(ym) {
+  const [y,m]=ym.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+}
 
 // Stable textarea that doesn't lose focus on mobile
 // Key: do NOT re-render the textarea on every keystroke — use uncontrolled + ref-based save
@@ -135,6 +139,9 @@ function StudentRecords({ student, settings, onBack }) {
   const [newDate, setNewDate] = useState(isoToday());
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiInstructions, setAiInstructions] = useState('');
+  const [previousSummaries, setPreviousSummaries] = useState([]);
+  const [savingSummary, setSavingSummary] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [toast, setToast] = useState('');
 
@@ -144,10 +151,22 @@ function StudentRecords({ student, settings, onBack }) {
     catch (err) { showToast(err.message || 'Could not load records'); }
   }, [student.id]);
 
+  const refreshSummaries = useCallback(async () => {
+    try {
+      const all = await getAiSummaries(student.id);
+      const month = currentMonth();
+      const current = all.find(s => s.month === month);
+      setAiSummary(current?.summary || '');
+      setAiInstructions(current?.instructions || '');
+      setPreviousSummaries(all.filter(s => s.month !== month));
+    } catch { /* saved summaries are a bonus, not required to use the page */ }
+  }, [student.id]);
+
   useEffect(() => {
     setLoadingRecords(true);
     refresh().finally(() => setLoadingRecords(false));
-  }, [refresh]);
+    refreshSummaries();
+  }, [refresh, refreshSummaries]);
 
   // Stable field save — doesn't cause re-render of the textarea
   const saveField = useCallback((date, field, value) => {
@@ -183,22 +202,27 @@ function StudentRecords({ student, settings, onBack }) {
   }
 
   async function summarise() {
-    const month=currentMonth();
-    const monthDates=Object.keys(records).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
-    if (!monthDates.length) {
-      setAiSummary('No records found for this month. Add some daily entries first.');
-      return;
-    }
-    const entries=monthDates.map(d=>{
-      const e=records[d]||{};
-      return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
-    }).join('\n\n');
     setAiLoading(true); setAiSummary('');
     try {
+      // Fetch fresh rather than using local `records` — that state deliberately
+      // isn't refreshed after every keystroke (to avoid losing textarea focus),
+      // so it can be stale right after adding or editing an entry.
+      const freshRecords = await getStudentRecords(student.id);
+      const month=currentMonth();
+      const monthDates=Object.keys(freshRecords).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
+      if (!monthDates.length) {
+        setAiSummary('No records found for this month. Add some daily entries first.');
+        setAiLoading(false);
+        return;
+      }
+      const entries=monthDates.map(d=>{
+        const e=freshRecords[d]||{};
+        return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
+      }).join('\n\n');
       const year = await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
       const counts = attendanceCountsFrom(attendanceForYear, student.id);
-      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Around 150-200 words, plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.`;
+      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Around 150-200 words, plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -211,6 +235,18 @@ function StudentRecords({ student, settings, onBack }) {
       setAiSummary(err.message || 'Could not generate a summary. Please try again.');
     }
     setAiLoading(false);
+  }
+
+  async function addToReport() {
+    setSavingSummary(true);
+    try {
+      await saveAiSummary(student.id, currentMonth(), { summary: aiSummary, instructions: aiInstructions });
+      await refreshSummaries();
+      showToast('Added to report');
+    } catch (err) {
+      showToast(err.message || 'Could not save summary');
+    }
+    setSavingSummary(false);
   }
 
   const dates = Object.keys(records).sort((a,b)=>a.localeCompare(b));
@@ -335,14 +371,35 @@ function StudentRecords({ student, settings, onBack }) {
             <div className="card-sub" style={{marginBottom:14}}>
               AI report paragraph for {student.forename} — {new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}
             </div>
+
+            <div className="form-group" style={{marginBottom:12}}>
+              <label>Instructions for the AI (optional)</label>
+              <textarea
+                value={aiInstructions}
+                onChange={e=>setAiInstructions(e.target.value)}
+                placeholder="e.g. focus on his Qur'an memorisation progress, keep it brief…"
+                rows={2}
+                style={{width:'100%',border:'1px solid var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontFamily:'var(--font)',fontSize:13,resize:'vertical'}}
+              />
+            </div>
+
             <button className="btn btn-ai" style={{width:'100%',justifyContent:'center',padding:'10px',marginBottom:14}} onClick={summarise} disabled={aiLoading}>
-              <Sparkles size={15}/>{aiLoading?'Generating…':'Summarise this month ↗'}
+              <Sparkles size={15}/>{aiLoading?'Generating…':(aiSummary?'Regenerate summary ↗':'Summarise this month ↗')}
             </button>
             {aiLoading&&<div className="ai-summary-box"><div style={{color:'var(--teal-dark)',fontStyle:'italic',fontSize:13}}>Reading through {student.forename}'s records…</div></div>}
             {aiSummary&&!aiLoading&&(
               <div className="ai-summary-box">
                 <div className="ai-summary-title"><Sparkles size={13}/>Summary — {new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</div>
-                <div className="ai-summary-text">{aiSummary}</div>
+                <textarea
+                  className="ai-summary-text"
+                  value={aiSummary}
+                  onChange={e=>setAiSummary(e.target.value)}
+                  rows={8}
+                  style={{width:'100%',border:'none',background:'transparent',resize:'vertical',outline:'none',padding:0,fontFamily:'inherit',fontSize:'inherit',lineHeight:'inherit',color:'inherit'}}
+                />
+                <button className="btn btn-primary btn-sm" style={{width:'100%',justifyContent:'center',marginTop:10}} onClick={addToReport} disabled={savingSummary}>
+                  {savingSummary?'Saving…':'Add to report'}
+                </button>
               </div>
             )}
             {!aiSummary&&!aiLoading&&(
@@ -352,6 +409,17 @@ function StudentRecords({ student, settings, onBack }) {
               </div>
             )}
           </div>
+          {previousSummaries.length>0&&(
+            <div className="card" style={{marginTop:14}}>
+              <div className="card-title" style={{marginBottom:12}}>Previous summaries</div>
+              {previousSummaries.map(s=>(
+                <div key={s.month} style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
+                  <div style={{fontWeight:600,fontSize:12,marginBottom:4}}>{monthLabelFor(s.month)}</div>
+                  <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{s.summary}</div>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="card" style={{marginTop:14}}>
             <div className="card-title" style={{marginBottom:12}}>This month</div>
             {(()=>{

@@ -77,5 +77,18 @@ CREATE TABLE IF NOT EXISTS daily_records (
   UNIQUE (student_id, date)
 );
 
+-- One saved AI monthly summary per student per month — the version that's been
+-- reviewed/edited and attached to that student's report, as opposed to a fresh
+-- one-off generation that only lives in memory until the page is left.
+CREATE TABLE IF NOT EXISTS ai_summaries (
+  id           BIGSERIAL PRIMARY KEY,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  month        TEXT NOT NULL,
+  summary      TEXT NOT NULL DEFAULT '',
+  instructions TEXT NOT NULL DEFAULT '',
+  updated_at   TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE (student_id, month)
+);
+
 INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO academic_years (year) VALUES ('2025-26') ON CONFLICT (year) DO NOTHING;
