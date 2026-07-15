@@ -118,6 +118,15 @@ export function attendancePctFrom(attendanceForYear, studentId) {
   if (!days.length) return 0;
   return Math.round((days.filter(d => d === 'P' || d === 'L').length / days.length) * 100);
 }
+// Same as attendanceCountsFrom, but scoped to a single school month (as
+// returned by getCurrentSchoolMonth) instead of the whole year — used by
+// the PDF report, which shows one month's attendance, not year-to-date.
+export function attendanceCountsForMonth(attendanceForYear, studentId, monthRange) {
+  const days = Object.entries(attendanceForYear[studentId] || {})
+    .filter(([date]) => date >= monthRange.start && date < monthRange.endExclusive)
+    .map(([, status]) => status);
+  return { present: days.filter(d => d === 'P').length, late: days.filter(d => d === 'L').length, absent: days.filter(d => d === 'A').length, total: days.length };
+}
 export function getWeekDates(anchor) {
   const d = new Date(anchor + 'T12:00:00'), day = d.getDay();
   const mon = new Date(d); mon.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
