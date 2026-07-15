@@ -186,13 +186,13 @@ export default function Attendance() {
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
-              <div className="entity-card-sub">{s.class}</div>
-              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:6,marginBottom:14}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
+              <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>
               <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
                 <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
                 <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} onClick={()=>mark(s.id,TODAY,'L')}>L</button>
                 <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} onClick={()=>mark(s.id,TODAY,'A')}>A</button>
               </div>
+              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:10,textAlign:'center'}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
             </div>
           );
         })}

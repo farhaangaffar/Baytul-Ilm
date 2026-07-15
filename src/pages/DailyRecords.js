@@ -162,15 +162,16 @@ function StudentRecords({ student, settings, onBack }) {
     catch (err) { showToast(err.message || 'Could not load records'); }
   }, [student.id]);
 
+  // Deliberately doesn't restore the current month's saved summary/instructions/
+  // behaviour into the compose box — once "Add to report" is clicked those are
+  // saved to the DB and cleared locally (see addToReport), and should stay
+  // cleared even after leaving and returning to this page. Nothing is ever
+  // saved to the DB before that point, so there's no unsaved work to restore.
+  // The saved result is still visible, read-only, in "Previous summaries" below.
   const refreshSummaries = useCallback(async () => {
     try {
       const all = await getAiSummaries(student.id);
-      const month = currentMonth();
-      const current = all.find(s => s.month === month);
-      setAiSummary(current?.summary || '');
-      setAiInstructions(current?.instructions || '');
-      setBehavior(current?.behavior || '');
-      setPreviousSummaries(all.filter(s => s.month !== month));
+      setPreviousSummaries(all);
     } catch { /* saved summaries are a bonus, not required to use the page */ }
   }, [student.id]);
 

@@ -160,11 +160,13 @@ export default function Reports() {
         <div>
           {preview?(
             <div>
-              <div className="flex justify-between items-center mb-4">
-                <div style={{fontWeight:600,fontSize:14}}>{preview.forename} {preview.surname}</div>
-                <button className="btn btn-primary btn-sm" onClick={()=>generateAndPreview(preview, null)} disabled={previewLoading}>
-                  <Plus size={13}/>{previewLoading&&activeMonth===null?'Generating…':'Add new report'}
-                </button>
+              <div className="card mb-4">
+                <div className="card-header">
+                  <div><div className="card-title">{preview.forename} {preview.surname}</div><div className="card-sub">{preview.class}</div></div>
+                  <button className="btn btn-primary btn-sm" onClick={()=>generateAndPreview(preview, null)} disabled={previewLoading}>
+                    <Plus size={13}/>{previewLoading&&activeMonth===null?'Generating…':'Add new report'}
+                  </button>
+                </div>
               </div>
 
               <div className="card mb-4">
@@ -198,7 +200,18 @@ export default function Reports() {
                 {previewLoading?(
                   <div style={{height:600,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Generating preview…</div>
                 ):previewUrl?(
-                  <iframe title="Report preview" src={`${previewUrl}#toolbar=0&navpanes=0`} style={{width:'100%',height:600,border:'none',display:'block'}}/>
+                  <>
+                    {/* Mobile browsers generally can't embed a blob PDF inline in an
+                        iframe — it renders as an inert "open" placeholder that does
+                        nothing when tapped. Below the breakpoint, open it in a real
+                        tab instead, where the OS's own PDF viewer takes over. */}
+                    <iframe title="Report preview" className="report-preview-embed" src={`${previewUrl}#toolbar=0&navpanes=0`} style={{width:'100%',height:600,border:'none'}}/>
+                    <div className="report-preview-mobile-open" style={{height:300,flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:'var(--text-muted)'}}>
+                      <FileText size={36} style={{opacity:.3}}/>
+                      <div style={{fontSize:13}}>Preview isn't supported on this device</div>
+                      <button className="btn btn-primary btn-sm" onClick={()=>window.open(previewUrl,'_blank')}>Open report</button>
+                    </div>
+                  </>
                 ):(
                   <div style={{height:600,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)'}}>Could not load preview.</div>
                 )}
