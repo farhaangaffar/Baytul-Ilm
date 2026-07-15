@@ -18,6 +18,7 @@ const COLORS = {
   blue: rgb(81 / 255, 112 / 255, 255 / 255),
   gray: rgb(217 / 255, 217 / 255, 217 / 255),
   white: rgb(1, 1, 1),
+  summaryBand: rgb(182 / 255, 226 / 255, 211 / 255), // same teal-green as the "Details"/"Report Summary" bands
 };
 
 // Convert a top-down (pdftotext-style, origin top-left) y coordinate to
@@ -145,6 +146,38 @@ function wrapText(text, font, size, maxWidth) {
   return lines;
 }
 
+// The template is a flat single-page design, so a continuation page can't
+// reuse its artwork — this builds a plain page styled to match (same bands,
+// fonts, colors) for whatever summary text didn't fit on page one.
+function newContinuationPage(doc, fonts, studentLabel, reportDate) {
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  const bandTop = 40, bandH = 30;
+  page.drawRectangle({ x: 41, y: pdfY(bandTop + bandH), width: 517, height: bandH, color: COLORS.summaryBand });
+  centerText(page, `Report Summary (continued) — ${studentLabel}`, fonts.semibold, 11, PAGE_W / 2, bandTop + bandH - 10, COLORS.ink);
+
+  const footBandTop = PAGE_H - 60, footBandH = 28;
+  page.drawRectangle({ x: 41, y: pdfY(footBandTop + footBandH), width: 517, height: footBandH, color: COLORS.gray });
+  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+    fonts.regular, 9, PAGE_W / 2, footBandTop + footBandH - 11, COLORS.muted);
+
+  return { page, contentTop: bandTop + bandH + 20, contentBottom: footBandTop - 15 };
+}
+
+// Draws wrapped lines starting on `firstPage`, spilling onto as many
+// continuation pages as needed (via `makeContinuationPage`) rather than
+// truncating or shrinking text to force a fit.
+function drawFlowingText(doc, lines, { firstPage, x, startTop, limitTop, font, size, lineHeight, color, makeContinuationPage }) {
+  let page = firstPage, yTop = startTop, limit = limitTop;
+  for (const line of lines) {
+    if (yTop + size > limit) {
+      const cont = makeContinuationPage();
+      page = cont.page; yTop = cont.contentTop; limit = cont.contentBottom;
+    }
+    page.drawText(line, { x, y: pdfY(yTop), size, font, color });
+    yTop += lineHeight;
+  }
+}
+
 export async function generateReportPdfBytes({ student, counts, studentFees, aiSummary, behavior, reportDate }) {
   const [templateBytes, comfortaaReg, comfortaaSemi, comfortaaBold] = await Promise.all([
     fetchBytes('/report-template.pdf'),
@@ -199,15 +232,15 @@ export async function generateReportPdfBytes({ student, counts, studentFees, aiS
   // Class behaviour checkbox.
   if (behavior && CHECKBOXES[behavior]) drawCheckmark(page, CHECKBOXES[behavior]);
 
-  // Report summary paragraph.
+  // Report summary paragraph — spills onto continuation page(s) instead of
+  // being truncated or shrunk if it doesn't fit the template's box.
   const summaryText = aiSummary || 'No summary has been generated for this student yet.';
   const lines = wrapText(summaryText, regular, 10, 495);
-  let ySum = pdfY(548.64 + 14);
-  for (const line of lines) {
-    if (ySum < pdfY(767)) break; // don't run into the footer
-    page.drawText(line, { x: 52, y: ySum, size: 10, font: regular, color: COLORS.ink });
-    ySum -= 15;
-  }
+  drawFlowingText(doc, lines, {
+    firstPage: page, x: 52, startTop: 548.64 + 14, limitTop: 767,
+    font: regular, size: 10, lineHeight: 15, color: COLORS.ink,
+    makeContinuationPage: () => newContinuationPage(doc, { semibold, regular }, `${student.forename} ${student.surname}`, reportDate),
+  });
 
   // Footer date — the template ships with a sample date baked in; cover the
   // whole band plus the white gap just above it (glyph ink can bleed above
