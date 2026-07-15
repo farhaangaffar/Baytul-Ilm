@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut } from 'lucide-react';
 import { logout } from '../lib/store';
@@ -15,16 +15,29 @@ const navItems = [
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
 ];
 
+// Layout remounts fresh on every navigation (each page renders its own <Layout>), so the
+// chip row itself is a brand new DOM node each time — its scroll position can't just
+// "persist" like a normal element's would. Stashing it here (outside the component, so
+// it survives the remount) and restoring it on mount is what actually keeps the row
+// wherever the user left it, instead of resetting to 0 and re-deriving a position.
+let savedChipScroll = 0;
+
 export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const settings = useSettings();
   const activeChipRef = useRef(null);
+  const chipsRowRef = useRef(null);
 
-  // Layout remounts fresh on every navigation (each page renders its own <Layout>), so
-  // the chip row's scroll position resets to 0 by default — scroll the active chip
-  // back into view if the reset hid it. 'nearest' (not 'center') means this is a
-  // no-op when the chip is already visible, instead of re-centering it every time.
+  // useLayoutEffect (not useEffect) so the restore happens before the browser paints —
+  // otherwise the row would flash at scrollLeft 0 for a frame before jumping.
+  useLayoutEffect(() => {
+    if (chipsRowRef.current) chipsRowRef.current.scrollLeft = savedChipScroll;
+  }, []);
+
+  // Only for the case the restored position doesn't actually show the active chip (e.g.
+  // a fresh tab / deep link where nothing was scrolled yet) — 'nearest' is a no-op when
+  // it's already visible, so this doesn't fight the restore above.
   useEffect(() => {
     activeChipRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }, [pathname]);
@@ -70,7 +83,7 @@ export default function Layout({ children, title, subtitle }) {
           </button>
         </div>
         <div className="mobile-chips-wrap">
-          <div className="mobile-chips">
+          <div className="mobile-chips" ref={chipsRowRef} onScroll={e => { savedChipScroll = e.currentTarget.scrollLeft; }}>
             {navItems.map(item => {
               const Icon = item.icon;
               const active = pathname === item.path;
