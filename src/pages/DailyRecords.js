@@ -189,11 +189,11 @@ function StudentRecords({ student, settings, onBack }) {
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ prompt })
       });
-      if (!res.ok) throw new Error('API error');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'API error');
       setAiSummary(data.summary || 'Unable to generate summary.');
-    } catch {
-      setAiSummary('AI summary is available when this app is connected to a server. For now, copy the daily records and paste them into Claude.ai to generate a summary.');
+    } catch (err) {
+      setAiSummary(err.message || 'Could not generate a summary. Please try again.');
     }
     setAiLoading(false);
   }

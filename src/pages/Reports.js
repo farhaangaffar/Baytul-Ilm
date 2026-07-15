@@ -171,10 +171,11 @@ export default function Reports() {
     const prompt=`You are a helpful Madrasah assistant. Below are daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm professional monthly progress summary for this student's report. Cover: overall attitude, key positives, recurring concerns, brief recommendation. 150–200 words, paragraph form.`;
     setAiLoading(student.id);
     try {
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+      const res=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});
       const data=await res.json();
-      setAiSummaries(p=>({...p,[student.id]:data.content?.map(c=>c.text||'').join('')||'Unable to generate.'}));
-    } catch { setAiSummaries(p=>({...p,[student.id]:'Connection error. Please try again.'})); }
+      if (!res.ok) throw new Error(data.error || 'API error');
+      setAiSummaries(p=>({...p,[student.id]:data.summary||'Unable to generate summary.'}));
+    } catch (err) { setAiSummaries(p=>({...p,[student.id]:err.message || 'Connection error. Please try again.'})); }
     setAiLoading('');
   }
 
