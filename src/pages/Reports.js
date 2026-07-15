@@ -214,13 +214,17 @@ export default function Reports() {
             <>
               {/* Mobile browsers generally can't embed a blob PDF inline in an
                   iframe — it renders as an inert "open" placeholder that does
-                  nothing when tapped. Below the breakpoint, open it in a real
-                  tab instead, where the OS's own PDF viewer takes over. */}
+                  nothing when tapped. A blob: URL is also scoped to the tab
+                  that created it, so window.open(previewUrl) unreliably opens
+                  blank on mobile Safari/Chrome even as a new tab — a real
+                  download (same as the Download button above) is the one
+                  thing guaranteed to work, handed off to the OS's own PDF
+                  viewer/Files app instead of staying in-browser. */}
               <iframe title="Report preview" className="report-preview-embed" src={`${previewUrl}#toolbar=0&navpanes=0`} style={{width:'100%',height:800,border:'none'}}/>
               <div className="report-preview-mobile-open" style={{height:300,flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:'var(--text-muted)'}}>
                 <FileText size={36} style={{opacity:.3}}/>
                 <div style={{fontSize:13}}>Preview isn't supported on this device</div>
-                <button className="btn btn-primary btn-sm" onClick={()=>window.open(previewUrl,'_blank')}>Open report</button>
+                <button className="btn btn-primary btn-sm" disabled={!previewBytes} onClick={()=>downloadBytes(previewBytes, `Report_${preview.forename}_${preview.surname}.pdf`)}>Download to view</button>
               </div>
             </>
           ):(
