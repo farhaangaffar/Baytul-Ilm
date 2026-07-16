@@ -249,9 +249,12 @@ export async function exportAllData() {
     Promise.all(years.map(y => getFees(y))).then(all => Object.fromEntries(years.map((y, i) => [y, all[i]]))),
     Promise.all(years.map(y => getAttendance(y))).then(all => Object.fromEntries(years.map((y, i) => [y, all[i]]))),
   ]);
+  // Saved AI monthly summaries (the text behind each student's PDF report) live in
+  // their own table, one fetch per student — not covered by anything else above.
+  const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
-    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear },
+    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries },
   };
 }
 async function importFeesForYear(year, records) {
@@ -298,7 +301,7 @@ export async function importAllData(payload) {
     return;
   }
 
-  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear } = data;
+  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries } = data;
 
   for (const y of years || []) await addAcademicYear(y);
   for (const c of classes || []) await addClass(c).catch(() => {});
@@ -315,5 +318,9 @@ export async function importAllData(payload) {
     for (const [studentId, byDate] of Object.entries(byStudent)) {
       for (const [date, status] of Object.entries(byDate)) await setAttendance(studentId, date, status, year);
     }
+  }
+  // Older backups (taken before this field existed) simply won't have it — nothing to restore.
+  for (const a of aiSummaries || []) {
+    await saveAiSummary(a.studentId, a.month, { summary: a.summary, instructions: a.instructions, behavior: a.behavior });
   }
 }
