@@ -59,7 +59,11 @@ export default function EnrollmentForm({ onClose, onSaved }) {
     setSaving(true);
     setSubmitError('');
     try {
-      const s = await addStudent({ ...form, weeklyFee: Number(form.weeklyFee) });
+      // Enrolment date should reflect when a student actually starts a class, not the
+      // paperwork date — waiting-list entries don't have that yet, so it's set later
+      // (see Students.js moveToClass) once they're actually moved into a class.
+      const enrollDate = form.class === 'Waiting list' ? null : form.enrollDate;
+      const s = await addStudent({ ...form, enrollDate, weeklyFee: Number(form.weeklyFee) });
       setSaved(s);
       setDone(true);
       onSaved && onSaved(s);
@@ -164,6 +168,11 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                 {field('Class', 'class', 'text', true, [...classNames, 'Waiting list'])}
                 {field('Weekly fee (£)', 'weeklyFee', 'number', true)}
               </div>
+              {form.class === 'Waiting list' && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                  Their enrolment date will be set automatically once you move them into a class.
+                </div>
+              )}
               <div className="form-grid" style={{ marginTop: 14 }}>
                 <div className="form-group">
                   <label>Notes (optional)</label>
