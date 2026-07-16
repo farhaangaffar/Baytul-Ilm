@@ -46,6 +46,11 @@
    refreshes on every move". */
 html { overscroll-behavior-y: none; }
 body { font-family: var(--font); background: var(--page); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
+/* Form controls don't inherit font-family from the page in any browser's default UA
+   stylesheet — they use the OS font unless told otherwise. .form-group already covers
+   inputs built through that wrapper; this catches every other bare input/select/textarea
+   (search bars, inline edits, etc.) so nothing silently falls back to a system font. */
+input, select, textarea { font-family: var(--font); }
 
 /* ── Layout ── */
 /* 100vh is frozen at the browser's address-bar-visible viewport size; on mobile the
