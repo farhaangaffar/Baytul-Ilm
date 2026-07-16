@@ -116,13 +116,25 @@ export default function EnrollmentForm({ onClose, onSaved }) {
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--teal-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <CheckCircle size={28} color="var(--teal)" />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Student enrolled</div>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>
+                {saved?.class === 'Waiting list' ? 'Added to waiting list' : 'Student enrolled'}
+              </div>
               <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
-                {saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at £{saved?.weeklyFee}/week.
+                {saved?.class === 'Waiting list' ? (
+                  <>{saved?.forename} {saved?.surname} has been added to the <strong>waiting list</strong>.</>
+                ) : (
+                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at £{saved?.weeklyFee}/week.</>
+                )}
               </div>
               <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-md)', padding: '12px 16px', textAlign: 'left', fontSize: 12, color: 'var(--text-muted)' }}>
-                <div>📋 Added to the {saved?.class} attendance register</div>
-                <div style={{ marginTop: 4 }}>💷 Use "Charge this week" on the Fees page to start billing</div>
+                {saved?.class === 'Waiting list' ? (
+                  <div>⏳ Move them to a class from the Waiting list tab on Students once a space opens up</div>
+                ) : (
+                  <>
+                    <div>📋 Added to the {saved?.class} attendance register</div>
+                    <div style={{ marginTop: 4 }}>💷 Use "Charge this week" on the Fees page to start billing</div>
+                  </>
+                )}
               </div>
             </div>
           ) : step === 0 ? (
@@ -149,7 +161,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
             <div>
               <div className="form-section-title"><BookOpen size={14} />Class & fees</div>
               <div className="form-grid form-grid-2" style={{ marginTop: 14 }}>
-                {field('Class', 'class', 'text', true, classNames)}
+                {field('Class', 'class', 'text', true, [...classNames, 'Waiting list'])}
                 {field('Weekly fee (£)', 'weeklyFee', 'number', true)}
               </div>
               <div className="form-grid" style={{ marginTop: 14 }}>

@@ -4,7 +4,9 @@ import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB } from '../lib/store';
 import ReorderableGrid from '../components/ReorderableGrid';
-import { Plus, Search, Pencil, Trash2, X, Save, GripVertical } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight } from 'lucide-react';
+
+const WAITING_LIST = 'Waiting list';
 
 function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
 
@@ -18,6 +20,7 @@ export default function Students() {
   const [attendance, setAttendance] = useState({});
 
   const [showEnroll, setShowEnroll] = useState(false);
+  const [view, setView] = useState('roster');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -64,6 +67,16 @@ export default function Students() {
     setSaving(false);
   }
 
+  async function moveToClass(student, className) {
+    try {
+      await updateStudent(student.id, { class: className });
+      await load();
+      showToast(`${student.forename} moved to ${className}`);
+    } catch (err) {
+      showToast(err.message || 'Could not move this student');
+    }
+  }
+
   async function confirmAndDelete() {
     setSaving(true);
     try {
@@ -81,10 +94,12 @@ export default function Students() {
   if (loading) return <Layout title="Students"><LoadingState /></Layout>;
   if (error) return <Layout title="Students"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const activeCount = students.filter(s=>s.status==='Active').length;
-  const avgAtt = students.length ? Math.round(students.reduce((s,st)=>s+attendancePctFrom(attendance, st.id),0)/students.length) : 0;
+  const activeCount = students.filter(s=>s.status==='Active' && s.class!==WAITING_LIST).length;
+  const rosterStudents = students.filter(s=>s.class!==WAITING_LIST);
+  const avgAtt = rosterStudents.length ? Math.round(rosterStudents.reduce((s,st)=>s+attendancePctFrom(attendance, st.id),0)/rosterStudents.length) : 0;
   const collected = fees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const owed = fees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const waitingStudents = students.filter(s=>s.class===WAITING_LIST);
 
   return (
     <Layout title="Students" subtitle={`${students.length} enrolled`}>
@@ -103,40 +118,71 @@ export default function Students() {
             placeholder="Search by name…" value={search} onChange={e=>setSearch(e.target.value)}
           />
         </div>
+        <button className={`btn ${view==='waiting'?'btn-primary':''}`} style={view==='waiting'?{background:'var(--blue)'}:undefined} onClick={()=>setView(v=>v==='waiting'?'roster':'waiting')}>
+          <Clock size={14}/> Waiting list{waitingStudents.length>0?` (${waitingStudents.length})`:''}
+        </button>
         <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
       </div>
 
-      <div className="student-columns" style={{gridTemplateColumns:`repeat(${classNames.length||1},1fr)`}}>
-        {classNames.map(c=>{
-          const classStudents = students.filter(s=>s.class===c);
-          const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
-          return (
-            <div key={c}>
-              <div className="student-column-header"><span>{c}</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{classStudents.length}</span></div>
-              <ReorderableGrid
-                items={filtered}
-                getId={s=>s.id}
-                className="student-compact-list"
-                onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
-                renderItem={(s, {isDragging, handleProps, cardAttrs}) => (
-                  <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
-                    <div style={{minWidth:0}}>
-                      <div className="student-compact-name">{s.forename} {s.surname}</div>
-                      <div className="student-compact-sub">£{s.weeklyFee}/wk · {fmtDob(s.dob)}</div>
+      {view==='waiting' ? (
+        <div>
+          <div className="student-column-header"><span>Waiting list</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{waitingStudents.length}</span></div>
+          <div className="student-compact-list">
+            {waitingStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())).map(s=>(
+              <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}}>
+                <div style={{minWidth:0,cursor:'pointer'}} onClick={()=>setSelected(s)}>
+                  <div className="student-compact-name">{s.forename} {s.surname}</div>
+                  <div className="student-compact-sub">{fmtDob(s.dob)}</div>
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}}>
+                  {classNames.map(c=>(
+                    <button key={c} className="btn" style={{fontSize:12,padding:'6px 12px'}} onClick={()=>moveToClass(s,c)}>
+                      {c} <ArrowRight size={12}/>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {waitingStudents.length===0&&(
+            <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>
+              No students on the waiting list.
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="student-columns" style={{gridTemplateColumns:`repeat(${classNames.length||1},1fr)`}}>
+          {classNames.map(c=>{
+            const classStudents = students.filter(s=>s.class===c);
+            const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
+            return (
+              <div key={c}>
+                <div className="student-column-header"><span>{c}</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{classStudents.length}</span></div>
+                <ReorderableGrid
+                  items={filtered}
+                  getId={s=>s.id}
+                  className="student-compact-list"
+                  onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+                  renderItem={(s, {isDragging, handleProps, cardAttrs}) => (
+                    <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
+                      <div style={{minWidth:0}}>
+                        <div className="student-compact-name">{s.forename} {s.surname}</div>
+                        <div className="student-compact-sub">£{s.weeklyFee}/wk · {fmtDob(s.dob)}</div>
+                      </div>
+                      {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                     </div>
-                    {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
+                  )}
+                />
+                {filtered.length===0&&(
+                  <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>
+                    {search?'No students match your search.':`No students in ${c} yet.`}
                   </div>
                 )}
-              />
-              {filtered.length===0&&(
-                <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>
-                  {search?'No students match your search.':`No students in ${c} yet.`}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* View modal */}
       {selected&&(
@@ -232,6 +278,7 @@ export default function Students() {
                 <div className="form-group"><label>Class</label>
                   <select value={editForm.class} onChange={e=>setEditForm({...editForm,class:e.target.value})}>
                     {classNames.map(c=><option key={c} value={c}>{c}</option>)}
+                    <option value={WAITING_LIST}>{WAITING_LIST}</option>
                   </select>
                 </div>
                 <div className="form-group"><label>Weekly fee (£)</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
@@ -264,7 +311,7 @@ export default function Students() {
       )}
 
       {toast&&<div className="toast">✓ {toast}</div>}
-      {showEnroll&&<EnrollmentForm onClose={()=>setShowEnroll(false)} onSaved={load}/>}
+      {showEnroll&&<EnrollmentForm onClose={()=>setShowEnroll(false)} onSaved={silentRefresh}/>}
     </Layout>
   );
 }
