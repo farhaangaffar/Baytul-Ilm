@@ -4,7 +4,7 @@ import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB } from '../lib/store';
 import ReorderableGrid from '../components/ReorderableGrid';
-import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users } from 'lucide-react';
 
 const WAITING_LIST = 'Waiting list';
 
@@ -118,10 +118,15 @@ export default function Students() {
             placeholder="Search by name…" value={search} onChange={e=>setSearch(e.target.value)}
           />
         </div>
-        <button className={`btn ${view==='waiting'?'btn-primary':''}`} style={view==='waiting'?{background:'var(--blue)'}:undefined} onClick={()=>setView(v=>v==='waiting'?'roster':'waiting')}>
-          <Clock size={14}/> Waiting list{waitingStudents.length>0?` (${waitingStudents.length})`:''}
-        </button>
-        <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className={`btn ${view==='roster'?'btn-primary':''}`} style={view==='roster'?{background:'var(--blue)'}:undefined} onClick={()=>setView('roster')}>
+            <Users size={14}/> Classes
+          </button>
+          <button className={`btn ${view==='waiting'?'btn-primary':''}`} style={view==='waiting'?{background:'var(--blue)'}:undefined} onClick={()=>setView('waiting')}>
+            <Clock size={14}/> Waiting list{waitingStudents.length>0?` (${waitingStudents.length})`:''}
+          </button>
+          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
+        </div>
       </div>
 
       {view==='waiting' ? (
