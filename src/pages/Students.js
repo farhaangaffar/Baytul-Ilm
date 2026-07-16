@@ -69,8 +69,12 @@ export default function Students() {
 
   async function moveToClass(student, className) {
     try {
-      await updateStudent(student.id, { class: className });
-      await load();
+      // Enrolment date is set here, not when they were first added to the waiting
+      // list — this is the date they actually start, which is what "enrolled" means.
+      const patch = { class: className };
+      if (!student.enrollDate) patch.enrollDate = new Date().toISOString().split('T')[0];
+      await updateStudent(student.id, patch);
+      await silentRefresh();
       showToast(`${student.forename} moved to ${className}`);
     } catch (err) {
       showToast(err.message || 'Could not move this student');
@@ -110,15 +114,15 @@ export default function Students() {
         <div className="stat-card-v2"><div className="n">£{owed.toFixed(2)}</div><div className="l">Outstanding</div></div>
       </div>
 
-      <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
-        <div style={{position:'relative',maxWidth:260,flex:1}}>
+      <div className="students-toolbar flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
+        <div className="students-toolbar-search" style={{position:'relative',maxWidth:260,flex:1}}>
           <Search size={14} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)'}}/>
           <input
             style={{paddingLeft:34,width:'100%',borderRadius:'var(--r-btn)',boxShadow:'var(--shadow-sm)'}}
             placeholder="Search by name…" value={search} onChange={e=>setSearch(e.target.value)}
           />
         </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <div className="students-toolbar-tabs" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button className={`btn ${view==='roster'?'btn-primary':''}`} style={view==='roster'?{background:'var(--blue)'}:undefined} onClick={()=>setView('roster')}>
             <Users size={14}/> Classes
           </button>
@@ -204,7 +208,7 @@ export default function Students() {
               <div className="grid-2 mb-4">
                 <div>
                   <div className="form-section-title" style={{marginBottom:10}}>Student</div>
-                  {[['Date of birth',formatDateGB(selected.dob)],['Class',selected.class],['Enrolled',formatDateGB(selected.enrollDate)],['Weekly fee',`£${selected.weeklyFee}/wk`],['Status',selected.status]].map(([l,v])=>(
+                  {[['Date of birth',formatDateGB(selected.dob)],['Class',selected.class],['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],['Weekly fee',`£${selected.weeklyFee}/wk`],['Status',selected.status]].map(([l,v])=>(
                     <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
                       <span className="text-muted">{l}</span><span style={{fontWeight:500}}>{v}</span>
                     </div>
@@ -263,7 +267,7 @@ export default function Students() {
                   <div className="form-group" key={k}><label>{l}</label><input value={editForm[k]} onChange={e=>setEditForm({...editForm,[k]:e.target.value})}/></div>
                 ))}
                 <div className="form-group"><label>Date of birth</label><input type="date" value={editForm.dob} onChange={e=>setEditForm({...editForm,dob:e.target.value})}/></div>
-                <div className="form-group"><label>Enrolment date</label><input type="date" value={editForm.enrollDate} onChange={e=>setEditForm({...editForm,enrollDate:e.target.value})}/></div>
+                <div className="form-group"><label>Enrolment date</label><input type="date" value={editForm.enrollDate||''} onChange={e=>setEditForm({...editForm,enrollDate:e.target.value})}/></div>
                 <div className="form-group"><label>Status</label>
                   <select value={editForm.status} onChange={e=>setEditForm({...editForm,status:e.target.value})}>
                     <option value="Active">Active</option>
