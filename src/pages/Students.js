@@ -115,7 +115,7 @@ export default function Students() {
       </div>
 
       <div className="students-toolbar flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
-        <div className="students-toolbar-search" style={{position:'relative',maxWidth:260,flex:1}}>
+        <div className="students-toolbar-search" style={{position:'relative',flex:1}}>
           <Search size={14} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)'}}/>
           <input
             style={{paddingLeft:34,width:'100%',borderRadius:'var(--r-btn)',boxShadow:'var(--shadow-sm)'}}
@@ -138,12 +138,12 @@ export default function Students() {
           <div className="student-column-header"><span>Waiting list</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{waitingStudents.length}</span></div>
           <div className="student-compact-list">
             {waitingStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())).map(s=>(
-              <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}}>
-                <div style={{minWidth:0,cursor:'pointer'}} onClick={()=>setSelected(s)}>
+              <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}} onClick={()=>setSelected(s)}>
+                <div style={{minWidth:0}}>
                   <div className="student-compact-name">{s.forename} {s.surname}</div>
                   <div className="student-compact-sub">{fmtDob(s.dob)}</div>
                 </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}}>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}} onClick={e=>e.stopPropagation()}>
                   {classNames.map(c=>(
                     <button key={c} className="btn" style={{fontSize:12,padding:'6px 12px'}} onClick={()=>moveToClass(s,c)}>
                       {c} <ArrowRight size={12}/>
