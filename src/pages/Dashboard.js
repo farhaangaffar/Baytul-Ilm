@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, X, Send } from 'lucide-react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi } from '../lib/store';
+import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi, formatDateGB, formatDayMonthGB } from '../lib/store';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -59,7 +59,7 @@ export default function Dashboard() {
   const weekAbsent = dailyCounts.reduce((s, d) => s + d.A, 0);
   const weekMarked = weekPresent + weekLate + weekAbsent;
   const weekAttPct = weekMarked ? Math.round(((weekPresent + weekLate) / weekMarked) * 100) : 0;
-  const weekLabel = `${new Date(weekDates[0]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(weekDates[3]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+  const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[3])}`;
   function shiftWeek(dir) {
     const d = new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate() + dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);
@@ -91,7 +91,7 @@ export default function Dashboard() {
   const monthBilled = monthCollected + monthOutstanding;
   const monthCollectedPct = monthBilled ? Math.round((monthCollected / monthBilled) * 100) : 0;
 
-  const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const dateStr = `${new Date().toLocaleDateString('en-GB', { weekday: 'long' })} ${formatDateGB(new Date())}`;
 
   const yMax = Math.max(5, Math.ceil(active.length / 5) * 5);
   const yTicks = [yMax, yMax*0.75, yMax*0.5, yMax*0.25, 0];

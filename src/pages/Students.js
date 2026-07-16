@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB } from '../lib/store';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical } from 'lucide-react';
 
-function fmtDob(dob) { try { return new Date(dob+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch { return dob; } }
+function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
 
 export default function Students() {
   const [loading, setLoading] = useState(true);
@@ -153,7 +153,7 @@ export default function Students() {
               <div className="grid-2 mb-4">
                 <div>
                   <div className="form-section-title" style={{marginBottom:10}}>Student</div>
-                  {[['Date of birth',selected.dob],['Class',selected.class],['Enrolled',selected.enrollDate],['Weekly fee',`£${selected.weeklyFee}/wk`],['Status',selected.status]].map(([l,v])=>(
+                  {[['Date of birth',formatDateGB(selected.dob)],['Class',selected.class],['Enrolled',formatDateGB(selected.enrollDate)],['Weekly fee',`£${selected.weeklyFee}/wk`],['Status',selected.status]].map(([l,v])=>(
                     <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
                       <span className="text-muted">{l}</span><span style={{fontWeight:500}}>{v}</span>
                     </div>

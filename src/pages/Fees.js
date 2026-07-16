@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
-  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, formatDayMonthGB
 } from '../lib/store';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
@@ -132,7 +132,7 @@ export default function Fees() {
             {willBePaid?<Check size={22} color="var(--green-text)"/>:<X size={22} color="var(--red-text)"/>}
           </div>
           <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>
-            Mark week of {new Date(confirmToggle.weekStarting+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long'})} as {willBePaid?'paid':'unpaid'}?
+            Mark week of {formatDayMonthGB(confirmToggle.weekStarting)} as {willBePaid?'paid':'unpaid'}?
           </div>
           <div style={{color:'var(--text-muted)',fontSize:12.5}}>
             {toggleStudent?`${toggleStudent.forename} ${toggleStudent.surname}`:''} — £{Number(confirmToggle.amount).toFixed(2)} for this week.
@@ -179,7 +179,7 @@ export default function Fees() {
         <div className="day-cal-row" style={{gridTemplateColumns:`repeat(${monthWeeks.length},1fr)`}}>
           {monthWeeks.map(w=>{
             const f = lookup[w];
-            const dateLabel = new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+            const dateLabel = formatDayMonthGB(w);
             const isEditing = f && editCell?.feeId===f.id;
             if (!f) {
               return (
@@ -240,7 +240,7 @@ export default function Fees() {
                 <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
                 <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove this week?</div>
                 <div style={{color:'var(--text-muted)',fontSize:13}}>
-                  Week of {new Date(confirmDeleteWeek+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long'})} will be removed for every student in {selected.class}.
+                  Week of {formatDayMonthGB(confirmDeleteWeek)} will be removed for every student in {selected.class}.
                   <br/><span style={{fontSize:12}}>Useful for holiday weeks. This cannot be undone.</span>
                 </div>
               </div>
@@ -304,7 +304,7 @@ export default function Fees() {
                   {schoolMonthWeeks.map(w=>{
                     const f = monthFees.find(fee=>fee.weekStarting===w);
                     const dayNum = new Date(w+'T12:00:00').getDate();
-                    const dateLabel = new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+                    const dateLabel = formatDayMonthGB(w);
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
                       return (

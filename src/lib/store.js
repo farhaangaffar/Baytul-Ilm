@@ -5,6 +5,18 @@
 export class AuthError extends Error {}
 export class NetworkError extends Error {}
 
+// ── British date formatting (dd/mm/yyyy) — accepts an ISO 'YYYY-MM-DD' string or a Date ──
+export function formatDateGB(value) {
+  const d = value instanceof Date ? value : new Date(`${value}T12:00:00`);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+export function formatDayMonthGB(value) {
+  const d = value instanceof Date ? value : new Date(`${value}T12:00:00`);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 async function apiFetch(path, options = {}) {
   let res;
   try {

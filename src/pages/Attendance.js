@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear, formatDayMonthGB } from '../lib/store';
 import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -89,7 +89,7 @@ export default function Attendance() {
 
   if (selected) {
     const weekDates = getWeekDates(weekAnchor);
-    const weekLabel = `${new Date(weekDates[0]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(weekDates[3]+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+    const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[3])}`;
     const counts = weekCountsFor(selected.id, weekDates);
     const marked = counts.P + counts.L + counts.A;
     const pct = marked ? Math.round(((counts.P+counts.L)/marked)*100) : 0;
@@ -115,7 +115,7 @@ export default function Attendance() {
           {weekDates.map(date=>{
             const status = attData[selected.id]?.[date];
             const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
-            const dayDate = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+            const dayDate = formatDayMonthGB(date);
             const bg = status==='P'?'var(--green-light)':status==='L'?'var(--amber-light)':status==='A'?'var(--red-light)':'#f3f4f6';
             const dotBg = status==='P'?'var(--green)':status==='L'?'var(--amber)':status==='A'?'var(--red)':'#e5e7eb';
             return (

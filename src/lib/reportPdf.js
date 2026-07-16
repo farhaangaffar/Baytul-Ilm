@@ -6,6 +6,10 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
+function fmtDMY(date) {
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
 const PAGE_W = 595.5;
 const PAGE_H = 842.25;
 // The template's MediaBox is [0, 7.8299813, 595.5, 850.07996] — its origin
@@ -185,7 +189,7 @@ function newContinuationPage(doc, fonts, studentLabel, reportDate) {
 
   const footBandTop = PAGE_H - 60, footBandH = 28;
   page.drawRectangle({ x: 41, y: pdfY(footBandTop + footBandH, PAGE_H), width: 517, height: footBandH, color: COLORS.gray });
-  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${fmtDMY(reportDate)}`,
     fonts.regular, 9, PAGE_W / 2, footBandTop + footBandH - 11, COLORS.muted, PAGE_H);
 
   return { page, pageTop: PAGE_H, contentTop: bandTop + bandH + 20, contentBottom: footBandTop - 15 };
@@ -233,7 +237,7 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
   page.drawText(`${student.forename} ${student.surname}`, { x: 141, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
   page.drawText('Shaikh Farhaan', { x: 434, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
   page.drawText(student.class || '—', { x: 85, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
-  page.drawText(reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), { x: 338, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText(fmtDMY(reportDate), { x: 338, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
 
   // Attendance & fees — the same donut rings the Dashboard shows, just for
   // one student and one month instead of the whole class/year. The template's
@@ -298,7 +302,7 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
   // quirk present even in the untouched source file). Redraw a uniform
   // stroke over it rather than leave that asymmetry visible.
   page.drawRectangle({ x: 40.3, y: pdfY(810.4), width: 518.9, height: 810.4 - 781.3, borderColor: COLORS.ink, borderWidth: 0.9 });
-  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${reportDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${fmtDMY(reportDate)}`,
     regular, 9, PAGE_W / 2, 799, COLORS.muted);
 
   return doc.save();
