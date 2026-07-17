@@ -54,6 +54,11 @@ export async function checkSession() {
 export async function getAcademicYears() { return apiFetch('/api/academic-years'); }
 export async function addAcademicYear(y) { return apiFetch('/api/academic-years', { method: 'POST', body: JSON.stringify({ year: y }) }); }
 export async function removeAcademicYear(y) { return apiFetch(`/api/academic-years?year=${encodeURIComponent(y)}`, { method: 'DELETE' }); }
+// Relabels a year everywhere it's stored (academic_years, attendance, fees) — used to
+// fix a year that was entered in the wrong "YYYY-YY" shape instead of this app's "YY-YY".
+export async function renameAcademicYear(from, to) {
+  return apiFetch('/api/academic-years?action=rename', { method: 'POST', body: JSON.stringify({ from, to }) });
+}
 export async function currentSchoolYear() {
   const years = await getAcademicYears();
   const now = new Date(), m = now.getMonth(), yr = now.getFullYear();
@@ -68,6 +73,13 @@ export function academicYearOfMonth(monthStr) {
   const [yyyy, mm] = monthStr.split('-').map(Number);
   const start = mm - 1 >= 8 ? yyyy : yyyy - 1;
   return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+}
+// September 1st of a "YY-YY" academic year's start — the default reference point for
+// pages that let you browse a specific year, since "today" only means something for
+// whichever year is actually current.
+export function academicYearStartISO(yearLabel) {
+  const startYear = 2000 + Number(yearLabel.slice(0, 2));
+  return `${startYear}-09-01`;
 }
 
 // ── School month — every month runs from its first Monday to the day before the next month's first Monday ──
