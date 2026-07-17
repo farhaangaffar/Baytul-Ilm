@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
-  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, formatDayMonthGB
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB
 } from '../lib/store';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
@@ -111,6 +111,22 @@ export default function Fees() {
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor((year===currentYear ? isoToday() : academicYearStartISO(year)).slice(0,7)); }
 
+  // Months are browsed within their own academic year only — crossing September or
+  // August hops to the adjacent year's tab (matching the source spreadsheets, one file
+  // per academic year) rather than wandering into another year while still "on" this one.
+  async function shiftDetailMonth(dir) {
+    const newMonth = shiftMonth(monthAnchor, dir);
+    const newYear = academicYearOfMonth(newMonth);
+    if (newYear === year) { setMonthAnchor(newMonth); return; }
+    if (!years.includes(newYear)) {
+      showToast(`No ${newYear} academic year yet — add it in Settings to browse further.`);
+      return;
+    }
+    setYear(newYear);
+    setMonthAnchor(newMonth);
+    try { await refresh(newYear); } catch (err) { showToast(err.message || 'Could not load that year'); }
+  }
+
   if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
   if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
 
@@ -166,6 +182,8 @@ export default function Fees() {
     const owed = monthFeesForStudent.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
     const billed = paid+owed;
     const collectedPct = billed ? Math.round((paid/billed)*100) : 0;
+    const canGoPrev = years.includes(academicYearOfMonth(shiftMonth(monthAnchor,-1)));
+    const canGoNext = years.includes(academicYearOfMonth(shiftMonth(monthAnchor,1)));
 
     return (
       <Layout title="Fees" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
@@ -178,9 +196,9 @@ export default function Fees() {
             </div>
           </div>
           <div className="nav-arrow-row">
-            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,-1))}>‹</button>
+            <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(-1)} disabled={!canGoPrev}>‹</button>
             <span>{monthLabel(monthAnchor)}</span>
-            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,1))}>›</button>
+            <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(1)} disabled={!canGoNext}>›</button>
           </div>
         </div>
 
