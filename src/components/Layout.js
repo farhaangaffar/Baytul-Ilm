@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3 } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 
@@ -12,6 +12,7 @@ const navItems = [
   { label:'Daily records',      path:'/records',    icon:BookOpen },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, section:'Setup' },
   { label:'Reports',            path:'/reports',    icon:FileText },
+  { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
 ];
 
