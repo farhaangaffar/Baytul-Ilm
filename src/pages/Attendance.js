@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, academicYearStartISO, formatDayMonthGB } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, academicYearStartISO, academicYearOfMonth, formatDayMonthGB } from '../lib/store';
 import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -66,6 +66,22 @@ export default function Attendance() {
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor((year===currentYear ? isoToday() : academicYearStartISO(year)).slice(0,7)); }
 
+  // Months are browsed within their own academic year only — crossing September or
+  // August hops to the adjacent year's tab (matching the source spreadsheets, one file
+  // per academic year) rather than wandering into another year while still "on" this one.
+  async function shiftDetailMonth(dir) {
+    const newMonth = shiftMonth(monthAnchor, dir);
+    const newYear = academicYearOfMonth(newMonth);
+    if (newYear === year) { setMonthAnchor(newMonth); return; }
+    if (!years.includes(newYear)) {
+      showToast(`No ${newYear} academic year yet — add it in Settings to browse further.`);
+      return;
+    }
+    setYear(newYear);
+    setMonthAnchor(newMonth);
+    try { setAttData(await getAttendance(newYear)); } catch (err) { showToast(err.message || 'Could not load that year'); }
+  }
+
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
@@ -94,6 +110,8 @@ export default function Attendance() {
     const counts = weekCountsFor(selected.id, monthDays);
     const marked = counts.P + counts.L + counts.A;
     const pct = marked ? Math.round(((counts.P+counts.L)/marked)*100) : 0;
+    const canGoPrev = years.includes(academicYearOfMonth(shiftMonth(monthAnchor,-1)));
+    const canGoNext = years.includes(academicYearOfMonth(shiftMonth(monthAnchor,1)));
 
     return (
       <Layout title="Attendance" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
@@ -106,9 +124,9 @@ export default function Attendance() {
             </div>
           </div>
           <div className="nav-arrow-row">
-            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,-1))}>‹</button>
+            <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(-1)} disabled={!canGoPrev}>‹</button>
             <span>{monthLabel(monthAnchor)}</span>
-            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,1))}>›</button>
+            <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(1)} disabled={!canGoNext}>›</button>
           </div>
         </div>
 
