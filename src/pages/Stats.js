@@ -120,8 +120,8 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
   const avgPct = yearRows.length ? Math.round(yearRows.reduce((s, r) => s + r.pct, 0) / yearRows.length) : 0;
 
   return (
-    <>
-      <div className="stat-grid-v2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
         <div className="stat-card-v2"><div className="n">{yearRange.pct}%</div><div className="l">Attendance this year</div></div>
         <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{yearRange.P}</div><div className="l">Present (year)</div></div>
         <div className="stat-card-v2"><div className="n" style={{ color: 'var(--amber-text)' }}>{yearRange.L}</div><div className="l">Late (year)</div></div>
@@ -226,7 +226,7 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
           </table>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -252,8 +252,8 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
   const avgOutstanding = yearRows.length ? yearRows.reduce((s, r) => s + r.outstanding, 0) / yearRows.length : 0;
 
   return (
-    <>
-      <div className="stat-grid-v2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
         <div className="stat-card-v2"><div className="n">£{yearRange.billed.toFixed(2)}</div><div className="l">Billed this year</div></div>
         <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>£{yearRange.collected.toFixed(2)}</div><div className="l">Collected this year</div></div>
         <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>£{yearRange.outstanding.toFixed(2)}</div><div className="l">Outstanding this year</div></div>
@@ -354,6 +354,6 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
           </table>
         </div>
       </div>
-    </>
+    </div>
   );
 }
