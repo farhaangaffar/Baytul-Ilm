@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear, academicYearStartISO, formatDayMonthGB } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, academicYearStartISO, formatDayMonthGB } from '../lib/store';
 import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
+// A "month" runs from its first Monday to the day before the next month's first Monday
+// (same school-month convention as Fees) — earlier days belong to the previous month.
+function monthLabel(ym) { const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
+function shiftMonth(ym, dir) { const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-1+dir,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
 
 export default function Attendance() {
@@ -18,7 +22,7 @@ export default function Attendance() {
   const [currentYear, setCurrentYear] = useState('');
   const [attData, setAttData] = useState({});
   const [selectedId, setSelectedId] = useState(null);
-  const [weekAnchor, setWeekAnchor] = useState(isoToday());
+  const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [toast, setToast] = useState('');
   const TODAY = isoToday();
 
@@ -60,13 +64,7 @@ export default function Attendance() {
     }
   }
 
-  function openStudent(id) { setSelectedId(id); setWeekAnchor(year===currentYear ? isoToday() : academicYearStartISO(year)); }
-
-  function shiftWeek(dir) {
-    const wd = getWeekDates(weekAnchor);
-    const d = new Date(wd[0]+'T12:00:00'); d.setDate(d.getDate()+dir*7);
-    setWeekAnchor(d.toISOString().split('T')[0]);
-  }
+  function openStudent(id) { setSelectedId(id); setMonthAnchor((year===currentYear ? isoToday() : academicYearStartISO(year)).slice(0,7)); }
 
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
@@ -91,9 +89,9 @@ export default function Attendance() {
   const selected = students.find(s=>s.id===selectedId);
 
   if (selected) {
-    const weekDates = getWeekDates(weekAnchor);
-    const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[3])}`;
-    const counts = weekCountsFor(selected.id, weekDates);
+    const monthWeeks = getWeekStartsForMonth(monthAnchor);
+    const monthDays = monthWeeks.flatMap(w=>getWeekDates(w));
+    const counts = weekCountsFor(selected.id, monthDays);
     const marked = counts.P + counts.L + counts.A;
     const pct = marked ? Math.round(((counts.P+counts.L)/marked)*100) : 0;
 
@@ -108,47 +106,52 @@ export default function Attendance() {
             </div>
           </div>
           <div className="nav-arrow-row">
-            <button className="nav-arrow-btn" onClick={()=>shiftWeek(-1)}>‹</button>
-            <span>Week of {weekLabel}</span>
-            <button className="nav-arrow-btn" onClick={()=>shiftWeek(1)}>›</button>
+            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,-1))}>‹</button>
+            <span>{monthLabel(monthAnchor)}</span>
+            <button className="nav-arrow-btn" onClick={()=>setMonthAnchor(shiftMonth(monthAnchor,1))}>›</button>
           </div>
         </div>
 
-        <div className="day-cal-row">
-          {weekDates.map(date=>{
-            const status = attData[selected.id]?.[date];
-            const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
-            const dayDate = formatDayMonthGB(date);
-            const bg = status==='P'?'var(--green-light)':status==='L'?'var(--amber-light)':status==='A'?'var(--red-light)':'#f3f4f6';
-            const dotBg = status==='P'?'var(--green)':status==='L'?'var(--amber)':status==='A'?'var(--red)':'#e5e7eb';
-            return (
-              <div className="day-cal-card" key={date} style={{background:bg}}>
-                <div className="day-cal-name">{dayName}</div>
-                <div className="day-cal-date">{dayDate}</div>
-                <button className="day-cal-status" style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)'}}
-                  onClick={async ()=>{
-                    const cycle=['P','L','A',null];
-                    const next=cycle[(cycle.indexOf(status||null)+1)%cycle.length];
-                    setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: next } }));
-                    try { await setAttendance(selected.id,date,next,year); }
-                    catch (err) {
-                      setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: status } }));
-                      showToast(err.message || 'Could not save attendance');
-                    }
-                  }}>
-                  {status||'·'}
-                </button>
-                <div className="day-cal-label">{status?STATUS_LABELS[status]:'Not marked'}</div>
-              </div>
-            );
-          })}
-        </div>
+        {monthWeeks.map(w=>{
+          const weekDates = getWeekDates(w);
+          return (
+            <div className="day-cal-row" key={w} style={{marginBottom:12}}>
+              {weekDates.map(date=>{
+                const status = attData[selected.id]?.[date];
+                const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
+                const dayDate = formatDayMonthGB(date);
+                const bg = status==='P'?'var(--green-light)':status==='L'?'var(--amber-light)':status==='A'?'var(--red-light)':'#f3f4f6';
+                const dotBg = status==='P'?'var(--green)':status==='L'?'var(--amber)':status==='A'?'var(--red)':'#e5e7eb';
+                return (
+                  <div className="day-cal-card" key={date} style={{background:bg}}>
+                    <div className="day-cal-name">{dayName}</div>
+                    <div className="day-cal-date">{dayDate}</div>
+                    <button className="day-cal-status" style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)'}}
+                      onClick={async ()=>{
+                        const cycle=['P','L','A',null];
+                        const next=cycle[(cycle.indexOf(status||null)+1)%cycle.length];
+                        setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: next } }));
+                        try { await setAttendance(selected.id,date,next,year); }
+                        catch (err) {
+                          setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: status } }));
+                          showToast(err.message || 'Could not save attendance');
+                        }
+                      }}>
+                      {status||'·'}
+                    </button>
+                    <div className="day-cal-label">{status?STATUS_LABELS[status]:'Not marked'}</div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
 
         <div className="summary-row-v2">
           <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{counts.P}</div><div className="l">Present</div></div>
           <div className="summary-box-v2" style={{background:'var(--amber-light)'}}><div className="n">{counts.L}</div><div className="l">Late</div></div>
           <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{counts.A}</div><div className="l">Absent</div></div>
-          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{pct}%</div><div className="l">This week</div></div>
+          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{pct}%</div><div className="l">This month</div></div>
         </div>
         {toast && <div className="toast">✓ {toast}</div>}
       </Layout>
