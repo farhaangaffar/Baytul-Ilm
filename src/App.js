@@ -7,6 +7,7 @@ import Fees            from './pages/Fees';
 import DailyRecords    from './pages/DailyRecords';
 import ClassesTeachers from './pages/ClassesTeachers';
 import Reports         from './pages/Reports';
+import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import { checkSession } from './lib/store';
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/records"    element={<DailyRecords />} />
           <Route path="/classes"    element={<ClassesTeachers />} />
           <Route path="/reports"    element={<Reports />} />
+          <Route path="/stats"      element={<Stats />} />
           <Route path="/settings"   element={<SettingsPage />} />
         </Routes>
       </BrowserRouter>
