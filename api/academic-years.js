@@ -6,6 +6,20 @@ const { requireAuth } = require('./_auth');
 // outside Next.js, not the [[...params]] optional catch-all, so id-style
 // operations go through a query string instead of a path segment.
 module.exports = requireAuth(async (req, res) => {
+  if (req.query.action === 'rename') {
+    // Relabels a year everywhere it's referenced — academic_years is the primary key,
+    // attendance/fees just store the year as plain text (no FK), so all three need
+    // updating together or records under the old label would silently stop showing up.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { from, to } = req.body || {};
+    if (!from || !to) { res.status(400).json({ error: 'from and to are required' }); return; }
+    await query('UPDATE academic_years SET year = $2 WHERE year = $1', [from, to]);
+    await query('UPDATE attendance SET year = $2 WHERE year = $1', [from, to]);
+    await query('UPDATE fees SET year = $2 WHERE year = $1', [from, to]);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
   const year = req.query.year;
 
   if (!year) {

@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
-  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, formatDayMonthGB
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, formatDayMonthGB
 } from '../lib/store';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
@@ -26,6 +26,7 @@ export default function Fees() {
   const [classNames, setClassNames] = useState([]);
   const [years, setYears] = useState([]);
   const [year, setYear] = useState('');
+  const [currentYear, setCurrentYear] = useState('');
   const [fees, setFees] = useState([]);
   const [activeClass, setActiveClass] = useState('');
 
@@ -47,7 +48,7 @@ export default function Fees() {
       const [studentsData, classNamesData, yearsData, feesData] = await Promise.all([
         getStudents(), getClassNames(), getAcademicYears(), getFees(y),
       ]);
-      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setFees(feesData);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setCurrentYear(y); setFees(feesData);
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
     } catch (err) {
       setError(err);
@@ -108,18 +109,25 @@ export default function Fees() {
     setAddingMonth(false);
   }
 
-  function openStudent(id) { setSelectedId(id); setMonthAnchor(isoToday().slice(0,7)); }
+  function openStudent(id) { setSelectedId(id); setMonthAnchor((year===currentYear ? isoToday() : academicYearStartISO(year)).slice(0,7)); }
 
   if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
   if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
 
+  const isCurrentYear = year===currentYear;
+  const referenceDate = isCurrentYear ? isoToday() : academicYearStartISO(year);
   const classStudents = students.filter(s=>s.class===activeClass);
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const schoolMonth = getCurrentSchoolMonth();
+  const schoolMonth = getCurrentSchoolMonth(referenceDate);
   const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
-  const thisWeekMonday = getMondayOf(isoToday());
+  const thisWeekMonday = getMondayOf(referenceDate);
+  // schoolMonth.label follows the "first Monday" school-month boundary, which for a
+  // September 1st that falls on a weekend can label itself the previous calendar month
+  // (e.g. "August") — the browsing hint below uses the plain calendar month instead so
+  // it doesn't contradict the per-student view, which is always a straight "September ...".
+  const referenceMonthLabel = isCurrentYear ? schoolMonth.label : monthLabel(referenceDate.slice(0,7));
 
   const selected = students.find(s=>s.id===selectedId);
   const toggleStudent = confirmToggle && students.find(s=>s.id===confirmToggle.studentId);
@@ -286,7 +294,9 @@ export default function Fees() {
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
-        <div className="text-muted text-sm">Click a student's card to view their full month</div>
+        <div className="text-muted text-sm">
+          {isCurrentYear ? 'Click a student’s card to view their full month' : `Browsing ${year} — showing ${referenceMonthLabel}. Click a student’s card to view their full month.`}
+        </div>
         <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
       </div>
 

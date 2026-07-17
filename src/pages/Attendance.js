@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear, formatDayMonthGB } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getAcademicYears, currentSchoolYear, academicYearStartISO, formatDayMonthGB } from '../lib/store';
 import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -15,6 +15,7 @@ export default function Attendance() {
   const [years, setYears] = useState([]);
   const [activeClass, setActiveClass] = useState('');
   const [year, setYear] = useState('');
+  const [currentYear, setCurrentYear] = useState('');
   const [attData, setAttData] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
@@ -28,7 +29,7 @@ export default function Attendance() {
       const [studentsData, classNamesData, yearsData, attendanceData] = await Promise.all([
         getStudents(), getClassNames(), getAcademicYears(), getAttendance(y),
       ]);
-      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setAttData(attendanceData);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setCurrentYear(y); setAttData(attendanceData);
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
     } catch (err) {
       setError(err);
@@ -59,7 +60,7 @@ export default function Attendance() {
     }
   }
 
-  function openStudent(id) { setSelectedId(id); setWeekAnchor(isoToday()); }
+  function openStudent(id) { setSelectedId(id); setWeekAnchor(year===currentYear ? isoToday() : academicYearStartISO(year)); }
 
   function shiftWeek(dir) {
     const wd = getWeekDates(weekAnchor);
@@ -71,7 +72,9 @@ export default function Attendance() {
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const classStudents = students.filter(s=>s.class===activeClass);
-  const thisWeekDates = getWeekDates(TODAY);
+  const isCurrentYear = year===currentYear;
+  const referenceDate = isCurrentYear ? TODAY : academicYearStartISO(year);
+  const thisWeekDates = getWeekDates(referenceDate);
 
   function weekCountsFor(studentId, dates) {
     const days = dates.map(d=>attData[studentId]?.[d]).filter(Boolean);
@@ -154,21 +157,25 @@ export default function Attendance() {
 
   return (
     <Layout title="Attendance" subtitle={`${activeClass} · ${year}`}>
-      <div className="count-row">
-        {classNames.map(c=>{
-          const tc = todayCountFor(c);
-          const pct = tc.total ? Math.round((tc.present/tc.total)*100) : 0;
-          return (
-            <div className="count-chip" key={c}>
-              <div className="count-ring" style={{background:`conic-gradient(var(--green) 0% ${pct}%, #f3f4f6 ${pct}% 100%)`}}>{pct}%</div>
-              <div>
-                <div className="figure">{tc.present}<span> / {tc.total} present</span></div>
-                <div className="label">{c} — today</div>
+      {isCurrentYear ? (
+        <div className="count-row">
+          {classNames.map(c=>{
+            const tc = todayCountFor(c);
+            const pct = tc.total ? Math.round((tc.present/tc.total)*100) : 0;
+            return (
+              <div className="count-chip" key={c}>
+                <div className="count-ring" style={{background:`conic-gradient(var(--green) 0% ${pct}%, #f3f4f6 ${pct}% 100%)`}}>{pct}%</div>
+                <div>
+                  <div className="figure">{tc.present}<span> / {tc.total} present</span></div>
+                  <div className="label">{c} — today</div>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-muted text-sm mb-4">Browsing {year} — showing the week of {formatDayMonthGB(thisWeekDates[0])}. Open a student to mark or edit any day.</div>
+      )}
       <div className="pill-tabs">
         {classNames.map(c=>(
           <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
@@ -187,12 +194,14 @@ export default function Attendance() {
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
               <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>
-              <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
-                <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
-                <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} onClick={()=>mark(s.id,TODAY,'L')}>L</button>
-                <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} onClick={()=>mark(s.id,TODAY,'A')}>A</button>
-              </div>
-              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:10,textAlign:'center'}}>This week: {wc.P}P · {wc.L}L · {wc.A}A</div>
+              {isCurrentYear && (
+                <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
+                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
+                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} onClick={()=>mark(s.id,TODAY,'L')}>L</button>
+                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} onClick={()=>mark(s.id,TODAY,'A')}>A</button>
+                </div>
+              )}
+              <div style={{fontSize:11,color:'var(--text-soft)',marginTop:isCurrentYear?10:0,textAlign:'center'}}>Week of {formatDayMonthGB(thisWeekDates[0])}: {wc.P}P · {wc.L}L · {wc.A}A</div>
             </div>
           );
         })}
