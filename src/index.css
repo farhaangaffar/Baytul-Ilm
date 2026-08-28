@@ -322,7 +322,12 @@ tbody tr:hover td { background: #f9fafb; }
 
 /* ── Modal ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(17,24,39,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; backdrop-filter: blur(2px); }
-.modal { background: var(--surface); border-radius: 20px; width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+/* max-height in plain vh is pinned to the viewport with the mobile address bar hidden —
+   taller than what's actually visible while it's showing — so a bottom-anchored modal
+   (align-items: flex-end below) could size itself past the real fold and get its top
+   (header/name) clipped above it. dvh tracks the real, current viewport; same fallback
+   pattern as .app-shell/.main-content above. */
+.modal { background: var(--surface); border-radius: 20px; width: 100%; max-width: 680px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; box-shadow: var(--shadow-lg); }
 .modal-header { padding: 22px 26px 18px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); z-index: 1; border-radius: 20px 20px 0 0; }
 .modal-title { font-size: 16px; font-weight: 600; }
 .modal-body { padding: 24px 26px; }
@@ -426,7 +431,7 @@ tbody tr:hover td { background: #f9fafb; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .record-panels { grid-template-columns: 1fr; }
   .modal-overlay { padding: 10px; align-items: flex-end; backdrop-filter: none; }
-  .modal { max-height: 95vh; border-radius: 20px 20px 0 0; }
+  .modal { max-height: 95vh; max-height: 95dvh; border-radius: 20px 20px 0 0; }
   /* Search + Classes/Waiting-list/Enroll used to share one row and fight over
      width — stack them so the search bar gets the full row (matching the
      stat-card row above it) instead of getting squeezed by the button group. */
