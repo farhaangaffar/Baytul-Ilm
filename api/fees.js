@@ -44,6 +44,24 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  if (action === 'delete-month') {
+    // Mirrors add-month: deletes every fee record across a set of weeks for one class in
+    // a single request, rather than making the client loop the single-week delete below.
+    if (req.method !== 'DELETE') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { year, weeks, className } = req.body || {};
+    if (!year || !Array.isArray(weeks) || !weeks.length || !className) {
+      res.status(400).json({ error: 'year, weeks[] and className are required' });
+      return;
+    }
+    const { rowCount } = await query(
+      `DELETE FROM fees WHERE year = $1 AND week_starting = ANY($2::date[])
+       AND student_id IN (SELECT id FROM students WHERE class = $3)`,
+      [year, weeks, className]
+    );
+    res.status(200).json({ ok: true, deleted: rowCount });
+    return;
+  }
+
   if (action === 'week') {
     // Deletes every fee record for a given week across every student in a class —
     // used for holiday weeks that shouldn't be billed.

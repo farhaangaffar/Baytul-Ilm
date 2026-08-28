@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
-  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth,
+  getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB
 } from '../lib/store';
@@ -17,6 +17,14 @@ function shiftMonth(ym, dir) {
   const [y,m]=ym.split('-').map(Number);
   const d=new Date(y,m-1+dir,1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+// "Add a month" must stay inside the tab's own Sept–Aug range — a month picked from the
+// wrong side of the boundary would get tagged under this year but actually belong to the
+// adjacent one (its true academicYearOfMonth), quietly inflating this year's totals with
+// another year's fees.
+function yearMonthBounds(yearLabel) {
+  const startYear = 2000 + Number(yearLabel.slice(0, 2));
+  return { min: `${startYear}-09`, max: `${startYear + 1}-08` };
 }
 
 export default function Fees() {
@@ -33,6 +41,9 @@ export default function Fees() {
   const [showAddMonth, setShowAddMonth] = useState(false);
   const [addMonthVal, setAddMonthVal] = useState(isoToday().slice(0,7));
   const [addingMonth, setAddingMonth] = useState(false);
+  const [showDeleteMonth, setShowDeleteMonth] = useState(false);
+  const [deleteMonthVal, setDeleteMonthVal] = useState(isoToday().slice(0,7));
+  const [deletingMonth, setDeletingMonth] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
@@ -95,6 +106,10 @@ export default function Fees() {
   }
 
   async function addMonth() {
+    if (academicYearOfMonth(addMonthVal) !== year) {
+      showToast(`${monthLabel(addMonthVal)} belongs to ${academicYearOfMonth(addMonthVal)}, not ${year} — switch tabs first.`);
+      return;
+    }
     const weeks=getWeekStartsForMonth(addMonthVal);
     const classStudents=students.filter(s=>s.status==='Active'&&s.class===activeClass);
     setAddingMonth(true);
@@ -107,6 +122,28 @@ export default function Fees() {
       showToast(err.message || 'Could not add this month');
     }
     setAddingMonth(false);
+  }
+
+  async function deleteMonth() {
+    if (academicYearOfMonth(deleteMonthVal) !== year) {
+      showToast(`${monthLabel(deleteMonthVal)} belongs to ${academicYearOfMonth(deleteMonthVal)}, not ${year} — switch tabs first.`);
+      return;
+    }
+    const classStudentIds = new Set(students.filter(s=>s.class===activeClass).map(s=>s.id));
+    const weeks = getWeekStartsForMonth(deleteMonthVal).filter(w =>
+      fees.some(f => f.weekStarting===w && classStudentIds.has(f.studentId))
+    );
+    if (!weeks.length) { showToast(`No fee records for ${activeClass} in ${monthLabel(deleteMonthVal)}`); return; }
+    setDeletingMonth(true);
+    try {
+      const { deleted } = await deleteFeeMonth(year, weeks, activeClass);
+      await refresh();
+      setShowDeleteMonth(false);
+      showToast(`${deleted} fee record${deleted!==1?'s':''} removed for ${monthLabel(deleteMonthVal)}`);
+    } catch (err) {
+      showToast(err.message || 'Could not delete this month');
+    }
+    setDeletingMonth(false);
   }
 
   function openStudent(id) { setSelectedId(id); setMonthAnchor((year===currentYear ? isoToday() : academicYearStartISO(year)).slice(0,7)); }
@@ -315,7 +352,20 @@ export default function Fees() {
         <div className="text-muted text-sm">
           {isCurrentYear ? 'Click a student’s card to view their full month' : `Browsing ${year} — showing ${referenceMonthLabel}. Click a student’s card to view their full month.`}
         </div>
-        <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowAddMonth(true)}><Calendar size={13}/> Add a month</button>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn" onClick={()=>{
+            const { min, max } = yearMonthBounds(year);
+            const todayYM = isoToday().slice(0,7);
+            setDeleteMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
+            setShowDeleteMonth(true);
+          }}><Trash2 size={13}/> Delete a month</button>
+          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>{
+            const { min, max } = yearMonthBounds(year);
+            const todayYM = isoToday().slice(0,7);
+            setAddMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
+            setShowAddMonth(true);
+          }}><Calendar size={13}/> Add a month</button>
+        </div>
       </div>
 
       <div className="entity-grid">
@@ -373,7 +423,9 @@ export default function Fees() {
               <div className="form-group" style={{marginBottom:16}}>
                 <label>Select month</label>
                 <input type="month" value={addMonthVal} onChange={e=>setAddMonthVal(e.target.value)}
+                  min={yearMonthBounds(year).min} max={yearMonthBounds(year).max}
                   style={{padding:'9px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
+                <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:6}}>Must fall within {year} (September–August).</div>
               </div>
               {addMonthVal&&(()=>{
                 const weeks=getWeekStartsForMonth(addMonthVal);
@@ -404,6 +456,54 @@ export default function Fees() {
           </div>
         </div>
       )}
+
+      {/* Delete month modal */}
+      {showDeleteMonth&&(()=>{
+        const classStudentIds = new Set(classStudents.map(s=>s.id));
+        const weeksInMonth = getWeekStartsForMonth(deleteMonthVal);
+        const weeksWithRecords = weeksInMonth.filter(w => fees.some(f=>f.weekStarting===w && classStudentIds.has(f.studentId)));
+        const recordCount = fees.filter(f=>weeksWithRecords.includes(f.weekStarting) && classStudentIds.has(f.studentId)).length;
+        return (
+          <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowDeleteMonth(false)}>
+            <div className="modal" style={{maxWidth:460}}>
+              <div className="modal-header">
+                <div className="modal-title">Delete a month — {activeClass}</div>
+                <button className="btn btn-icon" onClick={()=>setShowDeleteMonth(false)}><X size={16}/></button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group" style={{marginBottom:16}}>
+                  <label>Select month</label>
+                  <input type="month" value={deleteMonthVal} onChange={e=>setDeleteMonthVal(e.target.value)}
+                    min={yearMonthBounds(year).min} max={yearMonthBounds(year).max}
+                    style={{padding:'9px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
+                  <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:6}}>Must fall within {year} (September–August).</div>
+                </div>
+                {weeksWithRecords.length ? (
+                  <div style={{background:'var(--red-light)',borderRadius:'var(--r-md)',padding:'12px 16px',fontSize:13}}>
+                    <div style={{fontWeight:600,marginBottom:8,color:'var(--ink)'}}>
+                      {recordCount} fee record{recordCount!==1?'s':''} across {weeksWithRecords.length} week{weeksWithRecords.length!==1?'s':''} will be removed for {monthLabel(deleteMonthVal)}:
+                    </div>
+                    {weeksWithRecords.map(w=>(
+                      <div key={w} style={{padding:'4px 0',borderBottom:'1px solid rgba(0,0,0,0.06)',fontSize:12,color:'var(--text-muted)'}}>w/c {w}</div>
+                    ))}
+                    <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)'}}>This cannot be undone.</div>
+                  </div>
+                ) : (
+                  <div style={{background:'#f9fafb',borderRadius:'var(--r-md)',padding:'12px 16px',fontSize:13,color:'var(--text-muted)'}}>
+                    No fee records exist for {activeClass} in {monthLabel(deleteMonthVal)}.
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn" onClick={()=>setShowDeleteMonth(false)}>Cancel</button>
+                <button className="btn btn-danger" onClick={deleteMonth} disabled={deletingMonth||!weeksWithRecords.length}>
+                  <Trash2 size={13}/>{deletingMonth?'Deleting…':'Delete month'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {confirmToggleModal}
       {toast&&<div className="toast">✓ {toast}</div>}
