@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB } from '../lib/store';
+import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users } from 'lucide-react';
 
@@ -50,9 +51,10 @@ export default function Students() {
   }, [fetchData]);
 
   useEffect(() => { load(); }, [load]);
+  const closeSelected = useBackToClose(!!selected, () => setSelected(null));
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
-  function startEdit(s) { setEditForm({...s}); setEditing(s.id); setSelected(null); }
+  function startEdit(s) { setEditForm({...s}); setEditing(s.id); closeSelected(); }
 
   async function saveEdit() {
     setSaving(true);
@@ -118,7 +120,7 @@ export default function Students() {
         <div className="students-toolbar-search" style={{position:'relative',flex:1}}>
           <Search size={14} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)'}}/>
           <input
-            style={{paddingLeft:34,width:'100%',borderRadius:'var(--r-btn)',boxShadow:'var(--shadow-sm)'}}
+            style={{height:31,boxSizing:'border-box',padding:'0 14px 0 34px',width:'100%',borderRadius:'var(--r-btn)',boxShadow:'var(--shadow-sm)',fontSize:13}}
             placeholder="Search by name…" value={search} onChange={e=>setSearch(e.target.value)}
           />
         </div>
@@ -195,14 +197,14 @@ export default function Students() {
 
       {/* View modal */}
       {selected&&(
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeSelected()}>
           <div className="modal">
             <div className="modal-header">
               <div className="flex items-center gap-3">
                 <div className="avatar" style={{width:40,height:40}}>{avatarInitials(selected.forename+' '+selected.surname)}</div>
                 <div><div className="modal-title">{selected.forename} {selected.surname}</div><div className="text-muted text-sm">{selected.class}</div></div>
               </div>
-              <button className="btn btn-icon" onClick={()=>setSelected(null)}><X size={16}/></button>
+              <button className="btn btn-icon" onClick={closeSelected}><X size={16}/></button>
             </div>
             <div className="modal-body">
               <div className="grid-2 mb-4">
@@ -244,9 +246,9 @@ export default function Students() {
               {selected.notes&&<div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-danger" onClick={()=>{setSelected(null);setConfirmDelete(selected);}}><Trash2 size={13}/>Delete</button>
+              <button className="btn btn-danger" onClick={()=>{const s=selected;closeSelected();setConfirmDelete(s);}}><Trash2 size={13}/>Delete</button>
               <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>startEdit(selected)}><Pencil size={13}/>Edit</button>
-              <button className="btn" onClick={()=>setSelected(null)}>Close</button>
+              <button className="btn" onClick={closeSelected}>Close</button>
             </div>
           </div>
         </div>

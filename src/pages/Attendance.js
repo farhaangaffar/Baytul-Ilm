@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, academicYearStartISO, academicYearOfMonth, formatDayMonthGB } from '../lib/store';
+import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -42,6 +43,7 @@ export default function Attendance() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
 
   async function switchYear(y) {
     setYear(y);
@@ -117,7 +119,7 @@ export default function Attendance() {
       <Layout title="Attendance" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
         <div className="card-header" style={{marginBottom:20}}>
           <div className="flex items-center gap-3">
-            <button className="back-pill" onClick={()=>setSelectedId(null)}><ArrowLeft size={14}/> All students</button>
+            <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14}/> All students</button>
             <div>
               <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
               <div className="text-muted text-sm">{selected.class}</div>
