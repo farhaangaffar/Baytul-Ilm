@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
+import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -534,6 +535,7 @@ export default function DailyRecords() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  const closeStudent = useBackToClose(!!selectedStudent, () => setSelectedStudent(null));
 
   if (loading) return <Layout title="Daily records"><LoadingState /></Layout>;
   if (error) return <Layout title="Daily records"><ErrorState error={error} onRetry={load} /></Layout>;
@@ -541,7 +543,7 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} onBack={()=>setSelectedStudent(null)}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} onBack={closeStudent}/>
         :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords}/>
       }
     </Layout>

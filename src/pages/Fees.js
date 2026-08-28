@@ -6,6 +6,7 @@ import {
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB
 } from '../lib/store';
+import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -68,6 +69,7 @@ export default function Fees() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
 
   async function refresh(y2) { setFees(await getFees(y2||year)); }
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
@@ -226,7 +228,7 @@ export default function Fees() {
       <Layout title="Fees" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
         <div className="card-header" style={{marginBottom:20}}>
           <div className="flex items-center gap-3">
-            <button className="back-pill" onClick={()=>setSelectedId(null)}><ArrowLeft size={14}/> All students</button>
+            <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14}/> All students</button>
             <div>
               <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
               <div className="text-muted text-sm">{selected.class} · £{selected.weeklyFee}/wk</div>
