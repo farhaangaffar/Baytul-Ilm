@@ -74,12 +74,16 @@ export function academicYearOfMonth(monthStr) {
   const start = mm - 1 >= 8 ? yyyy : yyyy - 1;
   return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
 }
-// September 1st of a "YY-YY" academic year's start — the default reference point for
-// pages that let you browse a specific year, since "today" only means something for
-// whichever year is actually current.
+// The true start of a "YY-YY" academic year — the first Monday of September, not the
+// literal 1st (which, per the "month starts from its first Monday" rule, can still belong
+// to August's block) — the default reference point for pages that let you browse a
+// specific year, since "today" only means something for whichever year is actually
+// current. Using the literal 1st here fed straight into getCurrentSchoolMonth/getWeekDates
+// would walk backward into the previous year's last month whenever Sept 1 isn't itself a
+// Monday — this is the fix for that.
 export function academicYearStartISO(yearLabel) {
   const startYear = 2000 + Number(yearLabel.slice(0, 2));
-  return `${startYear}-09-01`;
+  return firstMondayOfMonthISO(startYear, 8); // month index 8 = September
 }
 
 // ── School month — every month runs from its first Monday to the day before the next month's first Monday ──
