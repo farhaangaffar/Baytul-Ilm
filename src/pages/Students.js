@@ -120,7 +120,7 @@ export default function Students() {
         <div className="students-toolbar-search" style={{position:'relative',flex:1}}>
           <Search size={14} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)'}}/>
           <input
-            style={{height:31,boxSizing:'border-box',padding:'0 14px 0 34px',width:'100%',borderRadius:'var(--r-btn)',boxShadow:'var(--shadow-sm)',fontSize:13}}
+            style={{height:31,boxSizing:'border-box',padding:'0 14px 0 34px',width:'100%',borderRadius:'var(--r-btn)',border:'none',boxShadow:'var(--shadow-sm)',fontSize:13}}
             placeholder="Search by name…" value={search} onChange={e=>setSearch(e.target.value)}
           />
         </div>
