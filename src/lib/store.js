@@ -165,6 +165,9 @@ export async function addFeeRecord(rec, year) {
 export async function addFeeMonth(year, weeks, students) {
   return apiFetch('/api/fees?action=add-month', { method: 'POST', body: JSON.stringify({ year, weeks, students }) });
 }
+export async function deleteFeeMonth(year, weeks, className) {
+  return apiFetch('/api/fees?action=delete-month', { method: 'DELETE', body: JSON.stringify({ year, weeks, className }) });
+}
 export async function markFeePaid(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'Paid' }) }); }
 export async function markFeeUnpaid(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'Pending' }) }); }
 export async function deleteFeeRecord(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'DELETE' }); }
