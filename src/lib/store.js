@@ -62,7 +62,13 @@ export async function renameAcademicYear(from, to) {
 export async function currentSchoolYear() {
   const years = await getAcademicYears();
   const now = new Date(), m = now.getMonth(), yr = now.getFullYear();
-  const start = m >= 8 ? yr : yr - 1;
+  let start = m >= 8 ? yr : yr - 1;
+  // Respect the "a month starts from its first Monday" rule at the year boundary too —
+  // if today is calendar-September but before that September's actual first Monday, the
+  // new school year hasn't started yet and we're still in the previous one's August block
+  // (matching getSchoolMonthRange/getCurrentSchoolMonth, used everywhere else for this).
+  const todayISO = now.toISOString().split('T')[0];
+  if (todayISO < firstMondayOfMonthISO(start, 8)) start -= 1;
   const label = `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
   return years.includes(label) ? label : years[years.length - 1];
 }
