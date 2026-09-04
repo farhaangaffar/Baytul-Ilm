@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, academicYearStartISO, academicYearOfMonth, formatDayMonthGB } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -66,7 +66,14 @@ export default function Attendance() {
     }
   }
 
-  function openStudent(id) { setSelectedId(id); setMonthAnchor((year===currentYear ? isoToday() : academicYearStartISO(year)).slice(0,7)); }
+  function openStudent(id) {
+    setSelectedId(id);
+    // isoToday().slice(0,7) would grab the raw calendar month even on days that, per the
+    // "month starts from its first Monday" rule, still belong to the previous one —
+    // getCurrentSchoolMonth already gets this right, reuse it instead of re-deriving.
+    const anchor = year===currentYear ? getCurrentSchoolMonth(isoToday()).start : academicYearStartISO(year);
+    setMonthAnchor(anchor.slice(0,7));
+  }
 
   // Months are browsed within their own academic year only — crossing September or
   // August hops to the adjacent year's tab (matching the source spreadsheets, one file
