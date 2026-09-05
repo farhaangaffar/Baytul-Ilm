@@ -183,6 +183,9 @@ export default function Fees() {
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonth = getCurrentSchoolMonth(referenceDate);
+  const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
+  const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
   const thisWeekMonday = getMondayOf(referenceDate);
   // schoolMonth.label follows the "first Monday" school-month boundary, which for a
@@ -351,10 +354,16 @@ export default function Fees() {
       </div>
 
       <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{totalPaid.toFixed(2)}</div><div className="l">Collected — {activeClass}</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{totalOwed.toFixed(2)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{totalPaid.toFixed(2)}</div><div className="l">Collected — {activeClass} ({year})</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{totalOwed.toFixed(2)}</div><div className="l">Outstanding ({year})</div></div>
         <div className="stat-card-v2"><div className="n">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid records</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.filter(s=>s.status==='Active').length}</div><div className="l">Active students</div></div>
+      </div>
+
+      <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'-4px 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>This month — {referenceMonthLabel}</div>
+      <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{monthTotalPaid.toFixed(2)}</div><div className="l">Collected this month</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{monthTotalOwed.toFixed(2)}</div><div className="l">Outstanding this month</div></div>
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
