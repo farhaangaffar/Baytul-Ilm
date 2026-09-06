@@ -73,7 +73,14 @@ input, select, textarea { font-family: var(--font); }
 .nav-link.active svg { opacity: 1; color: #ffffff; }
 
 /* ── Main ── */
-.main-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; overscroll-behavior-y: contain; }
+/* scrollbar-gutter: stable reserves the scrollbar's width up front, whether or not it's
+   actually showing yet. Without it, a page that opens shorter than the viewport (no
+   scrollbar) and then grows past it once its data loads (scrollbar appears) visibly
+   shrinks by the scrollbar's width a moment after opening, leaving a thin gap down the
+   right edge — most noticeable on mobile-width layouts, where every column here is
+   already tight. Pages whose content never grows past the viewport (e.g. Classes &
+   Teachers) never trigger it, which is why they look unaffected. */
+.main-content { flex: 1; overflow-y: auto; scrollbar-gutter: stable; display: flex; flex-direction: column; min-width: 0; overscroll-behavior-y: contain; }
 .topbar { background: var(--surface); box-shadow: var(--shadow-sm); padding: 0 28px; height: 58px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
 .topbar-title { font-size: 16px; font-weight: 600; color: var(--text); }
 .topbar-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
