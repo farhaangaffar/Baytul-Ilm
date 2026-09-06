@@ -73,14 +73,7 @@ input, select, textarea { font-family: var(--font); }
 .nav-link.active svg { opacity: 1; color: #ffffff; }
 
 /* ── Main ── */
-/* scrollbar-gutter: stable reserves the scrollbar's width up front, whether or not it's
-   actually showing yet. Without it, a page that opens shorter than the viewport (no
-   scrollbar) and then grows past it once its data loads (scrollbar appears) visibly
-   shrinks by the scrollbar's width a moment after opening, leaving a thin gap down the
-   right edge — most noticeable on mobile-width layouts, where every column here is
-   already tight. Pages whose content never grows past the viewport (e.g. Classes &
-   Teachers) never trigger it, which is why they look unaffected. */
-.main-content { flex: 1; overflow-y: auto; scrollbar-gutter: stable; display: flex; flex-direction: column; min-width: 0; overscroll-behavior-y: contain; }
+.main-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; overscroll-behavior-y: contain; }
 .topbar { background: var(--surface); box-shadow: var(--shadow-sm); padding: 0 28px; height: 58px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
 .topbar-title { font-size: 16px; font-weight: 600; color: var(--text); }
 .topbar-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
@@ -419,7 +412,16 @@ tbody tr:hover td { background: #f9fafb; }
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .app-shell { flex-direction: column; }
-  .main-content { height: 100vh; height: 100dvh; }
+  /* .main-content is the only thing that scrolls vertically on mobile. A page that opens
+     shorter than the viewport (loading state) has no scrollbar, then grows past it once
+     its data loads — on some Android/Chrome builds that transition claims a sliver of
+     width for the scrollbar track, which reads as the page shrinking and leaving a gap
+     down the right edge a moment after opening (scrollbar-gutter: stable was tried here
+     first, but it reserves that same sliver permanently instead of only when needed,
+     which is no better). Scrolling still works by touch either way, so just hide the
+     track entirely instead of trying to reserve or match its width. */
+  .main-content { height: 100vh; height: 100dvh; scrollbar-width: none; }
+  .main-content::-webkit-scrollbar { display: none; width: 0; height: 0; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 18px; flex-shrink: 0; }
   .mobile-topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
   .mobile-topbar-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
