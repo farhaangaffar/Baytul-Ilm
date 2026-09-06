@@ -7,7 +7,13 @@
     <title>Baytul 'Ilm Madrasah — Management System</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- display=optional (not swap): pills/chips size themselves to their text, so a
+         late font swap after they've already painted shrinks them by a few px — this was
+         visible on mobile as pages "settling" a moment after opening. optional either uses
+         the font immediately (if it's ready in ~100ms, which it normally is once cached)
+         or sticks with the fallback for that paint with no later swap, trading an
+         occasional fallback-font first paint for zero layout shift. -->
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Amiri:wght@400;700&display=optional" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
