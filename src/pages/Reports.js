@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, attendanceCountsForMonth, getAttendance, getFees, avatarInitials, currentSchoolYear, getCurrentSchoolMonth, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { getStudents, getClassNames, attendanceCountsForMonth, getAttendance, getFees, avatarInitials, currentSchoolYear, getCurrentSchoolMonth, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
 import { generateReportPdfBytes } from '../lib/reportPdf';
 import { FileText, Download, Plus } from 'lucide-react';
 
@@ -34,6 +34,8 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
+  const [classNames, setClassNames] = useState([]);
+  const [activeClass, setActiveClass] = useState('');
   const [attendance, setAttendance] = useState({});
   const [fees, setFees] = useState([]);
   const [currentSummaries, setCurrentSummaries] = useState({}); // studentId -> {summary, behavior} for this month, used for bulk download + "Add new report"
@@ -51,10 +53,11 @@ export default function Reports() {
     setLoading(true); setError(null);
     try {
       const y = await currentSchoolYear();
-      const [studentsData, attendanceData, feesData, savedSummaries] = await Promise.all([
-        getStudents(), getAttendance(y), getFees(y), getAiSummariesForMonth(currentMonth()).catch(()=>[]),
+      const [studentsData, classNamesData, attendanceData, feesData, savedSummaries] = await Promise.all([
+        getStudents(), getClassNames(), getAttendance(y), getFees(y), getAiSummariesForMonth(currentMonth()).catch(()=>[]),
       ]);
-      setStudents(studentsData); setAttendance(attendanceData); setFees(feesData);
+      setStudents(studentsData); setClassNames(classNamesData); setAttendance(attendanceData); setFees(feesData);
+      setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
       const map = {};
       savedSummaries.forEach(s => { map[s.studentId] = { summary: s.summary, behavior: s.behavior }; });
       setCurrentSummaries(map);
@@ -126,6 +129,10 @@ export default function Reports() {
   const years = Object.keys(reportsByYear).sort().reverse();
   years.forEach(y => reportsByYear[y].sort((a, b) => b.month.localeCompare(a.month)));
 
+  // Split by class so a bulk download doesn't have to mean "every student in the
+  // school" — pick a class, then "All reports" only covers that class's students.
+  const classStudents = students.filter(s => s.class === activeClass);
+
   return (
     <Layout title="Reports" subtitle="Generate PDF progress reports">
       {/* Unified top box: student picker on the left, selected student's
@@ -137,18 +144,23 @@ export default function Reports() {
               <div><div className="card-title">Select a student</div><div className="card-sub">Click a name for their report history</div></div>
               <button className="btn btn-primary btn-sm" onClick={async()=>{
                 setGenerating('all');
-                for(const s of students){
+                for(const s of classStudents){
                   const bytes = await buildReportBytes(s, attendance, fees, {
                     summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(), dataMonth: currentMonth(),
                   });
                   downloadBytes(bytes, `Report_${s.forename}_${s.surname}.pdf`);
                 }
-                setGenerating(''); showToast(`${students.length} reports downloaded`);
-              }}>{generating==='all'?'Generating…':<><Download size={13}/>All reports</>}</button>
+                setGenerating(''); showToast(`${classStudents.length} report${classStudents.length!==1?'s':''} downloaded for ${activeClass}`);
+              }}>{generating==='all'?'Generating…':<><Download size={13}/>{activeClass||'All'} reports</>}</button>
+            </div>
+            <div className="class-tabs" style={{marginBottom:12}}>
+              {classNames.map(c=>(
+                <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
+              ))}
             </div>
             {/* Scrollable list */}
             <div style={{maxHeight:420,overflowY:'auto'}}>
-              {students.map(s=>{
+              {classStudents.map(s=>{
                 const isActive=selected===s.id;
                 return (
                   <div key={s.id} onClick={()=>selectStudent(s)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,transition:'all 0.1s'}}>
@@ -163,6 +175,9 @@ export default function Reports() {
                   </div>
                 );
               })}
+              {classStudents.length===0&&(
+                <div className="text-muted text-sm" style={{padding:'12px 4px'}}>No students in {activeClass}.</div>
+              )}
             </div>
           </div>
 

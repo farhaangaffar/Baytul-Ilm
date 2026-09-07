@@ -10,8 +10,8 @@ const navItems = [
   { label:'Attendance',         path:'/attendance', icon:CheckSquare },
   { label:'Fees',               path:'/fees',       icon:Coins },
   { label:'Daily records',      path:'/records',    icon:BookOpen },
-  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, section:'Setup' },
-  { label:'Reports',            path:'/reports',    icon:FileText },
+  { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup' },
+  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
 ];

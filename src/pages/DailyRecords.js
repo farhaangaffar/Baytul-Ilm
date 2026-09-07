@@ -365,26 +365,33 @@ function StudentRecords({ student, settings, onBack }) {
             </div>
           </div>
 
+          {/* Inert preview of what an entry looks like — greyed out and undated on
+              purpose. The old version here was a live, auto-saving "today" card that
+              looked identical (teal, dated, editable) to an already-added entry, so
+              there was no way to tell at a glance whether today had actually been
+              added yet. Now nothing is editable, and nothing exists, until "Add day"
+              is pressed — at which point a real, coloured, dated entry appears below
+              via the normal dates.map() list, same as any other day. */}
           {!hasToday&&(
-            <div className="card mb-4" style={{borderLeft:'3px solid var(--teal)'}}>
+            <div className="card mb-4" style={{borderLeft:'3px solid var(--border-strong)',opacity:0.55}}>
               <div className="flex justify-between items-center" style={{marginBottom:10}}>
-                <div style={{fontWeight:600,fontSize:13}}>Today — {fmtDate(isoToday())}</div>
-                <span className="badge badge-teal">Today</span>
+                <div style={{fontWeight:600,fontSize:13,color:'var(--text-muted)'}}>No entry yet</div>
               </div>
               <div className="form-group" style={{marginBottom:10}}>
                 <label>Daily comment</label>
-                <CommentBox key="today-comment" initialValue="" onSave={val=>saveField(isoToday(),'comment',val)} placeholder="General note for today…"/>
+                <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:44}}>General note for the day…</div>
               </div>
               <div className="record-panels">
                 <div className="record-panel record-panel-pos">
                   <div className="record-panel-label">⭐ Positives</div>
-                  <StableTextarea key="today-pos" initialValue="" onSave={val=>saveField(isoToday(),'positive',val)} placeholder="What went well?"/>
+                  <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>What went well?</div>
                 </div>
                 <div className="record-panel record-panel-neg">
                   <div className="record-panel-label">⚑ Concerns</div>
-                  <StableTextarea key="today-neg" initialValue="" onSave={val=>saveField(isoToday(),'negative',val)} placeholder="Any concerns?"/>
+                  <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>Any concerns?</div>
                 </div>
               </div>
+              <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Click "Add day" above to start today's entry</div>
             </div>
           )}
 
