@@ -302,8 +302,8 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
                 <tr key={m.ym}>
                   <td style={{ fontWeight: 500 }}>{m.label}</td>
                   <td className="text-muted">£{m.billed.toFixed(2)}</td>
-                  <td style={{ fontWeight: 600 }}>£{m.outstanding.toFixed(2)}</td>
-                  <td className="text-muted">£{m.collected.toFixed(2)}</td>
+                  <td className="text-muted">£{m.outstanding.toFixed(2)}</td>
+                  <td style={{ fontWeight: 600 }}>£{m.collected.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -321,8 +321,8 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
                 <tr key={r.name}>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
                   <td className="text-muted">£{r.billed.toFixed(2)}</td>
-                  <td style={{ fontWeight: 600 }}>£{r.outstanding.toFixed(2)}</td>
-                  <td className="text-muted">£{r.collected.toFixed(2)}</td>
+                  <td className="text-muted">£{r.outstanding.toFixed(2)}</td>
+                  <td style={{ fontWeight: 600 }}>£{r.collected.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -340,14 +340,14 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
                 <tr key={r.year}>
                   <td style={{ fontWeight: 500 }}>{r.year}</td>
                   <td className="text-muted">£{r.billed.toFixed(2)}</td>
-                  <td style={{ fontWeight: 600 }}>£{r.outstanding.toFixed(2)}</td>
-                  <td className="text-muted">£{r.collected.toFixed(2)}</td>
+                  <td className="text-muted">£{r.outstanding.toFixed(2)}</td>
+                  <td style={{ fontWeight: 600 }}>£{r.collected.toFixed(2)}</td>
                 </tr>
               ))}
               <tr>
                 <td style={{ fontWeight: 600 }}>Average</td>
                 <td></td>
-                <td style={{ fontWeight: 700 }}>£{avgOutstanding.toFixed(2)}</td>
+                <td className="text-muted" style={{ fontWeight: 600 }}>£{avgOutstanding.toFixed(2)}</td>
                 <td style={{ fontWeight: 700 }}>£{avgCollected.toFixed(2)}</td>
               </tr>
             </tbody>
