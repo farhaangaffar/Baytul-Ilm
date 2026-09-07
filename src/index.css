@@ -222,12 +222,17 @@ tbody tr:hover td { background: #f9fafb; }
 .count-chip .figure span { font-size: 12px; font-weight: 500; color: var(--text-soft); }
 .count-chip .label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-.week-pill-row { display: flex; gap: 8px; }
+.week-pill-row { display: flex; gap: 10px; width: 100%; }
 /* Colour lives in a status dot, not the tile itself — the square stays a neutral grey
    and only the dot underneath the day number carries paid/due/not-added. Full status is
    still in the button's title tooltip for anyone who wants the word. Both the tile and
-   the dot are sized up from the first pass — the dot read as too small at desktop scale. */
-.week-pill { width: 46px; height: 46px; border-radius: 13px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
+   the dot are sized up from the first pass — the dot read as too small at desktop scale.
+   Tiles flex to fill the row's full width (capped by max-width so they don't turn into
+   giant slabs on a short month) rather than a fixed size — a month can have anywhere
+   from 3 to 5 weeks, and a fixed-width tile left the row's leftover space empty on the
+   sides in proportion to however few weeks that month had, worst on the wide desktop
+   2-column layout. */
+.week-pill { flex: 1 1 0; max-width: 90px; min-width: 46px; height: 46px; border-radius: 13px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
 .week-pill:hover:not(:disabled) { transform: translateY(-2px); }
 .week-pill:disabled { cursor: default; }
 .week-pill .d { font-size: 14px; }
@@ -239,7 +244,7 @@ tbody tr:hover td { background: #f9fafb; }
 
 @media (max-width: 768px) {
   .week-pill-row { gap: 10px; }
-  .week-pill { width: 54px; height: 54px; border-radius: 15px; gap: 7px; }
+  .week-pill { max-width: 100px; min-width: 54px; height: 54px; border-radius: 15px; gap: 7px; }
   .week-pill .d { font-size: 16px; }
   .week-pill .dot { width: 10px; height: 10px; }
 }
