@@ -255,8 +255,8 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
         <div className="stat-card-v2"><div className="n">£{yearRange.billed.toFixed(2)}</div><div className="l">Billed this year</div></div>
-        <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>£{yearRange.collected.toFixed(2)}</div><div className="l">Collected this year</div></div>
         <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>£{yearRange.outstanding.toFixed(2)}</div><div className="l">Outstanding this year</div></div>
+        <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>£{yearRange.collected.toFixed(2)}</div><div className="l">Collected this year</div></div>
         <div className="stat-card-v2"><div className="n">{yearRange.billed ? Math.round((yearRange.collected / yearRange.billed) * 100) : 0}%</div><div className="l">Collected rate</div></div>
       </div>
 

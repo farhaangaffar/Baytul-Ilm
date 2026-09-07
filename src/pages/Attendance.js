@@ -226,9 +226,9 @@ export default function Attendance() {
               <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>
               {isCurrentYear && (
                 <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
-                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} onClick={()=>mark(s.id,TODAY,'P')}>P</button>
-                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} onClick={()=>mark(s.id,TODAY,'L')}>L</button>
-                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} onClick={()=>mark(s.id,TODAY,'A')}>A</button>
+                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} title="Present" onClick={()=>mark(s.id,TODAY,'P')}><span className="d">P</span><span className="dot"></span></button>
+                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} title="Late" onClick={()=>mark(s.id,TODAY,'L')}><span className="d">L</span><span className="dot"></span></button>
+                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} title="Absent" onClick={()=>mark(s.id,TODAY,'A')}><span className="d">A</span><span className="dot"></span></button>
                 </div>
               )}
               <div style={{fontSize:11,color:'var(--text-soft)',marginTop:isCurrentYear?10:0,textAlign:'center'}}>Week of {formatDayMonthGB(thisWeekDates[0])}: {wc.P}P · {wc.L}L · {wc.A}A</div>
