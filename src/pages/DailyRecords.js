@@ -134,7 +134,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
   );
 }
 
-function StudentRecords({ student, settings, onBack }) {
+function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
   const [expanded, setExpanded] = useState({[isoToday()]:true});
@@ -199,6 +199,11 @@ function StudentRecords({ student, settings, onBack }) {
       await refresh();
       setExpanded(e=>({...e,[newDate]:true}));
       showToast(`Entry added for ${fmtDate(newDate)}`);
+      // Refresh the "N records" count on the student list right away, on the actual
+      // action that changes it — not only when the user happens to navigate back to
+      // that list, which depended on going through one particular back button/gesture
+      // and evidently wasn't reliably catching every path back to it.
+      onRecordsChanged?.();
     } catch (err) {
       showToast(err.message || 'Could not add entry');
     }
@@ -210,6 +215,7 @@ function StudentRecords({ student, settings, onBack }) {
       await refresh();
       setConfirmDel(null);
       showToast('Record deleted');
+      onRecordsChanged?.();
     } catch (err) {
       showToast(err.message || 'Could not delete record');
     }
@@ -544,12 +550,16 @@ export default function DailyRecords() {
   useEffect(() => { load(); }, [load]);
   // allRecords is only used here for each student card's "N records" count — it's
   // fetched once on load and StudentRecords keeps its own separate copy that it
-  // refreshes itself, so writing a record there never touched this one. Without a
-  // refetch on the way back out, every card kept showing whatever count was true
-  // when the page first loaded, "0 records" included, no matter what was just added.
+  // refreshes itself, so writing a record there never touched this one. Refreshed
+  // both the moment a record is actually added/deleted (via onRecordsChanged, passed
+  // down to StudentRecords) and again as a fallback whenever the student view closes
+  // — relying on the close path alone missed some route back to the list.
+  const refreshCounts = useCallback(() => {
+    getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
+  }, []);
   const closeStudent = useBackToClose(!!selectedStudent, () => {
     setSelectedStudent(null);
-    getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
+    refreshCounts();
   });
 
   if (loading) return <Layout title="Daily records"><LoadingState /></Layout>;
@@ -558,7 +568,7 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} onBack={closeStudent}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
         :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords}/>
       }
     </Layout>
