@@ -1,6 +1,16 @@
 const { query } = require('./_db');
 const { requireAuth } = require('./_auth');
 
+// Spell dates out in full (e.g. "10 October 2022") for anything handed to the model —
+// a bare "2022-10-10" is unambiguous to us, but the model has been observed misreading
+// ISO dates in prose as DD/MM or otherwise garbling them. No ambiguity possible this way.
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function formatDateLong(iso) {
+  if (!iso) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
+}
+
 // Merged with the ai_summaries persistence endpoint (GET/PUT) rather than a
 // separate file — Vercel's Hobby plan caps a deployment at 12 serverless
 // functions, and this app was already at that limit.
@@ -88,7 +98,7 @@ module.exports = requireAuth(async (req, res) => {
       const pct = totalDays ? Math.round(((att.present + att.late) / totalDays) * 100) : null;
       const monthBits = Object.entries(feeByMonth[s.id] || {}).sort().map(([m, v]) => `${m}: billed £${v.billed.toFixed(2)}, collected £${v.collected.toFixed(2)}`).join('; ');
       const attMonthBits = Object.entries(attByMonth[s.id] || {}).sort().map(([m, v]) => `${m}: P${v.present}/L${v.late}/A${v.absent}`).join('; ');
-      return `- ${s.forename} ${s.surname} (${s.class}, ${s.status}), DOB ${s.dob || 'not on file'}, enrolled ${s.enroll_date || 'not on file'}, weekly fee £${Number(s.weekly_fee).toFixed(2)}: fees billed £${fee.billed.toFixed(2)}, collected £${fee.collected.toFixed(2)}, outstanding £${(fee.billed - fee.collected).toFixed(2)}; attendance — present ${att.present}, late ${att.late}, absent ${att.absent}${pct !== null ? ` (${pct}% present/late)` : ' (no days recorded)'}${monthBits ? `; fees by month — ${monthBits}` : ''}${attMonthBits ? `; attendance by month — ${attMonthBits}` : ''}`;
+      return `- ${s.forename} ${s.surname} (${s.class}, ${s.status}), DOB ${formatDateLong(s.dob) || 'not on file'}, enrolled ${formatDateLong(s.enroll_date) || 'not on file'}, weekly fee £${Number(s.weekly_fee).toFixed(2)}: fees billed £${fee.billed.toFixed(2)}, collected £${fee.collected.toFixed(2)}, outstanding £${(fee.billed - fee.collected).toFixed(2)}; attendance — present ${att.present}, late ${att.late}, absent ${att.absent}${pct !== null ? ` (${pct}% present/late)` : ' (no days recorded)'}${monthBits ? `; fees by month — ${monthBits}` : ''}${attMonthBits ? `; attendance by month — ${attMonthBits}` : ''}`;
     }).join('\n');
 
     const classLines = classesRes.rows.map(c => `- ${c.class_name}: teacher ${c.teacher_name || 'unassigned'}${c.teacher_phone ? `, ${c.teacher_phone}` : ''}${c.teacher_email ? `, ${c.teacher_email}` : ''}`).join('\n');
@@ -132,7 +142,7 @@ module.exports = requireAuth(async (req, res) => {
       + `Whole-school attendance by calendar month for ${year}:\n${monthlyAttLines || '(no attendance records yet)'}\n\n`
       + `Per-student data for ${year} (includes date of birth, enrolment date, and a month-by-month fee breakdown):\n${studentLines}`;
 
-    const prompt = `You are a helpful assistant for a madrasah (Islamic school) administrator, answering questions about their school — students, classes, teachers, fees, and attendance, across any academic year on file. Answer ONLY using the data below — do not guess or invent figures. Be concise and give exact numbers. Reply in plain text with no markdown formatting (no asterisks, headings, or bullet lists). Month breakdowns use calendar months (YYYY-MM), which may run a few days off the app's own Monday-to-Monday "school month" boundaries — mention that only if it matters to the answer. If the data genuinely doesn't cover what's being asked, say so plainly rather than guessing.\n\nData:\n${contextBlock}\n\nQuestion: ${question}`;
+    const prompt = `You are a helpful assistant for a madrasah (Islamic school) administrator, answering questions about their school — students, classes, teachers, fees, and attendance, across any academic year on file. Answer ONLY using the data below — do not guess or invent figures. Be concise and give exact numbers. Reply in plain text with no markdown formatting (no asterisks, headings, or bullet lists). Month breakdowns use calendar months (YYYY-MM), which may run a few days off the app's own Monday-to-Monday "school month" boundaries — mention that only if it matters to the answer. All dates in the data below are written out in full (e.g. "10 October 2022" — day, then month name, then year) specifically so there's no ambiguity; read and report them exactly as given, never reformatted into a numeric DD/MM or MM/DD style. When the question asks you to identify a specific record — the earliest, latest, highest, lowest, and so on — actually find it by comparing the relevant field across every student in the data and name that student directly in your answer (e.g. "Your earliest-enrolled student is [name], enrolled [date]"); do not just restate the category being asked about or describe what you would look for. If the data genuinely doesn't cover what's being asked, say so plainly rather than guessing.\n\nData:\n${contextBlock}\n\nQuestion: ${question}`;
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
