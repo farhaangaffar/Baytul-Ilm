@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth } from '../lib/store';
@@ -576,6 +576,21 @@ export default function DailyRecords() {
   const [allRecords, setAllRecords] = useState({});
   const [activeClass, setActiveClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
+  // Opening a student's records used to leave the list scrolled back to the top on
+  // return, no matter how far down it was when you clicked in — DailyRecords itself
+  // never unmounts across that toggle, so the scroll position is just saved here and
+  // restored once the list is back, rather than relying on the browser to remember it.
+  const listScrollRef = useRef(0);
+  function openStudent(s) {
+    const mc = document.querySelector('.main-content');
+    if (mc) listScrollRef.current = mc.scrollTop;
+    setSelectedStudent(s);
+  }
+  useLayoutEffect(() => {
+    if (selectedStudent) return;
+    const mc = document.querySelector('.main-content');
+    if (mc) mc.scrollTop = listScrollRef.current;
+  }, [selectedStudent]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -615,7 +630,7 @@ export default function DailyRecords() {
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
-        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={setSelectedStudent} attendance={attendance} allRecords={allRecords}/>
+        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords}/>
       }
     </Layout>
   );
