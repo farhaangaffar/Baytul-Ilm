@@ -223,15 +223,14 @@ tbody tr:hover td { background: #f9fafb; }
 .count-chip .label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
 .week-pill-row { display: flex; gap: 6px; }
-/* Colour lives in a small badge, not the tile itself — the square stays a neutral grey,
-   the day number is the dominant element, and a dot straddles the bottom edge (half in,
-   half out, like an app notification badge) carrying paid/due/not-added. Full status is
-   still in the button's title tooltip for anyone who wants the word. */
-.week-pill { width: 38px; height: 38px; border-radius: 11px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 13px; color: var(--ink); display: flex; align-items: center; justify-content: center; line-height: 1; cursor: pointer; position: relative; transition: transform 0.12s; }
+/* Colour lives in a small status dot, not the tile itself — the square stays a neutral
+   grey and only the 6px dot underneath the day number carries paid/due/not-added. Full
+   status is still in the button's title tooltip for anyone who wants the word. */
+.week-pill { width: 38px; height: 38px; border-radius: 11px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
 .week-pill:hover:not(:disabled) { transform: translateY(-2px); }
 .week-pill:disabled { cursor: default; }
-.week-pill .d { font-size: 13px; }
-.week-pill .dot { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
+.week-pill .d { font-size: 12.5px; }
+.week-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
 .week-pill.is-current { box-shadow: 0 0 0 2px var(--blue); }
 .week-pill.paid .dot { background: var(--green); }
 .week-pill.unpaid .dot { background: var(--red); }
@@ -239,9 +238,9 @@ tbody tr:hover td { background: #f9fafb; }
 
 @media (max-width: 768px) {
   .week-pill-row { gap: 10px; }
-  .week-pill { width: 46px; height: 46px; border-radius: 13px; }
-  .week-pill .d { font-size: 15px; }
-  .week-pill .dot { width: 14px; height: 14px; bottom: -7px; }
+  .week-pill { width: 46px; height: 46px; border-radius: 13px; gap: 6px; }
+  .week-pill .d { font-size: 14px; }
+  .week-pill .dot { width: 7px; height: 7px; }
 }
 
 .back-pill { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 9999px; font-size: 12.5px; font-weight: 600; border: none; background: #fff; color: var(--text-muted); cursor: pointer; box-shadow: var(--shadow-md); font-family: var(--font); }
