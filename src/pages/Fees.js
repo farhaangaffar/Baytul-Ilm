@@ -405,7 +405,7 @@ export default function Fees() {
                     if (!f) {
                       return (
                         <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>
-                          <span className="d">{dayNum}</span><span className="m">—</span>
+                          <span className="d">{dayNum}</span><span className="dot"></span>
                         </button>
                       );
                     }
@@ -414,7 +414,7 @@ export default function Fees() {
                       <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
                         title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'} (click to toggle)`}
                         onClick={()=>setConfirmToggle(f)}>
-                        <span className="d">{dayNum}</span><span className="m">{paid?'paid':'due'}</span>
+                        <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>
                     );
                   })}
