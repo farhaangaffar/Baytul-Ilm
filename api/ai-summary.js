@@ -134,7 +134,9 @@ module.exports = requireAuth(async (req, res) => {
     }).join('\n');
 
     const todayISO = new Date().toISOString().split('T')[0];
-    const contextBlock = `Today's date: ${todayISO}\nAcademic year being asked about (unless the question names another): ${year}\n\n`
+    const currentMonthKey = todayISO.slice(0, 7);
+    const currentMonthLabel = `${MONTH_NAMES[Number(currentMonthKey.slice(5, 7)) - 1]} ${currentMonthKey.slice(0, 4)}`;
+    const contextBlock = `Today's date: ${formatDateLong(todayISO)}\nThe current calendar month is ${currentMonthLabel} (${currentMonthKey}) — if a question says "this month" without naming one, it means this.\nAcademic year being asked about (unless the question names another): ${year}\n\n`
       + `Classes and teachers:\n${classLines || '(none set up)'}\n\n`
       + `Every academic year on file, with year-level totals:\n${yearLines || '(none)'}\n\n`
       + `Whole-school fee totals for ${year} (year to date): billed £${totalBilled.toFixed(2)}, collected £${totalCollected.toFixed(2)}, outstanding £${(totalBilled - totalCollected).toFixed(2)}\n\n`
@@ -166,6 +168,15 @@ module.exports = requireAuth(async (req, res) => {
 
     const data = await anthropicRes.json();
     const answer = (data.content || []).map(c => c.text || '').join('');
+    if (!answer.trim()) {
+      // Anthropic returned 200 but no usable text (e.g. stop_reason cut it off before any
+      // content, or an unexpected response shape) — surfacing this as a blank reply left
+      // the admin staring at an empty box with no indication anything went wrong. Log the
+      // raw response for diagnosis and tell the user plainly instead of failing silently.
+      console.error('ask-ai: empty answer from Anthropic', JSON.stringify({ stop_reason: data.stop_reason, content: data.content }));
+      res.status(502).json({ error: "The AI didn't return an answer that time — please try asking again, maybe rephrased." });
+      return;
+    }
     res.status(200).json({ answer });
     return;
   }
