@@ -155,7 +155,12 @@ module.exports = requireAuth(async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 500,
+        // 500 was tight enough that "compare every student and name the answer" style
+        // questions (earliest-enrolled, this month's total) were coming back with an
+        // empty completion — cut off, it seems, before any visible text was written.
+        // The data this now scans is also considerably bigger than when this was first
+        // written. More headroom costs little for a low-volume admin tool.
+        max_tokens: 1536,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
