@@ -542,7 +542,15 @@ export default function DailyRecords() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  const closeStudent = useBackToClose(!!selectedStudent, () => setSelectedStudent(null));
+  // allRecords is only used here for each student card's "N records" count — it's
+  // fetched once on load and StudentRecords keeps its own separate copy that it
+  // refreshes itself, so writing a record there never touched this one. Without a
+  // refetch on the way back out, every card kept showing whatever count was true
+  // when the page first loaded, "0 records" included, no matter what was just added.
+  const closeStudent = useBackToClose(!!selectedStudent, () => {
+    setSelectedStudent(null);
+    getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
+  });
 
   if (loading) return <Layout title="Daily records"><LoadingState /></Layout>;
   if (error) return <Layout title="Daily records"><ErrorState error={error} onRetry={load} /></Layout>;
