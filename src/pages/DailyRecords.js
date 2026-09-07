@@ -191,6 +191,21 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
     refreshSummaries();
   }, [refresh, refreshSummaries]);
 
+  // Today defaults to open so there's something to fill in on a fresh visit — but once
+  // it's already been filled in, showing it forced open on every visit read as "still
+  // needs doing" rather than done. Collapse it back once records has actually loaded and
+  // today turns out to already have content. The ref keeps this a one-time check per
+  // student — later refreshes (e.g. from "Add day") shouldn't fight a manual re-expand.
+  const collapsedTodayOnceRef = useRef(false);
+  useEffect(() => {
+    if (loadingRecords || collapsedTodayOnceRef.current) return;
+    collapsedTodayOnceRef.current = true;
+    const today = isoToday();
+    const entry = records[today];
+    const hasContent = entry && (entry.comment || entry.positive || entry.negative);
+    if (hasContent) setExpanded(e => { if (!(today in e)) return e; const next = {...e}; delete next[today]; return next; });
+  }, [loadingRecords, records]);
+
   // Stable field save — doesn't cause re-render of the textarea
   const saveField = useCallback((date, field, value) => {
     saveDailyRecord(student.id, date, {[field]:value}).catch(err => showToast(err.message || 'Could not save'));
