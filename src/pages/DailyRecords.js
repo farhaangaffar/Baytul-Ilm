@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB } from '../lib/store';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
@@ -134,10 +134,19 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
   );
 }
 
+// Records are grouped Academic year > Month > Day so a student's history doesn't just
+// pile up as one ever-growing flat list — this expands the given date's own key plus its
+// containing month and academic-year keys, so opening/adding a day also opens the section
+// it lives in, rather than expanding invisibly inside a still-collapsed month/year.
+function keysFor(date) {
+  const monthKey = date.slice(0,7);
+  return [date, monthKey, academicYearOfMonth(monthKey)];
+}
+
 function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
-  const [expanded, setExpanded] = useState({[isoToday()]:true});
+  const [expanded, setExpanded] = useState(() => Object.fromEntries(keysFor(isoToday()).map(k=>[k,true])));
   const [newDate, setNewDate] = useState(isoToday());
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -197,7 +206,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
         await saveDailyRecord(student.id, newDate, {comment:'',positive:'',negative:''});
       }
       await refresh();
-      setExpanded(e=>({...e,[newDate]:true}));
+      setExpanded(e=>({...e, ...Object.fromEntries(keysFor(newDate).map(k=>[k,true]))}));
       showToast(`Entry added for ${fmtDate(newDate)}`);
       // Refresh the "N records" count on the student list right away, on the actual
       // action that changes it — not only when the user happens to navigate back to
@@ -286,6 +295,16 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
 
   const dates = Object.keys(records).sort((a,b)=>a.localeCompare(b));
   const hasToday = records[isoToday()]!==undefined;
+
+  // Academic year > month, each newest-first; days stay oldest-first within a month.
+  const byYear = {};
+  dates.forEach(d => {
+    const monthKey = d.slice(0,7);
+    const yr = academicYearOfMonth(monthKey);
+    (byYear[yr] = byYear[yr] || {});
+    (byYear[yr][monthKey] = byYear[yr][monthKey] || []).push(d);
+  });
+  const years = Object.keys(byYear).sort().reverse();
 
   function DayEntry({date, isToday}) {
     const entry = getEntry(date);
@@ -406,7 +425,32 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
           {dates.length===0&&!hasToday&&(
             <div className="card" style={{textAlign:'center',padding:32,color:'var(--text-muted)'}}>No records yet. Use "Add day" above or fill in today's entry.</div>
           )}
-          {dates.map(date=><DayEntry key={date} date={date} isToday={date===isoToday()}/>)}
+          {years.map(yr=>{
+            const yearOpen = !!expanded[yr];
+            const months = Object.keys(byYear[yr]).sort().reverse();
+            return (
+              <div key={yr} className="mb-4">
+                <div onClick={()=>setExpanded(e=>({...e,[yr]:!e[yr]}))}
+                  style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'8px 4px',fontWeight:700,fontSize:13}}>
+                  {yearOpen?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
+                  Academic year {yr}
+                </div>
+                {yearOpen&&months.map(monthKey=>{
+                  const monthOpen = !!expanded[monthKey];
+                  return (
+                    <div key={monthKey} style={{marginLeft:18}}>
+                      <div onClick={()=>setExpanded(e=>({...e,[monthKey]:!e[monthKey]}))}
+                        style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'6px 4px',fontWeight:600,fontSize:12,color:'var(--text-muted)'}}>
+                        {monthOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
+                        {monthLabelFor(monthKey)}
+                      </div>
+                      {monthOpen&&byYear[yr][monthKey].map(date=><DayEntry key={date} date={date} isToday={date===isoToday()}/>)}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
 
         <div style={{position:'sticky',top:24}}>
