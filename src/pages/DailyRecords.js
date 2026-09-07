@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -76,9 +76,9 @@ function CommentBox({ initialValue, onSave, placeholder }) {
       onBlur={handleBlur}
       rows={2}
       style={{
-        resize:'vertical', border:'1px solid var(--border)', borderRadius:'var(--r-md)',
+        resize:'vertical', border:'none', borderRadius:'var(--r-md)',
         padding:'8px 10px', fontFamily:'var(--font)', fontSize:13, width:'100%',
-        color:'var(--text)', background:'var(--surface)', outline:'none',
+        color:'var(--text)', background:'#f9fafb', outline:'none',
         WebkitUserSelect:'text', userSelect:'text',
       }}
     />
@@ -342,6 +342,8 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
                 />
               </div>
             </div>
+            <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
+              onClick={()=>setExpanded(e=>({...e,[date]:false}))}><Check size={13}/>Done</button>
           </>
         )}
       </div>
