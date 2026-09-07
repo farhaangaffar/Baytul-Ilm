@@ -296,14 +296,14 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
         <div className="card-title" style={{ marginBottom: 12 }}>Fees by month</div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Month</th><th>Billed</th><th>Collected</th><th>Outstanding</th></tr></thead>
+            <thead><tr><th>Month</th><th>Billed</th><th>Outstanding</th><th>Collected</th></tr></thead>
             <tbody>
               {monthly.map(m => (
                 <tr key={m.ym}>
                   <td style={{ fontWeight: 500 }}>{m.label}</td>
                   <td className="text-muted">£{m.billed.toFixed(2)}</td>
-                  <td className="text-muted">£{m.collected.toFixed(2)}</td>
                   <td style={{ fontWeight: 600 }}>£{m.outstanding.toFixed(2)}</td>
+                  <td className="text-muted">£{m.collected.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -315,14 +315,14 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
         <div className="card-title" style={{ marginBottom: 12 }}>Class comparison</div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Class</th><th>Billed</th><th>Collected</th><th>Outstanding</th></tr></thead>
+            <thead><tr><th>Class</th><th>Billed</th><th>Outstanding</th><th>Collected</th></tr></thead>
             <tbody>
               {classRows.map(r => (
                 <tr key={r.name}>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
                   <td className="text-muted">£{r.billed.toFixed(2)}</td>
-                  <td className="text-muted">£{r.collected.toFixed(2)}</td>
                   <td style={{ fontWeight: 600 }}>£{r.outstanding.toFixed(2)}</td>
+                  <td className="text-muted">£{r.collected.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -334,21 +334,21 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
         <div className="card-title" style={{ marginBottom: 12 }}>Year over year</div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Year</th><th>Billed</th><th>Collected</th><th>Outstanding</th></tr></thead>
+            <thead><tr><th>Year</th><th>Billed</th><th>Outstanding</th><th>Collected</th></tr></thead>
             <tbody>
               {yearRows.map(r => (
                 <tr key={r.year}>
                   <td style={{ fontWeight: 500 }}>{r.year}</td>
                   <td className="text-muted">£{r.billed.toFixed(2)}</td>
-                  <td className="text-muted">£{r.collected.toFixed(2)}</td>
                   <td style={{ fontWeight: 600 }}>£{r.outstanding.toFixed(2)}</td>
+                  <td className="text-muted">£{r.collected.toFixed(2)}</td>
                 </tr>
               ))}
               <tr>
                 <td style={{ fontWeight: 600 }}>Average</td>
                 <td></td>
-                <td style={{ fontWeight: 700 }}>£{avgCollected.toFixed(2)}</td>
                 <td style={{ fontWeight: 700 }}>£{avgOutstanding.toFixed(2)}</td>
+                <td style={{ fontWeight: 700 }}>£{avgCollected.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
