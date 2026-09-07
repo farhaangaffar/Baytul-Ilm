@@ -223,14 +223,20 @@ tbody tr:hover td { background: #f9fafb; }
 .count-chip .label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
 .week-pill-row { display: flex; gap: 6px; }
-.week-pill { width: 38px; height: 38px; border-radius: 11px; border: none; font-family: var(--font-num); font-weight: 700; font-size: 12px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
+/* paid/unpaid used to be a solid saturated fill (--green/--red) with white text — fine
+   for a single status dot, but a whole row of them side by side (most cards are mostly
+   "due" until the month is collected) reads as a wall of bright colour. Using the same
+   light-tint-background + dark-text combination already used elsewhere on this page
+   (stat cards, day-cal-card) keeps the paid/unpaid signal just as scannable at a glance
+   while sitting much quieter next to everything else. */
+.week-pill { width: 38px; height: 38px; border-radius: 11px; border: none; font-family: var(--font-num); font-weight: 700; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
 .week-pill:hover:not(:disabled) { transform: translateY(-2px); }
 .week-pill:disabled { cursor: default; }
 .week-pill .d { font-size: 12.5px; }
 .week-pill .m { font-size: 7.5px; opacity: .85; letter-spacing: .02em; text-transform: uppercase; }
 .week-pill.is-current { box-shadow: 0 0 0 2px var(--blue); }
-.week-pill.paid { background: var(--green); box-shadow: 0 3px 8px rgba(151,203,97,.4); }
-.week-pill.unpaid { background: var(--red); box-shadow: 0 3px 8px rgba(216,80,64,.35); }
+.week-pill.paid { background: var(--green-light); color: var(--green-text); }
+.week-pill.unpaid { background: var(--red-light); color: var(--red-text); }
 .week-pill.not-added { background: #e5e7eb; color: var(--text-soft); }
 
 @media (max-width: 768px) {
