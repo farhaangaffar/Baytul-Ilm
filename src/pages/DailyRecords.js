@@ -342,25 +342,15 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   // Plain, scannable list row — no card chrome, no inline editing. Clicking a row
   // just loads that day into the editor card above; the list itself never grows a form.
   function DayRow({date}) {
-    const entry = getEntry(date);
     const isToday = date===isoToday();
     const isActive = date===editDate;
-    const hasContent = entry.comment||entry.positive||entry.negative;
     return (
       <div onClick={()=>selectDay(date)} style={{
         display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,cursor:'pointer',
         padding:'10px 6px',borderBottom:'1px solid var(--border)',
         background:isActive?'var(--teal-faint)':'transparent',
       }}>
-        <div style={{minWidth:0}}>
-          <div style={{fontWeight:600,fontSize:13}}>{fmtDate(date)}</div>
-          <div className="text-muted text-sm" style={{marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-            {hasContent
-              ?[entry.comment&&`💬 ${entry.comment.slice(0,40)}${entry.comment.length>40?'…':''}`,
-                entry.positive&&'⭐',entry.negative&&'⚑'].filter(Boolean).join('  ')
-              :'No notes yet'}
-          </div>
-        </div>
+        <div style={{fontWeight:600,fontSize:13}}>{fmtDate(date)}</div>
         {isToday&&<span className="badge badge-teal" style={{flexShrink:0}}>Today</span>}
       </div>
     );
