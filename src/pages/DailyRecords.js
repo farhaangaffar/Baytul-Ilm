@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -146,8 +146,16 @@ function keysFor(date) {
 function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
-  const [expanded, setExpanded] = useState(() => Object.fromEntries(keysFor(isoToday()).map(k=>[k,true])));
-  const [newDate, setNewDate] = useState(isoToday());
+  // Only the month/year grouping keys collapse — there's no per-day accordion any
+  // more (see editDate below), so today's own date key never needs to be in here.
+  const [expanded, setExpanded] = useState(() => Object.fromEntries(keysFor(isoToday()).slice(1).map(k=>[k,true])));
+  // The date currently loaded in the single "Edit day" card at the top of the page.
+  // Defaults to today so there's always something ready to fill in — but unlike the
+  // old design, this is a separate, fixed-position editor rather than an in-list
+  // accordion, so a completed today still shows collapsed (as a plain row) in the
+  // list below while staying instantly editable up here.
+  const [editDate, setEditDate] = useState(isoToday());
+  const editorRef = useRef(null);
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInstructions, setAiInstructions] = useState('');
@@ -191,21 +199,6 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
     refreshSummaries();
   }, [refresh, refreshSummaries]);
 
-  // Today defaults to open so there's something to fill in on a fresh visit — but once
-  // it's already been filled in, showing it forced open on every visit read as "still
-  // needs doing" rather than done. Collapse it back once records has actually loaded and
-  // today turns out to already have content. The ref keeps this a one-time check per
-  // student — later refreshes (e.g. from "Add day") shouldn't fight a manual re-expand.
-  const collapsedTodayOnceRef = useRef(false);
-  useEffect(() => {
-    if (loadingRecords || collapsedTodayOnceRef.current) return;
-    collapsedTodayOnceRef.current = true;
-    const today = isoToday();
-    const entry = records[today];
-    const hasContent = entry && (entry.comment || entry.positive || entry.negative);
-    if (hasContent) setExpanded(e => { if (!(today in e)) return e; const next = {...e}; delete next[today]; return next; });
-  }, [loadingRecords, records]);
-
   // Stable field save — doesn't cause re-render of the textarea
   const saveField = useCallback((date, field, value) => {
     saveDailyRecord(student.id, date, {[field]:value}).catch(err => showToast(err.message || 'Could not save'));
@@ -214,15 +207,20 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
 
   function getEntry(date) { return records[date]||{comment:'',positive:'',negative:''}; }
 
+  // Loads a day into the editor card and scrolls it into view — the list itself
+  // never grows an inline form, editing always happens in the one fixed card above.
+  function selectDay(date) {
+    setEditDate(date);
+    editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function addDay() {
-    if (!newDate) return;
+    if (!editDate || records[editDate]) return;
     try {
-      if (!records[newDate]) {
-        await saveDailyRecord(student.id, newDate, {comment:'',positive:'',negative:''});
-      }
+      await saveDailyRecord(student.id, editDate, {comment:'',positive:'',negative:''});
       await refresh();
-      setExpanded(e=>({...e, ...Object.fromEntries(keysFor(newDate).map(k=>[k,true]))}));
-      showToast(`Entry added for ${fmtDate(newDate)}`);
+      setExpanded(e=>({...e, ...Object.fromEntries(keysFor(editDate).slice(1).map(k=>[k,true]))}));
+      showToast(`Entry added for ${fmtDate(editDate)}`);
       // Refresh the "N records" count on the student list right away, on the actual
       // action that changes it — not only when the user happens to navigate back to
       // that list, which depended on going through one particular back button/gesture
@@ -309,7 +307,9 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   }
 
   const dates = Object.keys(records).sort((a,b)=>a.localeCompare(b));
-  const hasToday = records[isoToday()]!==undefined;
+  const editEntry = getEntry(editDate);
+  const editExists = records[editDate]!==undefined;
+  const editIsToday = editDate===isoToday();
 
   // Academic year > month, each newest-first; days stay oldest-first within a month.
   const byYear = {};
@@ -321,65 +321,29 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   });
   const years = Object.keys(byYear).sort().reverse();
 
-  function DayEntry({date, isToday}) {
+  // Plain, scannable list row — no card chrome, no inline editing. Clicking a row
+  // just loads that day into the editor card above; the list itself never grows a form.
+  function DayRow({date}) {
     const entry = getEntry(date);
-    const isOpen = expanded[date];
+    const isToday = date===isoToday();
+    const isActive = date===editDate;
     const hasContent = entry.comment||entry.positive||entry.negative;
     return (
-      <div className="card mb-4" style={{borderLeft:`3px solid ${isToday?'var(--teal)':'var(--border-strong)'}`}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',marginBottom:isOpen?12:0}}
-          onClick={()=>setExpanded(e=>({...e,[date]:!e[date]}))}>
-          <div>
-            <div style={{fontWeight:600,fontSize:13}}>{fmtDate(date)}</div>
-            <div className="text-muted text-sm" style={{marginTop:2}}>
-              {hasContent
-                ?[entry.comment&&`💬 ${entry.comment.slice(0,40)}${entry.comment.length>40?'…':''}`,
-                  entry.positive&&'⭐',entry.negative&&'⚑'].filter(Boolean).join('  ')
-                :'No notes yet — tap to expand'}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isToday&&<span className="badge badge-teal">Today</span>}
-            <button className="btn btn-icon btn-sm" style={{color:'var(--red)'}}
-              title="Delete" onClick={e=>{e.stopPropagation();setConfirmDel(date);}}><Trash2 size={13}/></button>
-            {isOpen?<ChevronUp size={16}/>:<ChevronDown size={16}/>}
+      <div onClick={()=>selectDay(date)} style={{
+        display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,cursor:'pointer',
+        padding:'10px 6px',borderBottom:'1px solid var(--border)',
+        background:isActive?'var(--teal-faint)':'transparent',
+      }}>
+        <div style={{minWidth:0}}>
+          <div style={{fontWeight:600,fontSize:13}}>{fmtDate(date)}</div>
+          <div className="text-muted text-sm" style={{marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            {hasContent
+              ?[entry.comment&&`💬 ${entry.comment.slice(0,40)}${entry.comment.length>40?'…':''}`,
+                entry.positive&&'⭐',entry.negative&&'⚑'].filter(Boolean).join('  ')
+              :'No notes yet'}
           </div>
         </div>
-        {isOpen&&(
-          <>
-            <div className="form-group" style={{marginBottom:10}}>
-              <label>Daily comment</label>
-              <CommentBox
-                key={`${date}-comment`}
-                initialValue={entry.comment}
-                onSave={val=>saveField(date,'comment',val)}
-                placeholder="General note for this day…"
-              />
-            </div>
-            <div className="record-panels">
-              <div className="record-panel record-panel-pos">
-                <div className="record-panel-label">⭐ Positives</div>
-                <StableTextarea
-                  key={`${date}-positive`}
-                  initialValue={entry.positive}
-                  onSave={val=>saveField(date,'positive',val)}
-                  placeholder="What went well?"
-                />
-              </div>
-              <div className="record-panel record-panel-neg">
-                <div className="record-panel-label">⚑ Concerns</div>
-                <StableTextarea
-                  key={`${date}-negative`}
-                  initialValue={entry.negative}
-                  onSave={val=>saveField(date,'negative',val)}
-                  placeholder="Any concerns?"
-                />
-              </div>
-            </div>
-            <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
-              onClick={()=>setExpanded(e=>({...e,[date]:false}))}><Check size={13}/>Done</button>
-          </>
-        )}
+        {isToday&&<span className="badge badge-teal" style={{flexShrink:0}}>Today</span>}
       </div>
     );
   }
@@ -398,74 +362,114 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
 
       <div className="grid-2" style={{alignItems:'flex-start'}}>
         <div>
-          <div className="card mb-4">
-            <div className="card-title" style={{marginBottom:12}}>Add record</div>
-            <div className="flex items-center gap-2">
-              <input type="date" value={newDate} onChange={e=>setNewDate(e.target.value)}
-                style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
-              <button className="btn btn-primary" onClick={addDay}><Plus size={14}/> Add day</button>
+          {/* The one, fixed-position editor — every day, new or existing, is added and
+              edited here rather than inline in the list below, so the list can stay a
+              plain, calm, scannable history. Clicking any row in it (DayRow) just loads
+              that date into this same card. */}
+          <div className="card mb-4" ref={editorRef}>
+            <div className="flex items-center gap-2" style={{marginBottom:12}}>
+              <div className="card-title" style={{marginBottom:0,flex:1}}>{editExists?'Edit day':'Add day'}</div>
+              {editIsToday&&<span className="badge badge-teal">Today</span>}
             </div>
+            <div className="flex items-center gap-2" style={{marginBottom:editExists?14:0}}>
+              <input type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}
+                style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
+              {!editExists&&<button className="btn btn-primary" onClick={addDay}><Plus size={14}/> Add day</button>}
+              {editExists&&(
+                <button className="btn btn-icon btn-sm" style={{color:'var(--red)'}}
+                  title="Delete this day" onClick={()=>setConfirmDel(editDate)}><Trash2 size={13}/></button>
+              )}
+            </div>
+
+            {editExists?(
+              <>
+                <div className="form-group" style={{marginBottom:10}}>
+                  <label>Daily comment</label>
+                  <CommentBox
+                    key={`${editDate}-comment`}
+                    initialValue={editEntry.comment}
+                    onSave={val=>saveField(editDate,'comment',val)}
+                    placeholder="General note for this day…"
+                  />
+                </div>
+                <div className="record-panels">
+                  <div className="record-panel record-panel-pos">
+                    <div className="record-panel-label">⭐ Positives</div>
+                    <StableTextarea
+                      key={`${editDate}-positive`}
+                      initialValue={editEntry.positive}
+                      onSave={val=>saveField(editDate,'positive',val)}
+                      placeholder="What went well?"
+                    />
+                  </div>
+                  <div className="record-panel record-panel-neg">
+                    <div className="record-panel-label">⚑ Concerns</div>
+                    <StableTextarea
+                      key={`${editDate}-negative`}
+                      initialValue={editEntry.negative}
+                      onSave={val=>saveField(editDate,'negative',val)}
+                      placeholder="Any concerns?"
+                    />
+                  </div>
+                </div>
+              </>
+            ):(
+              // Inert preview of what an entry looks like — greyed out on purpose, so
+              // it's clear at a glance this date hasn't been added yet.
+              <div style={{opacity:0.55}}>
+                <div className="form-group" style={{marginBottom:10}}>
+                  <label>Daily comment</label>
+                  <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:44}}>General note for the day…</div>
+                </div>
+                <div className="record-panels">
+                  <div className="record-panel record-panel-pos">
+                    <div className="record-panel-label">⭐ Positives</div>
+                    <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>What went well?</div>
+                  </div>
+                  <div className="record-panel record-panel-neg">
+                    <div className="record-panel-label">⚑ Concerns</div>
+                    <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>Any concerns?</div>
+                  </div>
+                </div>
+                <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Click "Add day" above to start this entry</div>
+              </div>
+            )}
           </div>
 
-          {/* Inert preview of what an entry looks like — greyed out and undated on
-              purpose. The old version here was a live, auto-saving "today" card that
-              looked identical (teal, dated, editable) to an already-added entry, so
-              there was no way to tell at a glance whether today had actually been
-              added yet. Now nothing is editable, and nothing exists, until "Add day"
-              is pressed — at which point a real, coloured, dated entry appears below
-              via the normal dates.map() list, same as any other day. */}
-          {!hasToday&&(
-            <div className="card mb-4" style={{borderLeft:'3px solid var(--border-strong)',opacity:0.55}}>
-              <div className="flex justify-between items-center" style={{marginBottom:10}}>
-                <div style={{fontWeight:600,fontSize:13,color:'var(--text-muted)'}}>No entry yet</div>
-              </div>
-              <div className="form-group" style={{marginBottom:10}}>
-                <label>Daily comment</label>
-                <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:44}}>General note for the day…</div>
-              </div>
-              <div className="record-panels">
-                <div className="record-panel record-panel-pos">
-                  <div className="record-panel-label">⭐ Positives</div>
-                  <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>What went well?</div>
-                </div>
-                <div className="record-panel record-panel-neg">
-                  <div className="record-panel-label">⚑ Concerns</div>
-                  <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>Any concerns?</div>
-                </div>
-              </div>
-              <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Click "Add day" above to start today's entry</div>
-            </div>
-          )}
-
-          {dates.length===0&&!hasToday&&(
-            <div className="card" style={{textAlign:'center',padding:32,color:'var(--text-muted)'}}>No records yet. Use "Add day" above or fill in today's entry.</div>
-          )}
-          {years.map(yr=>{
-            const yearOpen = !!expanded[yr];
-            const months = Object.keys(byYear[yr]).sort().reverse();
-            return (
-              <div key={yr} className="mb-4">
-                <div onClick={()=>setExpanded(e=>({...e,[yr]:!e[yr]}))}
-                  style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'8px 4px',fontWeight:700,fontSize:13}}>
-                  {yearOpen?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
-                  Academic year {yr}
-                </div>
-                {yearOpen&&months.map(monthKey=>{
-                  const monthOpen = !!expanded[monthKey];
-                  return (
-                    <div key={monthKey} style={{marginLeft:18}}>
-                      <div onClick={()=>setExpanded(e=>({...e,[monthKey]:!e[monthKey]}))}
-                        style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'6px 4px',fontWeight:600,fontSize:12,color:'var(--text-muted)'}}>
-                        {monthOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
-                        {monthLabelFor(monthKey)}
+          {/* One unified card holds the whole history — year and month are just bold
+              section dividers inside it, and every day is a plain list row, so the
+              column stays calm even once lots of records have piled up. */}
+          <div className="card">
+            {dates.length===0&&(
+              <div style={{textAlign:'center',padding:'20px 0',color:'var(--text-muted)',fontSize:13}}>No records yet. Use the form above to add one.</div>
+            )}
+            {years.map((yr,yi)=>{
+              const yearOpen = !!expanded[yr];
+              const months = Object.keys(byYear[yr]).sort().reverse();
+              return (
+                <div key={yr} style={{marginTop:yi===0?0:8}}>
+                  <div onClick={()=>setExpanded(e=>({...e,[yr]:!e[yr]}))}
+                    style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'8px 4px',fontWeight:700,fontSize:13}}>
+                    {yearOpen?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
+                    Academic year {yr}
+                  </div>
+                  {yearOpen&&months.map(monthKey=>{
+                    const monthOpen = !!expanded[monthKey];
+                    return (
+                      <div key={monthKey} style={{marginLeft:18}}>
+                        <div onClick={()=>setExpanded(e=>({...e,[monthKey]:!e[monthKey]}))}
+                          style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'6px 4px',fontWeight:600,fontSize:12,color:'var(--text-muted)'}}>
+                          {monthOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
+                          {monthLabelFor(monthKey)}
+                        </div>
+                        {monthOpen&&byYear[yr][monthKey].map(date=><DayRow key={date} date={date}/>)}
                       </div>
-                      {monthOpen&&byYear[yr][monthKey].map(date=><DayEntry key={date} date={date} isToday={date===isoToday()}/>)}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{position:'sticky',top:24}}>
