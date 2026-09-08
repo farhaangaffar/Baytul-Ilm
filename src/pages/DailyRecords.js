@@ -339,16 +339,19 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   });
   const years = Object.keys(byYear).sort().reverse();
 
-  // Plain, scannable list row — no card chrome, no inline editing. Clicking a row
-  // just loads that day into the editor card above; the list itself never grows a form.
-  function DayRow({date}) {
+  // Plain, scannable list row — no card border/shadow, no inline editing. Each row is
+  // its own soft, rounded chip so days stay visually separated without the per-row
+  // card chrome the redesign removed; alternating shades (zebra-style, like a
+  // spreadsheet) do the separating instead of a divider line. Clicking a row just
+  // loads that day into the editor card above; the list itself never grows a form.
+  function DayRow({date, index}) {
     const isToday = date===isoToday();
     const isActive = date===editDate;
     return (
       <div onClick={()=>selectDay(date)} style={{
         display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,cursor:'pointer',
-        padding:'10px 6px',borderBottom:'1px solid var(--border)',
-        background:isActive?'var(--teal-faint)':'transparent',
+        padding:'10px 14px',borderRadius:'var(--r-md)',marginBottom:4,
+        background:isActive?'var(--teal-faint)':(index%2===0?'#f8fafc':'#eef1f5'),
       }}>
         <div style={{fontWeight:600,fontSize:13}}>{fmtDate(date)}</div>
         {isToday&&<span className="badge badge-teal" style={{flexShrink:0}}>Today</span>}
@@ -474,7 +477,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
                           {monthOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
                           {monthLabelFor(monthKey)}
                         </div>
-                        {monthOpen&&byYear[yr][monthKey].map(date=><DayRow key={date} date={date}/>)}
+                        {monthOpen&&byYear[yr][monthKey].map((date,i)=><DayRow key={date} date={date} index={i}/>)}
                       </div>
                     );
                   })}
