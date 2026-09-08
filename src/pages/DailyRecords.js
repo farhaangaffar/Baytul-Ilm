@@ -389,7 +389,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
               <div className="card-title" style={{marginBottom:0,flex:1}}>{editExists?'Edit day':'Add day'}</div>
               {editIsToday&&<span className="badge badge-teal">Today</span>}
             </div>
-            <div className="flex items-center gap-2" style={{marginBottom:editExists?14:0}}>
+            <div className="flex items-center gap-2" style={{marginBottom:14}}>
               <input type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}
                 style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
               {!editExists&&<button className="btn btn-primary" onClick={addDay} disabled={!editDate}><Plus size={14}/> Add day</button>}
