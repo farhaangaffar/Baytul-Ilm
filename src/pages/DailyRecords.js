@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, Pencil } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -150,23 +150,22 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   // more (see editDate below), so today's own date key never needs to be in here.
   const [expanded, setExpanded] = useState(() => Object.fromEntries(keysFor(isoToday()).slice(1).map(k=>[k,true])));
   // The date currently loaded in the single "Edit day" card at the top of the page.
-  // Defaults to today so there's always something ready to fill in — but unlike the
-  // old design, this is a separate, fixed-position editor rather than an in-list
-  // accordion, so a completed today still shows collapsed (as a plain row) in the
-  // list below while staying instantly editable up here.
-  const [editDate, setEditDate] = useState(isoToday());
+  // '' means idle — nothing is being edited, and the card shows a light, inert
+  // placeholder rather than a live form. Editing only ever starts one of two ways:
+  // picking a date here for a brand new day, or clicking an existing row below —
+  // never by the editor just staying open on whatever was last touched.
+  const [editDate, setEditDate] = useState('');
   const editorRef = useRef(null);
-  // Today opening straight into a live, editable card — even once it's already
-  // been filled in on a previous visit — duplicated what its collapsed row below
-  // already shows. Tinting it out (like "Done" below) makes an already-completed
-  // today read as finished rather than as something still needing attention.
-  const [todayTinted, setTodayTinted] = useState(false);
-  const todayTintInitRef = useRef(false);
+  // On first load, default straight into today only if today doesn't already have
+  // a record — if it's already been added (this visit or an earlier one), that's
+  // something you'd now open via its row below, same as any other day, rather than
+  // the editor auto-loading it live.
+  const editDateInitRef = useRef(false);
   useEffect(() => {
-    if (loadingRecords || todayTintInitRef.current) return;
-    todayTintInitRef.current = true;
-    const entry = records[isoToday()];
-    if (entry && (entry.comment || entry.positive || entry.negative)) setTodayTinted(true);
+    if (loadingRecords || editDateInitRef.current) return;
+    editDateInitRef.current = true;
+    const today = isoToday();
+    setEditDate(records[today] !== undefined ? '' : today);
   }, [loadingRecords, records]);
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -327,9 +326,8 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
 
   const dates = Object.keys(records).sort((a,b)=>a.localeCompare(b));
   const editEntry = getEntry(editDate);
-  const editExists = records[editDate]!==undefined;
-  const editIsToday = editDate===isoToday();
-  const showTinted = editIsToday && editExists && todayTinted;
+  const editExists = editDate!==''&&records[editDate]!==undefined;
+  const editIsToday = editDate!==''&&editDate===isoToday();
 
   // Academic year > month, each newest-first; days stay oldest-first within a month.
   const byYear = {};
@@ -390,41 +388,18 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
             <div className="flex items-center gap-2" style={{marginBottom:12}}>
               <div className="card-title" style={{marginBottom:0,flex:1}}>{editExists?'Edit day':'Add day'}</div>
               {editIsToday&&<span className="badge badge-teal">Today</span>}
-              {showTinted&&<span className="badge badge-green">✓ Done</span>}
             </div>
             <div className="flex items-center gap-2" style={{marginBottom:editExists?14:0}}>
               <input type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}
                 style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
-              {!editExists&&<button className="btn btn-primary" onClick={addDay}><Plus size={14}/> Add day</button>}
+              {!editExists&&<button className="btn btn-primary" onClick={addDay} disabled={!editDate}><Plus size={14}/> Add day</button>}
               {editExists&&(
                 <button className="btn btn-icon btn-sm" style={{color:'var(--red)'}}
                   title="Delete this day" onClick={()=>setConfirmDel(editDate)}><Trash2 size={13}/></button>
               )}
             </div>
 
-            {editExists?(showTinted?(
-              // Today, already wrapped up — shown as a read-only, tinted-out summary
-              // rather than a live form, so it visually reads as done rather than as
-              // something still needing attention. "Edit" below brings it back live.
-              <div style={{opacity:0.55}}>
-                <div className="form-group" style={{marginBottom:10}}>
-                  <label>Daily comment</label>
-                  <div style={{padding:'8px 10px',fontSize:13,color:'var(--text)',minHeight:44,whiteSpace:'pre-wrap'}}>{editEntry.comment||<span style={{color:'var(--text-soft)'}}>No comment</span>}</div>
-                </div>
-                <div className="record-panels">
-                  <div className="record-panel record-panel-pos">
-                    <div className="record-panel-label">⭐ Positives</div>
-                    <div style={{fontSize:13,whiteSpace:'pre-wrap'}}>{editEntry.positive||<span style={{color:'var(--text-soft)'}}>None</span>}</div>
-                  </div>
-                  <div className="record-panel record-panel-neg">
-                    <div className="record-panel-label">⚑ Concerns</div>
-                    <div style={{fontSize:13,whiteSpace:'pre-wrap'}}>{editEntry.negative||<span style={{color:'var(--text-soft)'}}>None</span>}</div>
-                  </div>
-                </div>
-                <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
-                  onClick={()=>setTodayTinted(false)}><Pencil size={13}/>Edit</button>
-              </div>
-            ):(
+            {editExists?(
               <>
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
@@ -455,14 +430,14 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
                     />
                   </div>
                 </div>
-                {editIsToday&&(
-                  <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
-                    onClick={()=>setTodayTinted(true)}><Check size={13}/>Done</button>
-                )}
+                <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
+                  onClick={()=>setEditDate('')}><Check size={13}/>Done</button>
               </>
-            )):(
-              // Inert preview of what an entry looks like — greyed out on purpose, so
-              // it's clear at a glance this date hasn't been added yet.
+            ):(
+              // Idle template — greyed out on purpose. This is the resting state
+              // whenever nothing is actively being edited: on first load if today
+              // hasn't been added yet, and again after "Done" on any entry. Editing
+              // only ever starts by picking a date here or clicking a row below.
               <div style={{opacity:0.55}}>
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
@@ -478,7 +453,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
                     <div style={{fontSize:13,color:'var(--text-soft)',minHeight:60}}>Any concerns?</div>
                   </div>
                 </div>
-                <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Click "Add day" above to start this entry</div>
+                <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Pick a date above to start a new entry, or click a day below to edit it</div>
               </div>
             )}
           </div>
