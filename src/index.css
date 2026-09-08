@@ -331,6 +331,11 @@ tbody tr:hover td { background: #f9fafb; }
 .form-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; }
 .form-group input, .form-group select, .form-group textarea { padding: 10px 14px; border: none; border-radius: var(--r-md); font-size: 13px; font-family: var(--font); color: var(--text); background: #f9fafb; transition: box-shadow 0.15s, background 0.15s; outline: none; }
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus { background: #fff; box-shadow: 0 0 0 2px var(--teal), 0 4px 12px rgba(47,128,237,0.10); }
+/* The browser's own calendar icon sits flush against a date input's inner edge,
+   ignoring the input's own right padding — nudge it left everywhere so it doesn't
+   crowd the border. */
+input[type="date"] { padding-right: 10px; }
+input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .form-section-title { font-size: 13px; font-weight: 600; color: var(--ink); padding-bottom: 10px; border-bottom: 1px solid #f3f4f6; margin-bottom: 4px; display: flex; align-items: center; gap: 7px; }
 .required { color: var(--red); margin-left: 2px; }
 
