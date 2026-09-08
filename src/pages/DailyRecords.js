@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, Pencil } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -156,6 +156,18 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   // list below while staying instantly editable up here.
   const [editDate, setEditDate] = useState(isoToday());
   const editorRef = useRef(null);
+  // Today opening straight into a live, editable card — even once it's already
+  // been filled in on a previous visit — duplicated what its collapsed row below
+  // already shows. Tinting it out (like "Done" below) makes an already-completed
+  // today read as finished rather than as something still needing attention.
+  const [todayTinted, setTodayTinted] = useState(false);
+  const todayTintInitRef = useRef(false);
+  useEffect(() => {
+    if (loadingRecords || todayTintInitRef.current) return;
+    todayTintInitRef.current = true;
+    const entry = records[isoToday()];
+    if (entry && (entry.comment || entry.positive || entry.negative)) setTodayTinted(true);
+  }, [loadingRecords, records]);
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInstructions, setAiInstructions] = useState('');
@@ -201,9 +213,16 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
 
   // Stable field save — doesn't cause re-render of the textarea
   const saveField = useCallback((date, field, value) => {
-    saveDailyRecord(student.id, date, {[field]:value}).catch(err => showToast(err.message || 'Could not save'));
-    // Don't call refresh() here — it would unmount the textarea and lose focus
-  }, [student.id]);
+    // Refreshing here is safe (unlike naively doing it on every keystroke): this only
+    // ever fires from a debounce timeout or blur, i.e. once typing has settled, and
+    // the field being saved is keyed by date so React reuses the same DOM node rather
+    // than remounting it — no risk of losing focus or clobbering what's being typed.
+    // It matters because the "Done" tinted summary reads straight from `records`, so
+    // that state has to actually reflect what was just saved.
+    saveDailyRecord(student.id, date, {[field]:value})
+      .then(refresh)
+      .catch(err => showToast(err.message || 'Could not save'));
+  }, [student.id, refresh]);
 
   function getEntry(date) { return records[date]||{comment:'',positive:'',negative:''}; }
 
@@ -310,6 +329,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   const editEntry = getEntry(editDate);
   const editExists = records[editDate]!==undefined;
   const editIsToday = editDate===isoToday();
+  const showTinted = editIsToday && editExists && todayTinted;
 
   // Academic year > month, each newest-first; days stay oldest-first within a month.
   const byYear = {};
@@ -370,6 +390,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
             <div className="flex items-center gap-2" style={{marginBottom:12}}>
               <div className="card-title" style={{marginBottom:0,flex:1}}>{editExists?'Edit day':'Add day'}</div>
               {editIsToday&&<span className="badge badge-teal">Today</span>}
+              {showTinted&&<span className="badge badge-green">✓ Done</span>}
             </div>
             <div className="flex items-center gap-2" style={{marginBottom:editExists?14:0}}>
               <input type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}
@@ -381,7 +402,29 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
               )}
             </div>
 
-            {editExists?(
+            {editExists?(showTinted?(
+              // Today, already wrapped up — shown as a read-only, tinted-out summary
+              // rather than a live form, so it visually reads as done rather than as
+              // something still needing attention. "Edit" below brings it back live.
+              <div style={{opacity:0.55}}>
+                <div className="form-group" style={{marginBottom:10}}>
+                  <label>Daily comment</label>
+                  <div style={{padding:'8px 10px',fontSize:13,color:'var(--text)',minHeight:44,whiteSpace:'pre-wrap'}}>{editEntry.comment||<span style={{color:'var(--text-soft)'}}>No comment</span>}</div>
+                </div>
+                <div className="record-panels">
+                  <div className="record-panel record-panel-pos">
+                    <div className="record-panel-label">⭐ Positives</div>
+                    <div style={{fontSize:13,whiteSpace:'pre-wrap'}}>{editEntry.positive||<span style={{color:'var(--text-soft)'}}>None</span>}</div>
+                  </div>
+                  <div className="record-panel record-panel-neg">
+                    <div className="record-panel-label">⚑ Concerns</div>
+                    <div style={{fontSize:13,whiteSpace:'pre-wrap'}}>{editEntry.negative||<span style={{color:'var(--text-soft)'}}>None</span>}</div>
+                  </div>
+                </div>
+                <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
+                  onClick={()=>setTodayTinted(false)}><Pencil size={13}/>Edit</button>
+              </div>
+            ):(
               <>
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
@@ -412,8 +455,12 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
                     />
                   </div>
                 </div>
+                {editIsToday&&(
+                  <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
+                    onClick={()=>setTodayTinted(true)}><Check size={13}/>Done</button>
+                )}
               </>
-            ):(
+            )):(
               // Inert preview of what an entry looks like — greyed out on purpose, so
               // it's clear at a glance this date hasn't been added yet.
               <div style={{opacity:0.55}}>
