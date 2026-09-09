@@ -108,18 +108,23 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
                 <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
                 <div className="text-muted text-sm">{s.class}</div>
               </div>
+              {/* Neutral tile + colored corner dot — same language as the Fees week-pills
+                  and Attendance mark buttons, rather than a solid-colored tile per stat. */}
               <div style={{display:'flex',gap:8,fontSize:12}}>
-                <div style={{flex:1,background:'var(--green-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                  <div style={{fontWeight:700,color:'var(--green-text)',fontSize:16}}>{counts.present}</div>
-                  <div style={{color:'var(--green-text)',fontSize:11}}>Present</div>
+                <div style={{flex:1,background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'8px 10px',textAlign:'center',position:'relative'}}>
+                  <div style={{position:'absolute',top:7,right:7,width:7,height:7,borderRadius:'50%',background:'var(--green)'}}/>
+                  <div style={{fontWeight:700,color:'var(--ink)',fontSize:16}}>{counts.present}</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Present</div>
                 </div>
-                <div style={{flex:1,background:'var(--amber-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                  <div style={{fontWeight:700,color:'var(--amber-text)',fontSize:16}}>{counts.late}</div>
-                  <div style={{color:'var(--amber-text)',fontSize:11}}>Late</div>
+                <div style={{flex:1,background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'8px 10px',textAlign:'center',position:'relative'}}>
+                  <div style={{position:'absolute',top:7,right:7,width:7,height:7,borderRadius:'50%',background:'var(--amber)'}}/>
+                  <div style={{fontWeight:700,color:'var(--ink)',fontSize:16}}>{counts.late}</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Late</div>
                 </div>
-                <div style={{flex:1,background:'var(--red-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                  <div style={{fontWeight:700,color:'var(--red-text)',fontSize:16}}>{counts.absent}</div>
-                  <div style={{color:'var(--red-text)',fontSize:11}}>Absent</div>
+                <div style={{flex:1,background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'8px 10px',textAlign:'center',position:'relative'}}>
+                  <div style={{position:'absolute',top:7,right:7,width:7,height:7,borderRadius:'50%',background:'var(--red)'}}/>
+                  <div style={{fontWeight:700,color:'var(--ink)',fontSize:16}}>{counts.absent}</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Absent</div>
                 </div>
               </div>
               <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)',display:'flex',justifyContent:'space-between'}}>
