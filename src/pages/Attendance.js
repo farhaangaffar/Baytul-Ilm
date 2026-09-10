@@ -94,9 +94,10 @@ export default function Attendance() {
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  // Excludes anyone whose enrollDate is still in the future — they haven't started
-  // yet, so shouldn't show up as markable until that date actually arrives.
-  const classStudents = students.filter(s=>s.class===activeClass && hasEnrolledBy(s, TODAY));
+  // Excludes anyone whose enrollDate is still in the future (hasn't started yet) and
+  // anyone marked Inactive (has left) — a left student's history stays fully visible
+  // via their card in the Students page's "students who have left" section instead.
+  const classStudents = students.filter(s=>s.class===activeClass && s.status==='Active' && hasEnrolledBy(s, TODAY));
   const isCurrentYear = year===currentYear;
   const referenceDate = isCurrentYear ? TODAY : academicYearStartISO(year);
   const thisWeekDates = getWeekDates(referenceDate);

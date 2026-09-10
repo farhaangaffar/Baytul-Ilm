@@ -178,9 +178,10 @@ export default function Fees() {
 
   const isCurrentYear = year===currentYear;
   const referenceDate = isCurrentYear ? isoToday() : academicYearStartISO(year);
-  // Excludes anyone whose enrollDate is still in the future — they haven't started
-  // yet, so there's nothing to bill or show for them until that date arrives.
-  const classStudents = students.filter(s=>s.class===activeClass && hasEnrolledBy(s, isoToday()));
+  // Excludes anyone whose enrollDate is still in the future (hasn't started yet) and
+  // anyone marked Inactive (has left) — a left student's history stays fully visible
+  // via their card in the Students page's "students who have left" section instead.
+  const classStudents = students.filter(s=>s.class===activeClass && s.status==='Active' && hasEnrolledBy(s, isoToday()));
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);

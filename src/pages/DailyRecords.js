@@ -86,9 +86,10 @@ function CommentBox({ initialValue, onSave, placeholder }) {
 }
 
 function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords }) {
-  // Excludes anyone whose enrollDate is still in the future — they haven't started
-  // yet, so there's nothing for them to have a daily record of until that date arrives.
-  const classStudents = students.filter(s=>s.class===activeClass && hasEnrolledBy(s, isoToday()));
+  // Excludes anyone whose enrollDate is still in the future (hasn't started yet) and
+  // anyone marked Inactive (has left) — a left student's history stays fully visible
+  // via their card in the Students page's "students who have left" section instead.
+  const classStudents = students.filter(s=>s.class===activeClass && s.status==='Active' && hasEnrolledBy(s, isoToday()));
 
   return (
     <div>
