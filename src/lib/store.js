@@ -128,6 +128,18 @@ export async function deleteStudent(id) { return apiFetch(`/api/students?id=${en
 // other student's position is left alone (see api/students.js for how nulls sort).
 export async function reorderStudents(ids) { return apiFetch('/api/students?action=reorder', { method: 'POST', body: JSON.stringify({ ids }) }); }
 export function avatarInitials(name) { return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+// All-time attendance/fees/daily-record totals for a set of students, spanning every
+// academic year — used for the "students who have left" summary cards. Returns
+// { [studentId]: { present, late, absent, paid, owed, recordsCount } }.
+export async function getStudentTotals(ids) {
+  if (!ids.length) return {};
+  return apiFetch(`/api/students?action=totals&ids=${encodeURIComponent(ids.join(','))}`);
+}
+// Removes a left student's own still-unpaid weeks from fromDate onward — anything
+// already Paid is untouched. Returns { ok, deleted }.
+export async function cancelRemainingFees(studentId, fromDate) {
+  return apiFetch('/api/fees?action=cancel-remaining', { method: 'DELETE', body: JSON.stringify({ studentId, fromDate }) });
+}
 
 // ── Attendance (keyed by year) ──
 export async function getAttendance(year) { return apiFetch(`/api/attendance?year=${encodeURIComponent(year)}`); }

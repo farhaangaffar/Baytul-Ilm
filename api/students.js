@@ -14,6 +14,7 @@ function toClient(row) {
     parent2Phone: row.parent2_phone,
     weeklyFee: Number(row.weekly_fee),
     enrollDate: row.enroll_date,
+    leaveDate: row.leave_date,
     status: row.status,
     notes: row.notes,
   };
@@ -23,8 +24,17 @@ const FIELD_MAP = {
   forename: 'forename', surname: 'surname', dob: 'dob', class: 'class',
   parent1Name: 'parent1_name', parent1Phone: 'parent1_phone',
   parent2Name: 'parent2_name', parent2Phone: 'parent2_phone',
-  weeklyFee: 'weekly_fee', enrollDate: 'enroll_date', status: 'status', notes: 'notes',
+  weeklyFee: 'weekly_fee', enrollDate: 'enroll_date', leaveDate: 'leave_date',
+  status: 'status', notes: 'notes',
 };
+
+// Self-healing: adds leave_date if this DB was created before the column existed
+// (same pattern as ai_summaries.behavior in api/ai-summary.js) — no manual
+// production migration step needed, even though db/migrate-003-*.sql exists too
+// for anyone who prefers to apply schema changes by hand.
+async function ensureLeaveDateColumn() {
+  await query('ALTER TABLE students ADD COLUMN IF NOT EXISTS leave_date DATE');
+}
 
 // Single flat file, dispatching on ?id= for item ops — Vercel's file-based
 // /api routing only reliably supports plain files and single [id] segments
@@ -33,6 +43,7 @@ const FIELD_MAP = {
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
   const action = req.query.action;
+  await ensureLeaveDateColumn();
 
   if (action === 'reorder') {
     // Persists a manually-dragged card order. sort_order is nulled out for any
@@ -45,6 +56,46 @@ module.exports = requireAuth(async (req, res) => {
       await query('UPDATE students SET sort_order = $1 WHERE id = $2', [i, ids[i]]);
     }
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  // All-time summary for a set of students (attendance P/L/A, fees paid/owed, daily
+  // record count) — spans every academic year, not just the currently-loaded one, so
+  // it's computed here rather than reusing the per-year getAttendance/getFees calls.
+  // Used for the "students who have left" cards on the Students page, which show a
+  // whole-history summary right on the card instead of linking out to other pages.
+  if (action === 'totals') {
+    if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const ids = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!ids.length) { res.status(400).json({ error: 'ids= is required (comma-separated student ids)' }); return; }
+    const [attRes, feeRes, recRes] = await Promise.all([
+      query(
+        `SELECT student_id,
+                COUNT(*) FILTER (WHERE status='P') AS present,
+                COUNT(*) FILTER (WHERE status='L') AS late,
+                COUNT(*) FILTER (WHERE status='A') AS absent
+         FROM attendance WHERE student_id = ANY($1) GROUP BY student_id`,
+        [ids]
+      ),
+      query(
+        `SELECT student_id,
+                COALESCE(SUM(amount) FILTER (WHERE status='Paid'), 0) AS paid,
+                COALESCE(SUM(amount) FILTER (WHERE status!='Paid'), 0) AS owed
+         FROM fees WHERE student_id = ANY($1) GROUP BY student_id`,
+        [ids]
+      ),
+      query(
+        `SELECT student_id, COUNT(*) AS records_count
+         FROM daily_records WHERE student_id = ANY($1) GROUP BY student_id`,
+        [ids]
+      ),
+    ]);
+    const totals = {};
+    for (const sid of ids) totals[sid] = { present: 0, late: 0, absent: 0, paid: 0, owed: 0, recordsCount: 0 };
+    for (const r of attRes.rows) Object.assign(totals[r.student_id], { present: Number(r.present), late: Number(r.late), absent: Number(r.absent) });
+    for (const r of feeRes.rows) Object.assign(totals[r.student_id], { paid: Number(r.paid), owed: Number(r.owed) });
+    for (const r of recRes.rows) totals[r.student_id].recordsCount = Number(r.records_count);
+    res.status(200).json(totals);
     return;
   }
 
@@ -62,11 +113,11 @@ module.exports = requireAuth(async (req, res) => {
       // original student id (fees, attendance, daily records) still resolve after import.
       const newId = b.id || 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const { rows } = await query(
-        `INSERT INTO students (id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        `INSERT INTO students (id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
         [newId, b.forename, b.surname, b.dob || null, b.class,
          b.parent1Name || '', b.parent1Phone || '', b.parent2Name || '', b.parent2Phone || '',
-         b.weeklyFee ?? 15, b.enrollDate || null, b.status || 'Active', b.notes || '']
+         b.weeklyFee ?? 15, b.enrollDate || null, b.leaveDate || null, b.status || 'Active', b.notes || '']
       );
       res.status(201).json(toClient(rows[0]));
       return;

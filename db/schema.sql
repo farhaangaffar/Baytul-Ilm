@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS students (
   parent2_phone  TEXT NOT NULL DEFAULT '',
   weekly_fee     NUMERIC(10,2) NOT NULL DEFAULT 15,
   enroll_date    DATE,
+  leave_date     DATE,
   status         TEXT NOT NULL DEFAULT 'Active',
   notes          TEXT NOT NULL DEFAULT '',
   sort_order     INTEGER

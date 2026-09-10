@@ -78,6 +78,22 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  if (action === 'cancel-remaining') {
+    // Deletes a single student's own unpaid (Pending) weeks from a given date onward —
+    // used when a student leaves and still has future weeks already sitting on their
+    // account from when "Add month" ran for the whole class. Deliberately scoped to
+    // Pending only: anything already Paid is left alone, so the record stays accurate.
+    if (req.method !== 'DELETE') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { studentId, fromDate } = req.body || {};
+    if (!studentId || !fromDate) { res.status(400).json({ error: 'studentId and fromDate are required' }); return; }
+    const { rowCount } = await query(
+      `DELETE FROM fees WHERE student_id = $1 AND week_starting >= $2 AND status = 'Pending'`,
+      [studentId, fromDate]
+    );
+    res.status(200).json({ ok: true, deleted: rowCount });
+    return;
+  }
+
   if (action === 'week') {
     // Deletes every fee record for a given week across every student in a class —
     // used for holiday weeks that shouldn't be billed.
