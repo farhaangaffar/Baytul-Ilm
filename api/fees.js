@@ -12,6 +12,17 @@ function toClient(row) {
   };
 }
 
+// Monday of the week containing dateStr — mirrors getMondayOf() in src/lib/store.js.
+// Kept as a local copy rather than a shared import: that module is written for the
+// browser (fetch-based apiFetch etc.) and isn't meant to be required from serverless
+// functions.
+function mondayOf(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  return d.toISOString().split('T')[0];
+}
+
 // Single flat file, dispatching on ?action= (add-month / week) and ?id= for
 // item ops — Vercel's file-based /api routing only reliably supports plain
 // files and single [id] segments outside Next.js, not the [[...params]]
@@ -32,6 +43,11 @@ module.exports = requireAuth(async (req, res) => {
     let created = 0;
     for (const week of weeks) {
       for (const s of students) {
+        // Skip weeks that fall entirely before the student's enrollment week, so a
+        // mid-month starter isn't billed for weeks before they joined — bill from the
+        // Monday of the week they enrolled in (in full; no pro-rating a partial week).
+        // No enrollDate on file (older records) falls back to billing every week.
+        if (s.enrollDate && week < mondayOf(s.enrollDate)) continue;
         const { rowCount } = await query(
           `INSERT INTO fees (year, student_id, week_starting, amount, status) VALUES ($1,$2,$3,$4,'Pending')
            ON CONFLICT (year, student_id, week_starting) DO NOTHING`,
