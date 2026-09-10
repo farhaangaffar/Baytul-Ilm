@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB } from '../lib/store';
+import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -94,7 +94,9 @@ export default function Attendance() {
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const classStudents = students.filter(s=>s.class===activeClass);
+  // Excludes anyone whose enrollDate is still in the future — they haven't started
+  // yet, so shouldn't show up as markable until that date actually arrives.
+  const classStudents = students.filter(s=>s.class===activeClass && hasEnrolledBy(s, TODAY));
   const isCurrentYear = year===currentYear;
   const referenceDate = isCurrentYear ? TODAY : academicYearStartISO(year);
   const thisWeekDates = getWeekDates(referenceDate);
@@ -104,9 +106,9 @@ export default function Attendance() {
     return { P: days.filter(d=>d==='P').length, L: days.filter(d=>d==='L').length, A: days.filter(d=>d==='A').length };
   }
 
-  // Present today (P or L both count as attended) out of active students, per class.
+  // Present today (P or L both count as attended) out of active, already-started students, per class.
   function todayCountFor(className) {
-    const inClass = students.filter(s=>s.class===className && s.status==='Active');
+    const inClass = students.filter(s=>s.class===className && s.status==='Active' && hasEnrolledBy(s, TODAY));
     const present = inClass.filter(s=>{ const st=attData[s.id]?.[TODAY]; return st==='P'||st==='L'; }).length;
     return { present, total: inClass.length };
   }

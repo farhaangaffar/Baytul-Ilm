@@ -4,7 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
-  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
@@ -178,7 +178,9 @@ export default function Fees() {
 
   const isCurrentYear = year===currentYear;
   const referenceDate = isCurrentYear ? isoToday() : academicYearStartISO(year);
-  const classStudents = students.filter(s=>s.class===activeClass);
+  // Excludes anyone whose enrollDate is still in the future — they haven't started
+  // yet, so there's nothing to bill or show for them until that date arrives.
+  const classStudents = students.filter(s=>s.class===activeClass && hasEnrolledBy(s, isoToday()));
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
   const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
