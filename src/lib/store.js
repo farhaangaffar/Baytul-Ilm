@@ -112,6 +112,13 @@ export function getCurrentSchoolMonth(refIso) {
 }
 
 // ── Students ──
+// A student whose enrollDate is still in the future hasn't started yet — keep them out
+// of class rosters (Attendance, Daily Records, Fees) until that date arrives, rather
+// than treating them as already attending from the moment their profile is created.
+// No enrollDate on file counts as already enrolled (matches the fee-billing fallback).
+export function hasEnrolledBy(student, todayIso) {
+  return !student.enrollDate || student.enrollDate <= todayIso;
+}
 export async function getStudents() { return apiFetch('/api/students'); }
 export async function getStudent(id) { const list = await getStudents(); return list.find(s => s.id === id); }
 export async function addStudent(student) { return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
