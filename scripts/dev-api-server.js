@@ -40,7 +40,11 @@ function mount(dir, routePrefix) {
   for (const entry of [...staticEntries, ...dynamic]) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      mount(full, `${routePrefix}/${entry.name}`);
+      // A directory can itself be a dynamic segment (e.g. api/masaajid/[id]/talks/) —
+      // convert it the same way a dynamic filename is converted below, or routes
+      // nested under it would only ever match the literal string "[id]".
+      const segment = entry.name.startsWith('[') && entry.name.endsWith(']') ? `:${entry.name.slice(1, -1)}` : entry.name;
+      mount(full, `${routePrefix}/${segment}`);
       continue;
     }
     if (!entry.name.endsWith('.js')) continue;
