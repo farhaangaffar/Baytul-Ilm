@@ -10,14 +10,10 @@ import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
-import PortalApp       from './pages/portal/PortalApp';
 import { checkSession } from './lib/store';
 import { SettingsProvider } from './lib/SettingsContext';
 
-// The madrasah admin dashboard — gated behind the single shared madrasah
-// password, same as before. Kept separate from the masjid portal below, which
-// has its own per-masjid login and must stay reachable without this auth.
-function MadrasahApp() {
+export default function App() {
   const [authed, setAuthed] = useState(null); // null = still checking
 
   useEffect(() => {
@@ -34,28 +30,19 @@ function MadrasahApp() {
 
   return (
     <SettingsProvider>
-      <Routes>
-        <Route path="/"           element={<Dashboard />} />
-        <Route path="/students"   element={<Students />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/fees"       element={<Fees />} />
-        <Route path="/records"    element={<DailyRecords />} />
-        <Route path="/classes"    element={<ClassesTeachers />} />
-        <Route path="/reports"    element={<Reports />} />
-        <Route path="/stats"      element={<Stats />} />
-        <Route path="/settings"   element={<SettingsPage />} />
-      </Routes>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/"           element={<Dashboard />} />
+          <Route path="/students"   element={<Students />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/fees"       element={<Fees />} />
+          <Route path="/records"    element={<DailyRecords />} />
+          <Route path="/classes"    element={<ClassesTeachers />} />
+          <Route path="/reports"    element={<Reports />} />
+          <Route path="/stats"      element={<Stats />} />
+          <Route path="/settings"   element={<SettingsPage />} />
+        </Routes>
+      </BrowserRouter>
     </SettingsProvider>
-  );
-}
-
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/portal/*" element={<PortalApp />} />
-        <Route path="/*" element={<MadrasahApp />} />
-      </Routes>
-    </BrowserRouter>
   );
 }

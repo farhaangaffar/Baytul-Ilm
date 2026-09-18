@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 
 const COOKIE_NAME = 'baytul_session';
-const PORTAL_COOKIE_NAME = 'baytul_portal_session';
 const SESSION_DAYS = 30;
 
 function parseCookies(header) {
@@ -75,57 +74,4 @@ function requireAuth(handler) {
   };
 }
 
-// ── Masjid portal sessions ──
-// A separate cookie/namespace from the madrasah admin session above, since the
-// two are unrelated logins (masjid_admin / super_admin accounts vs the single
-// shared madrasah password) that can be active side by side in the same browser.
-function setPortalSessionCookie(res, user) {
-  const token = sign({
-    sub: user.id,
-    role: user.role,
-    masjidId: user.masjidId ?? null,
-    exp: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000,
-  });
-  const isProd = process.env.NODE_ENV === 'production';
-  const attrs = [
-    `${PORTAL_COOKIE_NAME}=${encodeURIComponent(token)}`,
-    'HttpOnly', 'Path=/', 'SameSite=Lax',
-    `Max-Age=${SESSION_DAYS * 24 * 60 * 60}`,
-  ];
-  if (isProd) attrs.push('Secure');
-  res.setHeader('Set-Cookie', attrs.join('; '));
-}
-
-function clearPortalSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${PORTAL_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0`);
-}
-
-function getPortalUser(req) {
-  const cookies = parseCookies(req.headers.cookie);
-  const payload = verify(cookies[PORTAL_COOKIE_NAME]);
-  if (!payload) return null;
-  return { id: payload.sub, role: payload.role, masjidId: payload.masjidId };
-}
-
-function requirePortalAuth(handler) {
-  return async (req, res) => {
-    const user = getPortalUser(req);
-    if (!user) { res.status(401).json({ error: 'Not authenticated' }); return; }
-    req.portalUser = user;
-    return handler(req, res);
-  };
-}
-
-function requireSuperAdmin(handler) {
-  return async (req, res) => {
-    const user = getPortalUser(req);
-    if (!user || user.role !== 'super_admin') { res.status(401).json({ error: 'Not authenticated' }); return; }
-    req.portalUser = user;
-    return handler(req, res);
-  };
-}
-
-module.exports = {
-  COOKIE_NAME, setSessionCookie, clearSessionCookie, isAuthed, requireAuth,
-  setPortalSessionCookie, clearPortalSessionCookie, getPortalUser, requirePortalAuth, requireSuperAdmin,
-};
+module.exports = { COOKIE_NAME, setSessionCookie, clearSessionCookie, isAuthed, requireAuth };
