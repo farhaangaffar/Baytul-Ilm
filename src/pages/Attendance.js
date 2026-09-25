@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy } from '../lib/store';
@@ -44,6 +44,15 @@ export default function Attendance() {
 
   useEffect(() => { load(); }, [load]);
   const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
+  // Attendance itself never unmounts across the list/detail toggle (only conditionally
+  // renders different children), so without this the list silently scrolls back to the
+  // top on every return — the scroll position has to be saved and restored by hand.
+  const listScrollRef = useRef(0);
+  useLayoutEffect(() => {
+    if (selectedId) return;
+    const mc = document.querySelector('.main-content');
+    if (mc) mc.scrollTop = listScrollRef.current;
+  }, [selectedId]);
 
   async function switchYear(y) {
     setYear(y);
@@ -67,6 +76,8 @@ export default function Attendance() {
   }
 
   function openStudent(id) {
+    const mc = document.querySelector('.main-content');
+    if (mc) listScrollRef.current = mc.scrollTop;
     setSelectedId(id);
     // isoToday().slice(0,7) would grab the raw calendar month even on days that, per the
     // "month starts from its first Monday" rule, still belong to the previous one —
