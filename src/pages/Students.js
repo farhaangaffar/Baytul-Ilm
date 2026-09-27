@@ -2,14 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
-import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download } from 'lucide-react';
 
 const WAITING_LIST = 'Waiting list';
 
 function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
+function monthLabelFor(ym) { const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 
 export default function Students() {
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,11 @@ export default function Students() {
   const [leftExpanded, setLeftExpanded] = useState(false);
   const [leftTotals, setLeftTotals] = useState({});
   const [confirmCancelFees, setConfirmCancelFees] = useState(null);
+  // Saved report months for whichever left student's profile is currently open —
+  // fetched on demand rather than for everyone in the left section, since it's only
+  // needed once you've actually opened someone's card.
+  const [selectedReports, setSelectedReports] = useState([]);
+  const [downloadingReport, setDownloadingReport] = useState(null);
 
   const fetchData = useCallback(async () => {
     const y = await currentSchoolYear();
@@ -62,6 +69,33 @@ export default function Students() {
 
   useEffect(() => { load(); }, [load]);
   const closeSelected = useBackToClose(!!selected, () => setSelected(null));
+
+  // A left student's saved reports live on their profile here instead of Reports.js
+  // (which no longer lists them) — fetched fresh whenever a different left student
+  // is opened, and cleared for anyone still active (they have none to show here).
+  useEffect(() => {
+    if (!selected || selected.status!=='Inactive') { setSelectedReports([]); return; }
+    let cancelled = false;
+    getAiSummaries(selected.id).then(r => { if (!cancelled) setSelectedReports(r); }).catch(()=>{});
+    return () => { cancelled = true; };
+  }, [selected]);
+
+  async function downloadReport(student, report) {
+    setDownloadingReport(report.month);
+    try {
+      // The report's own academic year, not whichever year happens to be loaded —
+      // a left student's saved reports can span years before the current one.
+      const reportYear = academicYearOfMonth(report.month);
+      const [attendanceForYear, feesForYear] = await Promise.all([getAttendance(reportYear), getFees(reportYear)]);
+      const bytes = await buildReportBytes(student, attendanceForYear, feesForYear, {
+        summary: report.summary, behavior: report.behavior, reportDate: new Date(report.updatedAt), dataMonth: report.month,
+      });
+      downloadPdfBytes(bytes, `Report_${student.forename}_${student.surname}_${report.month}.pdf`);
+    } catch (err) {
+      showToast(err.message || 'Could not generate that report');
+    }
+    setDownloadingReport(null);
+  }
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
   function startEdit(s) { setEditForm({...s}); setEditing(s.id); closeSelected(); }
@@ -347,6 +381,34 @@ export default function Students() {
                   })()}
                 </div>
               </div>
+              {selected.status==='Inactive'&&(
+                <>
+                  <div className="form-section-title" style={{marginBottom:10}}>Previous reports</div>
+                  <div className="mb-4">
+                    {selectedReports.length===0?(
+                      <div className="text-muted text-sm">No reports were saved for {selected.forename}.</div>
+                    ):(()=>{
+                      const byYear = {};
+                      selectedReports.forEach(r => { const yr=academicYearOfMonth(r.month); (byYear[yr]=byYear[yr]||[]).push(r); });
+                      const years = Object.keys(byYear).sort().reverse();
+                      years.forEach(y => byYear[y].sort((a,b)=>b.month.localeCompare(a.month)));
+                      return years.map(yr=>(
+                        <div key={yr} style={{marginBottom:10}}>
+                          <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Academic year {yr}</div>
+                          {byYear[yr].map(r=>(
+                            <div key={r.month} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',background:'#f9fafb',marginBottom:4,fontSize:13}}>
+                              <span>{monthLabelFor(r.month)}</span>
+                              <button className="btn btn-sm" onClick={()=>downloadReport(selected,r)} disabled={downloadingReport===r.month}>
+                                {downloadingReport===r.month?'…':<><Download size={12}/>Download</>}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </>
+              )}
               <div className="form-section-title" style={{marginBottom:10}}>Parent contacts</div>
               <div className="grid-2 mb-4">
                 <div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13}}>

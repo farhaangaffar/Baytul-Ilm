@@ -5,6 +5,7 @@
 // analysis of a rendered page) and are only valid for that exact file.
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { attendanceCountsForMonth, getCurrentSchoolMonth } from './store';
 
 function fmtDMY(date) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -315,4 +316,18 @@ export function downloadPdfBytes(bytes, filename) {
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Shared by Reports.js (generating/previewing a report for any student) and the
+// Students.js "students who have left" detail view (re-downloading an old report
+// for a student no longer on the active roster) — the month's own attendance/fee
+// data has to be fetched for whichever year that month actually belongs to,
+// which callers are responsible for (this just builds the PDF from it).
+export async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth }) {
+  const monthRange = getCurrentSchoolMonth(`${dataMonth}-15`);
+  const counts = attendanceCountsForMonth(attendance, student.id, monthRange);
+  const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= monthRange.start && f.weekStarting < monthRange.endExclusive);
+  const billed = monthFees.reduce((s, f) => s + Number(f.amount), 0);
+  const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: monthRange.label, aiSummary: summary, behavior, reportDate });
 }

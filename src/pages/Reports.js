@@ -1,34 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, attendanceCountsForMonth, getAttendance, getFees, avatarInitials, currentSchoolYear, getCurrentSchoolMonth, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
-import { generateReportPdfBytes } from '../lib/reportPdf';
+import { getStudents, getClassNames, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
 import { FileText, Download, Plus } from 'lucide-react';
 
 function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function monthLabelFor(monthStr) { const [y,m]=monthStr.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
-
-// dataMonth ("YYYY-MM") controls which month's attendance/fees the charts
-// show — decoupled from reportDate (which is just the "Date:" field/footer
-// timestamp) so a historical report shows that month's own numbers rather
-// than whatever month it happens to be reprinted in.
-async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth }) {
-  const monthRange = getCurrentSchoolMonth(`${dataMonth}-15`);
-  const counts = attendanceCountsForMonth(attendance, student.id, monthRange);
-  const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= monthRange.start && f.weekStarting < monthRange.endExclusive);
-  const billed = monthFees.reduce((s, f) => s + Number(f.amount), 0);
-  const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
-  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: monthRange.label, aiSummary: summary, behavior, reportDate });
-}
-
-function downloadBytes(bytes, filename) {
-  const blob = new Blob([bytes], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 export default function Reports() {
   const [loading, setLoading] = useState(true);
@@ -131,7 +109,9 @@ export default function Reports() {
 
   // Split by class so a bulk download doesn't have to mean "every student in the
   // school" — pick a class, then "All reports" only covers that class's students.
-  const classStudents = students.filter(s => s.class === activeClass);
+  // A left student's reports live on their card in the Students page's "students who
+  // have left" section instead — not duplicated here in the day-to-day class list.
+  const classStudents = students.filter(s => s.class === activeClass && s.status!=='Inactive');
 
   return (
     <Layout title="Reports" subtitle="Generate PDF progress reports">
