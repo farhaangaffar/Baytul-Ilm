@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { getStudents, getClassNames, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth, currentSchoolMonthKey as currentMonth } from '../lib/store';
 import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
 import { FileText, Download, Plus } from 'lucide-react';
 
-function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function monthLabelFor(monthStr) { const [y,m]=monthStr.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 
 export default function Reports() {

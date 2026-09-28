@@ -110,6 +110,13 @@ export function getCurrentSchoolMonth(refIso) {
   const prevY = m === 0 ? y - 1 : y, prevM = (m + 11) % 12;
   return { start: firstMondayOfMonthISO(prevY, prevM), endExclusive: thisFirstMon, label: new Date(prevY, prevM, 1, 12).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) };
 }
+// Today's "current month" as a plain "YYYY-MM" key, per the same school-month rule as
+// getCurrentSchoolMonth — for tagging/looking up "this month" (saved AI summaries, the
+// Daily Records "This month" stats card) rather than today's literal calendar month,
+// which can disagree by up to 6 days at either end of a month (see getCurrentSchoolMonth).
+export function currentSchoolMonthKey() {
+  return getCurrentSchoolMonth().start.slice(0, 7);
+}
 
 // ── Students ──
 // A student whose enrollDate is still in the future hasn't started yet — keep them out

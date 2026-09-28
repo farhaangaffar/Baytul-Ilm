@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth } from '../lib/store';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, currentSchoolMonthKey as currentMonth } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
@@ -11,7 +11,6 @@ function fmtDate(iso) {
   try { return `${new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long'})} ${formatDateGB(iso)}`; }
   catch { return iso; }
 }
-function currentMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function monthLabelFor(ym) {
   const [y,m]=ym.split('-').map(Number);
   return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
@@ -298,7 +297,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
       const year = await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
       const counts = attendanceCountsFrom(attendanceForYear, student.id);
-      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${monthLabelFor(currentMonth())}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -508,7 +507,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>Monthly summary</div>
             <div className="card-sub" style={{marginBottom:14}}>
-              AI report paragraph for {student.forename} — {new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}
+              AI report paragraph for {student.forename} — {monthLabelFor(currentMonth())}
             </div>
 
             <div className="form-group" style={{marginBottom:14}}>
@@ -544,7 +543,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
             {aiLoading&&<div className="ai-summary-box"><div style={{color:'var(--teal-dark)',fontStyle:'italic',fontSize:13}}>Reading through {student.forename}'s records…</div></div>}
             {aiSummary&&!aiLoading&&(
               <div className="ai-summary-box">
-                <div className="ai-summary-title"><Sparkles size={13}/>Summary — {new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</div>
+                <div className="ai-summary-title"><Sparkles size={13}/>Summary — {monthLabelFor(currentMonth())}</div>
                 <textarea
                   className="ai-summary-text"
                   value={aiSummary}
