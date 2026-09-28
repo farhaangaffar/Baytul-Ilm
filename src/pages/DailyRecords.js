@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy } from '../lib/store';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth } from '../lib/store';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
@@ -146,8 +146,16 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
 // pile up as one ever-growing flat list — this expands the given date's own key plus its
 // containing month and academic-year keys, so opening/adding a day also opens the section
 // it lives in, rather than expanding invisibly inside a still-collapsed month/year.
+//
+// The "month" a date belongs to follows the same school-month rule as Fees/Attendance/
+// Reports (a month runs from its first Monday to the day before the next month's first
+// Monday) via getCurrentSchoolMonth — NOT the date's own literal calendar month. A date
+// early in a calendar month (before that month's own first Monday) belongs to the
+// PREVIOUS school month, and a date early in the next calendar month (before that
+// month's first Monday) still belongs to THIS one — e.g. 2 Oct 2026 groups under
+// "September 2026" here, since October's own school month doesn't start until 5 Oct.
 function keysFor(date) {
-  const monthKey = date.slice(0,7);
+  const monthKey = getCurrentSchoolMonth(date).start.slice(0,7);
   return [date, monthKey, academicYearOfMonth(monthKey)];
 }
 
@@ -338,9 +346,10 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   const editIsToday = editDate!==''&&editDate===isoToday();
 
   // Academic year > month, each newest-first; days stay oldest-first within a month.
+  // Month here is the school month (see keysFor above), not the date's calendar month.
   const byYear = {};
   dates.forEach(d => {
-    const monthKey = d.slice(0,7);
+    const monthKey = getCurrentSchoolMonth(d).start.slice(0,7);
     const yr = academicYearOfMonth(monthKey);
     (byYear[yr] = byYear[yr] || {});
     (byYear[yr][monthKey] = byYear[yr][monthKey] || []).push(d);
