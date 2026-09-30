@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { setSessionCookie } = require('./_auth');
+const { setSessionCookie } = require('../auth');
 
 function timingSafeStringEqual(a, b) {
   const aBuf = Buffer.from(String(a));

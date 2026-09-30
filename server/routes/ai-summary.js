@@ -1,5 +1,5 @@
-const { query } = require('./_db');
-const { requireAuth } = require('./_auth');
+const { query } = require('../db');
+const { requireAuth } = require('../auth');
 
 // Spell dates out in full (e.g. "10 October 2022") for anything handed to the model —
 // a bare "2022-10-10" is unambiguous to us, but the model has been observed misreading
@@ -12,8 +12,8 @@ function formatDateLong(iso) {
 }
 
 // Merged with the ai_summaries persistence endpoint (GET/PUT) rather than a
-// separate file — Vercel's Hobby plan caps a deployment at 12 serverless
-// functions, and this app was already at that limit.
+// separate route (originally to stay under Vercel's per-function limit, before
+// the API moved behind the single api/router.js).
 async function ensureTable() {
   await query(`
     CREATE TABLE IF NOT EXISTS ai_summaries (

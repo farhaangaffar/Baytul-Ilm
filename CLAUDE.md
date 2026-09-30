@@ -25,10 +25,13 @@ codebase (one codebase, not a fork).
 
 ## Project conventions
 
-- React (Create React App) front end in `src/`, Vercel serverless API in `api/`,
-  Postgres. The Hobby plan caps the project at **12 serverless functions** and every
-  slot is used — add endpoints as actions on an existing `api/*.js` file (see
-  `api/settings.js` `?manifest` / `?logo` / `?icon`), never as a new file.
+- React (Create React App) front end in `src/`, Postgres, and a Vercel serverless API
+  that is **one function**: `vercel.json` rewrites every `/api/<name>` to
+  `api/router.js`, which dispatches to `server/routes/<name>.js` (shared helpers in
+  `server/db.js`, `server/auth.js`). To add an endpoint, add a file in
+  `server/routes/` and a static `require` line in `api/router.js` — never add files
+  to `api/` (each file there becomes a separate function; the free Hobby plan caps
+  them at 12). The app stays on the Hobby plan until the first paying madrasah.
 - There's no migration runner: new columns are added by the API itself on first use
   (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
   for manual use and `db/schema.sql` updated.
@@ -41,4 +44,5 @@ codebase (one codebase, not a fork).
   `/api/` or anything that can change under the same URL (that's how a stale app icon
   once got stuck on devices); bump the cache name if caching rules change.
 - Check changes with `CI=true npm run build` (warnings fail the build).
-  `scripts/dev-api-server.js` runs the API locally against a Postgres in `.env.local`.
+  `scripts/dev-api-server.js` runs the API locally (through the same router) against
+  a Postgres in `.env.local`.

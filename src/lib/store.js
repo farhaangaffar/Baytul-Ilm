@@ -278,8 +278,7 @@ export async function getStudentRecords(studentId) { return apiFetch(`/api/daily
 
 // ── AI monthly summaries — saved separately from a one-off generation, so a
 // summary attached to a report survives navigating away and back. Shares
-// /api/ai-summary (singular) with the generation endpoint to stay within
-// Vercel's Hobby-plan 12-function limit. ──
+// /api/ai-summary (singular) with the generation endpoint. ──
 export async function getAiSummaries(studentId) { return apiFetch(`/api/ai-summary?studentId=${encodeURIComponent(studentId)}`); }
 export async function getAiSummariesForMonth(month) { return apiFetch(`/api/ai-summary?month=${encodeURIComponent(month)}`); }
 export async function saveAiSummary(studentId, month, { summary, instructions, behavior }) {

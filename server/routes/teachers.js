@@ -1,5 +1,5 @@
-const { query } = require('./_db');
-const { requireAuth } = require('./_auth');
+const { query } = require('../db');
+const { requireAuth } = require('../auth');
 
 const FIELD_MAP = { name: 'name', phone: 'phone', email: 'email' };
 

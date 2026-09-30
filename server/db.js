@@ -12,7 +12,9 @@ types.setTypeParser(1700, val => val === null ? null : parseFloat(val));
 let pool;
 function getPool() {
   if (!pool) {
-    const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+    // DATABASE_URL first: it's the variable Neon's Vercel integration points at a
+    // preview's own database branch, so previews never fall through to production.
+    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     if (!connectionString) throw new Error('No POSTGRES_URL/DATABASE_URL set');
     pool = new Pool({
       connectionString,
