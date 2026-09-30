@@ -302,16 +302,16 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
   // Subtitle under the masthead, in the gap before the "Details" band.
   centerText(page, `Student Progress Report · ${monthLabel}`, regular, 8, PAGE_W / 2, 64, COLORS.muted);
 
-  // Details grid values, placed right after each pre-printed label, on the
-  // label's own baseline — pdftotext's bbox yMax runs ~3pt below the true
-  // baseline (it uses the font's descent metric, not actual glyph ink), so
-  // that value is nudged up rather than used directly.
+  // Details grid values, placed right after each pre-printed label on exactly
+  // the label's own baseline (read from the template's text layer: 122.23 for
+  // the name row, 153.96 for the class/date row).
   const valueSize = 10;
-  page.drawText(`${student.forename} ${student.surname}`, { x: 141, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
+  const ROW1 = 122.23, ROW2 = 153.96;
+  page.drawText(`${student.forename} ${student.surname}`, { x: 141, y: pdfY(ROW1), size: valueSize, font: regular, color: COLORS.ink });
   const teacher = teacherName || '—';
-  page.drawText(teacher, { x: 434, y: pdfY(121.5), size: fitSize(teacher, regular, valueSize, 118), font: regular, color: COLORS.ink });
-  page.drawText(student.class || '—', { x: 85, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
-  page.drawText(fmtDMY(reportDate), { x: 338, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText(teacher, { x: 434, y: pdfY(ROW1), size: fitSize(teacher, regular, valueSize, 118), font: regular, color: COLORS.ink });
+  page.drawText(student.class || '—', { x: 85, y: pdfY(ROW2), size: valueSize, font: regular, color: COLORS.ink });
+  page.drawText(fmtDMY(reportDate), { x: 338, y: pdfY(ROW2), size: valueSize, font: regular, color: COLORS.ink });
 
   // Attendance & fees — the same donut rings the Dashboard shows, just for
   // one student and one month instead of the whole class/year. The template's
