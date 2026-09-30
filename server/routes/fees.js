@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, isOwner, teacherScope } = require('../auth');
 
 function toClient(row) {
   return {
@@ -27,8 +27,23 @@ function mondayOf(dateStr) {
 // item ops — Vercel's file-based /api routing only reliably supports plain
 // files and single [id] segments outside Next.js, not the [[...params]]
 // optional catch-all, so everything here goes through query strings.
+// Teachers may see their own classes' fees and mark a week as Paid — nothing else
+// (no amounts, no adding/removing weeks, no un-marking). Everything else is owner-only.
 module.exports = requireAuth(async (req, res) => {
   const { action, id } = req.query;
+  const scope = await teacherScope(req);
+  if (!isOwner(req)) {
+    const b = req.body || {};
+    const readingList = !action && !id && req.method === 'GET';
+    const markingPaid = !action && id && req.method === 'PATCH'
+      && b.status === 'Paid' && Object.keys(b).every(k => k === 'status');
+    if (!readingList && !markingPaid) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    if (markingPaid) {
+      const { rows } = await query('SELECT student_id FROM fees WHERE id = $1', [id]);
+      if (!rows.length) { res.status(404).json({ error: 'Fee record not found' }); return; }
+      if (!scope.studentIds.has(rows[0].student_id)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    }
+  }
 
   if (action === 'add-month') {
     // Batch-adds fee records for every (week x active student in a class), skipping any
@@ -114,7 +129,7 @@ module.exports = requireAuth(async (req, res) => {
       const { year } = req.query;
       if (!year) { res.status(400).json({ error: 'year is required' }); return; }
       const { rows } = await query('SELECT * FROM fees WHERE year = $1', [year]);
-      res.status(200).json(rows.map(toClient));
+      res.status(200).json(rows.filter(r => !scope || scope.studentIds.has(r.student_id)).map(toClient));
       return;
     }
 
@@ -160,4 +175,4 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-});
+}, { teacher: true });

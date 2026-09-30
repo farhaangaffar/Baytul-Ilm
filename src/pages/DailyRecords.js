@@ -5,6 +5,7 @@ import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRec
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -159,6 +160,9 @@ function keysFor(date) {
 }
 
 function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
+  // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
+  // the daily records themselves.
+  const { isOwner } = useAuth();
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
   // Only the month/year grouping keys collapse — there's no per-day accordion any
@@ -213,11 +217,12 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   // saved to the DB before that point, so there's no unsaved work to restore.
   // The saved result is still visible, read-only, in "Previous summaries" below.
   const refreshSummaries = useCallback(async () => {
+    if (!isOwner) return;
     try {
       const all = await getAiSummaries(student.id);
       setPreviousSummaries(all);
     } catch { /* saved summaries are a bonus, not required to use the page */ }
-  }, [student.id]);
+  }, [student.id, isOwner]);
 
   useEffect(() => {
     setLoadingRecords(true);
@@ -504,6 +509,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
         </div>
 
         <div style={{position:'sticky',top:24}}>
+          {isOwner && (<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>Monthly summary</div>
             <div className="card-sub" style={{marginBottom:14}}>
@@ -581,7 +587,8 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
               ))}
             </div>
           )}
-          <div className="card" style={{marginTop:14}}>
+          </>)}
+          <div className="card" style={{marginTop:isOwner?14:0}}>
             <div className="card-title" style={{marginBottom:12}}>This month</div>
             {(()=>{
               const month=currentMonth();

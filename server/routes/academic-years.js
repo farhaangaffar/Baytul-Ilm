@@ -1,11 +1,16 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, isOwner } = require('../auth');
 
 // Single flat file, dispatching on ?year= for item ops — Vercel's file-based
 // /api routing only reliably supports plain files and single [id] segments
 // outside Next.js, not the [[...params]] optional catch-all, so id-style
 // operations go through a query string instead of a path segment.
 module.exports = requireAuth(async (req, res) => {
+  // Teachers can read the list of years (for the year switcher), nothing more.
+  if (!isOwner(req) && (req.method !== 'GET' || req.query.action || req.query.year)) {
+    res.status(403).json({ error: "You don't have access to this." }); return;
+  }
+
   if (req.query.action === 'rename') {
     // Relabels a year everywhere it's referenced — academic_years is the primary key,
     // attendance/fees just store the year as plain text (no FK), so all three need
@@ -50,4 +55,4 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-});
+}, { teacher: true });

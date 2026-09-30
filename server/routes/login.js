@@ -1,22 +1,106 @@
-const crypto = require('crypto');
-const { setSessionCookie } = require('../auth');
+const { query } = require('../db');
+const {
+  ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeUsername,
+  validateNewCredentials, setSessionCookie, getUser,
+} = require('../auth');
 
-function timingSafeStringEqual(a, b) {
-  const aBuf = Buffer.from(String(a));
-  const bBuf = Buffer.from(String(b));
-  if (aBuf.length !== bBuf.length) return false;
-  return crypto.timingSafeEqual(aBuf, bBuf);
+// Sign-in and everything around it, as ?action= variants of one route:
+//  (none)           POST {username, password} — normal sign-in. Before an owner account
+//                   exists, the school's old shared password (ADMIN_PASSWORD) instead
+//                   answers { setupRequired: true } so the owner can create their account.
+//  setup            POST {recoveryKey, username, password} — creates the owner account
+//                   (only while none exists).
+//  recover          POST {recoveryKey, password} — resets a forgotten owner password.
+//  change-password  POST {currentPassword, newPassword} — any signed-in user.
+// ADMIN_PASSWORD is the recovery key; once the owner account exists it never signs
+// anyone in by itself.
+
+function recoveryKeyMatches(key) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  return !!adminPassword && !!key && timingSafeStringEqual(key, adminPassword);
 }
+
+async function findOwner() {
+  const { rows } = await query(`SELECT * FROM users WHERE role = 'owner' LIMIT 1`);
+  return rows[0] || null;
+}
+
+function publicUser(u) {
+  return { username: u.username, role: u.role };
+}
+
+// Spend the same scrypt time when the username doesn't exist, so response timing
+// doesn't reveal which usernames are real.
+const DUMMY_HASH = hashPassword('not-a-real-password');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) { res.status(500).json({ error: 'Server is not configured (no ADMIN_PASSWORD set)' }); return; }
-  const { password } = req.body || {};
-  if (!password || !timingSafeStringEqual(password, adminPassword)) {
+  if (!process.env.ADMIN_PASSWORD) { res.status(500).json({ error: 'Server is not configured (no ADMIN_PASSWORD set)' }); return; }
+  await ensureUsersTable();
+  const b = req.body || {};
+  const action = req.query.action;
+
+  if (action === 'setup') {
+    if (await findOwner()) { res.status(409).json({ error: 'The owner account has already been set up — sign in instead.' }); return; }
+    if (!recoveryKeyMatches(b.recoveryKey)) { res.status(401).json({ error: 'The school password is incorrect.' }); return; }
+    const username = normalizeUsername(b.username);
+    const problem = validateNewCredentials(username, b.password);
+    if (problem) { res.status(400).json({ error: problem }); return; }
+    const { rows } = await query(
+      `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'owner') RETURNING *`,
+      [username, hashPassword(b.password)]
+    );
+    setSessionCookie(res, rows[0]);
+    res.status(200).json({ ok: true, user: publicUser(rows[0]) });
+    return;
+  }
+
+  if (action === 'recover') {
+    const owner = await findOwner();
+    if (!owner) { res.status(400).json({ error: 'No owner account exists yet — sign in with the school password to set one up.' }); return; }
+    if (!recoveryKeyMatches(b.recoveryKey)) { res.status(401).json({ error: 'The recovery key is incorrect.' }); return; }
+    if (String(b.password || '').length < 8) { res.status(400).json({ error: 'Password must be at least 8 characters.' }); return; }
+    const { rows } = await query(
+      `UPDATE users SET password_hash = $1, session_version = session_version + 1, active = true
+       WHERE id = $2 RETURNING *`,
+      [hashPassword(b.password), owner.id]
+    );
+    setSessionCookie(res, rows[0]);
+    res.status(200).json({ ok: true, user: publicUser(rows[0]) });
+    return;
+  }
+
+  if (action === 'change-password') {
+    const me = await getUser(req);
+    if (!me) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    const { rows: [row] } = await query('SELECT * FROM users WHERE id = $1', [me.id]);
+    if (!verifyPassword(b.currentPassword, row.password_hash)) { res.status(401).json({ error: 'Your current password is incorrect.' }); return; }
+    if (String(b.newPassword || '').length < 8) { res.status(400).json({ error: 'Password must be at least 8 characters.' }); return; }
+    const { rows } = await query(
+      `UPDATE users SET password_hash = $1, session_version = session_version + 1 WHERE id = $2 RETURNING *`,
+      [hashPassword(b.newPassword), me.id]
+    );
+    setSessionCookie(res, rows[0]); // this device stays signed in; every other device is signed out
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (action) { res.status(404).json({ error: 'Not found' }); return; }
+
+  // Normal sign-in.
+  if (!(await findOwner())) {
+    if (recoveryKeyMatches(b.password)) { res.status(200).json({ setupRequired: true }); return; }
     res.status(401).json({ error: 'Incorrect password' });
     return;
   }
-  setSessionCookie(res);
-  res.status(200).json({ ok: true });
+  const username = normalizeUsername(b.username);
+  const { rows } = await query('SELECT * FROM users WHERE username = $1', [username]);
+  const user = rows[0];
+  const ok = verifyPassword(b.password || '', user ? user.password_hash : DUMMY_HASH);
+  if (!user || !ok || !user.active) {
+    res.status(401).json({ error: user && ok && !user.active ? 'This login has been switched off — ask the madrasah office.' : 'Incorrect username or password' });
+    return;
+  }
+  setSessionCookie(res, user);
+  res.status(200).json({ ok: true, user: publicUser(user) });
 };

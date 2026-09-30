@@ -1,10 +1,15 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, teacherScope } = require('../auth');
 
+// Teachers: only their own classes' current students (see teacherScope).
 module.exports = requireAuth(async (req, res) => {
+  const scope = await teacherScope(req);
+  const outOfScope = sid => scope && !scope.studentIds.has(sid);
+
   if (req.method === 'GET') {
     const { studentId } = req.query;
     if (studentId) {
+      if (outOfScope(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
       const { rows } = await query('SELECT date, comment, positive, negative FROM daily_records WHERE student_id = $1', [studentId]);
       const out = {};
       rows.forEach(r => { out[r.date] = { comment: r.comment, positive: r.positive, negative: r.negative }; });
@@ -14,6 +19,7 @@ module.exports = requireAuth(async (req, res) => {
     const { rows } = await query('SELECT student_id, date, comment, positive, negative FROM daily_records');
     const out = {};
     rows.forEach(r => {
+      if (outOfScope(r.student_id)) return;
       if (!out[r.student_id]) out[r.student_id] = {};
       out[r.student_id][r.date] = { comment: r.comment, positive: r.positive, negative: r.negative };
     });
@@ -24,6 +30,7 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'PUT') {
     const { studentId, date, comment, positive, negative } = req.body || {};
     if (!studentId || !date) { res.status(400).json({ error: 'studentId and date are required' }); return; }
+    if (outOfScope(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     // Fields omitted from the body come through as null here, so a fresh INSERT falls back
     // to '' (satisfying the NOT NULL columns) while an UPDATE preserves the existing value.
     await query(
@@ -42,10 +49,11 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'DELETE') {
     const { studentId, date } = req.body || {};
     if (!studentId || !date) { res.status(400).json({ error: 'studentId and date are required' }); return; }
+    if (outOfScope(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     await query('DELETE FROM daily_records WHERE student_id = $1 AND date = $2', [studentId, date]);
     res.status(200).json({ ok: true });
     return;
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-});
+}, { teacher: true });

@@ -17,6 +17,7 @@ const routes = {
   settings: require('../server/routes/settings'),
   students: require('../server/routes/students'),
   teachers: require('../server/routes/teachers'),
+  users: require('../server/routes/users'),
 };
 
 // The route comes from the rewrite's ?route= parameter; the original path is a

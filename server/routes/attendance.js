@@ -1,13 +1,16 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, teacherScope } = require('../auth');
 
+// Teachers: only their own classes' current students (see teacherScope).
 module.exports = requireAuth(async (req, res) => {
+  const scope = await teacherScope(req);
   if (req.method === 'GET') {
     const { year } = req.query;
     if (!year) { res.status(400).json({ error: 'year is required' }); return; }
     const { rows } = await query('SELECT student_id, date, status FROM attendance WHERE year = $1', [year]);
     const out = {};
     rows.forEach(r => {
+      if (scope && !scope.studentIds.has(r.student_id)) return;
       if (!out[r.student_id]) out[r.student_id] = {};
       out[r.student_id][r.date] = r.status;
     });
@@ -18,6 +21,7 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'PUT') {
     const { studentId, date, status, year } = req.body || {};
     if (!studentId || !date || !year) { res.status(400).json({ error: 'studentId, date and year are required' }); return; }
+    if (scope && !scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     if (!status) {
       await query('DELETE FROM attendance WHERE year=$1 AND student_id=$2 AND date=$3', [year, studentId, date]);
     } else {
@@ -32,4 +36,4 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-});
+}, { teacher: true });

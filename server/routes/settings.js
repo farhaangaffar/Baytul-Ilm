@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { isAuthed } = require('../auth');
+const { getUser } = require('../auth');
 
 // currency_symbol, logo and icon were added after the settings table already existed in production —
 // self-heal once per cold start, same pattern as ai_summaries.behavior in api/ai-summary.js.
@@ -84,7 +84,7 @@ module.exports = async (req, res) => {
       res.status(200).send(JSON.stringify(manifest(s)));
       return;
     }
-    if (!isAuthed(req)) {
+    if (!(await getUser(req))) {
       res.status(200).json({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic, hasLogo: s.hasLogo, hasIcon: s.hasIcon });
       return;
     }
@@ -92,7 +92,9 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (!isAuthed(req)) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  const user = await getUser(req);
+  if (!user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (user.role !== 'owner') { res.status(403).json({ error: "You don't have access to this." }); return; }
 
   if (req.method === 'PATCH') {
     await ensureColumns();

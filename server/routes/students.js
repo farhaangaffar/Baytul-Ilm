@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, isOwner, teacherScope } = require('../auth');
 
 function toClient(row) {
   return {
@@ -44,6 +44,18 @@ module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
   const action = req.query.action;
   await ensureLeaveDateColumn();
+
+  // Teachers can only list their own classes' current students; every change is owner-only.
+  if (!isOwner(req)) {
+    if (action || id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const scope = await teacherScope(req);
+    const { rows } = await query(
+      `SELECT * FROM students WHERE class = ANY($1) AND status <> 'Inactive' ORDER BY sort_order NULLS LAST, forename, surname`,
+      [scope.classNames]
+    );
+    res.status(200).json(rows.map(toClient));
+    return;
+  }
 
   if (action === 'reorder') {
     // Persists a manually-dragged card order. sort_order is nulled out for any
@@ -152,4 +164,4 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-});
+}, { teacher: true });
