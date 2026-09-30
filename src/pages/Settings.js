@@ -2,7 +2,31 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData } from '../lib/store';
-import { Save, Plus, Trash2, X, Download, Upload } from 'lucide-react';
+import { Save, Plus, Trash2, X, Download, Upload, Image as ImageIcon } from 'lucide-react';
+import { setBranding } from '../lib/branding';
+
+const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
+
+// Downsizes an uploaded logo in the browser (longest side ≤ 400px) before it's
+// stored — plenty for the PDF report's 34pt-high masthead, and keeps the saved
+// image to a few hundred KB whatever size the original photo/scan was.
+function resizeLogo(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      const scale = Math.min(1, 400 / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't read that image — try a PNG or JPG.")); };
+    img.src = url;
+  });
+}
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
@@ -18,6 +42,9 @@ export default function Settings() {
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const fileInputRef = useRef(null);
+  const logoInputRef = useRef(null);
+  const [logoVersion, setLogoVersion] = useState(0);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -38,12 +65,41 @@ export default function Settings() {
     setSaving(true);
     try {
       await updateSettings(form);
+      setBranding(form);
       showToast('Settings saved');
       setTimeout(()=>window.location.reload(),600);
     } catch (err) {
       showToast(err.message || 'Could not save settings');
       setSaving(false);
     }
+  }
+
+  async function handleLogoSelect(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setLogoBusy(true);
+    try {
+      await updateSettings({ logo: await resizeLogo(file) });
+      setForm(f => ({ ...f, hasLogo: true }));
+      setLogoVersion(v => v + 1);
+      showToast('Logo saved');
+    } catch (err) {
+      showToast(err.message || 'Could not save logo');
+    }
+    setLogoBusy(false);
+  }
+
+  async function removeLogo() {
+    setLogoBusy(true);
+    try {
+      await updateSettings({ logo: null });
+      setForm(f => ({ ...f, hasLogo: false }));
+      showToast('Logo removed');
+    } catch (err) {
+      showToast(err.message || 'Could not remove logo');
+    }
+    setLogoBusy(false);
   }
 
   async function addYear() {
@@ -84,7 +140,7 @@ export default function Settings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `baytul-ilm-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.download = `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-backup-${new Date().toISOString().slice(0,10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -142,12 +198,51 @@ export default function Settings() {
               <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
             </div>
             <div className="form-group">
-              <label>Default weekly fee (£)</label>
+              <label>Default weekly fee ({form.currencySymbol || '£'})</label>
               <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
                 onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
                 style={{maxWidth:160}}/>
               <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
                 Used when enrolling new students. Can be changed per student.
+              </span>
+            </div>
+            <div className="form-group">
+              <label>Currency symbol</label>
+              <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
+                onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}
+                style={{maxWidth:160}}>
+                {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+                <option value="other">Other…</option>
+              </select>
+              {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
+                <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
+                  onChange={e=>setForm({...form,currencySymbol:e.target.value})}
+                  style={{maxWidth:160,marginTop:6}}/>
+              )}
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+                Shown on fees, stats and PDF reports.
+              </span>
+            </div>
+            <div className="form-group">
+              <label>Logo</label>
+              <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                <div style={{width:64,height:64,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden'}}>
+                  {form.hasLogo
+                    ? <img src={`/api/settings?logo&v=${logoVersion}`} alt="School logo" style={{maxWidth:'100%',maxHeight:'100%'}}/>
+                    : <ImageIcon size={22} style={{color:'var(--text-soft)'}}/>}
+                </div>
+                <button type="button" className="btn btn-sm" onClick={()=>logoInputRef.current?.click()} disabled={logoBusy}>
+                  <Upload size={13}/>{form.hasLogo ? 'Change' : 'Upload'}
+                </button>
+                {form.hasLogo && (
+                  <button type="button" className="btn btn-sm" style={{color:'var(--red)'}} onClick={removeLogo} disabled={logoBusy}>
+                    <Trash2 size={13}/>Remove
+                  </button>
+                )}
+                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
+              </div>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+                Printed next to the madrasah name at the top of PDF reports. Saved straight away.
               </span>
             </div>
           </div>

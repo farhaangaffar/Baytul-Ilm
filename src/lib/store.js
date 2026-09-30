@@ -261,7 +261,7 @@ export async function deleteTeacher(id) { return apiFetch(`/api/teachers?id=${en
 
 // ── Settings ──
 const DEFAULT_WEEKLY_FEE = 15;
-const DEFAULT_SETTINGS = { schoolName: "Baytul 'Ilm Madrasah", schoolNameArabic: 'بيت العلم', defaultWeeklyFee: DEFAULT_WEEKLY_FEE };
+const DEFAULT_SETTINGS = { schoolName: 'Madrasah', schoolNameArabic: '', defaultWeeklyFee: DEFAULT_WEEKLY_FEE, currencySymbol: '£' };
 export async function getSettings() { const s = await apiFetch('/api/settings'); return { ...DEFAULT_SETTINGS, ...s }; }
 export async function updateSettings(data) { return apiFetch('/api/settings', { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function getDefaultWeeklyFee() { const s = await getSettings(); return s.defaultWeeklyFee ?? DEFAULT_WEEKLY_FEE; }
@@ -303,11 +303,26 @@ export async function exportAllData() {
   // Saved AI monthly summaries (the text behind each student's PDF report) live in
   // their own table, one fetch per student — not covered by anything else above.
   const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
+  // The logo is served separately from the rest of settings — fold it back in as
+  // a data: URL so a restore (which PATCHes settings as-is) brings it back too.
+  if (settings.hasLogo) settings.logo = await fetchLogoDataUrl().catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
     data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries },
   };
 }
+async function fetchLogoDataUrl() {
+  const res = await fetch('/api/settings?logo', { credentials: 'include', cache: 'no-cache' });
+  if (!res.ok) return undefined;
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function importFeesForYear(year, records) {
   for (const f of records) {
     const created = await addFeeRecord({ studentId: f.studentId, weekStarting: f.weekStarting, amount: f.amount }, year);
@@ -316,7 +331,7 @@ async function importFeesForYear(year, records) {
 }
 
 export async function importAllData(payload) {
-  if (!payload?.data) throw new Error("That file doesn't look like a Baytul 'Ilm backup.");
+  if (!payload?.data) throw new Error("That file doesn't look like a backup from this system.");
   const data = payload.data;
 
   // Backups taken before this app had a server (a raw localStorage snapshot, keyed by

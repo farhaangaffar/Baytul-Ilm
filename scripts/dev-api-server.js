@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '2mb' })); // Vercel's own limit is 4.5 MB; the default 100 KB would reject logo uploads
 
 const apiDir = path.join(__dirname, '..', 'api');
 

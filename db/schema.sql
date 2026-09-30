@@ -41,9 +41,11 @@ CREATE TABLE IF NOT EXISTS academic_years (
 
 CREATE TABLE IF NOT EXISTS settings (
   id                  INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  school_name         TEXT NOT NULL DEFAULT 'Baytul ''Ilm Madrasah',
-  school_name_arabic  TEXT NOT NULL DEFAULT 'بيت العلم',
-  default_weekly_fee  NUMERIC(10,2) NOT NULL DEFAULT 15
+  school_name         TEXT NOT NULL DEFAULT 'Madrasah',
+  school_name_arabic  TEXT NOT NULL DEFAULT '',
+  default_weekly_fee  NUMERIC(10,2) NOT NULL DEFAULT 15,
+  currency_symbol     TEXT NOT NULL DEFAULT '£',
+  logo                TEXT  -- data: URL (PNG/JPEG), downsized in the browser before upload
 );
 
 CREATE TABLE IF NOT EXISTS attendance (

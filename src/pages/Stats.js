@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getSchoolMonthRange } from '../lib/store';
 import { CheckSquare, Coins } from 'lucide-react';
+import { money } from '../lib/branding';
 
 // Same first-Monday school-month convention used everywhere else (Attendance/Fees month
 // navigation) — Sept through Aug of the given "YY-YY" year, so these numbers never
@@ -254,9 +255,9 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
-        <div className="stat-card-v2"><div className="n">£{yearRange.billed.toFixed(2)}</div><div className="l">Billed this year</div></div>
-        <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>£{yearRange.outstanding.toFixed(2)}</div><div className="l">Outstanding this year</div></div>
-        <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>£{yearRange.collected.toFixed(2)}</div><div className="l">Collected this year</div></div>
+        <div className="stat-card-v2"><div className="n">{money(yearRange.billed)}</div><div className="l">Billed this year</div></div>
+        <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>{money(yearRange.outstanding)}</div><div className="l">Outstanding this year</div></div>
+        <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{money(yearRange.collected)}</div><div className="l">Collected this year</div></div>
         <div className="stat-card-v2"><div className="n">{yearRange.billed ? Math.round((yearRange.collected / yearRange.billed) * 100) : 0}%</div><div className="l">Collected rate</div></div>
       </div>
 
@@ -270,7 +271,7 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
         <div className="axis-chart-scroll">
           <div className="axis-chart-scroll-inner">
             <div className="axis-chart">
-              <div className="axis-yaxis">{[yMax, yMax * 0.75, yMax * 0.5, yMax * 0.25, 0].map(t => <span key={t}>£{Math.round(t)}</span>)}</div>
+              <div className="axis-yaxis">{[yMax, yMax * 0.75, yMax * 0.5, yMax * 0.25, 0].map(t => <span key={t}>{money(t, 0)}</span>)}</div>
               <div className="axis-plot">
                 <div className="axis-grid"><div /><div /><div /><div /><div /></div>
                 <div className="axis-bars">
@@ -301,9 +302,9 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
               {monthly.map(m => (
                 <tr key={m.ym}>
                   <td style={{ fontWeight: 500 }}>{m.label}</td>
-                  <td className="text-muted">£{m.billed.toFixed(2)}</td>
-                  <td className="text-muted">£{m.outstanding.toFixed(2)}</td>
-                  <td style={{ fontWeight: 600 }}>£{m.collected.toFixed(2)}</td>
+                  <td className="text-muted">{money(m.billed)}</td>
+                  <td className="text-muted">{money(m.outstanding)}</td>
+                  <td style={{ fontWeight: 600 }}>{money(m.collected)}</td>
                 </tr>
               ))}
             </tbody>
@@ -320,9 +321,9 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
               {classRows.map(r => (
                 <tr key={r.name}>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
-                  <td className="text-muted">£{r.billed.toFixed(2)}</td>
-                  <td className="text-muted">£{r.outstanding.toFixed(2)}</td>
-                  <td style={{ fontWeight: 600 }}>£{r.collected.toFixed(2)}</td>
+                  <td className="text-muted">{money(r.billed)}</td>
+                  <td className="text-muted">{money(r.outstanding)}</td>
+                  <td style={{ fontWeight: 600 }}>{money(r.collected)}</td>
                 </tr>
               ))}
             </tbody>
@@ -339,16 +340,16 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
               {yearRows.map(r => (
                 <tr key={r.year}>
                   <td style={{ fontWeight: 500 }}>{r.year}</td>
-                  <td className="text-muted">£{r.billed.toFixed(2)}</td>
-                  <td className="text-muted">£{r.outstanding.toFixed(2)}</td>
-                  <td style={{ fontWeight: 600 }}>£{r.collected.toFixed(2)}</td>
+                  <td className="text-muted">{money(r.billed)}</td>
+                  <td className="text-muted">{money(r.outstanding)}</td>
+                  <td style={{ fontWeight: 600 }}>{money(r.collected)}</td>
                 </tr>
               ))}
               <tr>
                 <td style={{ fontWeight: 600 }}>Average</td>
                 <td></td>
-                <td className="text-muted" style={{ fontWeight: 600 }}>£{avgOutstanding.toFixed(2)}</td>
-                <td style={{ fontWeight: 700 }}>£{avgCollected.toFixed(2)}</td>
+                <td className="text-muted" style={{ fontWeight: 600 }}>{money(avgOutstanding)}</td>
+                <td style={{ fontWeight: 700 }}>{money(avgCollected)}</td>
               </tr>
             </tbody>
           </table>

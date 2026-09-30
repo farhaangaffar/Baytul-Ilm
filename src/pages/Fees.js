@@ -8,6 +8,7 @@ import {
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
+import { money, currencySymbol } from '../lib/branding';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -211,7 +212,7 @@ export default function Fees() {
             Mark week of {formatDayMonthGB(confirmToggle.weekStarting)} as {willBePaid?'paid':'unpaid'}?
           </div>
           <div style={{color:'var(--text-muted)',fontSize:12.5}}>
-            {toggleStudent?`${toggleStudent.forename} ${toggleStudent.surname}`:''} — £{Number(confirmToggle.amount).toFixed(2)} for this week.
+            {toggleStudent?`${toggleStudent.forename} ${toggleStudent.surname}`:''} — {money(Number(confirmToggle.amount))} for this week.
           </div>
         </div>
         <div className="modal-footer" style={{justifyContent:'center'}}>
@@ -244,7 +245,7 @@ export default function Fees() {
             <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14}/> All students</button>
             <div>
               <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
-              <div className="text-muted text-sm">{selected.class} · £{selected.weeklyFee}/wk</div>
+              <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}/wk</div>
             </div>
           </div>
           <div className="nav-arrow-row">
@@ -296,7 +297,7 @@ export default function Fees() {
                 ) : (
                   <div className="day-cal-label" style={{cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}
                     onClick={()=>setEditCell({feeId:f.id,val:String(f.amount)})}>
-                    £{Number(f.amount).toFixed(2)}<Pencil size={9} style={{opacity:.5}}/>
+                    {money(Number(f.amount))}<Pencil size={9} style={{opacity:.5}}/>
                   </div>
                 )}
               </div>
@@ -305,9 +306,9 @@ export default function Fees() {
         </div>
 
         <div className="summary-row-v2">
-          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">£{paid.toFixed(2)}</div><div className="l">Paid</div></div>
-          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">£{owed.toFixed(2)}</div><div className="l">Owed</div></div>
-          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">£{billed.toFixed(2)}</div><div className="l">Billed this month</div></div>
+          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{money(paid)}</div><div className="l">Paid</div></div>
+          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{money(owed)}</div><div className="l">Owed</div></div>
+          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{money(billed)}</div><div className="l">Billed this month</div></div>
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{collectedPct}%</div><div className="l">Collected</div></div>
         </div>
 
@@ -357,16 +358,16 @@ export default function Fees() {
       </div>
 
       <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{totalPaid.toFixed(2)}</div><div className="l">Collected — {activeClass} ({year})</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{totalOwed.toFixed(2)}</div><div className="l">Outstanding ({year})</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(totalPaid)}</div><div className="l">Collected — {activeClass} ({year})</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(totalOwed)}</div><div className="l">Outstanding ({year})</div></div>
         <div className="stat-card-v2"><div className="n">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid records</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.filter(s=>s.status==='Active').length}</div><div className="l">Active students</div></div>
       </div>
 
       <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'-4px 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>This month — {referenceMonthLabel}</div>
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>£{monthTotalPaid.toFixed(2)}</div><div className="l">Collected this month</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>£{monthTotalOwed.toFixed(2)}</div><div className="l">Outstanding this month</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected this month</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding this month</div></div>
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
@@ -397,7 +398,7 @@ export default function Fees() {
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
-              <div className="entity-card-sub" style={{marginBottom:14}}>£{s.weeklyFee}/wk</div>
+              <div className="entity-card-sub" style={{marginBottom:14}}>{currencySymbol()}{s.weeklyFee}/wk</div>
               <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}} onClick={e=>e.stopPropagation()}>
                 <div className="week-pill-row" style={{justifyContent:'center'}}>
                   {schoolMonthWeeks.map(w=>{
@@ -422,7 +423,7 @@ export default function Fees() {
                     );
                   })}
                 </div>
-                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: £{monthPaid.toFixed(2)} paid · £{monthOwed.toFixed(2)} due</span>
+                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: {money(monthPaid)} paid · {money(monthOwed)} due</span>
               </div>
             </div>
           );
