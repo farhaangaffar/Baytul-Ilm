@@ -37,7 +37,7 @@ async function sendImage(res, column) {
   const { rows } = await query(`SELECT ${column} AS img FROM settings WHERE id = 1`);
   const m = /^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(rows[0]?.img || '');
   if (!m) {
-    if (column === 'icon') { res.setHeader('Cache-Control', 'no-cache'); res.redirect(302, '/icons/icon-512.png'); return; }
+    if (column === 'icon') { res.setHeader('Cache-Control', 'no-cache'); res.redirect(302, '/icons/book-512.png'); return; }
     res.status(404).json({ error: 'No logo' }); return;
   }
   res.setHeader('Content-Type', m[1]);
@@ -56,8 +56,8 @@ function manifest(s) {
   const icons = s.hasIcon
     ? ['any', 'maskable'].map(purpose => ({ src: `/api/settings?icon&v=${s.iconVersion}`, sizes: '512x512', type: 'image/png', purpose }))
     : [192, 512].flatMap(size => [
-      { src: `/icons/icon-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any' },
-      { src: `/icons/maskable-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'maskable' },
+      { src: `/icons/book-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any' },
+      { src: `/icons/book-maskable-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'maskable' },
     ]);
   return {
     id: '/',
