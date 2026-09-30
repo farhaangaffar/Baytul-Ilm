@@ -303,11 +303,26 @@ export async function exportAllData() {
   // Saved AI monthly summaries (the text behind each student's PDF report) live in
   // their own table, one fetch per student — not covered by anything else above.
   const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
+  // The logo is served separately from the rest of settings — fold it back in as
+  // a data: URL so a restore (which PATCHes settings as-is) brings it back too.
+  if (settings.hasLogo) settings.logo = await fetchLogoDataUrl().catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
     data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries },
   };
 }
+async function fetchLogoDataUrl() {
+  const res = await fetch('/api/settings?logo', { credentials: 'include', cache: 'no-cache' });
+  if (!res.ok) return undefined;
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function importFeesForYear(year, records) {
   for (const f of records) {
     const created = await addFeeRecord({ studentId: f.studentId, weekStarting: f.weekStarting, amount: f.amount }, year);

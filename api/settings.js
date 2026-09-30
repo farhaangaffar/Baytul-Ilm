@@ -1,12 +1,13 @@
 const { query } = require('./_db');
 const { isAuthed } = require('./_auth');
 
-// currency_symbol was added after the settings table already existed in production —
+// currency_symbol and logo were added after the settings table already existed in production —
 // self-heal once per cold start, same pattern as ai_summaries.behavior in api/ai-summary.js.
 let columnsReady = false;
 async function ensureColumns() {
   if (columnsReady) return;
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS currency_symbol TEXT NOT NULL DEFAULT '£'`);
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo TEXT`);
   columnsReady = true;
 }
 
@@ -14,11 +15,26 @@ async function loadSettings() {
   await ensureColumns();
   const { rows } = await query(
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
-            default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol"
+            default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
+            logo IS NOT NULL AS "hasLogo"
      FROM settings WHERE id = 1`
   );
   const row = rows[0];
   return row ? { ...row, defaultWeeklyFee: Number(row.defaultWeeklyFee) } : {};
+}
+
+// The logo is kept as a data: URL in the settings row (a few hundred KB at most —
+// the browser downsizes it before upload) and served as a real image from here,
+// so the ordinary settings response stays small.
+const LOGO_MAX_CHARS = 1_000_000;
+async function sendLogo(res) {
+  await ensureColumns();
+  const { rows } = await query('SELECT logo FROM settings WHERE id = 1');
+  const m = /^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(rows[0]?.logo || '');
+  if (!m) { res.status(404).json({ error: 'No logo' }); return; }
+  res.setHeader('Content-Type', m[1]);
+  res.setHeader('Cache-Control', 'no-cache');
+  res.status(200).send(Buffer.from(m[2], 'base64'));
 }
 
 // Web app manifest, built from the school's own name so the installed app's
@@ -45,7 +61,8 @@ function manifest(s) {
 module.exports = async (req, res) => {
   if (req.method === 'GET') {
     // The login page and the install manifest are shown before anyone signs in,
-    // so the school's name is public; everything else stays behind the session.
+    // so the school's name (and logo) is public; everything else stays behind the session.
+    if (req.query.logo !== undefined) { await sendLogo(res); return; }
     const s = await loadSettings();
     if (req.query.manifest !== undefined) {
       res.setHeader('Content-Type', 'application/manifest+json');
@@ -53,7 +70,7 @@ module.exports = async (req, res) => {
       return;
     }
     if (!isAuthed(req)) {
-      res.status(200).json({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic });
+      res.status(200).json({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic, hasLogo: s.hasLogo });
       return;
     }
     res.status(200).json(s);
@@ -71,6 +88,12 @@ module.exports = async (req, res) => {
     if (b.schoolNameArabic !== undefined) { values.push(b.schoolNameArabic); sets.push(`school_name_arabic = $${values.length}`); }
     if (b.defaultWeeklyFee !== undefined) { values.push(b.defaultWeeklyFee); sets.push(`default_weekly_fee = $${values.length}`); }
     if (b.currencySymbol !== undefined) { values.push(String(b.currencySymbol).trim().slice(0, 4) || '£'); sets.push(`currency_symbol = $${values.length}`); }
+    if (b.logo !== undefined) {
+      if (b.logo !== null && !(typeof b.logo === 'string' && /^data:image\/(png|jpeg);base64,/.test(b.logo) && b.logo.length <= LOGO_MAX_CHARS)) {
+        res.status(400).json({ error: 'Logo must be a PNG or JPEG under about 700 KB' }); return;
+      }
+      values.push(b.logo); sets.push(`logo = $${values.length}`);
+    }
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
     await query(`UPDATE settings SET ${sets.join(', ')} WHERE id = 1`, values);
     res.status(200).json({ ok: true });

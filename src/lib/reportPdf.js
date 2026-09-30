@@ -1,11 +1,12 @@
 // Generates the student progress report PDF by overlaying dynamic content on
-// top of public/report-template.pdf — the school's actual Canva-designed
-// template, reused as-is rather than redrawn from scratch. Coordinates below
+// top of public/report-template.pdf — a Canva-designed template, reused as-is
+// rather than redrawn from scratch. Its masthead is blanked and redrawn from
+// Settings (school name + optional logo) so the same template serves any madrasah. Coordinates below
 // were measured directly off that PDF (pdftotext -bbox-layout + pixel
 // analysis of a rendered page) and are only valid for that exact file.
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { attendanceCountsForMonth, getCurrentSchoolMonth } from './store';
+import { attendanceCountsForMonth, getCurrentSchoolMonth, getClasses, getTeachers } from './store';
 import { money, getBranding } from './branding';
 
 function fmtDMY(date) {
@@ -62,6 +63,68 @@ async function fetchBytes(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Could not load ${url}`);
   return res.arrayBuffer();
+}
+
+// The school's uploaded logo (Settings), or null if there isn't one.
+async function fetchLogo() {
+  const res = await fetch('/api/settings?logo', { cache: 'no-cache' }).catch(() => null);
+  if (!res || !res.ok) return null;
+  return { bytes: await res.arrayBuffer(), type: res.headers.get('Content-Type') || '' };
+}
+
+// Draws text shrunk (never below minSize) so it fits within maxWidth.
+function fitSize(text, font, size, maxWidth, minSize = 6) {
+  const w = font.widthOfTextAtSize(text, size);
+  return w <= maxWidth ? size : Math.max(minSize, size * (maxWidth / w));
+}
+
+// The template's masthead is left blank (public/report-template.pdf had its
+// original school name removed outright, not just painted over, so no other
+// school's name survives in a report's text layer) — this draws the school's own
+// name there, and its logo alongside when one is uploaded. Matches the original
+// heading: Comfortaa Bold 25pt, baseline y=52.7, tracking −0.016em (Canva's
+// letter-spacing, measured against the original's width), shrinking only if a
+// long name wouldn't fit. An ASCII apostrophe becomes ‘ as in the original ('Ilm).
+const MASTHEAD_TRACKING = -0.016;
+function trackedWidth(text, font, size) {
+  return font.widthOfTextAtSize(text, size) + MASTHEAD_TRACKING * size * Math.max(0, text.length - 1);
+}
+function drawMasthead(page, { name, font, logoImage }) {
+  const text = name.toUpperCase().replace(/'/g, '\u2018');
+  const logoH = 34, gap = 10;
+  const logoW = logoImage ? logoImage.width * (logoH / logoImage.height) : 0;
+  const maxTextW = 500 - (logoImage ? logoW + gap : 0);
+  let size = 25;
+  const fullW = trackedWidth(text, font, size);
+  if (fullW > maxTextW) size = Math.max(12, size * (maxTextW / fullW));
+  const textW = trackedWidth(text, font, size);
+  let x = PAGE_W / 2 - (textW + (logoImage ? logoW + gap : 0)) / 2;
+  if (logoImage) {
+    page.drawImage(logoImage, { x, y: pdfY(58), width: logoW, height: logoH });
+    x += logoW + gap;
+  }
+  for (const ch of text) {
+    page.drawText(ch, { x, y: pdfY(52.67), size, font, color: COLORS.ink });
+    x += font.widthOfTextAtSize(ch, size) + MASTHEAD_TRACKING * size;
+  }
+}
+
+// Class teacher's name for the report's Details grid — the class's assigned
+// teacher (Classes & Teachers page). Cached briefly so "download all" doesn't
+// refetch classes/teachers once per student.
+let teacherLookup = null;
+async function classTeacherName(className) {
+  if (!teacherLookup || Date.now() - teacherLookup.at > 60_000) {
+    teacherLookup = { at: Date.now(), promise: Promise.all([getClasses(), getTeachers()]) };
+  }
+  try {
+    const [classes, teachers] = await teacherLookup.promise;
+    const cls = classes.find(c => c.name === className);
+    return teachers.find(t => t.id === cls?.teacherId)?.name || '';
+  } catch {
+    teacherLookup = null;
+    return '';
+  }
 }
 
 function centerText(page, text, font, size, cx, yTop, color, pageTop = MEDIABOX_TOP) {
@@ -212,12 +275,13 @@ function drawFlowingText(doc, lines, { firstPage, firstPageTop, x, startTop, lim
   }
 }
 
-export async function generateReportPdfBytes({ student, counts, feeTotals, monthLabel, aiSummary, behavior, reportDate }) {
-  const [templateBytes, comfortaaReg, comfortaaSemi, comfortaaBold] = await Promise.all([
+export async function generateReportPdfBytes({ student, counts, feeTotals, monthLabel, aiSummary, behavior, reportDate, teacherName = '' }) {
+  const [templateBytes, comfortaaReg, comfortaaSemi, comfortaaBold, logo] = await Promise.all([
     fetchBytes('/report-template.pdf'),
     fetchBytes('/fonts/Comfortaa-Regular.ttf'),
     fetchBytes('/fonts/Comfortaa-SemiBold.ttf'),
     fetchBytes('/fonts/Comfortaa-Bold.ttf'),
+    fetchLogo(),
   ]);
 
   const doc = await PDFDocument.load(templateBytes);
@@ -228,6 +292,13 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
 
   const page = doc.getPage(0);
 
+  let logoImage = null;
+  if (logo) {
+    try { logoImage = logo.type.includes('jpeg') ? await doc.embedJpg(logo.bytes) : await doc.embedPng(logo.bytes); }
+    catch { logoImage = null; } // an unreadable logo shouldn't block the report
+  }
+  drawMasthead(page, { name: getBranding().schoolName, font: numFont, logoImage });
+
   // Subtitle under the masthead, in the gap before the "Details" band.
   centerText(page, `Student Progress Report · ${monthLabel}`, regular, 8, PAGE_W / 2, 64, COLORS.muted);
 
@@ -237,7 +308,8 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
   // that value is nudged up rather than used directly.
   const valueSize = 10;
   page.drawText(`${student.forename} ${student.surname}`, { x: 141, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
-  page.drawText('Shaikh Farhaan', { x: 434, y: pdfY(121.5), size: valueSize, font: regular, color: COLORS.ink });
+  const teacher = teacherName || '—';
+  page.drawText(teacher, { x: 434, y: pdfY(121.5), size: fitSize(teacher, regular, valueSize, 118), font: regular, color: COLORS.ink });
   page.drawText(student.class || '—', { x: 85, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
   page.drawText(fmtDMY(reportDate), { x: 338, y: pdfY(153.0), size: valueSize, font: regular, color: COLORS.ink });
 
@@ -293,10 +365,9 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
     makeContinuationPage: () => newContinuationPage(doc, { semibold, regular }, `${student.forename} ${student.surname}`, reportDate),
   });
 
-  // Footer date — the template ships with a sample date baked in; cover just
-  // the white gap above the band (768–781, well short of the band's own top
-  // border at ~781.4) so that border line is left untouched, then fill the
-  // band itself exactly to its border coordinates (measured off the template).
+  // Footer band — the template's sample footer text has been removed; the
+  // gap above the band (768–781, short of its top border at ~781.4) and the
+  // band itself are still repainted to their measured border coordinates.
   page.drawRectangle({ x: 40.3, y: pdfY(781.0), width: 518.9, height: 781.0 - 768, color: COLORS.white });
   page.drawRectangle({ x: 40.3, y: pdfY(810.24), width: 518.9, height: 810.24 - 782.4, color: COLORS.gray });
   // The template's own border around this box is inconsistent — its right
@@ -330,5 +401,6 @@ export async function buildReportBytes(student, attendance, fees, { summary, beh
   const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= monthRange.start && f.weekStarting < monthRange.endExclusive);
   const billed = monthFees.reduce((s, f) => s + Number(f.amount), 0);
   const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
-  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: monthRange.label, aiSummary: summary, behavior, reportDate });
+  const teacherName = await classTeacherName(student.class);
+  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: monthRange.label, aiSummary: summary, behavior, reportDate, teacherName });
 }

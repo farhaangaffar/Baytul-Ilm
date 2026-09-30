@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS settings (
   school_name         TEXT NOT NULL DEFAULT 'Madrasah',
   school_name_arabic  TEXT NOT NULL DEFAULT '',
   default_weekly_fee  NUMERIC(10,2) NOT NULL DEFAULT 15,
-  currency_symbol     TEXT NOT NULL DEFAULT '£'
+  currency_symbol     TEXT NOT NULL DEFAULT '£',
+  logo                TEXT  -- data: URL (PNG/JPEG), downsized in the browser before upload
 );
 
 CREATE TABLE IF NOT EXISTS attendance (
