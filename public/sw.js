@@ -3,7 +3,10 @@
 // /api/ requests always go straight to the network, so nobody sees stale fees or
 // attendance, and nothing about students is left on the device.
 
-const CACHE = 'madrasah-shell-v1';
+// Bumping this name makes the next activation delete every older cache. v1
+// cached /icons/ cache-first under fixed filenames, so devices kept showing an
+// icon after it was replaced — icons are no longer cached here at all.
+const CACHE = 'madrasah-shell-v2';
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(c => c.add('/')).then(() => self.skipWaiting()));
@@ -35,9 +38,10 @@ self.addEventListener('fetch', event => {
   }
 
   // Build assets (content-hashed filenames, so a cached copy is never stale),
-  // icons, fonts and Google Fonts: cache first, fill the cache on first use.
+  // fonts and Google Fonts: cache first, fill the cache on first use. Icons are
+  // left to the network — they can change under the same URL.
   const cacheable =
-    (url.origin === self.location.origin && /^\/(static|icons|fonts)\//.test(url.pathname)) ||
+    (url.origin === self.location.origin && /^\/(static|fonts)\//.test(url.pathname)) ||
     url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (!cacheable) return;
   event.respondWith(
