@@ -1,5 +1,5 @@
-const { query } = require('./_db');
-const { requireAuth } = require('./_auth');
+const { query } = require('../db');
+const { requireAuth } = require('../auth');
 
 // Single flat file, dispatching on ?id= for item ops — see students.js for why.
 module.exports = requireAuth(async (req, res) => {

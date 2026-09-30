@@ -1,5 +1,5 @@
-const { query } = require('./_db');
-const { isAuthed } = require('./_auth');
+const { query } = require('../db');
+const { isAuthed } = require('../auth');
 
 // currency_symbol, logo and icon were added after the settings table already existed in production —
 // self-heal once per cold start, same pattern as ai_summaries.behavior in api/ai-summary.js.
@@ -47,7 +47,7 @@ async function sendImage(res, column) {
 
 // Web app manifest, built from the school's own name so the installed app's
 // home-screen label matches whichever madrasah this deployment belongs to.
-// Served from here rather than a new api/ file — the Hobby plan's 12-function cap.
+// Served from here as an action on the settings route rather than a route of its own.
 function manifest(s) {
   const name = s.schoolName || 'Madrasah';
   // An uploaded icon is one 512px PNG with the logo inside the maskable safe zone,

@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/" }]
+  "rewrites": [
+    { "source": "/api/:route", "destination": "/api/router?route=:route" },
+    { "source": "/((?!api/).*)", "destination": "/" }
+  ]
 }

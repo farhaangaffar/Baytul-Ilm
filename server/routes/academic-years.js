@@ -1,5 +1,5 @@
-const { query } = require('./_db');
-const { requireAuth } = require('./_auth');
+const { query } = require('../db');
+const { requireAuth } = require('../auth');
 
 // Single flat file, dispatching on ?year= for item ops — Vercel's file-based
 // /api routing only reliably supports plain files and single [id] segments
