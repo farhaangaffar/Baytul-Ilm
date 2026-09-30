@@ -261,7 +261,7 @@ export async function deleteTeacher(id) { return apiFetch(`/api/teachers?id=${en
 
 // ── Settings ──
 const DEFAULT_WEEKLY_FEE = 15;
-const DEFAULT_SETTINGS = { schoolName: "Baytul 'Ilm Madrasah", schoolNameArabic: 'بيت العلم', defaultWeeklyFee: DEFAULT_WEEKLY_FEE };
+const DEFAULT_SETTINGS = { schoolName: 'Madrasah', schoolNameArabic: '', defaultWeeklyFee: DEFAULT_WEEKLY_FEE, currencySymbol: '£' };
 export async function getSettings() { const s = await apiFetch('/api/settings'); return { ...DEFAULT_SETTINGS, ...s }; }
 export async function updateSettings(data) { return apiFetch('/api/settings', { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function getDefaultWeeklyFee() { const s = await getSettings(); return s.defaultWeeklyFee ?? DEFAULT_WEEKLY_FEE; }
@@ -316,7 +316,7 @@ async function importFeesForYear(year, records) {
 }
 
 export async function importAllData(payload) {
-  if (!payload?.data) throw new Error("That file doesn't look like a Baytul 'Ilm backup.");
+  if (!payload?.data) throw new Error("That file doesn't look like a backup from this system.");
   const data = payload.data;
 
   // Backups taken before this app had a server (a raw localStorage snapshot, keyed by

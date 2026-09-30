@@ -3,6 +3,9 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData } from '../lib/store';
 import { Save, Plus, Trash2, X, Download, Upload } from 'lucide-react';
+import { setBranding } from '../lib/branding';
+
+const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
@@ -38,6 +41,7 @@ export default function Settings() {
     setSaving(true);
     try {
       await updateSettings(form);
+      setBranding(form);
       showToast('Settings saved');
       setTimeout(()=>window.location.reload(),600);
     } catch (err) {
@@ -84,7 +88,7 @@ export default function Settings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `baytul-ilm-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.download = `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-backup-${new Date().toISOString().slice(0,10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -142,12 +146,29 @@ export default function Settings() {
               <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
             </div>
             <div className="form-group">
-              <label>Default weekly fee (£)</label>
+              <label>Default weekly fee ({form.currencySymbol || '£'})</label>
               <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
                 onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
                 style={{maxWidth:160}}/>
               <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
                 Used when enrolling new students. Can be changed per student.
+              </span>
+            </div>
+            <div className="form-group">
+              <label>Currency symbol</label>
+              <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
+                onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}
+                style={{maxWidth:160}}>
+                {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+                <option value="other">Other…</option>
+              </select>
+              {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
+                <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
+                  onChange={e=>setForm({...form,currencySymbol:e.target.value})}
+                  style={{maxWidth:160,marginTop:6}}/>
+              )}
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+                Shown on fees, stats and PDF reports.
               </span>
             </div>
           </div>

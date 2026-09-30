@@ -4,6 +4,7 @@ import { Sparkles, X, Send } from 'lucide-react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi, formatDateGB, formatDayMonthGB } from '../lib/store';
+import { money } from '../lib/branding';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -128,7 +129,7 @@ export default function Dashboard() {
           <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>navigate('/attendance')}>View all →</div>
         </div>
         <div className="stat-card-v2">
-          <div className="n">£{monthOutstanding.toFixed(2)}</div>
+          <div className="n">{money(monthOutstanding)}</div>
           <div className="l">Outstanding this month</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/fees')}>View all →</div>
         </div>
@@ -151,14 +152,14 @@ export default function Dashboard() {
 
         <div className="card ring-card">
           <div className="card-title">Fees — {schoolMonth.label}</div>
-          <div className="card-sub">£{monthBilled.toFixed(2)} due this month</div>
+          <div className="card-sub">{money(monthBilled)} due this month</div>
           <div className="ring-wrap">
             <div className="ring" style={{background:`conic-gradient(var(--blue) 0% ${monthCollectedPct}%, #eef0f4 ${monthCollectedPct}% 100%)`}}/>
             <div className="ring-inner"><div className="n">{monthCollectedPct}%</div><div className="l">Collected</div></div>
           </div>
           <div className="ring-breakdown">
-            <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: £{monthCollected.toFixed(2)}</span>
-            <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: £{monthOutstanding.toFixed(2)}</span>
+            <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: {money(monthCollected)}</span>
+            <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: {money(monthOutstanding)}</span>
           </div>
         </div>
       </div>

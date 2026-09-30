@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
-import { login } from '../lib/store';
+import React, { useState, useEffect } from 'react';
+import { login, getSettings } from '../lib/store';
+import { getBranding, setBranding } from '../lib/branding';
 import { LogIn } from 'lucide-react';
 
 export default function Login({ onSuccess }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [branding, setBrandingState] = useState(getBranding());
+
+  // The school's name is public (api/settings serves it before sign-in), so the
+  // login screen shows whichever madrasah this deployment belongs to.
+  useEffect(() => {
+    getSettings().then(s => { setBranding({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic }); setBrandingState(getBranding()); }).catch(() => {});
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -24,8 +32,8 @@ export default function Login({ onSuccess }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
       <div className="card" style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>بيت العلم</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Baytul 'Ilm Madrasah</div>
+        {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
         <form onSubmit={submit}>
           <div className="form-group" style={{ textAlign: 'left', marginBottom: 16 }}>
             <label>Password</label>

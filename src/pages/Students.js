@@ -7,6 +7,7 @@ import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { money, currencySymbol } from '../lib/branding';
 
 const WAITING_LIST = 'Waiting list';
 
@@ -195,8 +196,8 @@ export default function Students() {
       <div className="stat-grid-v2">
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active students</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
-        <div className="stat-card-v2"><div className="n">£{collected.toFixed(2)}</div><div className="l">Fees collected</div></div>
-        <div className="stat-card-v2"><div className="n">£{owed.toFixed(2)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">{money(collected)}</div><div className="l">Fees collected</div></div>
+        <div className="stat-card-v2"><div className="n">{money(owed)}</div><div className="l">Outstanding</div></div>
       </div>
 
       <div className="students-toolbar flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
@@ -262,7 +263,7 @@ export default function Students() {
                     <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
                       <div style={{minWidth:0}}>
                         <div className="student-compact-name">{s.forename} {s.surname}</div>
-                        <div className="student-compact-sub">£{s.weeklyFee}/wk · {fmtDob(s.dob)}</div>
+                        <div className="student-compact-sub">{currencySymbol()}{s.weeklyFee}/wk · {fmtDob(s.dob)}</div>
                       </div>
                       {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                     </div>
@@ -309,11 +310,11 @@ export default function Students() {
                       {/* Fees + records — all-time totals, spanning every academic year */}
                       <div style={{display:'flex',gap:8,fontSize:12}}>
                         <div style={{flex:1,background:'var(--green-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                          <div style={{fontWeight:700,color:'var(--green-text)',fontSize:14}}>£{t.paid.toFixed(2)}</div>
+                          <div style={{fontWeight:700,color:'var(--green-text)',fontSize:14}}>{money(t.paid)}</div>
                           <div style={{color:'var(--green-text)',fontSize:10}}>Paid</div>
                         </div>
                         <div style={{flex:1,background:'var(--red-light)',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
-                          <div style={{fontWeight:700,color:'var(--red-text)',fontSize:14}}>£{t.owed.toFixed(2)}</div>
+                          <div style={{fontWeight:700,color:'var(--red-text)',fontSize:14}}>{money(t.owed)}</div>
                           <div style={{color:'var(--red-text)',fontSize:10}}>Owed</div>
                         </div>
                         <div style={{flex:1,background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'6px 10px',textAlign:'center'}}>
@@ -350,15 +351,15 @@ export default function Students() {
                     ['Date of birth',formatDateGB(selected.dob)],
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
-                    ['Weekly fee',`£${selected.weeklyFee}/wk`],
+                    ['Weekly fee',`${currencySymbol()}${selected.weeklyFee}/wk`],
                     ['Status',selected.status],
                     // Extra history rows only for a left student — their attendance/fees
                     // totals below are already all-time, so the fuller picture (paid,
                     // owed, daily records) lives here too rather than only as pills.
                     ...(selected.status==='Inactive'?[
                       ['Left',selected.leaveDate?formatDateGB(selected.leaveDate):'—'],
-                      ['Fees paid (all time)',`£${(leftTotals[selected.id]?.paid||0).toFixed(2)}`],
-                      ['Fees owed (all time)',`£${(leftTotals[selected.id]?.owed||0).toFixed(2)}`],
+                      ['Fees paid (all time)',`${money((leftTotals[selected.id]?.paid||0))}`],
+                      ['Fees owed (all time)',`${money((leftTotals[selected.id]?.owed||0))}`],
                       ['Daily records',leftTotals[selected.id]?.recordsCount||0],
                     ]:[]),
                   ].map(([l,v])=>(
@@ -482,7 +483,7 @@ export default function Students() {
                     <option value={WAITING_LIST}>{WAITING_LIST}</option>
                   </select>
                 </div>
-                <div className="form-group"><label>Weekly fee (£)</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
+                <div className="form-group"><label>Weekly fee ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
               </div>
               <div className="form-group"><label>Notes</label><textarea rows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})} style={{resize:'vertical'}}/></div>
             </div>
@@ -520,7 +521,7 @@ export default function Students() {
               <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red-text)"/></div>
               <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Cancel remaining unpaid weeks?</div>
               <div style={{color:'var(--text-muted)',fontSize:13}}>
-                {confirmCancelFees.name} has {confirmCancelFees.count} unpaid week{confirmCancelFees.count!==1?'s':''} (£{confirmCancelFees.amount.toFixed(2)}) from {formatDateGB(confirmCancelFees.fromDate)} onward.
+                {confirmCancelFees.name} has {confirmCancelFees.count} unpaid week{confirmCancelFees.count!==1?'s':''} ({money(confirmCancelFees.amount)}) from {formatDateGB(confirmCancelFees.fromDate)} onward.
                 <br/><span style={{fontSize:12}}>Already-paid weeks won't be touched. This cannot be undone.</span>
               </div>
             </div>

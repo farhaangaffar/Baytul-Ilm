@@ -1,4 +1,4 @@
-# Al-Noor Madrasah Management System
+# Madrasah Management System
 
 A full student management system for madrasahs, deployable for free on Vercel.
 
@@ -12,6 +12,8 @@ A full student management system for madrasahs, deployable for free on Vercel.
 - **Fees** — Track paid / pending / overdue fees, mark payments
 - **Courses** — Course catalogue with teachers and schedules
 - **Progress Reports** — Preview and download PDF reports per student (or all at once)
+
+- **Installable app** — on a phone use *Share → Add to Home Screen* (iPhone) or *Install app* (Android/Chrome); on Windows use the install icon in Chrome/Edge's address bar. The school's name and currency are set in **Settings**.
 
 ---
 

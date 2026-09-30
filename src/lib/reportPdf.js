@@ -6,6 +6,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { attendanceCountsForMonth, getCurrentSchoolMonth } from './store';
+import { money, getBranding } from './branding';
 
 function fmtDMY(date) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -190,7 +191,7 @@ function newContinuationPage(doc, fonts, studentLabel, reportDate) {
 
   const footBandTop = PAGE_H - 60, footBandH = 28;
   page.drawRectangle({ x: 41, y: pdfY(footBandTop + footBandH, PAGE_H), width: 517, height: footBandH, color: COLORS.gray });
-  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${fmtDMY(reportDate)}`,
+  centerText(page, `${getBranding().schoolName} · Confidential · ${fmtDMY(reportDate)}`,
     fonts.regular, 9, PAGE_W / 2, footBandTop + footBandH - 11, COLORS.muted, PAGE_H);
 
   return { page, pageTop: PAGE_H, contentTop: bandTop + bandH + 20, contentBottom: footBandTop - 15 };
@@ -273,8 +274,8 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
     ],
     centerPct: collectedPct, centerLabel: 'Collected',
     legendItems: [
-      { text: `Collected: £${collected.toFixed(2)}`, color: COLORS.blue },
-      { text: `Outstanding: £${outstanding.toFixed(2)}`, color: COLORS.textSoft },
+      { text: `Collected: ${money(collected)}`, color: COLORS.blue },
+      { text: `Outstanding: ${money(outstanding)}`, color: COLORS.textSoft },
     ],
     fonts,
   });
@@ -303,7 +304,7 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
   // quirk present even in the untouched source file). Redraw a uniform
   // stroke over it rather than leave that asymmetry visible.
   page.drawRectangle({ x: 40.3, y: pdfY(810.4), width: 518.9, height: 810.4 - 781.3, borderColor: COLORS.ink, borderWidth: 0.9 });
-  centerText(page, `Baytul 'Ilm Madrasah · Confidential · ${fmtDMY(reportDate)}`,
+  centerText(page, `${getBranding().schoolName} · Confidential · ${fmtDMY(reportDate)}`,
     regular, 9, PAGE_W / 2, 799, COLORS.muted);
 
   return doc.save();

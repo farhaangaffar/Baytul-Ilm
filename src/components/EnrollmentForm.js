@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, BookOpen, ChevronRight, CheckCircle } from 'lucide-react';
 import { addStudent, getClassNames, getDefaultWeeklyFee } from '../lib/store';
+import { currencySymbol } from '../lib/branding';
 
 function emptyForm(defaultWeeklyFee) {
   return {
@@ -127,7 +128,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                 {saved?.class === 'Waiting list' ? (
                   <>{saved?.forename} {saved?.surname} has been added to the <strong>waiting list</strong>.</>
                 ) : (
-                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at £{saved?.weeklyFee}/week.</>
+                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at {currencySymbol()}{saved?.weeklyFee}/week.</>
                 )}
               </div>
               <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-md)', padding: '12px 16px', textAlign: 'left', fontSize: 12, color: 'var(--text-muted)' }}>
@@ -166,7 +167,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
               <div className="form-section-title"><BookOpen size={14} />Class & fees</div>
               <div className="form-grid form-grid-2" style={{ marginTop: 14 }}>
                 {field('Class', 'class', 'text', true, [...classNames, 'Waiting list'])}
-                {field('Weekly fee (£)', 'weeklyFee', 'number', true)}
+                {field(`Weekly fee (${currencySymbol()})`, 'weeklyFee', 'number', true)}
               </div>
               {form.class === 'Waiting list' && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
