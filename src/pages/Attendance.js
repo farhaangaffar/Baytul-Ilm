@@ -64,9 +64,9 @@ export default function Attendance() {
   async function mark(studentId, date, status) {
     const cur = attData[studentId]?.[date]||null;
     const next = cur===status ? null : status;
-    const s = students.find(s=>s.id===studentId);
+    // No "saved" message — the card's colour change is the confirmation; only
+    // failures get a message.
     setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: next } }));
-    showToast(`${s?.forename} ${s?.surname} — ${next?STATUS_LABELS[next]:'Cleared'}`);
     try {
       await setAttendance(studentId, date, next, year);
     } catch (err) {

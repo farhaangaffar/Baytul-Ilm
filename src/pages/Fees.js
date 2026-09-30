@@ -95,7 +95,6 @@ export default function Fees() {
     try {
       if (wasPaid) await markFeeUnpaid(fee.id,year);
       else await markFeePaid(fee.id,year);
-      showToast(wasPaid?'Marked as unpaid':'Marked as paid');
       setConfirmToggle(null);
     } catch (err) {
       setFees(prev => prev.map(f => f.id===fee.id ? { ...f, status: fee.status, paidDate: fee.paidDate } : f));
