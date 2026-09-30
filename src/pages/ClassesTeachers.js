@@ -37,8 +37,10 @@ export default function ClassesTeachers() {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500); }
 
+  // Students who have left keep their last class, so they're excluded here the
+  // same way the Students roster excludes them.
   function studentCountForClass(name) {
-    return students.filter(s => s.class === name).length;
+    return students.filter(s => s.class === name && s.status !== 'Inactive').length;
   }
   function teacherName(id) {
     if (!id) return 'Unassigned';
