@@ -1,8 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
+import { useInstallPrompt } from '../lib/installPrompt';
 
 const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
@@ -27,6 +28,7 @@ export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const settings = useSettings();
+  const installPrompt = useInstallPrompt();
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 
@@ -69,6 +71,11 @@ export default function Layout({ children, title, subtitle }) {
             );
           })}
         </nav>
+        {installPrompt.available && (
+          <button className="nav-link" onClick={installPrompt.install}>
+            <Download size={16}/><span>Install app</span>
+          </button>
+        )}
         <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}}>
           <LogOut size={16}/><span>Log out</span>
         </button>
@@ -79,9 +86,16 @@ export default function Layout({ children, title, subtitle }) {
             <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
           </div>
           <span className="mobile-topbar-title">{title}</span>
-          <button className="mobile-topbar-logout" onClick={handleLogout} aria-label="Log out">
-            <LogOut size={18}/>
-          </button>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            {installPrompt.available && (
+              <button className="mobile-topbar-logout" onClick={installPrompt.install} aria-label="Install app" title="Install app">
+                <Download size={18}/>
+              </button>
+            )}
+            <button className="mobile-topbar-logout" onClick={handleLogout} aria-label="Log out">
+              <LogOut size={18}/>
+            </button>
+          </div>
         </div>
         <div className="mobile-chips-wrap">
           <div className="mobile-chips" ref={chipsRowRef} onScroll={e => { savedChipScroll = e.currentTarget.scrollLeft; }}>

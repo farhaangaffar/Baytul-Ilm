@@ -7,21 +7,34 @@ import { setBranding } from '../lib/branding';
 
 const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
 
-// Downsizes an uploaded logo in the browser (longest side ≤ 400px) before it's
-// stored — plenty for the PDF report's 34pt-high masthead, and keeps the saved
-// image to a few hundred KB whatever size the original photo/scan was.
-function resizeLogo(file) {
+// Builds both images from an uploaded logo, in the browser:
+//  - logo: downsized (longest side ≤ 400px) — plenty for the PDF report's
+//    34pt-high masthead, and a few hundred KB whatever size the original was;
+//  - icon: a 512px square app icon (home screen, browser tab) with the logo on
+//    white inside the central 76%, the safe zone phones keep when they crop
+//    icons into circles/rounded squares.
+function logoImages(blob) {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(blob);
     const img = new window.Image();
     img.onload = () => {
       const scale = Math.min(1, 400 / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const logo = document.createElement('canvas');
+      logo.width = Math.round(img.width * scale);
+      logo.height = Math.round(img.height * scale);
+      logo.getContext('2d').drawImage(img, 0, 0, logo.width, logo.height);
+
+      const icon = document.createElement('canvas');
+      icon.width = icon.height = 512;
+      const ctx = icon.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 512, 512);
+      const fit = (512 * 0.76) / Math.max(img.width, img.height);
+      const w = img.width * fit, h = img.height * fit;
+      ctx.drawImage(img, (512 - w) / 2, (512 - h) / 2, w, h);
+
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/png'));
+      resolve({ logo: logo.toDataURL('image/png'), icon: icon.toDataURL('image/png') });
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't read that image — try a PNG or JPG.")); };
     img.src = url;
@@ -51,6 +64,15 @@ export default function Settings() {
     try {
       const [settingsData, yearsData] = await Promise.all([getSettings(), getAcademicYears()]);
       setForm(settingsData); setYears(yearsData);
+      // Logos uploaded before app icons were generated from them — build the
+      // missing icon once, quietly, so the installed app picks up the logo too.
+      if (settingsData.hasLogo && !settingsData.hasIcon) {
+        fetch('/api/settings?logo', { credentials: 'include' })
+          .then(r => (r.ok ? r.blob() : Promise.reject()))
+          .then(logoImages)
+          .then(({ icon }) => updateSettings({ icon }))
+          .catch(() => {});
+      }
     } catch (err) {
       setError(err);
     }
@@ -80,7 +102,7 @@ export default function Settings() {
     if (!file) return;
     setLogoBusy(true);
     try {
-      await updateSettings({ logo: await resizeLogo(file) });
+      await updateSettings(await logoImages(file));
       setForm(f => ({ ...f, hasLogo: true }));
       setLogoVersion(v => v + 1);
       showToast('Logo saved');
@@ -93,7 +115,7 @@ export default function Settings() {
   async function removeLogo() {
     setLogoBusy(true);
     try {
-      await updateSettings({ logo: null });
+      await updateSettings({ logo: null, icon: null });
       setForm(f => ({ ...f, hasLogo: false }));
       showToast('Logo removed');
     } catch (err) {
@@ -242,7 +264,7 @@ export default function Settings() {
                 <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
               </div>
               <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Printed next to the madrasah name at the top of PDF reports. Saved straight away.
+                Printed next to the madrasah name on PDF reports, and used as the app's icon. Saved straight away.
               </span>
             </div>
           </div>

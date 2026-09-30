@@ -303,16 +303,17 @@ export async function exportAllData() {
   // Saved AI monthly summaries (the text behind each student's PDF report) live in
   // their own table, one fetch per student — not covered by anything else above.
   const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
-  // The logo is served separately from the rest of settings — fold it back in as
-  // a data: URL so a restore (which PATCHes settings as-is) brings it back too.
-  if (settings.hasLogo) settings.logo = await fetchLogoDataUrl().catch(() => undefined);
+  // The logo and app icon are served separately from the rest of settings — fold
+  // them back in as data: URLs so a restore (which PATCHes settings as-is) brings them back too.
+  if (settings.hasLogo) settings.logo = await fetchImageDataUrl('logo').catch(() => undefined);
+  if (settings.hasIcon) settings.icon = await fetchImageDataUrl('icon').catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
     data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries },
   };
 }
-async function fetchLogoDataUrl() {
-  const res = await fetch('/api/settings?logo', { credentials: 'include', cache: 'no-cache' });
+async function fetchImageDataUrl(which) {
+  const res = await fetch(`/api/settings?${which}`, { credentials: 'include', cache: 'no-cache' });
   if (!res.ok) return undefined;
   const blob = await res.blob();
   return new Promise((resolve, reject) => {

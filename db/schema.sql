@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS settings (
   school_name_arabic  TEXT NOT NULL DEFAULT '',
   default_weekly_fee  NUMERIC(10,2) NOT NULL DEFAULT 15,
   currency_symbol     TEXT NOT NULL DEFAULT '£',
-  logo                TEXT  -- data: URL (PNG/JPEG), downsized in the browser before upload
+  logo                TEXT, -- data: URL (PNG/JPEG), downsized in the browser before upload
+  icon                TEXT  -- data: URL, 512px square app icon built from the logo
 );
 
 CREATE TABLE IF NOT EXISTS attendance (
