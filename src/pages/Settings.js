@@ -266,15 +266,14 @@ export default function Settings() {
           <div className="form-group">
             <label>Currency symbol</label>
             <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
-              onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}
-              style={{maxWidth:160}}>
+              onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}>
               {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
               <option value="other">Other…</option>
             </select>
             {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
               <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
                 onChange={e=>setForm({...form,currencySymbol:e.target.value})}
-                style={{maxWidth:160,marginTop:6}}/>
+                style={{marginTop:6}}/>
             )}
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
               Shown on fees, stats and PDF reports.

@@ -331,6 +331,8 @@ tbody tr:hover td { background: #f9fafb; }
 .school-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .school-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .school-grid { grid-template-columns: minmax(0, 1fr); } }
+/* Same height for every box (the Arabic name's font would otherwise make its box taller) */
+.school-grid input:not([type="file"]), .school-grid select { height: 38px; box-sizing: border-box; }
 .form-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .form-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; }
 .form-group input, .form-group select, .form-group textarea { padding: 10px 14px; border: none; border-radius: var(--r-md); font-size: 13px; font-family: var(--font); color: var(--text); background: #f9fafb; transition: box-shadow 0.15s, background 0.15s; outline: none; }
