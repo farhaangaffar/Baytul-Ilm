@@ -247,14 +247,18 @@ export default function Settings() {
   if (loading) return <Layout title="Settings"><LoadingState /></Layout>;
   if (error) return <Layout title="Settings"><ErrorState error={error} onRetry={load} /></Layout>;
 
+  const showTerms = years.length > 0 && (savedFrequency === 'termly' || savedReportPeriod === 'termly');
+
   return (
     <Layout title="Settings" subtitle="School details, academic years and defaults">
-      <div className="grid-2" style={{alignItems:'flex-start'}}>
+      {/* School details and Terms side by side. Terms only exists when fees or reports are
+          termly; without it, School details takes the full width with its fields in two columns. */}
+      <div className={showTerms ? 'grid-2' : ''} style={{alignItems:'flex-start'}}>
 
         {/* School details */}
         <div className="card">
           <div className="card-title" style={{marginBottom:18}}>School details</div>
-          <div className="form-grid">
+          <div className={showTerms ? 'form-grid' : 'form-grid form-grid-2'}>
             <div className="form-group">
               <label>Madrasah name (English)</label>
               <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}/>
@@ -272,7 +276,7 @@ export default function Settings() {
               </select>
               <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
               {savedFrequency === 'termly' && (
-                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section below.</span>
+                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section.</span>
               )}
             </div>
             <div className="form-group">
@@ -337,52 +341,53 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Academic years */}
-        <div className="card">
-          <div className="card-title" style={{marginBottom:6}}>Academic years</div>
-          <div className="card-sub" style={{marginBottom:16}}>
-            Attendance and fee data is stored separately per year. Add new years here — they appear in the switcher on Attendance and Fees pages.
-          </div>
+        {/* Terms */}
+        {showTerms && <TermsCard years={years} defaultYear={currentYear} highlight flush />}
+      </div>
 
-          {/* Existing years */}
-          <div style={{marginBottom:16}}>
-            {years.map(y=>(
-              <div key={y} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderRadius:'var(--r-md)',background:'#f9fafb',marginBottom:6,border:'1px solid var(--border)'}}>
-                <div style={{fontWeight:600,fontSize:14}}>{y}</div>
-                <button
-                  className="btn btn-icon btn-sm"
-                  style={{color:'var(--red)'}}
-                  onClick={()=>years.length>1?setConfirmDel(y):showToast('Must have at least one year')}
-                  title="Remove year"
-                >
-                  <Trash2 size={13}/>
-                </button>
-              </div>
-            ))}
+      {/* Academic years — rarely changed, so a slim full-width strip */}
+      <div className="card" style={{marginTop:16}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+          <div style={{flex:'1 1 280px',minWidth:0}}>
+            <div className="card-title" style={{marginBottom:4}}>Academic years</div>
+            <div className="card-sub" style={{marginBottom:12}}>
+              Attendance and fee data is stored separately per year. New years appear in the switcher on Attendance and Fees.
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {years.map(y=>(
+                <div key={y} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 4px 4px 12px',borderRadius:999,background:'#f9fafb',border:'1px solid var(--border)'}}>
+                  <span style={{fontWeight:600,fontSize:13}}>{y}</span>
+                  <button
+                    className="btn btn-icon btn-sm"
+                    style={{color:'var(--red)',padding:4}}
+                    onClick={()=>years.length>1?setConfirmDel(y):showToast('Must have at least one year')}
+                    title={`Remove ${y}`}
+                  >
+                    <Trash2 size={12}/>
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-
-          {/* Add new year */}
-          <div className="form-section-title" style={{marginBottom:12}}><Plus size={13}/>Add academic year</div>
-          <div className="flex items-center gap-2" style={{marginBottom:6,flexWrap:'wrap'}}>
-            <input
-              value={newYear}
-              onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
-              placeholder="e.g. 2026-27"
-              onKeyDown={e=>e.key==='Enter'&&addYear()}
-              style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
-            />
-            <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add</button>
-          </div>
-          {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:2}}>{yearError}</div>}
-          <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>
-            Format: <strong>2026-27</strong> or <strong>26-27</strong>
+          <div style={{flex:'0 1 300px',minWidth:0}}>
+            <div className="flex items-center gap-2">
+              <input
+                value={newYear}
+                onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
+                placeholder="e.g. 2026-27"
+                onKeyDown={e=>e.key==='Enter'&&addYear()}
+                aria-label="New academic year"
+                style={{flex:1,minWidth:0,padding:'9px 14px',border:'none',outline:'none',background:'#f9fafb',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
+              />
+              <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add year</button>
+            </div>
+            {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:6}}>{yearError}</div>}
+            <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>
+              Format: <strong>2026-27</strong> or <strong>26-27</strong>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Terms */}
-      {/* Only needed (and shown) when fees are charged or reports are made termly */}
-      {years.length > 0 && (savedFrequency === 'termly' || savedReportPeriod === 'termly') && <TermsCard years={years} defaultYear={currentYear} highlight />}
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>

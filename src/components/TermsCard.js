@@ -4,7 +4,7 @@ import { getTerms, addTerm, updateTerm, deleteTerm, formatDateGB } from '../lib/
 
 // Settings → Terms: each madrasah's own term dates, per academic year. Used when fees
 // are charged termly (and for termly reports).
-export default function TermsCard({ years, defaultYear, highlight }) {
+export default function TermsCard({ years, defaultYear, highlight, flush }) {
   const [year, setYear] = useState(defaultYear || years[years.length - 1] || '');
   const [terms, setTerms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function TermsCard({ years, defaultYear, highlight }) {
   const inputStyle = { padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontFamily: 'var(--font)', fontSize: 13 };
 
   return (
-    <div className="card" style={{ marginTop: 16, ...(highlight ? { boxShadow: '0 0 0 2px var(--blue)' } : {}) }}>
+    <div className="card" style={{ marginTop: flush ? 0 : 16, ...(highlight ? { boxShadow: '0 0 0 2px var(--blue)' } : {}) }}>
       <div className="card-header" style={{ marginBottom: 6 }}>
         <div className="card-title"><CalendarRange size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Terms</div>
         <select value={year} onChange={e => { setYear(e.target.value); setEditing(null); }} style={{ ...inputStyle, padding: '6px 10px' }}>
