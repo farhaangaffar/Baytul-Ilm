@@ -9,7 +9,7 @@ import { LogIn, KeyRound, UserPlus } from 'lucide-react';
 //    (super admin) account — shown when the server says no owner exists yet
 //  - recovery: the recovery key (that same school password) to reset a forgotten
 //    owner password
-export default function Login({ setupRequired, onSuccess }) {
+export default function Login({ setupRequired, notice, onSuccess }) {
   const [mode, setMode] = useState('signin'); // 'signin' | 'setup' | 'recover'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,6 +85,7 @@ export default function Login({ setupRequired, onSuccess }) {
 
         {mode === 'signin' && (
           <form onSubmit={submitSignIn}>
+            {notice && <div style={{ fontSize: 12.5, background: 'var(--red-light)', color: 'var(--red-text)', borderRadius: 'var(--r-md)', padding: '8px 12px', marginBottom: 14, textAlign: 'left' }}>{notice}</div>}
             {setupRequired ? (
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, textAlign: 'left' }}>
                 <strong>First time with individual logins?</strong> Enter the school password to set up your own account.

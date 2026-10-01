@@ -31,7 +31,13 @@ async function apiFetch(path, options = {}) {
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     try { const body = await res.json(); if (body?.error) msg = body.error; } catch {}
-    if (res.status === 401) throw new AuthError(msg);
+    if (res.status === 401) {
+      // Signed out mid-use (login switched off, password reset, session expired):
+      // tell the app so it can go back to the sign-in screen. Not for the sign-in
+      // calls themselves, where a 401 just means a wrong password.
+      if (!/^\/api\/(login|session)\b/.test(path)) window.dispatchEvent(new Event('session-ended'));
+      throw new AuthError(msg);
+    }
     throw new Error(msg);
   }
   if (res.status === 204) return null;

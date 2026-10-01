@@ -23,12 +23,24 @@ export default function App() {
 
   useEffect(() => { refreshSession(); }, [refreshSession]);
 
+  // Any request answered "not signed in" (see apiFetch) drops back to the sign-in
+  // screen with a note, instead of leaving the page showing errors.
+  const [signedOutNote, setSignedOutNote] = useState('');
+  useEffect(() => {
+    const onEnded = () => {
+      setSignedOutNote("You've been signed out — please sign in again.");
+      setSession(s => (s && s.authenticated ? { authenticated: false, setupRequired: false } : s));
+    };
+    window.addEventListener('session-ended', onEnded);
+    return () => window.removeEventListener('session-ended', onEnded);
+  }, []);
+
   if (session === null) {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
   }
 
   if (!session.authenticated) {
-    return <Login setupRequired={session.setupRequired} onSuccess={refreshSession} />;
+    return <Login setupRequired={session.setupRequired} notice={signedOutNote} onSuccess={() => { setSignedOutNote(''); return refreshSession(); }} />;
   }
 
   const isOwner = session.user.role === 'owner';
