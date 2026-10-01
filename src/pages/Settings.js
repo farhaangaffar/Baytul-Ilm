@@ -95,7 +95,7 @@ export default function Settings() {
     const msg = `Switch to charging fees ${FREQUENCIES[next].adjective.toLowerCase()}?\n\n`
       + `Fees already added stay exactly as they are. From now on fees are added per ${FREQUENCIES[next].unit}. `
       + `Student fee amounts are not converted — check them after switching.`
-      + (next === 'termly' ? '\n\nAdd your term dates in the Terms section below if you haven\'t yet.' : '');
+      + (next === 'termly' ? '\n\nA Terms section will appear below for your term dates.' : '');
     if (!window.confirm(msg)) return;
     try {
       await updateSettings({ feeFrequency: next });
@@ -354,7 +354,8 @@ export default function Settings() {
       </div>
 
       {/* Terms */}
-      {years.length > 0 && <TermsCard years={years} defaultYear={currentYear} highlight={savedFrequency === 'termly'} />}
+      {/* Only needed (and shown) when fees are charged termly */}
+      {years.length > 0 && savedFrequency === 'termly' && <TermsCard years={years} defaultYear={currentYear} highlight />}
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>
