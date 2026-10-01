@@ -17,7 +17,7 @@ async function ensureUsersTable() {
   await query(`
     CREATE TABLE IF NOT EXISTS users (
       id               BIGSERIAL PRIMARY KEY,
-      username         TEXT NOT NULL UNIQUE,
+      email            TEXT NOT NULL UNIQUE,
       password_hash    TEXT NOT NULL,
       role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
       teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
@@ -26,6 +26,13 @@ async function ensureUsersTable() {
       created_at       TIMESTAMP NOT NULL DEFAULT now()
     )
   `);
+  // Early test copies of this table (previews only — never production) named the
+  // login column "username"; logins are email addresses now.
+  await query(`DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username') THEN
+      ALTER TABLE users RENAME COLUMN username TO email;
+    END IF;
+  END $$`);
   usersReady = true;
 }
 
@@ -53,11 +60,11 @@ function timingSafeStringEqual(a, b) {
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
-// Usernames are case-insensitive: stored lowercased and trimmed.
-function normalizeUsername(u) { return String(u || '').trim().toLowerCase(); }
+// People sign in with their email address — case-insensitive, stored lowercased and trimmed.
+function normalizeEmail(e) { return String(e || '').trim().toLowerCase(); }
 
-function validateNewCredentials(username, password) {
-  if (!/^[a-z0-9._-]{3,32}$/.test(username)) return 'Username must be 3–32 characters: letters, numbers, dots, dashes or underscores.';
+function validateNewCredentials(email, password) {
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid email address.';
   if (String(password || '').length < 8) return 'Password must be at least 8 characters.';
   return null;
 }
@@ -128,13 +135,13 @@ async function getUser(req) {
   if (!payload || !payload.uid) return null;
   await ensureUsersTable();
   const { rows } = await query(
-    `SELECT id, username, role, teacher_id AS "teacherId", active, session_version
+    `SELECT id, email, role, teacher_id AS "teacherId", active, session_version
      FROM users WHERE id = $1`,
     [payload.uid]
   );
   const u = rows[0];
   if (!u || !u.active || u.session_version !== payload.sv) return null;
-  return { id: String(u.id), username: u.username, role: u.role, teacherId: u.teacherId };
+  return { id: String(u.id), email: u.email, role: u.role, teacherId: u.teacherId };
 }
 
 // Wraps a route handler. Owner-only unless { teacher: true }, so anything new is
@@ -169,6 +176,6 @@ async function teacherScope(req) {
 
 module.exports = {
   COOKIE_NAME, ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual,
-  normalizeUsername, validateNewCredentials, setSessionCookie, clearSessionCookie,
+  normalizeEmail, validateNewCredentials, setSessionCookie, clearSessionCookie,
   getUser, requireAuth, isOwner, teacherScope,
 };

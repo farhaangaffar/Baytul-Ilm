@@ -3,7 +3,7 @@
 -- Kept for anyone who applies schema changes manually.
 CREATE TABLE IF NOT EXISTS users (
   id               BIGSERIAL PRIMARY KEY,
-  username         TEXT NOT NULL UNIQUE,
+  email            TEXT NOT NULL UNIQUE,
   password_hash    TEXT NOT NULL,
   role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
   teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,

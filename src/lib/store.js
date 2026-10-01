@@ -41,11 +41,11 @@ async function apiFetch(path, options = {}) {
 // ── Auth ──
 // Normal sign-in. Before the owner account exists, the school password answers
 // { setupRequired: true } instead of signing in (see server/routes/login.js).
-export async function login(username, password) {
-  return apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+export async function login(email, password) {
+  return apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 }
-export async function setupOwner(recoveryKey, username, password) {
-  return apiFetch('/api/login?action=setup', { method: 'POST', body: JSON.stringify({ recoveryKey, username, password }) });
+export async function setupOwner(recoveryKey, email, password) {
+  return apiFetch('/api/login?action=setup', { method: 'POST', body: JSON.stringify({ recoveryKey, email, password }) });
 }
 export async function recoverOwner(recoveryKey, password) {
   return apiFetch('/api/login?action=recover', { method: 'POST', body: JSON.stringify({ recoveryKey, password }) });
@@ -56,15 +56,15 @@ export async function changePassword(currentPassword, newPassword) {
 export async function logout() {
   return apiFetch('/api/logout', { method: 'POST' });
 }
-// → { authenticated, setupRequired, user?: { username, role, teacherId, classNames } }
+// → { authenticated, setupRequired, user?: { email, role, teacherId, classNames } }
 export async function getSession() {
   return apiFetch('/api/session');
 }
 
 // ── Teacher logins (owner only) ──
 export async function getUsers() { return apiFetch('/api/users'); }
-export async function createUser(teacherId, username, password) {
-  return apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ teacherId, username, password }) });
+export async function createUser(teacherId, email, password) {
+  return apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ teacherId, email, password }) });
 }
 export async function updateUser(id, data) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }

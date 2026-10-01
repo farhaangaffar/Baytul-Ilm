@@ -1,14 +1,14 @@
 const { query } = require('../db');
 const {
-  ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeUsername,
+  ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeEmail,
   validateNewCredentials, setSessionCookie, getUser,
 } = require('../auth');
 
 // Sign-in and everything around it, as ?action= variants of one route:
-//  (none)           POST {username, password} — normal sign-in. Before an owner account
+//  (none)           POST {email, password} — normal sign-in. Before an owner account
 //                   exists, the school's old shared password (ADMIN_PASSWORD) instead
 //                   answers { setupRequired: true } so the owner can create their account.
-//  setup            POST {recoveryKey, username, password} — creates the owner account
+//  setup            POST {recoveryKey, email, password} — creates the owner account
 //                   (only while none exists).
 //  recover          POST {recoveryKey, password} — resets a forgotten owner password.
 //  change-password  POST {currentPassword, newPassword} — any signed-in user.
@@ -26,11 +26,11 @@ async function findOwner() {
 }
 
 function publicUser(u) {
-  return { username: u.username, role: u.role };
+  return { email: u.email, role: u.role };
 }
 
-// Spend the same scrypt time when the username doesn't exist, so response timing
-// doesn't reveal which usernames are real.
+// Spend the same scrypt time when the email isn't registered, so response timing
+// doesn't reveal which emails have logins.
 const DUMMY_HASH = hashPassword('not-a-real-password');
 
 module.exports = async (req, res) => {
@@ -43,12 +43,12 @@ module.exports = async (req, res) => {
   if (action === 'setup') {
     if (await findOwner()) { res.status(409).json({ error: 'The owner account has already been set up — sign in instead.' }); return; }
     if (!recoveryKeyMatches(b.recoveryKey)) { res.status(401).json({ error: 'The school password is incorrect.' }); return; }
-    const username = normalizeUsername(b.username);
-    const problem = validateNewCredentials(username, b.password);
+    const email = normalizeEmail(b.email);
+    const problem = validateNewCredentials(email, b.password);
     if (problem) { res.status(400).json({ error: problem }); return; }
     const { rows } = await query(
-      `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'owner') RETURNING *`,
-      [username, hashPassword(b.password)]
+      `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'owner') RETURNING *`,
+      [email, hashPassword(b.password)]
     );
     setSessionCookie(res, rows[0]);
     res.status(200).json({ ok: true, user: publicUser(rows[0]) });
@@ -93,12 +93,12 @@ module.exports = async (req, res) => {
     res.status(401).json({ error: 'Incorrect password' });
     return;
   }
-  const username = normalizeUsername(b.username);
-  const { rows } = await query('SELECT * FROM users WHERE username = $1', [username]);
+  const email = normalizeEmail(b.email);
+  const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
   const user = rows[0];
   const ok = verifyPassword(b.password || '', user ? user.password_hash : DUMMY_HASH);
   if (!user || !ok || !user.active) {
-    res.status(401).json({ error: user && ok && !user.active ? 'This login has been switched off — ask the madrasah office.' : 'Incorrect username or password' });
+    res.status(401).json({ error: user && ok && !user.active ? 'This login has been switched off — ask the madrasah office.' : 'Incorrect email or password' });
     return;
   }
   setSessionCookie(res, user);

@@ -221,7 +221,7 @@ export default function ClassesTeachers() {
                           return (
                             <button className="btn btn-sm" onClick={() => setLoginModal(t)} title={login ? 'Manage this login' : 'Give this teacher a login'}>
                               <KeyRound size={12} />
-                              {login ? <>{login.username}{!login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}</> : 'Set up login'}
+                              {login ? <>{login.email}{!login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}</> : 'Set up login'}
                             </button>
                           );
                         })()}
@@ -395,10 +395,10 @@ function TeacherModal({ initial, onClose, onSave }) {
   );
 }
 
-// A teacher's login: the owner chooses the username and password and passes them
+// A teacher's login: the owner sets their email address and a password and passes them
 // on. The teacher then sees only the classes assigned to them on this page.
 function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
-  const [username, setUsername] = useState(login?.username || '');
+  const [email, setEmail] = useState(login?.email || teacher.email || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -411,15 +411,15 @@ function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
   }
 
   function save() {
-    if (!login) return run(() => createUser(teacher.id, username, password), `Login created for ${teacher.name}`);
+    if (!login) return run(() => createUser(teacher.id, email, password), `Login created for ${teacher.name}`);
     const changes = {};
-    if (username.trim().toLowerCase() !== login.username) changes.username = username;
+    if (email.trim().toLowerCase() !== login.email) changes.email = email;
     if (password) changes.password = password;
     if (!Object.keys(changes).length) { onClose(); return; }
     return run(() => updateUser(login.id, changes), 'Login updated');
   }
 
-  const canSave = login ? (username && (password === '' || password.length >= 8)) : (username && password.length >= 8);
+  const canSave = login ? (email && (password === '' || password.length >= 8)) : (email && password.length >= 8);
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
@@ -435,8 +435,8 @@ function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
               : <>They don't have a class yet — assign one on the Classes tab, or they'll see no students.</>}
           </div>
           <div className="form-group" style={{ marginBottom: 12 }}>
-            <label>Username</label>
-            <input value={username} onChange={e => { setUsername(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="e.g. ahmed" />
+            <label>Email address</label>
+            <input type="email" inputMode="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="e.g. ahmed@gmail.com" />
           </div>
           <div className="form-group" style={{ marginBottom: 6 }}>
             <label>{login ? 'New password (leave blank to keep the current one)' : 'Password (8+ characters)'}</label>

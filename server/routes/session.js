@@ -14,5 +14,5 @@ module.exports = async (req, res) => {
     const { rows: cls } = await query('SELECT name FROM classes WHERE teacher_id = $1 ORDER BY name', [user.teacherId]);
     classNames = cls.map(r => r.name);
   }
-  res.status(200).json({ authenticated: true, setupRequired, user: { username: user.username, role: user.role, teacherId: user.teacherId, classNames } });
+  res.status(200).json({ authenticated: true, setupRequired, user: { email: user.email, role: user.role, teacherId: user.teacherId, classNames } });
 };

@@ -85,8 +85,8 @@ export default function Layout({ children, title, subtitle }) {
         <button className="nav-link" onClick={() => setChangingPassword(true)}>
           <KeyRound size={16}/><span>Change password</span>
         </button>
-        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}}>
-          <LogOut size={16}/><span>Log out{user ? ` (${user.username})` : ''}</span>
+        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.email}` : undefined}>
+          <LogOut size={16}/><span>Log out</span>
         </button>
       </aside>
       <div className="main-content">

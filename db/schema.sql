@@ -103,7 +103,7 @@ INSERT INTO academic_years (year) VALUES ('2025-26') ON CONFLICT (year) DO NOTHI
 -- first use too (ensureUsersTable), like the other added tables/columns.
 CREATE TABLE IF NOT EXISTS users (
   id               BIGSERIAL PRIMARY KEY,
-  username         TEXT NOT NULL UNIQUE,
+  email            TEXT NOT NULL UNIQUE,
   password_hash    TEXT NOT NULL,
   role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
   teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
