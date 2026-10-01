@@ -290,6 +290,7 @@ export async function getTeachers() { return apiFetch('/api/teachers'); }
 export async function getTeacher(id) { const list = await getTeachers(); return list.find(t => t.id === id); }
 export async function addTeacher(t) { return apiFetch('/api/teachers', { method: 'POST', body: JSON.stringify(t) }); }
 export async function updateTeacher(id, data) { return apiFetch(`/api/teachers?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function reorderTeachers(ids) { return apiFetch('/api/teachers?action=reorder', { method: 'POST', body: JSON.stringify({ ids }) }); }
 export async function deleteTeacher(id) { return apiFetch(`/api/teachers?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 
 // ── Settings ──

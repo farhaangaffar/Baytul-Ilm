@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS teachers (
   name     TEXT NOT NULL,
   phone    TEXT NOT NULL DEFAULT '',
   email    TEXT NOT NULL DEFAULT '',
-  subjects JSONB NOT NULL DEFAULT '[]'
+  subjects JSONB NOT NULL DEFAULT '[]',
+  sort_order INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS classes (

@@ -4,10 +4,11 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getClasses, addClass, updateClass, deleteClass,
-  getTeachers, addTeacher, updateTeacher, deleteTeacher,
+  getTeachers, addTeacher, updateTeacher, deleteTeacher, reorderTeachers,
   getStudents, getUsers, createUser, updateUser, deleteUser,
 } from '../lib/store';
-import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, GripVertical } from 'lucide-react';
+import ReorderableGrid from '../components/ReorderableGrid';
 
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
@@ -186,9 +187,17 @@ export default function ClassesTeachers() {
             </div>
           ) : (
             // One card per teacher — everything visible at once on any screen width,
-            // instead of a wide table that scrolls sideways.
-            <div className="entity-grid">
-              {teachers.map(t => {
+            // instead of a wide table that scrolls sideways. Drag the grip to reorder.
+            <ReorderableGrid
+              items={teachers}
+              getId={t => t.id}
+              className="entity-grid"
+              onReordered={async ids => {
+                setTeachers(prev => ids.map(id => prev.find(t => t.id === id)).filter(Boolean));
+                try { await reorderTeachers(ids); }
+                catch (err) { showToast(err.message || 'Could not save the new order'); setTeachers(await getTeachers()); }
+              }}
+              renderItem={(t, { isDragging, handleProps, cardAttrs }) => {
                 const login = logins.find(l => l.teacherId === t.id);
                 const theirClasses = classes.filter(c => c.teacherId === t.id).map(c => c.name);
                 const subjects = (t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean);
@@ -199,8 +208,11 @@ export default function ClassesTeachers() {
                   </div>
                 );
                 return (
-                  <div key={t.id} className="entity-card" style={{ cursor: 'default' }}>
+                  <div key={t.id} className={`entity-card ${isDragging ? 'is-dragging' : ''}`} style={{ cursor: 'default' }} {...cardAttrs}>
                     <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+                      {teachers.length > 1 && (
+                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 0 0 -8px' }}><GripVertical size={15} /></div>
+                      )}
                       <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>
                         {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                       </div>
@@ -230,8 +242,8 @@ export default function ClassesTeachers() {
                     ))}
                   </div>
                 );
-              })}
-            </div>
+              }}
+            />
           )}
         </div>
       )}
