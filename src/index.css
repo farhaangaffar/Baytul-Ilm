@@ -202,6 +202,16 @@ tbody tr:hover td { background: #f9fafb; }
 .student-compact-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .student-compact-name { font-size: 13.5px; font-weight: 600; }
 .student-compact-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+/* Students page: one full-width card per class, opened to show its students */
+.class-card { margin-bottom: 12px; padding-top: 14px; padding-bottom: 14px; }
+.class-card-head { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 4px 0; cursor: pointer; font-family: var(--font); color: var(--ink); text-align: left; flex-wrap: wrap; }
+.class-card-name { font-weight: 700; font-size: 15px; }
+.class-card-stats { margin-left: auto; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-muted); }
+.class-card-stats strong { color: var(--ink); font-weight: 700; }
+.class-card-stats span[style] strong { color: inherit; }
+.class-card-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.class-card-students .student-compact-card { background: #f9fafb; box-shadow: none; }
+.class-card-students .student-compact-card:hover { background: #f3f4f6; box-shadow: none; }
 
 .mark-btn-row { display: flex; gap: 8px; flex-shrink: 0; width: 100%; }
 /* Mirrors the Fees week-pill design: a neutral rectangular tile that flexes to fill the

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy } from '../lib/store';
+import { getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -11,6 +11,8 @@ function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) { const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 function shiftMonth(ym, dir) { const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-1+dir,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 const STATUS_LABELS = { P:'Present', L:'Late', A:'Absent' };
+// The time right now as 'HH:MM' on this device — stamped when someone is marked Late today.
+function timeNow() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 
 export default function Attendance() {
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ export default function Attendance() {
   const [year, setYear] = useState('');
   const [currentYear, setCurrentYear] = useState('');
   const [attData, setAttData] = useState({});
+  const [lateTimes, setLateTimes] = useState({}); // { studentId: { date: 'HH:MM' } }
   const [selectedId, setSelectedId] = useState(null);
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [toast, setToast] = useState('');
@@ -31,10 +34,10 @@ export default function Attendance() {
     setLoading(true); setError(null);
     try {
       const y = await currentSchoolYear();
-      const [studentsData, classNamesData, yearsData, attendanceData] = await Promise.all([
-        getStudents(), getClassNames(), getAcademicYears(), getAttendance(y),
+      const [studentsData, classNamesData, yearsData, attendanceData, lateTimesData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), getAttendance(y), getLateTimes(y),
       ]);
-      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setCurrentYear(y); setAttData(attendanceData);
+      setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setCurrentYear(y); setAttData(attendanceData); setLateTimes(lateTimesData);
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
     } catch (err) {
       setError(err);
@@ -56,23 +59,37 @@ export default function Attendance() {
 
   async function switchYear(y) {
     setYear(y);
-    try { setAttData(await getAttendance(y)); } catch (err) { showToast(err.message || 'Could not load that year'); }
+    try { await loadYear(y); } catch (err) { showToast(err.message || 'Could not load that year'); }
   }
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2000); }
 
-  async function mark(studentId, date, status) {
+  async function loadYear(y) {
+    const [att, times] = await Promise.all([getAttendance(y), getLateTimes(y)]);
+    setAttData(att); setLateTimes(times);
+  }
+
+  // Saves one day's mark. Marking someone Late on the day itself stamps the time.
+  async function saveMark(studentId, date, next) {
     const cur = attData[studentId]?.[date]||null;
-    const next = cur===status ? null : status;
+    const curTime = lateTimes[studentId]?.[date];
+    const time = next==='L' && date===TODAY ? timeNow() : undefined;
     // No "saved" message — the card's colour change is the confirmation; only
     // failures get a message.
     setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: next } }));
+    setLateTimes(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: time } }));
     try {
-      await setAttendance(studentId, date, next, year);
+      await setAttendance(studentId, date, next, year, time);
     } catch (err) {
       setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: cur } }));
+      setLateTimes(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: curTime } }));
       showToast(err.message || 'Could not save attendance');
     }
+  }
+
+  function mark(studentId, date, status) {
+    const cur = attData[studentId]?.[date]||null;
+    return saveMark(studentId, date, cur===status ? null : status);
   }
 
   function openStudent(id) {
@@ -99,7 +116,7 @@ export default function Attendance() {
     }
     setYear(newYear);
     setMonthAnchor(newMonth);
-    try { setAttData(await getAttendance(newYear)); } catch (err) { showToast(err.message || 'Could not load that year'); }
+    try { await loadYear(newYear); } catch (err) { showToast(err.message || 'Could not load that year'); }
   }
 
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
@@ -168,19 +185,13 @@ export default function Attendance() {
                     <div className="day-cal-name">{dayName}</div>
                     <div className="day-cal-date">{dayDate}</div>
                     <button className="day-cal-status" style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)'}}
-                      onClick={async ()=>{
+                      onClick={()=>{
                         const cycle=['P','L','A',null];
-                        const next=cycle[(cycle.indexOf(status||null)+1)%cycle.length];
-                        setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: next } }));
-                        try { await setAttendance(selected.id,date,next,year); }
-                        catch (err) {
-                          setAttData(prev => ({ ...prev, [selected.id]: { ...prev[selected.id], [date]: status } }));
-                          showToast(err.message || 'Could not save attendance');
-                        }
+                        saveMark(selected.id, date, cycle[(cycle.indexOf(status||null)+1)%cycle.length]);
                       }}>
                       {status||'·'}
                     </button>
-                    <div className="day-cal-label">{status?STATUS_LABELS[status]:'Not marked'}</div>
+                    <div className="day-cal-label">{status==='L' && lateTimes[selected.id]?.[date] ? lateTimes[selected.id][date] : status?STATUS_LABELS[status]:'Not marked'}</div>
                   </div>
                 );
               })}

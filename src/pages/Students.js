@@ -38,6 +38,15 @@ export default function Students() {
   // student, so their whole history is readable right on the card instead of needing
   // to hunt for it across Attendance/Daily Records/Fees (which no longer show them).
   const [leftExpanded, setLeftExpanded] = useState(false);
+  // Which class cards are open — remembered on this device between visits.
+  const [openClasses, setOpenClasses] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('students_open_classes') || '[]'); } catch { return []; }
+  });
+  const toggleClass = c => setOpenClasses(prev => {
+    const next = prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c];
+    try { localStorage.setItem('students_open_classes', JSON.stringify(next)); } catch {}
+    return next;
+  });
   const [leftTotals, setLeftTotals] = useState({});
   const [confirmCancelFees, setConfirmCancelFees] = useState(null);
   // Saved report months for whichever left student's profile is currently open —
@@ -253,37 +262,55 @@ export default function Students() {
         </div>
       ) : (
         <>
-        <div className="student-columns" style={{gridTemplateColumns:`repeat(${classNames.length||1},1fr)`}}>
-          {classNames.map(c=>{
-            const classStudents = students.filter(s=>s.class===c && s.status!=='Inactive');
-            const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
-            return (
-              <div key={c}>
-                <div className="student-column-header"><span>{c}</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{classStudents.length}</span></div>
-                <ReorderableGrid
-                  items={filtered}
-                  getId={s=>s.id}
-                  className="student-compact-list"
-                  onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
-                  renderItem={(s, {isDragging, handleProps, cardAttrs}) => (
-                    <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
-                      <div style={{minWidth:0}}>
-                        <div className="student-compact-name">{s.forename} {s.surname}</div>
-                        <div className="student-compact-sub">{currencySymbol()}{s.weeklyFee}{feePer()} · {fmtDob(s.dob)}</div>
+        {/* One full-width card per class, closed by default so a madrasah with many classes
+            isn't one long scroll. Searching opens every class with a match. */}
+        {classNames.map(c=>{
+          const classStudents = students.filter(s=>s.class===c && s.status!=='Inactive');
+          const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
+          if (search && filtered.length===0) return null;
+          const isOpen = !!search || openClasses.includes(c);
+          const classAtt = classStudents.length ? Math.round(classStudents.reduce((t,st)=>t+attendancePctFrom(attendance, st.id),0)/classStudents.length) : 0;
+          const ids = new Set(classStudents.map(s=>s.id));
+          const classOwed = fees.filter(f=>ids.has(f.studentId) && f.status!=='Paid').reduce((t,f)=>t+Number(f.amount),0);
+          return (
+            <div key={c} className="card class-card">
+              <button type="button" className="class-card-head" onClick={()=>!search && toggleClass(c)} aria-expanded={isOpen}>
+                {isOpen?<ChevronUp size={16}/>:<ChevronDown size={16}/>}
+                <span className="class-card-name">{c}</span>
+                <span className="class-card-stats">
+                  <span><strong>{classStudents.length}</strong> student{classStudents.length===1?'':'s'}</span>
+                  {classStudents.length>0 && <span><strong>{classAtt}%</strong> attendance</span>}
+                  {classOwed>0 && <span style={{color:'var(--red-text)'}}><strong>{money(classOwed)}</strong> owed</span>}
+                </span>
+              </button>
+              {isOpen && (
+                <div style={{marginTop:14}}>
+                  <ReorderableGrid
+                    items={filtered}
+                    getId={s=>s.id}
+                    className="class-card-students"
+                    onReordered={async ids => { try { await reorderStudents(ids); await silentRefresh(); } catch (err) { showToast(err.message || 'Could not save the new order'); } }}
+                    renderItem={(s, {isDragging, handleProps, cardAttrs}) => (
+                      <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
+                        <div style={{minWidth:0}}>
+                          <div className="student-compact-name">{s.forename} {s.surname}</div>
+                          <div className="student-compact-sub">{currencySymbol()}{s.weeklyFee}{feePer()} · {fmtDob(s.dob)}</div>
+                        </div>
+                        {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                       </div>
-                      {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
-                    </div>
+                    )}
+                  />
+                  {filtered.length===0&&(
+                    <div style={{textAlign:'center',padding:12,color:'var(--text-muted)',fontSize:13}}>No students in {c} yet.</div>
                   )}
-                />
-                {filtered.length===0&&(
-                  <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>
-                    {search?'No students match your search.':`No students in ${c} yet.`}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {search && !classNames.some(c=>students.some(s=>s.class===c && s.status!=='Inactive' && `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()))) && (
+          <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>No students match your search.</div>
+        )}
 
         {leftStudents.length>0&&(
           <div className="card" style={{marginTop:20}}>

@@ -178,9 +178,12 @@ export async function cancelRemainingFees(studentId, fromDate) {
 
 // ── Attendance (keyed by year) ──
 export async function getAttendance(year) { return apiFetch(`/api/attendance?year=${encodeURIComponent(year)}`); }
-export async function setAttendance(studentId, date, status, year) {
-  return apiFetch('/api/attendance', { method: 'PUT', body: JSON.stringify({ studentId, date, status, year }) });
+// time: 'HH:MM' when marking Late on the day (shown in the student's attendance view).
+export async function setAttendance(studentId, date, status, year, time) {
+  return apiFetch('/api/attendance', { method: 'PUT', body: JSON.stringify({ studentId, date, status, year, time }) });
 }
+// { studentId: { date: 'HH:MM' } } — when each Late mark was made, where known.
+export async function getLateTimes(year) { return apiFetch(`/api/attendance?year=${encodeURIComponent(year)}&times`); }
 export async function getStudentAttendance(studentId, year) {
   const all = await getAttendance(year);
   return all[studentId] || {};
@@ -350,6 +353,7 @@ export async function exportAllData() {
     Promise.all(years.map(y => getFees(y))).then(all => Object.fromEntries(years.map((y, i) => [y, all[i]]))),
     Promise.all(years.map(y => getAttendance(y))).then(all => Object.fromEntries(years.map((y, i) => [y, all[i]]))),
   ]);
+  const lateTimesByYear = Object.fromEntries(await Promise.all(years.map(async y => [y, await getLateTimes(y)])));
   // Saved AI monthly summaries (the text behind each student's PDF report) live in
   // their own table, one fetch per student — not covered by anything else above.
   const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
@@ -359,7 +363,7 @@ export async function exportAllData() {
   if (settings.hasIcon) settings.icon = await fetchImageDataUrl('icon').catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
-    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries },
+    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries },
   };
 }
 async function fetchImageDataUrl(which) {
@@ -418,7 +422,7 @@ export async function importAllData(payload) {
     return;
   }
 
-  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, aiSummaries } = data;
+  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries } = data;
 
   for (const y of years || []) await addAcademicYear(y);
   for (const c of classes || []) await addClass(c).catch(() => {});
@@ -433,7 +437,9 @@ export async function importAllData(payload) {
   }
   for (const [year, byStudent] of Object.entries(attendanceByYear || {})) {
     for (const [studentId, byDate] of Object.entries(byStudent)) {
-      for (const [date, status] of Object.entries(byDate)) await setAttendance(studentId, date, status, year);
+      for (const [date, status] of Object.entries(byDate)) {
+        await setAttendance(studentId, date, status, year, lateTimesByYear?.[year]?.[studentId]?.[date]);
+      }
     }
   }
   // Older backups (taken before this field existed) simply won't have it — nothing to restore.
