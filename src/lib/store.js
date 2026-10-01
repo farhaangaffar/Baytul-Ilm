@@ -244,6 +244,20 @@ export async function getStudentFees(studentId, year) {
 export function studentFeesFrom(feesForYear, studentId) {
   return feesForYear.filter(f => f.studentId === studentId).sort((a, b) => b.weekStarting.localeCompare(a.weekStarting));
 }
+// Monthly/termly billing: one fee record per period ({ start, endExclusive }) per student.
+export async function addFeePeriods(year, period, periods, students) {
+  return apiFetch('/api/fees?action=add-month', { method: 'POST', body: JSON.stringify({ year, period, periods, students }) });
+}
+export async function deleteFeePeriods(year, period, starts, className) {
+  return apiFetch('/api/fees?action=delete-month', { method: 'DELETE', body: JSON.stringify({ year, period, weeks: starts, className }) });
+}
+
+// ── Terms (Settings → Terms; per academic year) ──
+export async function getTerms(year) { return apiFetch(year ? `/api/terms?year=${encodeURIComponent(year)}` : '/api/terms'); }
+export async function addTerm(term) { return apiFetch('/api/terms', { method: 'POST', body: JSON.stringify(term) }); }
+export async function updateTerm(id, data) { return apiFetch(`/api/terms?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function deleteTerm(id) { return apiFetch(`/api/terms?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+
 export async function deleteWeekFees(weekStarting, year, cls) {
   return apiFetch('/api/fees?action=week', { method: 'DELETE', body: JSON.stringify({ year, weekStarting, className: cls }) });
 }
@@ -362,7 +376,7 @@ async function fetchImageDataUrl(which) {
 
 async function importFeesForYear(year, records) {
   for (const f of records) {
-    const created = await addFeeRecord({ studentId: f.studentId, weekStarting: f.weekStarting, amount: f.amount }, year);
+    const created = await addFeeRecord({ studentId: f.studentId, period: f.period || 'week', weekStarting: f.weekStarting, amount: f.amount }, year);
     if (f.status === 'Paid' && created?.id) await markFeePaid(created.id, year);
   }
 }

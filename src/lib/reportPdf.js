@@ -8,6 +8,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { attendanceCountsForMonth, getCurrentSchoolMonth, getClasses, getTeachers } from './store';
 import { money, getBranding } from './branding';
+import { feeFrequency, calendarMonth } from './feePeriods';
 
 function fmtDMY(date) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -398,7 +399,10 @@ export function downloadPdfBytes(bytes, filename) {
 export async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth }) {
   const monthRange = getCurrentSchoolMonth(`${dataMonth}-15`);
   const counts = attendanceCountsForMonth(attendance, student.id, monthRange);
-  const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= monthRange.start && f.weekStarting < monthRange.endExclusive);
+  // Monthly fees are dated the 1st of the calendar month, which can fall before that
+  // month's first Monday — so look them up by calendar month instead.
+  const feeRange = feeFrequency() === 'monthly' ? calendarMonth(dataMonth) : monthRange;
+  const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= feeRange.start && f.weekStarting < feeRange.endExclusive);
   const billed = monthFees.reduce((s, f) => s + Number(f.amount), 0);
   const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const teacherName = await classTeacherName(student.class);

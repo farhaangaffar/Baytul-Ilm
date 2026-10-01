@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
+import TermsCard from '../components/TermsCard';
+import { FREQUENCIES } from '../lib/feePeriods';
 import { Save, Plus, Trash2, X, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
 
@@ -45,6 +47,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
+  const [savedFrequency, setSavedFrequency] = useState('weekly');
+  const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
   const [newYear, setNewYear] = useState('');
   const [yearError, setYearError] = useState('');
@@ -62,8 +66,8 @@ export default function Settings() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [settingsData, yearsData] = await Promise.all([getSettings(), getAcademicYears()]);
-      setForm(settingsData); setYears(yearsData);
+      const [settingsData, yearsData, cy] = await Promise.all([getSettings(), getAcademicYears(), currentSchoolYear()]);
+      setForm(settingsData); setYears(yearsData); setCurrentYear(cy); setSavedFrequency(settingsData.feeFrequency || 'weekly');
       // Logos uploaded before app icons were generated from them — build the
       // missing icon once, quietly, so the installed app picks up the logo too.
       if (settingsData.hasLogo && !settingsData.hasIcon) {
@@ -220,7 +224,23 @@ export default function Settings() {
               <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
             </div>
             <div className="form-group">
-              <label>Default weekly fee ({form.currencySymbol || '£'})</label>
+              <label>Fees are charged</label>
+              <select value={form.feeFrequency || 'weekly'} onChange={e=>setForm({...form,feeFrequency:e.target.value})} style={{maxWidth:220}}>
+                <option value="weekly">Weekly (school month from its first Monday)</option>
+                <option value="monthly">Monthly (calendar month)</option>
+                <option value="termly">Termly (your term dates)</option>
+              </select>
+              {(form.feeFrequency || 'weekly') !== (savedFrequency || 'weekly') && (
+                <span style={{fontSize:12,color:'var(--amber-text)',marginTop:4}}>
+                  Fees already added stay exactly as they are; from now on fees are added per {FREQUENCIES[form.feeFrequency].unit}. Student fee amounts are not converted — check them after switching.
+                </span>
+              )}
+              {form.feeFrequency === 'termly' && (
+                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section below.</span>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Default fee per {FREQUENCIES[form.feeFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
               <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
                 onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
                 style={{maxWidth:160}}/>
@@ -315,6 +335,9 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Terms */}
+      {years.length > 0 && <TermsCard years={years} defaultYear={currentYear} highlight={savedFrequency === 'termly'} />}
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>

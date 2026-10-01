@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS settings (
   id                  INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   school_name         TEXT NOT NULL DEFAULT 'Madrasah',
   school_name_arabic  TEXT NOT NULL DEFAULT '',
-  default_weekly_fee  NUMERIC(10,2) NOT NULL DEFAULT 15,
+  default_weekly_fee  NUMERIC(10,2) NOT NULL DEFAULT 15, -- the default fee per period (see fee_frequency)
+  fee_frequency       TEXT NOT NULL DEFAULT 'weekly',  -- 'weekly' | 'monthly' | 'termly'
   currency_symbol     TEXT NOT NULL DEFAULT '£',
   logo                TEXT, -- data: URL (PNG/JPEG), downsized in the browser before upload
   icon                TEXT  -- data: URL, 512px square app icon built from the logo
@@ -68,8 +69,10 @@ CREATE TABLE IF NOT EXISTS fees (
   amount        NUMERIC(10,2) NOT NULL,
   status        TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending','Paid')),
   paid_date     DATE,
-  UNIQUE (year, student_id, week_starting)
+  -- 'week' | 'month' | 'term'; week_starting holds the period's start date for each
+  period        TEXT NOT NULL DEFAULT 'week'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS fees_year_student_period_start_key ON fees (year, student_id, period, week_starting);
 CREATE INDEX IF NOT EXISTS idx_fees_year_week ON fees (year, week_starting);
 
 CREATE TABLE IF NOT EXISTS daily_records (
@@ -111,4 +114,14 @@ CREATE TABLE IF NOT EXISTS users (
   active           BOOLEAN NOT NULL DEFAULT true,
   session_version  INTEGER NOT NULL DEFAULT 0,
   created_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- A madrasah's term dates per academic year (Settings → Terms), for termly fees and reports.
+CREATE TABLE IF NOT EXISTS terms (
+  id          BIGSERIAL PRIMARY KEY,
+  year        TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  start_date  DATE NOT NULL,
+  end_date    DATE NOT NULL,
+  CHECK (end_date >= start_date)
 );

@@ -8,6 +8,7 @@ import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
+import { feeUnit, feePer } from '../lib/feePeriods';
 
 const WAITING_LIST = 'Waiting list';
 
@@ -142,7 +143,7 @@ export default function Students() {
     try {
       await cancelRemainingFees(confirmCancelFees.studentId, confirmCancelFees.fromDate);
       await silentRefresh();
-      showToast('Remaining unpaid weeks cancelled');
+      showToast(`Remaining unpaid ${feeUnit()}s cancelled`);
       setConfirmCancelFees(null);
     } catch (err) {
       showToast(err.message || 'Could not cancel those weeks');
@@ -263,7 +264,7 @@ export default function Students() {
                     <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
                       <div style={{minWidth:0}}>
                         <div className="student-compact-name">{s.forename} {s.surname}</div>
-                        <div className="student-compact-sub">{currencySymbol()}{s.weeklyFee}/wk · {fmtDob(s.dob)}</div>
+                        <div className="student-compact-sub">{currencySymbol()}{s.weeklyFee}{feePer()} · {fmtDob(s.dob)}</div>
                       </div>
                       {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                     </div>
@@ -351,7 +352,7 @@ export default function Students() {
                     ['Date of birth',formatDateGB(selected.dob)],
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
-                    ['Weekly fee',`${currencySymbol()}${selected.weeklyFee}/wk`],
+                    [`Fee per ${feeUnit()}`,`${currencySymbol()}${selected.weeklyFee}${feePer()}`],
                     ['Status',selected.status],
                     // Extra history rows only for a left student — their attendance/fees
                     // totals below are already all-time, so the fuller picture (paid,
@@ -483,7 +484,7 @@ export default function Students() {
                     <option value={WAITING_LIST}>{WAITING_LIST}</option>
                   </select>
                 </div>
-                <div className="form-group"><label>Weekly fee ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
+                <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
               </div>
               <div className="form-group"><label>Notes</label><textarea rows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})} style={{resize:'vertical'}}/></div>
             </div>
@@ -519,9 +520,9 @@ export default function Students() {
           <div className="modal" style={{maxWidth:420}}>
             <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
               <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red-text)"/></div>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Cancel remaining unpaid weeks?</div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Cancel remaining unpaid {feeUnit()}s?</div>
               <div style={{color:'var(--text-muted)',fontSize:13}}>
-                {confirmCancelFees.name} has {confirmCancelFees.count} unpaid week{confirmCancelFees.count!==1?'s':''} ({money(confirmCancelFees.amount)}) from {formatDateGB(confirmCancelFees.fromDate)} onward.
+                {confirmCancelFees.name} has {confirmCancelFees.count} unpaid {feeUnit()}{confirmCancelFees.count!==1?'s':''} ({money(confirmCancelFees.amount)}) from {formatDateGB(confirmCancelFees.fromDate)} onward.
                 <br/><span style={{fontSize:12}}>Already-paid weeks won't be touched. This cannot be undone.</span>
               </div>
             </div>

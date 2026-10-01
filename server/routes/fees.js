@@ -1,10 +1,27 @@
 const { query } = require('../db');
 const { requireAuth, isOwner, teacherScope } = require('../auth');
 
+// A fee record covers one billing period: a week (weekStarting = its Monday), a
+// calendar month (the 1st) or a term (the term's start date), per the madrasah's fee
+// frequency in Settings. The date column keeps its original name, week_starting, but
+// holds the period's start date for every kind.
+let periodReady = false;
+async function ensurePeriodColumn() {
+  if (periodReady) return;
+  await query(`ALTER TABLE fees ADD COLUMN IF NOT EXISTS period TEXT NOT NULL DEFAULT 'week'`);
+  // Uniqueness now includes the period kind, so a month record dated the 1st can't
+  // collide with a week record on a Monday the 1st after a frequency switch.
+  await query(`ALTER TABLE fees DROP CONSTRAINT IF EXISTS fees_year_student_id_week_starting_key`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS fees_year_student_period_start_key ON fees (year, student_id, period, week_starting)`);
+  periodReady = true;
+}
+const PERIODS = ['week', 'month', 'term'];
+
 function toClient(row) {
   return {
     id: String(row.id),
     studentId: row.student_id,
+    period: row.period || 'week',
     weekStarting: row.week_starting,
     amount: Number(row.amount),
     status: row.status,
@@ -31,6 +48,7 @@ function mondayOf(dateStr) {
 // (no amounts, no adding/removing weeks, no un-marking). Everything else is owner-only.
 module.exports = requireAuth(async (req, res) => {
   const { action, id } = req.query;
+  await ensurePeriodColumn();
   const scope = await teacherScope(req);
   if (!isOwner(req)) {
     const b = req.body || {};
@@ -50,7 +68,31 @@ module.exports = requireAuth(async (req, res) => {
     // that already exist. The DB's unique(year, student_id, week_starting) constraint
     // enforces this atomically per-student-per-week — no client-side gap/duplicate bugs.
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
-    const { year, weeks, students } = req.body || {};
+    // Weekly: weeks[] of Mondays (as before). Monthly/termly: period ('month'|'term')
+    // plus periods[] of { start, endExclusive }, one record per period per student.
+    const { year, weeks, students, period = 'week', periods } = req.body || {};
+    if (!PERIODS.includes(period)) { res.status(400).json({ error: 'Unknown period' }); return; }
+    if (period !== 'week') {
+      if (!year || !Array.isArray(periods) || !Array.isArray(students) || !periods.length || !students.length) {
+        res.status(400).json({ error: 'year, periods[] and students[] are required' });
+        return;
+      }
+      let created = 0;
+      for (const p of periods) {
+        for (const s of students) {
+          // Not billed for a period that ended before they enrolled.
+          if (s.enrollDate && s.enrollDate >= p.endExclusive) continue;
+          const { rowCount } = await query(
+            `INSERT INTO fees (year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,$4,$5,'Pending')
+             ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
+            [year, s.id, period, p.start, s.weeklyFee ?? 15]
+          );
+          created += rowCount;
+        }
+      }
+      res.status(200).json({ ok: true, created });
+      return;
+    }
     if (!year || !Array.isArray(weeks) || !Array.isArray(students) || !weeks.length || !students.length) {
       res.status(400).json({ error: 'year, weeks[] and students[] ({id, weeklyFee}) are required' });
       return;
@@ -64,8 +106,8 @@ module.exports = requireAuth(async (req, res) => {
         // No enrollDate on file (older records) falls back to billing every week.
         if (s.enrollDate && week < mondayOf(s.enrollDate)) continue;
         const { rowCount } = await query(
-          `INSERT INTO fees (year, student_id, week_starting, amount, status) VALUES ($1,$2,$3,$4,'Pending')
-           ON CONFLICT (year, student_id, week_starting) DO NOTHING`,
+          `INSERT INTO fees (year, student_id, period, week_starting, amount, status) VALUES ($1,$2,'week',$3,$4,'Pending')
+           ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
           [year, s.id, week, s.weeklyFee ?? 15]
         );
         created += rowCount;
@@ -79,15 +121,17 @@ module.exports = requireAuth(async (req, res) => {
     // Mirrors add-month: deletes every fee record across a set of weeks for one class in
     // a single request, rather than making the client loop the single-week delete below.
     if (req.method !== 'DELETE') { res.status(405).json({ error: 'Method not allowed' }); return; }
-    const { year, weeks, className } = req.body || {};
-    if (!year || !Array.isArray(weeks) || !weeks.length || !className) {
+    // weeks[] holds the period start dates — Mondays for weekly, or the month/term
+    // start(s) when period is 'month'/'term'.
+    const { year, weeks, className, period = 'week' } = req.body || {};
+    if (!year || !Array.isArray(weeks) || !weeks.length || !className || !PERIODS.includes(period)) {
       res.status(400).json({ error: 'year, weeks[] and className are required' });
       return;
     }
     const { rowCount } = await query(
-      `DELETE FROM fees WHERE year = $1 AND week_starting = ANY($2::date[])
+      `DELETE FROM fees WHERE year = $1 AND week_starting = ANY($2::date[]) AND period = $4
        AND student_id IN (SELECT id FROM students WHERE class = $3)`,
-      [year, weeks, className]
+      [year, weeks, className, period]
     );
     res.status(200).json({ ok: true, deleted: rowCount });
     return;
@@ -116,7 +160,7 @@ module.exports = requireAuth(async (req, res) => {
     const { year, weekStarting, className } = req.body || {};
     if (!year || !weekStarting || !className) { res.status(400).json({ error: 'year, weekStarting and className are required' }); return; }
     await query(
-      `DELETE FROM fees WHERE year = $1 AND week_starting = $2
+      `DELETE FROM fees WHERE year = $1 AND week_starting = $2 AND period = 'week'
        AND student_id IN (SELECT id FROM students WHERE class = $3)`,
       [year, weekStarting, className]
     );
@@ -136,10 +180,11 @@ module.exports = requireAuth(async (req, res) => {
     if (req.method === 'POST') {
       const b = req.body || {};
       if (!b.studentId || !b.weekStarting || !b.year) { res.status(400).json({ error: 'studentId, weekStarting and year are required' }); return; }
+      const period = PERIODS.includes(b.period) ? b.period : 'week';
       const { rows } = await query(
-        `INSERT INTO fees (year, student_id, week_starting, amount, status) VALUES ($1,$2,$3,$4,'Pending')
-         ON CONFLICT (year, student_id, week_starting) DO NOTHING RETURNING *`,
-        [b.year, b.studentId, b.weekStarting, b.amount ?? 15]
+        `INSERT INTO fees (year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,$4,$5,'Pending')
+         ON CONFLICT (year, student_id, period, week_starting) DO NOTHING RETURNING *`,
+        [b.year, b.studentId, period, b.weekStarting, b.amount ?? 15]
       );
       if (!rows.length) { res.status(200).json({ ok: true, created: false }); return; }
       res.status(201).json(toClient(rows[0]));
