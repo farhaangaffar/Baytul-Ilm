@@ -38,6 +38,9 @@ async function apiFetch(path, options = {}) {
       if (!/^\/api\/(login|session)\b/.test(path)) window.dispatchEvent(new Event('session-ended'));
       throw new AuthError(msg);
     }
+    // "Not allowed" usually means this tab is out of date about who's signed in (e.g.
+    // a different person signed in from another tab) — ask the app to re-check.
+    if (res.status === 403) window.dispatchEvent(new Event('session-check'));
     throw new Error(msg);
   }
   if (res.status === 204) return null;

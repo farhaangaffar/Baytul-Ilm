@@ -35,6 +35,35 @@ export default function App() {
     return () => window.removeEventListener('session-ended', onEnded);
   }, []);
 
+  // One browser holds one sign-in, shared by all its tabs. If someone else signs in
+  // (or out) in another tab, this tab would otherwise keep showing the old person's
+  // screens while the server answers as the new one. Re-check when the tab comes
+  // back into view or a request is refused, and reload if the person has changed.
+  const currentUserKey = session?.authenticated ? `${session.user.email}|${session.user.role}` : '';
+  useEffect(() => {
+    if (!currentUserKey) return;
+    let checking = false;
+    const check = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const s = await getSession();
+        const key = s.authenticated ? `${s.user.email}|${s.user.role}` : '';
+        if (key !== currentUserKey) window.location.reload();
+      } catch { /* offline etc. — try again next time */ }
+      checking = false;
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', check);
+    window.addEventListener('session-check', check);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', check);
+      window.removeEventListener('session-check', check);
+    };
+  }, [currentUserKey]);
+
   if (session === null) {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
   }
