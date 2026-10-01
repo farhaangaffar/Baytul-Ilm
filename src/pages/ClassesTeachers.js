@@ -185,65 +185,52 @@ export default function ClassesTeachers() {
               No teachers yet — click "Add teacher" to get started.
             </div>
           ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Subjects</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Login</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teachers.map(t => (
-                    <tr key={t.id}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="avatar" style={{ width: 28, height: 28, fontSize: 10 }}>
-                            {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                          </div>
-                          <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{t.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        {/* One label per subject, each kept on one line — subjects saved as
-                            a single "A / B / C" entry are split for display too. */}
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minWidth: 140 }}>
-                          {(t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean)
-                            .map(s => <span key={s} className="badge badge-gray" style={{ whiteSpace: 'nowrap' }}>{s}</span>)}
-                          {(!t.subjects || t.subjects.length === 0) && <span className="text-muted text-sm">—</span>}
-                        </div>
-                      </td>
-                      <td className="text-muted text-sm">{t.phone || '—'}</td>
-                      <td className="text-muted text-sm">{t.email || '—'}</td>
-                      <td>
-                        {(() => {
-                          const login = logins.find(l => l.teacherId === t.id);
-                          return (
-                            <button className="btn btn-sm" onClick={() => setLoginModal(t)} title={login ? 'Manage this login' : 'Give this teacher a login'}>
-                              <KeyRound size={12} />
-                              {login ? <>{login.email}{!login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}</> : 'Set up login'}
-                            </button>
-                          );
-                        })()}
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button className="btn btn-icon btn-sm" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'teacher', item: t })}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            // One card per teacher — everything visible at once on any screen width,
+            // instead of a wide table that scrolls sideways.
+            <div className="entity-grid">
+              {teachers.map(t => {
+                const login = logins.find(l => l.teacherId === t.id);
+                const theirClasses = classes.filter(c => c.teacherId === t.id).map(c => c.name);
+                const subjects = (t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean);
+                const row = (label, content) => (
+                  <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 8, alignItems: 'baseline', padding: '7px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+                    <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{content}</div>
+                  </div>
+                );
+                return (
+                  <div key={t.id} className="entity-card" style={{ cursor: 'default' }}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+                      <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>
+                        {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="entity-card-name">{t.name}</div>
+                        <div className="entity-card-sub">{theirClasses.length ? theirClasses.join(', ') : 'No class assigned'}</div>
+                      </div>
+                      <button className="btn btn-icon btn-sm" title="Edit teacher" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
+                        <Pencil size={13} />
+                      </button>
+                      <button className="btn btn-icon btn-sm" title="Delete teacher" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'teacher', item: t })}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                    {row('Subjects', subjects.length
+                      ? <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{subjects.map(s => <span key={s} className="badge badge-gray" style={{ whiteSpace: 'nowrap' }}>{s}</span>)}</div>
+                      : <span className="text-muted">—</span>)}
+                    {row('Contact', (t.phone || t.email)
+                      ? <>{t.phone && <div>{t.phone}</div>}{t.email && <div className="text-muted">{t.email}</div>}</>
+                      : <span className="text-muted">—</span>)}
+                    {row('Login', (
+                      <button className="btn btn-sm" onClick={() => setLoginModal(t)} title={login ? 'Manage this login' : 'Give this teacher a login'} style={{ maxWidth: '100%' }}>
+                        <KeyRound size={12} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.email : 'Set up login'}</span>
+                        {login && !login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
