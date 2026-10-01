@@ -102,6 +102,10 @@ END $$;
 -- Settings: one row per madrasah (a new madrasah's row uses its own id) instead of a single row 1.
 ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_id_check;
 CREATE UNIQUE INDEX IF NOT EXISTS settings_madrasah_key ON settings (madrasah_id);
+-- Older databases default these to the original madrasah's own name; new ones start neutral.
+-- (Only the defaults change — madrasah 1's saved name is untouched.)
+ALTER TABLE settings ALTER COLUMN school_name SET DEFAULT 'Madrasah';
+ALTER TABLE settings ALTER COLUMN school_name_arabic SET DEFAULT '';
 
 -- Logins: 'login' is a username or an email address, unique within its madrasah.
 DO $$ BEGIN

@@ -59,7 +59,8 @@ module.exports = requireAuth(async (req, res) => {
     if (await codeTaken(code)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
     const created = await transaction(async c => {
       const { rows: [m] } = await c.query('INSERT INTO madaaris (name, code) VALUES ($1, $2) RETURNING id', [name, code]);
-      await c.query('INSERT INTO settings (id, madrasah_id, school_name) VALUES ($1, $1, $2)', [m.id, name]);
+      // Name given explicitly (older databases default these columns to the first madrasah's).
+      await c.query(`INSERT INTO settings (id, madrasah_id, school_name, school_name_arabic) VALUES ($1, $1, $2, '')`, [m.id, name]);
       await c.query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2)', [m.id, currentYearLabel()]);
       await c.query(
         `INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, $2, $3, 'owner')`,

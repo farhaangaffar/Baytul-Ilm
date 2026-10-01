@@ -32,18 +32,35 @@ codebase (one codebase, not a fork).
   `server/routes/` and a static `require` line in `api/router.js` — never add files
   to `api/` (each file there becomes a separate function; the free Hobby plan caps
   them at 12). The app stays on the Hobby plan until the first paying madrasah.
-- Logins (`server/auth.js`): one **owner** (super admin) and **teachers** linked to a
-  `teachers` row. `requireAuth(handler)` is owner-only by default; pass
-  `{ teacher: true }` only for routes teachers use, and scope their queries with
-  `teacherScope(req)` (their assigned classes' current students). Teachers get
-  Attendance, Daily records and Fees for their own classes, and on Fees may only
-  mark a week Paid. `ADMIN_PASSWORD` is only the first-time-setup / owner-recovery
-  key — it never signs anyone in once the owner account exists.
-- There's no migration runner: new columns are added by the API itself on first use
-  (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
-  for manual use and `db/schema.sql` updated.
+- **Many madaaris, one database** (`madaaris` table). Every table of school data has a
+  `madrasah_id`, and **every query must be limited to `req.user.madrasahId`** — reads,
+  updates and deletes by id included (`… WHERE id = $1 AND madrasah_id = $2`). Any
+  student id that arrives in a request must be checked against `accessScope(req).studentIds`
+  (owners: their whole madrasah; teachers: their own classes) — that's what stops one
+  madrasah reaching another's records. Inserts must set `madrasah_id` (the column has
+  no default on purpose). Baytul 'Ilm is madrasah 1.
+- Logins (`server/auth.js`): each madrasah has an **owner** (its head) and **teacher**
+  logins linked either to a `teachers` row or to one class (`class_id`, a shared class
+  login). A login is a username or email (`users.login`), unique within its madrasah;
+  people sign in with the madrasah's **code** (remembered per device,
+  `src/lib/madrasahCode.js`) + login + password. One owner is the **platform owner**
+  (`platform_admin`) with the Madaaris page (`server/routes/madaaris.js`: counts only,
+  add / rename / switch off a madrasah, reset its head's password). `requireAuth(handler)`
+  is owner-only by default; pass `{ teacher: true }` only for routes teachers use, and
+  scope with `accessScope(req)` / `teacherScope(req)`. Teachers get Attendance, Daily
+  records and Fees for their own classes, and on Fees may only mark a week Paid.
+  `ADMIN_PASSWORD` is only the first-time-setup / platform-owner-recovery key — it never
+  signs anyone in once an owner account exists.
+- There's no migration runner: small new columns are added by the API itself on first
+  use (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
+  for manual use and `db/schema.sql` updated. Changes that restructure existing data
+  (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
+  on each database before the code needing them is deployed there — the API answers
+  503 until `madaaris` exists (`api/router.js`).
 - School-specific details (name, Arabic name, currency, logo/app icon) come from
-  Settings — never hardcode a school's name, currency symbol or teacher. Use
+  Settings (one row per madrasah) — never hardcode a school's name, currency symbol or
+  teacher. Before sign-in, `/api/settings?m=<code>` serves that madrasah's name/logo/
+  manifest; with no code, a neutral one. Use
   `money()` / `currencySymbol()` from `src/lib/branding.js` for amounts.
 - Fee frequency (Settings): **weekly** (the original system — weeks grouped into school
   months from each month's first Monday), **monthly** (calendar months, 1st to end) or

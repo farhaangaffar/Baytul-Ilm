@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { requireAuth, isOwner, teacherScope } = require('../auth');
+const { requireAuth, isOwner, accessScope } = require('../auth');
 
 // A fee record covers one billing period: a week (weekStarting = its Monday), a
 // calendar month (the 1st) or a term (the term's start date), per the madrasah's fee
@@ -48,8 +48,11 @@ function mondayOf(dateStr) {
 // (no amounts, no adding/removing weeks, no un-marking). Everything else is owner-only.
 module.exports = requireAuth(async (req, res) => {
   const { action, id } = req.query;
+  const mid = req.user.madrasahId;
   await ensurePeriodColumn();
-  const scope = await teacherScope(req);
+  // Which students this person may touch — every student id in a request is checked
+  // against it (owners: their whole madrasah; teachers: their own classes).
+  const scope = await accessScope(req);
   if (!isOwner(req)) {
     const b = req.body || {};
     const readingList = !action && !id && req.method === 'GET';
@@ -57,7 +60,7 @@ module.exports = requireAuth(async (req, res) => {
       && b.status === 'Paid' && Object.keys(b).every(k => k === 'status');
     if (!readingList && !markingPaid) { res.status(403).json({ error: "You don't have access to this." }); return; }
     if (markingPaid) {
-      const { rows } = await query('SELECT student_id FROM fees WHERE id = $1', [id]);
+      const { rows } = await query('SELECT student_id FROM fees WHERE id = $1 AND madrasah_id = $2', [id, mid]);
       if (!rows.length) { res.status(404).json({ error: 'Fee record not found' }); return; }
       if (!scope.studentIds.has(rows[0].student_id)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     }
@@ -70,7 +73,12 @@ module.exports = requireAuth(async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
     // Weekly: weeks[] of Mondays (as before). Monthly/termly: period ('month'|'term')
     // plus periods[] of { start, endExclusive }, one record per period per student.
-    const { year, weeks, students, period = 'week', periods } = req.body || {};
+    const { year, weeks, period = 'week', periods } = req.body || {};
+    const sent = req.body?.students;
+    if (!Array.isArray(sent) || !sent.length) { res.status(400).json({ error: 'students[] ({id, weeklyFee}) is required' }); return; }
+    // Only students of this madrasah are ever billed, whatever ids were sent.
+    const students = sent.filter(s => scope.studentIds.has(s?.id));
+    if (!students.length) { res.status(200).json({ ok: true, created: 0 }); return; }
     if (!PERIODS.includes(period)) { res.status(400).json({ error: 'Unknown period' }); return; }
     if (period !== 'week') {
       if (!year || !Array.isArray(periods) || !Array.isArray(students) || !periods.length || !students.length) {
@@ -83,9 +91,9 @@ module.exports = requireAuth(async (req, res) => {
           // Not billed for a period that ended before they enrolled.
           if (s.enrollDate && s.enrollDate >= p.endExclusive) continue;
           const { rowCount } = await query(
-            `INSERT INTO fees (year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,$4,$5,'Pending')
+            `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status) VALUES ($6,$1,$2,$3,$4,$5,'Pending')
              ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
-            [year, s.id, period, p.start, s.weeklyFee ?? 15]
+            [year, s.id, period, p.start, s.weeklyFee ?? 15, mid]
           );
           created += rowCount;
         }
@@ -106,9 +114,9 @@ module.exports = requireAuth(async (req, res) => {
         // No enrollDate on file (older records) falls back to billing every week.
         if (s.enrollDate && week < mondayOf(s.enrollDate)) continue;
         const { rowCount } = await query(
-          `INSERT INTO fees (year, student_id, period, week_starting, amount, status) VALUES ($1,$2,'week',$3,$4,'Pending')
+          `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status) VALUES ($5,$1,$2,'week',$3,$4,'Pending')
            ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
-          [year, s.id, week, s.weeklyFee ?? 15]
+          [year, s.id, week, s.weeklyFee ?? 15, mid]
         );
         created += rowCount;
       }
@@ -129,9 +137,9 @@ module.exports = requireAuth(async (req, res) => {
       return;
     }
     const { rowCount } = await query(
-      `DELETE FROM fees WHERE year = $1 AND week_starting = ANY($2::date[]) AND period = $4
-       AND student_id IN (SELECT id FROM students WHERE class = $3)`,
-      [year, weeks, className, period]
+      `DELETE FROM fees WHERE year = $1 AND week_starting = ANY($2::date[]) AND period = $4 AND madrasah_id = $5
+       AND student_id IN (SELECT id FROM students WHERE class = $3 AND madrasah_id = $5)`,
+      [year, weeks, className, period, mid]
     );
     res.status(200).json({ ok: true, deleted: rowCount });
     return;
@@ -145,9 +153,10 @@ module.exports = requireAuth(async (req, res) => {
     if (req.method !== 'DELETE') { res.status(405).json({ error: 'Method not allowed' }); return; }
     const { studentId, fromDate } = req.body || {};
     if (!studentId || !fromDate) { res.status(400).json({ error: 'studentId and fromDate are required' }); return; }
+    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     const { rowCount } = await query(
-      `DELETE FROM fees WHERE student_id = $1 AND week_starting >= $2 AND status = 'Pending'`,
-      [studentId, fromDate]
+      `DELETE FROM fees WHERE student_id = $1 AND week_starting >= $2 AND status = 'Pending' AND madrasah_id = $3`,
+      [studentId, fromDate, mid]
     );
     res.status(200).json({ ok: true, deleted: rowCount });
     return;
@@ -160,9 +169,9 @@ module.exports = requireAuth(async (req, res) => {
     const { year, weekStarting, className } = req.body || {};
     if (!year || !weekStarting || !className) { res.status(400).json({ error: 'year, weekStarting and className are required' }); return; }
     await query(
-      `DELETE FROM fees WHERE year = $1 AND week_starting = $2 AND period = 'week'
-       AND student_id IN (SELECT id FROM students WHERE class = $3)`,
-      [year, weekStarting, className]
+      `DELETE FROM fees WHERE year = $1 AND week_starting = $2 AND period = 'week' AND madrasah_id = $4
+       AND student_id IN (SELECT id FROM students WHERE class = $3 AND madrasah_id = $4)`,
+      [year, weekStarting, className, mid]
     );
     res.status(200).json({ ok: true });
     return;
@@ -172,19 +181,20 @@ module.exports = requireAuth(async (req, res) => {
     if (req.method === 'GET') {
       const { year } = req.query;
       if (!year) { res.status(400).json({ error: 'year is required' }); return; }
-      const { rows } = await query('SELECT * FROM fees WHERE year = $1', [year]);
-      res.status(200).json(rows.filter(r => !scope || scope.studentIds.has(r.student_id)).map(toClient));
+      const { rows } = await query('SELECT * FROM fees WHERE year = $1 AND madrasah_id = $2', [year, mid]);
+      res.status(200).json(rows.filter(r => scope.studentIds.has(r.student_id)).map(toClient));
       return;
     }
 
     if (req.method === 'POST') {
       const b = req.body || {};
       if (!b.studentId || !b.weekStarting || !b.year) { res.status(400).json({ error: 'studentId, weekStarting and year are required' }); return; }
+      if (!scope.studentIds.has(b.studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
       const period = PERIODS.includes(b.period) ? b.period : 'week';
       const { rows } = await query(
-        `INSERT INTO fees (year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,$4,$5,'Pending')
+        `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status) VALUES ($6,$1,$2,$3,$4,$5,'Pending')
          ON CONFLICT (year, student_id, period, week_starting) DO NOTHING RETURNING *`,
-        [b.year, b.studentId, period, b.weekStarting, b.amount ?? 15]
+        [b.year, b.studentId, period, b.weekStarting, b.amount ?? 15, mid]
       );
       if (!rows.length) { res.status(200).json({ ok: true, created: false }); return; }
       res.status(201).json(toClient(rows[0]));
@@ -206,15 +216,15 @@ module.exports = requireAuth(async (req, res) => {
     }
     if (b.amount !== undefined) { values.push(b.amount); sets.push(`amount = $${values.length}`); }
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
-    values.push(id);
-    const { rows } = await query(`UPDATE fees SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id`, values);
+    values.push(id, mid);
+    const { rows } = await query(`UPDATE fees SET ${sets.join(', ')} WHERE id = $${values.length - 1} AND madrasah_id = $${values.length} RETURNING id`, values);
     if (!rows.length) { res.status(404).json({ error: 'Fee record not found' }); return; }
     res.status(200).json({ ok: true });
     return;
   }
 
   if (req.method === 'DELETE') {
-    await query('DELETE FROM fees WHERE id = $1', [id]);
+    await query('DELETE FROM fees WHERE id = $1 AND madrasah_id = $2', [id, mid]);
     res.status(200).json({ ok: true });
     return;
   }

@@ -1,4 +1,8 @@
 -- Dev-only seed data mirroring the current localStorage sample data, for local testing.
+-- Everything here belongs to madrasah 1 (made by schema.sql).
+ALTER TABLE classes ALTER COLUMN madrasah_id SET DEFAULT 1;
+ALTER TABLE students ALTER COLUMN madrasah_id SET DEFAULT 1;
+
 INSERT INTO classes (id, name, teacher_id) VALUES
   ('C001','Class 1',NULL),
   ('C002','Class 2',NULL)
@@ -31,3 +35,6 @@ INSERT INTO students (id, forename, surname, dob, class, parent1_name, parent1_p
   ('S024','Mahiba','Miah','2019-05-09','Class 2','Fahima Begum','07473607188','','',15,'2025-04-06','Active',''),
   ('S025','Safaa','Arshad','2010-01-01','Class 2','Arshad Sattar','07886203394','Fauzia Arshad','07809506601',15,'2025-09-01','Active','')
 ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE classes ALTER COLUMN madrasah_id DROP DEFAULT;
+ALTER TABLE students ALTER COLUMN madrasah_id DROP DEFAULT;
