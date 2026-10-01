@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   date       DATE NOT NULL,
   status     TEXT NOT NULL CHECK (status IN ('P','L','A')),
+  late_time  TEXT,  -- 'HH:MM' a student was marked Late, stamped on the day
   UNIQUE (year, student_id, date)
 );
 CREATE INDEX IF NOT EXISTS idx_attendance_year_date ON attendance (year, date);
