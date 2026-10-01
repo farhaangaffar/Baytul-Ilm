@@ -281,19 +281,22 @@ export default function Settings() {
           </div>
           <div className="form-group">
             <label>Fees are charged</label>
-            <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)} style={{maxWidth:220}}>
-              <option value="weekly">Weekly (school month from its first Monday)</option>
+            <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)}>
+              <option value="weekly">Weekly</option>
               <option value="monthly">Monthly (calendar month)</option>
               <option value="termly">Termly (your term dates)</option>
             </select>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
+            {(savedFrequency || 'weekly') === 'weekly' && (
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Weeks are grouped into school months, each starting on its first Monday.</span>
+            )}
             {savedFrequency === 'termly' && (
               <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section.</span>
             )}
           </div>
           <div className="form-group">
             <label>Reports are made</label>
-            <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)} style={{maxWidth:220}}>
+            <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
               <option value="monthly">Monthly</option>
               <option value="termly">Termly (your term dates)</option>
             </select>
@@ -302,8 +305,7 @@ export default function Settings() {
           <div className="form-group">
             <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
             <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
-              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
-              style={{maxWidth:160}}/>
+              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}/>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
               Used when enrolling new students. Can be changed per student.
             </span>
