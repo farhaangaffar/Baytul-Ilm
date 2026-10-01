@@ -87,6 +87,27 @@ export default function Settings() {
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
+  // The fee frequency saves straight away (after a confirm) instead of waiting for
+  // "Save changes" — it changes how the Fees page works, and it was easy to pick it,
+  // go off to add term dates (which save on their own) and never press Save.
+  async function changeFrequency(next) {
+    if (next === savedFrequency) return;
+    const msg = `Switch to charging fees ${FREQUENCIES[next].adjective.toLowerCase()}?\n\n`
+      + `Fees already added stay exactly as they are. From now on fees are added per ${FREQUENCIES[next].unit}. `
+      + `Student fee amounts are not converted — check them after switching.`
+      + (next === 'termly' ? '\n\nAdd your term dates in the Terms section below if you haven\'t yet.' : '');
+    if (!window.confirm(msg)) return;
+    try {
+      await updateSettings({ feeFrequency: next });
+      setForm(f => ({ ...f, feeFrequency: next }));
+      setSavedFrequency(next);
+      setBranding({ feeFrequency: next });
+      showToast(`Fees are now charged ${FREQUENCIES[next].adjective.toLowerCase()}`);
+    } catch (err) {
+      showToast(err.message || 'Could not change the fee frequency');
+    }
+  }
+
   async function saveSettings() {
     setSaving(true);
     try {
@@ -225,22 +246,18 @@ export default function Settings() {
             </div>
             <div className="form-group">
               <label>Fees are charged</label>
-              <select value={form.feeFrequency || 'weekly'} onChange={e=>setForm({...form,feeFrequency:e.target.value})} style={{maxWidth:220}}>
+              <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)} style={{maxWidth:220}}>
                 <option value="weekly">Weekly (school month from its first Monday)</option>
                 <option value="monthly">Monthly (calendar month)</option>
                 <option value="termly">Termly (your term dates)</option>
               </select>
-              {(form.feeFrequency || 'weekly') !== (savedFrequency || 'weekly') && (
-                <span style={{fontSize:12,color:'var(--amber-text)',marginTop:4}}>
-                  Fees already added stay exactly as they are; from now on fees are added per {FREQUENCIES[form.feeFrequency].unit}. Student fee amounts are not converted — check them after switching.
-                </span>
-              )}
-              {form.feeFrequency === 'termly' && (
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
+              {savedFrequency === 'termly' && (
                 <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section below.</span>
               )}
             </div>
             <div className="form-group">
-              <label>Default fee per {FREQUENCIES[form.feeFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
+              <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
               <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
                 onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
                 style={{maxWidth:160}}/>
