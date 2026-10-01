@@ -337,7 +337,7 @@ export default function Settings() {
       </div>
 
       {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
-      {showTerms && <TermsCard years={years} defaultYear={currentYear} highlight />}
+      {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
 
       {/* Academic years — rarely changed, so a slim full-width strip */}
       <div className="card" style={{marginTop:16}}>
