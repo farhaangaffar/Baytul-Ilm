@@ -251,99 +251,94 @@ export default function Settings() {
 
   return (
     <Layout title="Settings" subtitle="School details, academic years and defaults">
-      {/* School details and Terms side by side. Terms only exists when fees or reports are
-          termly; without it, School details takes the full width with its fields in two columns. */}
-      <div className={showTerms ? 'grid-2' : ''} style={{alignItems:'flex-start'}}>
-
-        {/* School details */}
-        <div className="card">
-          <div className="card-title" style={{marginBottom:18}}>School details</div>
-          <div className={showTerms ? 'form-grid' : 'form-grid form-grid-2'}>
-            <div className="form-group">
-              <label>Madrasah name (English)</label>
-              <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}/>
-            </div>
-            <div className="form-group">
-              <label>Madrasah name (Arabic)</label>
-              <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
-            </div>
-            <div className="form-group">
-              <label>Fees are charged</label>
-              <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)} style={{maxWidth:220}}>
-                <option value="weekly">Weekly (school month from its first Monday)</option>
-                <option value="monthly">Monthly (calendar month)</option>
-                <option value="termly">Termly (your term dates)</option>
-              </select>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
-              {savedFrequency === 'termly' && (
-                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section.</span>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Reports are made</label>
-              <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)} style={{maxWidth:220}}>
-                <option value="monthly">Monthly</option>
-                <option value="termly">Termly (your term dates)</option>
-              </select>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One AI summary and behaviour rating per {savedReportPeriod === 'termly' ? 'term' : 'month'} for each student. Saved as soon as you change it.</span>
-            </div>
-            <div className="form-group">
-              <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
-              <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
-                onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
-                style={{maxWidth:160}}/>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Used when enrolling new students. Can be changed per student.
-              </span>
-            </div>
-            <div className="form-group">
-              <label>Currency symbol</label>
-              <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
-                onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}
-                style={{maxWidth:160}}>
-                {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
-                <option value="other">Other…</option>
-              </select>
-              {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
-                <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
-                  onChange={e=>setForm({...form,currencySymbol:e.target.value})}
-                  style={{maxWidth:160,marginTop:6}}/>
-              )}
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Shown on fees, stats and PDF reports.
-              </span>
-            </div>
-            <div className="form-group">
-              <label>Logo</label>
-              <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                <div style={{width:64,height:64,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden'}}>
-                  {form.hasLogo
-                    ? <img src={`/api/settings?logo&v=${logoVersion}`} alt="School logo" style={{maxWidth:'100%',maxHeight:'100%'}}/>
-                    : <ImageIcon size={22} style={{color:'var(--text-soft)'}}/>}
-                </div>
-                <button type="button" className="btn btn-sm" onClick={()=>logoInputRef.current?.click()} disabled={logoBusy}>
-                  <Upload size={13}/>{form.hasLogo ? 'Change' : 'Upload'}
-                </button>
-                {form.hasLogo && (
-                  <button type="button" className="btn btn-sm" style={{color:'var(--red)'}} onClick={removeLogo} disabled={logoBusy}>
-                    <Trash2 size={13}/>Remove
-                  </button>
-                )}
-                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
-              </div>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Printed next to the madrasah name on PDF reports, and used as the app's icon. Saved straight away.
-              </span>
-            </div>
+      {/* School details — full width, fields in three columns (two on narrower screens) */}
+      <div className="card">
+        <div className="card-title" style={{marginBottom:18}}>School details</div>
+        <div className="form-grid school-grid">
+          <div className="form-group">
+            <label>Madrasah name (English)</label>
+            <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}/>
           </div>
-          <div style={{marginTop:20}}>
-            <button className="btn btn-primary" onClick={saveSettings} disabled={saving}><Save size={14}/>{saving?'Saving…':'Save changes'}</button>
+          <div className="form-group">
+            <label>Madrasah name (Arabic)</label>
+            <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
+          </div>
+          <div className="form-group">
+            <label>Currency symbol</label>
+            <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
+              onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}
+              style={{maxWidth:160}}>
+              {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+              <option value="other">Other…</option>
+            </select>
+            {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
+              <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
+                onChange={e=>setForm({...form,currencySymbol:e.target.value})}
+                style={{maxWidth:160,marginTop:6}}/>
+            )}
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Shown on fees, stats and PDF reports.
+            </span>
+          </div>
+          <div className="form-group">
+            <label>Fees are charged</label>
+            <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)} style={{maxWidth:220}}>
+              <option value="weekly">Weekly (school month from its first Monday)</option>
+              <option value="monthly">Monthly (calendar month)</option>
+              <option value="termly">Termly (your term dates)</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
+            {savedFrequency === 'termly' && (
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section.</span>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Reports are made</label>
+            <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)} style={{maxWidth:220}}>
+              <option value="monthly">Monthly</option>
+              <option value="termly">Termly (your term dates)</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One AI summary and behaviour rating per {savedReportPeriod === 'termly' ? 'term' : 'month'} for each student. Saved as soon as you change it.</span>
+          </div>
+          <div className="form-group">
+            <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
+            <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
+              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
+              style={{maxWidth:160}}/>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Used when enrolling new students. Can be changed per student.
+            </span>
+          </div>
+          <div className="form-group" style={{gridColumn:'1 / -1'}}>
+            <label>Logo</label>
+            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+              <div style={{width:64,height:64,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden'}}>
+                {form.hasLogo
+                  ? <img src={`/api/settings?logo&v=${logoVersion}`} alt="School logo" style={{maxWidth:'100%',maxHeight:'100%'}}/>
+                  : <ImageIcon size={22} style={{color:'var(--text-soft)'}}/>}
+              </div>
+              <button type="button" className="btn btn-sm" onClick={()=>logoInputRef.current?.click()} disabled={logoBusy}>
+                <Upload size={13}/>{form.hasLogo ? 'Change' : 'Upload'}
+              </button>
+              {form.hasLogo && (
+                <button type="button" className="btn btn-sm" style={{color:'var(--red)'}} onClick={removeLogo} disabled={logoBusy}>
+                  <Trash2 size={13}/>Remove
+                </button>
+              )}
+              <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
+            </div>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Printed next to the madrasah name on PDF reports, and used as the app's icon. Saved straight away.
+            </span>
           </div>
         </div>
-
-        {/* Terms */}
-        {showTerms && <TermsCard years={years} defaultYear={currentYear} highlight flush />}
+        <div style={{marginTop:20}}>
+          <button className="btn btn-primary" onClick={saveSettings} disabled={saving}><Save size={14}/>{saving?'Saving…':'Save changes'}</button>
+        </div>
       </div>
+
+      {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
+      {showTerms && <TermsCard years={years} defaultYear={currentYear} highlight />}
 
       {/* Academic years — rarely changed, so a slim full-width strip */}
       <div className="card" style={{marginTop:16}}>

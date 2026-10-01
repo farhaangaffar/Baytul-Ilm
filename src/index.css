@@ -327,6 +327,10 @@ tbody tr:hover td { background: #f9fafb; }
 .form-grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
 .form-grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .form-grid-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+/* Settings → School details: three columns on wide screens, two on narrower ones, one on phones */
+.school-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .school-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .school-grid { grid-template-columns: minmax(0, 1fr); } }
 .form-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .form-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; }
 .form-group input, .form-group select, .form-group textarea { padding: 10px 14px; border: none; border-radius: var(--r-md); font-size: 13px; font-family: var(--font); color: var(--text); background: #f9fafb; transition: box-shadow 0.15s, background 0.15s; outline: none; }
