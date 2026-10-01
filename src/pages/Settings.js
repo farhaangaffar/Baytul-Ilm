@@ -48,6 +48,7 @@ export default function Settings() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
   const [savedFrequency, setSavedFrequency] = useState('weekly');
+  const [savedReportPeriod, setSavedReportPeriod] = useState('monthly');
   const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
   const [newYear, setNewYear] = useState('');
@@ -67,7 +68,7 @@ export default function Settings() {
     setLoading(true); setError(null);
     try {
       const [settingsData, yearsData, cy] = await Promise.all([getSettings(), getAcademicYears(), currentSchoolYear()]);
-      setForm(settingsData); setYears(yearsData); setCurrentYear(cy); setSavedFrequency(settingsData.feeFrequency || 'weekly');
+      setForm(settingsData); setYears(yearsData); setCurrentYear(cy); setSavedFrequency(settingsData.feeFrequency || 'weekly'); setSavedReportPeriod(settingsData.reportPeriod || 'monthly');
       // Logos uploaded before app icons were generated from them — build the
       // missing icon once, quietly, so the installed app picks up the logo too.
       if (settingsData.hasLogo && !settingsData.hasIcon) {
@@ -105,6 +106,24 @@ export default function Settings() {
       showToast(`Fees are now charged ${FREQUENCIES[next].adjective.toLowerCase()}`);
     } catch (err) {
       showToast(err.message || 'Could not change the fee frequency');
+    }
+  }
+
+  // Saved straight away, like the fee frequency.
+  async function changeReportPeriod(next) {
+    if (next === savedReportPeriod) return;
+    const msg = next === 'termly'
+      ? 'Make reports termly?\n\nEach student gets one report (one AI summary and behaviour rating) per term, covering attendance and fees for the whole term. Monthly reports already saved stay as they are.\n\nA Terms section will appear below for your term dates.'
+      : 'Make reports monthly?\n\nEach student gets one report per month. Termly reports already saved stay as they are.';
+    if (!window.confirm(msg)) return;
+    try {
+      await updateSettings({ reportPeriod: next });
+      setForm(f => ({ ...f, reportPeriod: next }));
+      setSavedReportPeriod(next);
+      setBranding({ reportPeriod: next });
+      showToast(`Reports are now ${next}`);
+    } catch (err) {
+      showToast(err.message || 'Could not change the report period');
     }
   }
 
@@ -228,134 +247,143 @@ export default function Settings() {
   if (loading) return <Layout title="Settings"><LoadingState /></Layout>;
   if (error) return <Layout title="Settings"><ErrorState error={error} onRetry={load} /></Layout>;
 
+  const showTerms = years.length > 0 && (savedFrequency === 'termly' || savedReportPeriod === 'termly');
+
   return (
     <Layout title="Settings" subtitle="School details, academic years and defaults">
-      <div className="grid-2" style={{alignItems:'flex-start'}}>
-
-        {/* School details */}
-        <div className="card">
-          <div className="card-title" style={{marginBottom:18}}>School details</div>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Madrasah name (English)</label>
-              <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}/>
-            </div>
-            <div className="form-group">
-              <label>Madrasah name (Arabic)</label>
-              <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
-            </div>
-            <div className="form-group">
-              <label>Fees are charged</label>
-              <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)} style={{maxWidth:220}}>
-                <option value="weekly">Weekly (school month from its first Monday)</option>
-                <option value="monthly">Monthly (calendar month)</option>
-                <option value="termly">Termly (your term dates)</option>
-              </select>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
-              {savedFrequency === 'termly' && (
-                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section below.</span>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
-              <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
-                onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
-                style={{maxWidth:160}}/>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Used when enrolling new students. Can be changed per student.
-              </span>
-            </div>
-            <div className="form-group">
-              <label>Currency symbol</label>
-              <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
-                onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}
-                style={{maxWidth:160}}>
-                {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
-                <option value="other">Other…</option>
-              </select>
-              {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
-                <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
-                  onChange={e=>setForm({...form,currencySymbol:e.target.value})}
-                  style={{maxWidth:160,marginTop:6}}/>
-              )}
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Shown on fees, stats and PDF reports.
-              </span>
-            </div>
-            <div className="form-group">
-              <label>Logo</label>
-              <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                <div style={{width:64,height:64,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden'}}>
-                  {form.hasLogo
-                    ? <img src={`/api/settings?logo&v=${logoVersion}`} alt="School logo" style={{maxWidth:'100%',maxHeight:'100%'}}/>
-                    : <ImageIcon size={22} style={{color:'var(--text-soft)'}}/>}
-                </div>
-                <button type="button" className="btn btn-sm" onClick={()=>logoInputRef.current?.click()} disabled={logoBusy}>
-                  <Upload size={13}/>{form.hasLogo ? 'Change' : 'Upload'}
-                </button>
-                {form.hasLogo && (
-                  <button type="button" className="btn btn-sm" style={{color:'var(--red)'}} onClick={removeLogo} disabled={logoBusy}>
-                    <Trash2 size={13}/>Remove
-                  </button>
-                )}
-                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
-              </div>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-                Printed next to the madrasah name on PDF reports, and used as the app's icon. Saved straight away.
-              </span>
-            </div>
+      {/* School details — full width, fields in three columns (two on narrower screens) */}
+      <div className="card">
+        <div className="card-title" style={{marginBottom:18}}>School details</div>
+        <div className="form-grid school-grid">
+          <div className="form-group">
+            <label>Madrasah name (English)</label>
+            <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}/>
           </div>
-          <div style={{marginTop:20}}>
-            <button className="btn btn-primary" onClick={saveSettings} disabled={saving}><Save size={14}/>{saving?'Saving…':'Save changes'}</button>
+          <div className="form-group">
+            <label>Madrasah name (Arabic)</label>
+            <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
+          </div>
+          <div className="form-group">
+            <label>Currency symbol</label>
+            <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
+              onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}>
+              {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+              <option value="other">Other…</option>
+            </select>
+            {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
+              <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
+                onChange={e=>setForm({...form,currencySymbol:e.target.value})}
+                style={{marginTop:6}}/>
+            )}
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Shown on fees, stats and PDF reports.
+            </span>
+          </div>
+          <div className="form-group">
+            <label>Fees are charged</label>
+            <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)}>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly (calendar month)</option>
+              <option value="termly">Termly (your term dates)</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
+            {(savedFrequency || 'weekly') === 'weekly' && (
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Weeks are grouped into school months, each starting on its first Monday.</span>
+            )}
+            {savedFrequency === 'termly' && (
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section.</span>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Reports are made</label>
+            <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
+              <option value="monthly">Monthly</option>
+              <option value="termly">Termly (your term dates)</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One AI summary and behaviour rating per {savedReportPeriod === 'termly' ? 'term' : 'month'} for each student. Saved as soon as you change it.</span>
+          </div>
+          <div className="form-group">
+            <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
+            <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
+              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}/>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Used when enrolling new students. Can be changed per student.
+            </span>
+          </div>
+          <div className="form-group" style={{gridColumn:'1 / -1'}}>
+            <label>Logo</label>
+            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+              <div style={{width:64,height:64,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden'}}>
+                {form.hasLogo
+                  ? <img src={`/api/settings?logo&v=${logoVersion}`} alt="School logo" style={{maxWidth:'100%',maxHeight:'100%'}}/>
+                  : <ImageIcon size={22} style={{color:'var(--text-soft)'}}/>}
+              </div>
+              <button type="button" className="btn btn-sm" onClick={()=>logoInputRef.current?.click()} disabled={logoBusy}>
+                <Upload size={13}/>{form.hasLogo ? 'Change' : 'Upload'}
+              </button>
+              {form.hasLogo && (
+                <button type="button" className="btn btn-sm" style={{color:'var(--red)'}} onClick={removeLogo} disabled={logoBusy}>
+                  <Trash2 size={13}/>Remove
+                </button>
+              )}
+              <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
+            </div>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Printed next to the madrasah name on PDF reports, and used as the app's icon. Saved straight away.
+            </span>
           </div>
         </div>
-
-        {/* Academic years */}
-        <div className="card">
-          <div className="card-title" style={{marginBottom:6}}>Academic years</div>
-          <div className="card-sub" style={{marginBottom:16}}>
-            Attendance and fee data is stored separately per year. Add new years here — they appear in the switcher on Attendance and Fees pages.
-          </div>
-
-          {/* Existing years */}
-          <div style={{marginBottom:16}}>
-            {years.map(y=>(
-              <div key={y} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderRadius:'var(--r-md)',background:'#f9fafb',marginBottom:6,border:'1px solid var(--border)'}}>
-                <div style={{fontWeight:600,fontSize:14}}>{y}</div>
-                <button
-                  className="btn btn-icon btn-sm"
-                  style={{color:'var(--red)'}}
-                  onClick={()=>years.length>1?setConfirmDel(y):showToast('Must have at least one year')}
-                  title="Remove year"
-                >
-                  <Trash2 size={13}/>
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Add new year */}
-          <div className="form-section-title" style={{marginBottom:12}}><Plus size={13}/>Add academic year</div>
-          <div className="flex items-center gap-2" style={{marginBottom:6,flexWrap:'wrap'}}>
-            <input
-              value={newYear}
-              onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
-              placeholder="e.g. 2026-27"
-              onKeyDown={e=>e.key==='Enter'&&addYear()}
-              style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
-            />
-            <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add</button>
-          </div>
-          {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:2}}>{yearError}</div>}
-          <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>
-            Format: <strong>2026-27</strong> or <strong>26-27</strong>
-          </div>
+        <div style={{marginTop:20}}>
+          <button className="btn btn-primary" onClick={saveSettings} disabled={saving}><Save size={14}/>{saving?'Saving…':'Save changes'}</button>
         </div>
       </div>
 
-      {/* Terms */}
-      {/* Only needed (and shown) when fees are charged termly */}
-      {years.length > 0 && savedFrequency === 'termly' && <TermsCard years={years} defaultYear={currentYear} highlight />}
+      {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
+      {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
+
+      {/* Academic years — rarely changed, so a slim full-width strip */}
+      <div className="card" style={{marginTop:16}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+          <div style={{flex:'1 1 280px',minWidth:0}}>
+            <div className="card-title" style={{marginBottom:4}}>Academic years</div>
+            <div className="card-sub" style={{marginBottom:12}}>
+              Attendance and fee data is stored separately per year. New years appear in the switcher on Attendance and Fees.
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {years.map(y=>(
+                <div key={y} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 4px 4px 12px',borderRadius:999,background:'#f9fafb',border:'1px solid var(--border)'}}>
+                  <span style={{fontWeight:600,fontSize:13}}>{y}</span>
+                  <button
+                    className="btn btn-icon btn-sm"
+                    style={{color:'var(--red)',padding:4}}
+                    onClick={()=>years.length>1?setConfirmDel(y):showToast('Must have at least one year')}
+                    title={`Remove ${y}`}
+                  >
+                    <Trash2 size={12}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{flex:'0 1 300px',minWidth:0}}>
+            <div className="flex items-center gap-2">
+              <input
+                value={newYear}
+                onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
+                placeholder="e.g. 2026-27"
+                onKeyDown={e=>e.key==='Enter'&&addYear()}
+                aria-label="New academic year"
+                style={{flex:1,minWidth:0,padding:'9px 14px',border:'none',outline:'none',background:'#f9fafb',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
+              />
+              <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add year</button>
+            </div>
+            {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:6}}>{yearError}</div>}
+            <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>
+              Format: <strong>2026-27</strong> or <strong>26-27</strong>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>

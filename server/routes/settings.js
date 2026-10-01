@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const { getUser } = require('../auth');
 
-// currency_symbol, logo, icon and fee_frequency were added after the settings table already existed in production —
+// currency_symbol, logo, icon, fee_frequency and report_period were added after the settings table already existed in production —
 // self-heal once per cold start, same pattern as ai_summaries.behavior in api/ai-summary.js.
 let columnsReady = false;
 async function ensureColumns() {
@@ -10,6 +10,7 @@ async function ensureColumns() {
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo TEXT`);
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS icon TEXT`);
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_frequency TEXT NOT NULL DEFAULT 'weekly'`);
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS report_period TEXT NOT NULL DEFAULT 'monthly'`);
   columnsReady = true;
 }
 
@@ -18,7 +19,7 @@ async function loadSettings() {
   const { rows } = await query(
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
             default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
-            fee_frequency AS "feeFrequency",
+            fee_frequency AS "feeFrequency", report_period AS "reportPeriod",
             logo IS NOT NULL AS "hasLogo", left(md5(icon), 8) AS "iconVersion"
      FROM settings WHERE id = 1`
   );
@@ -110,6 +111,10 @@ module.exports = async (req, res) => {
     if (b.feeFrequency !== undefined) {
       if (!['weekly', 'monthly', 'termly'].includes(b.feeFrequency)) { res.status(400).json({ error: 'Fee frequency must be weekly, monthly or termly' }); return; }
       values.push(b.feeFrequency); sets.push(`fee_frequency = $${values.length}`);
+    }
+    if (b.reportPeriod !== undefined) {
+      if (!['monthly', 'termly'].includes(b.reportPeriod)) { res.status(400).json({ error: 'Report period must be monthly or termly' }); return; }
+      values.push(b.reportPeriod); sets.push(`report_period = $${values.length}`);
     }
     for (const column of ['logo', 'icon']) {
       const v = b[column];

@@ -6,9 +6,9 @@
 // analysis of a rendered page) and are only valid for that exact file.
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { attendanceCountsForMonth, getCurrentSchoolMonth, getClasses, getTeachers } from './store';
+import { attendanceCountsForMonth, getClasses, getTeachers } from './store';
 import { money, getBranding } from './branding';
-import { feeFrequency, calendarMonth } from './feePeriods';
+import { periodForKey, feesForReport } from './reportPeriods';
 
 function fmtDMY(date) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -396,15 +396,14 @@ export function downloadPdfBytes(bytes, filename) {
 // for a student no longer on the active roster) — the month's own attendance/fee
 // data has to be fetched for whichever year that month actually belongs to,
 // which callers are responsible for (this just builds the PDF from it).
-export async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth }) {
-  const monthRange = getCurrentSchoolMonth(`${dataMonth}-15`);
-  const counts = attendanceCountsForMonth(attendance, student.id, monthRange);
-  // Monthly fees are dated the 1st of the calendar month, which can fall before that
-  // month's first Monday — so look them up by calendar month instead.
-  const feeRange = feeFrequency() === 'monthly' ? calendarMonth(dataMonth) : monthRange;
-  const monthFees = fees.filter(f => f.studentId === student.id && f.weekStarting >= feeRange.start && f.weekStarting < feeRange.endExclusive);
-  const billed = monthFees.reduce((s, f) => s + Number(f.amount), 0);
-  const collected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
+export async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth, period }) {
+  // `period` (from reportPeriods.js) is a school month or a term; older callers pass
+  // just the month key. Attendance and fees cover that whole period.
+  const p = period || periodForKey(dataMonth);
+  const counts = attendanceCountsForMonth(attendance, student.id, p);
+  const periodFees = feesForReport(fees, student.id, p);
+  const billed = periodFees.reduce((s, f) => s + Number(f.amount), 0);
+  const collected = periodFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const teacherName = await classTeacherName(student.class);
-  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: monthRange.label, aiSummary: summary, behavior, reportDate, teacherName });
+  return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: p.label, aiSummary: summary, behavior, reportDate, teacherName });
 }

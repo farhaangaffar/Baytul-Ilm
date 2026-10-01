@@ -52,6 +52,12 @@ codebase (one codebase, not a fork).
   `src/lib/feePeriods.js` (`feeFrequency()`, `currentFeePeriod()`, `feeUnit()`/`feePer()`)
   rather than assuming weeks. Weekly keeps the original Fees page; monthly/termly use
   `src/components/PeriodFees.js`.
+- Report period (Settings): **monthly** (one report per school month — the original
+  system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
+  is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`
+  (`currentReportPeriod()`, `periodForKey()`, `feesForReport()`) for ranges, labels and
+  which fees belong on a report. The Terms section in Settings shows when fees or
+  reports are termly.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache
