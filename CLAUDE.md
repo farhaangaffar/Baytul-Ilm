@@ -45,6 +45,13 @@ codebase (one codebase, not a fork).
 - School-specific details (name, Arabic name, currency, logo/app icon) come from
   Settings — never hardcode a school's name, currency symbol or teacher. Use
   `money()` / `currencySymbol()` from `src/lib/branding.js` for amounts.
+- Fee frequency (Settings): **weekly** (the original system — weeks grouped into school
+  months from each month's first Monday), **monthly** (calendar months, 1st to end) or
+  **termly** (the madrasah's own term dates, `terms` table). A fee record's `period` is
+  'week'/'month'/'term' and `week_starting` holds the period's start date. Use
+  `src/lib/feePeriods.js` (`feeFrequency()`, `currentFeePeriod()`, `feeUnit()`/`feePer()`)
+  rather than assuming weeks. Weekly keeps the original Fees page; monthly/termly use
+  `src/components/PeriodFees.js`.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache

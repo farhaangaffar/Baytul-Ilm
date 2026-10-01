@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
+import TermsCard from '../components/TermsCard';
+import { FREQUENCIES } from '../lib/feePeriods';
 import { Save, Plus, Trash2, X, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
 
@@ -45,6 +47,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
+  const [savedFrequency, setSavedFrequency] = useState('weekly');
+  const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
   const [newYear, setNewYear] = useState('');
   const [yearError, setYearError] = useState('');
@@ -62,8 +66,8 @@ export default function Settings() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [settingsData, yearsData] = await Promise.all([getSettings(), getAcademicYears()]);
-      setForm(settingsData); setYears(yearsData);
+      const [settingsData, yearsData, cy] = await Promise.all([getSettings(), getAcademicYears(), currentSchoolYear()]);
+      setForm(settingsData); setYears(yearsData); setCurrentYear(cy); setSavedFrequency(settingsData.feeFrequency || 'weekly');
       // Logos uploaded before app icons were generated from them — build the
       // missing icon once, quietly, so the installed app picks up the logo too.
       if (settingsData.hasLogo && !settingsData.hasIcon) {
@@ -82,6 +86,27 @@ export default function Settings() {
   useEffect(() => { load(); }, [load]);
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
+
+  // The fee frequency saves straight away (after a confirm) instead of waiting for
+  // "Save changes" — it changes how the Fees page works, and it was easy to pick it,
+  // go off to add term dates (which save on their own) and never press Save.
+  async function changeFrequency(next) {
+    if (next === savedFrequency) return;
+    const msg = `Switch to charging fees ${FREQUENCIES[next].adjective.toLowerCase()}?\n\n`
+      + `Fees already added stay exactly as they are. From now on fees are added per ${FREQUENCIES[next].unit}. `
+      + `Student fee amounts are not converted — check them after switching.`
+      + (next === 'termly' ? '\n\nA Terms section will appear below for your term dates.' : '');
+    if (!window.confirm(msg)) return;
+    try {
+      await updateSettings({ feeFrequency: next });
+      setForm(f => ({ ...f, feeFrequency: next }));
+      setSavedFrequency(next);
+      setBranding({ feeFrequency: next });
+      showToast(`Fees are now charged ${FREQUENCIES[next].adjective.toLowerCase()}`);
+    } catch (err) {
+      showToast(err.message || 'Could not change the fee frequency');
+    }
+  }
 
   async function saveSettings() {
     setSaving(true);
@@ -220,7 +245,19 @@ export default function Settings() {
               <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
             </div>
             <div className="form-group">
-              <label>Default weekly fee ({form.currencySymbol || '£'})</label>
+              <label>Fees are charged</label>
+              <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)} style={{maxWidth:220}}>
+                <option value="weekly">Weekly (school month from its first Monday)</option>
+                <option value="monthly">Monthly (calendar month)</option>
+                <option value="termly">Termly (your term dates)</option>
+              </select>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
+              {savedFrequency === 'termly' && (
+                <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section below.</span>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
               <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
                 onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
                 style={{maxWidth:160}}/>
@@ -315,6 +352,10 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Terms */}
+      {/* Only needed (and shown) when fees are charged termly */}
+      {years.length > 0 && savedFrequency === 'termly' && <TermsCard years={years} defaultYear={currentYear} highlight />}
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>

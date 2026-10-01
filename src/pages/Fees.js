@@ -10,6 +10,8 @@ import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
+import { feePer, feeFrequency } from '../lib/feePeriods';
+import PeriodFees from '../components/PeriodFees';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -30,7 +32,13 @@ function yearMonthBounds(yearLabel) {
   return { min: `${startYear}-09`, max: `${startYear + 1}-08` };
 }
 
+// Weekly charging keeps this page as it was; monthly/termly use PeriodFees.
 export default function Fees() {
+  const frequency = feeFrequency();
+  return frequency === 'weekly' ? <WeeklyFees /> : <PeriodFees frequency={frequency} />;
+}
+
+function WeeklyFees() {
   // Teachers can only mark a week as paid — no amounts, no un-marking, no adding
   // or removing weeks. The server enforces the same rules.
   const { isOwner } = useAuth();
@@ -249,7 +257,7 @@ export default function Fees() {
             <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14}/> All students</button>
             <div>
               <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
-              <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}/wk</div>
+              <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}{feePer()}</div>
             </div>
           </div>
           <div className="nav-arrow-row">
@@ -404,7 +412,7 @@ export default function Fees() {
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
-              <div className="entity-card-sub" style={{marginBottom:14}}>{currencySymbol()}{s.weeklyFee}/wk</div>
+              <div className="entity-card-sub" style={{marginBottom:14}}>{currencySymbol()}{s.weeklyFee}{feePer()}</div>
               <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}} onClick={e=>e.stopPropagation()}>
                 <div className="week-pill-row" style={{justifyContent:'center'}}>
                   {schoolMonthWeeks.map(w=>{

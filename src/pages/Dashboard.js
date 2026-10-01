@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, X, Send } from 'lucide-react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi, formatDateGB, formatDayMonthGB } from '../lib/store';
+import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
+import { feeFrequency, currentFeePeriod, FREQUENCIES } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [classes, setClasses] = useState([]);
   const [fees, setFees] = useState([]);
   const [attendance, setAttendance] = useState({});
+  const [terms, setTerms] = useState([]);
   const [showAsk, setShowAsk] = useState(false);
   const [askQuestion, setAskQuestion] = useState('');
   const [asking, setAsking] = useState(false);
@@ -28,10 +30,11 @@ export default function Dashboard() {
     setLoading(true); setError(null);
     try {
       const y = await currentSchoolYear();
-      const [studentsData, classesData, feesData, attendanceData] = await Promise.all([
+      const [studentsData, classesData, feesData, attendanceData, termsData] = await Promise.all([
         getStudents(), getClasses(), getFees(y), getAttendance(y),
+        feeFrequency() === 'termly' ? getTerms(y) : Promise.resolve([]),
       ]);
-      setYear(y); setStudents(studentsData); setClasses(classesData); setFees(feesData); setAttendance(attendanceData);
+      setYear(y); setStudents(studentsData); setClasses(classesData); setFees(feesData); setAttendance(attendanceData); setTerms(termsData);
     } catch (err) {
       setError(err);
     }
@@ -85,8 +88,12 @@ export default function Dashboard() {
     setShowAsk(false); setAskQuestion(''); setAskError(null); setAskHistory([]);
   }
 
-  // ── This school month's fees ──
-  const monthFees = fees.filter(f => f.weekStarting >= schoolMonth.start && f.weekStarting < schoolMonth.endExclusive);
+  // ── This period's fees: the school month (weekly), calendar month (monthly) or
+  // current term (termly), per Settings → fee frequency ──
+  const frequency = feeFrequency();
+  const unit = FREQUENCIES[frequency].unit;
+  const feePeriod = currentFeePeriod(frequency, terms) || { start: '9999-12-31', endExclusive: '9999-12-31', label: 'no term dates set' };
+  const monthFees = fees.filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive);
   const monthCollected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthOutstanding = monthFees.filter(f => f.status !== 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthBilled = monthCollected + monthOutstanding;
@@ -130,7 +137,7 @@ export default function Dashboard() {
         </div>
         <div className="stat-card-v2">
           <div className="n">{money(monthOutstanding)}</div>
-          <div className="l">Outstanding this month</div>
+          <div className="l">Outstanding this {unit}</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/fees')}>View all →</div>
         </div>
       </div>
@@ -151,8 +158,8 @@ export default function Dashboard() {
         </div>
 
         <div className="card ring-card">
-          <div className="card-title">Fees — {schoolMonth.label}</div>
-          <div className="card-sub">{money(monthBilled)} due this month</div>
+          <div className="card-title">Fees — {feePeriod.label}</div>
+          <div className="card-sub">{money(monthBilled)} due this {unit}</div>
           <div className="ring-wrap">
             <div className="ring" style={{background:`conic-gradient(var(--blue) 0% ${monthCollectedPct}%, #eef0f4 ${monthCollectedPct}% 100%)`}}/>
             <div className="ring-inner"><div className="n">{monthCollectedPct}%</div><div className="l">Collected</div></div>

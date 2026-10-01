@@ -17,6 +17,7 @@ const routes = {
   settings: require('../server/routes/settings'),
   students: require('../server/routes/students'),
   teachers: require('../server/routes/teachers'),
+  terms: require('../server/routes/terms'),
   users: require('../server/routes/users'),
 };
 

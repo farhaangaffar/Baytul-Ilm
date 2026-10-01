@@ -476,3 +476,10 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
   .students-toolbar-tabs .btn { flex: 1; min-width: 0; justify-content: center; }
   .ring-row { grid-template-columns: 1fr; }
 }
+
+/* Monthly / termly fee pills (components/PeriodFees.js): a grid rather than the weekly
+   row — 12 months as 6 a row, or 4 a row on phones so they fit the card. */
+.period-pill-grid { display: grid; gap: 8px; }
+.period-pill-grid .week-pill { min-width: 0; max-width: none; }
+.period-pill-grid.months { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 560px) { .period-pill-grid.months { grid-template-columns: repeat(4, 1fr); } }

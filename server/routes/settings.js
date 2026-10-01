@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const { getUser } = require('../auth');
 
-// currency_symbol, logo and icon were added after the settings table already existed in production —
+// currency_symbol, logo, icon and fee_frequency were added after the settings table already existed in production —
 // self-heal once per cold start, same pattern as ai_summaries.behavior in api/ai-summary.js.
 let columnsReady = false;
 async function ensureColumns() {
@@ -9,6 +9,7 @@ async function ensureColumns() {
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS currency_symbol TEXT NOT NULL DEFAULT '£'`);
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo TEXT`);
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS icon TEXT`);
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_frequency TEXT NOT NULL DEFAULT 'weekly'`);
   columnsReady = true;
 }
 
@@ -17,6 +18,7 @@ async function loadSettings() {
   const { rows } = await query(
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
             default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
+            fee_frequency AS "feeFrequency",
             logo IS NOT NULL AS "hasLogo", left(md5(icon), 8) AS "iconVersion"
      FROM settings WHERE id = 1`
   );
@@ -105,6 +107,10 @@ module.exports = async (req, res) => {
     if (b.schoolNameArabic !== undefined) { values.push(b.schoolNameArabic); sets.push(`school_name_arabic = $${values.length}`); }
     if (b.defaultWeeklyFee !== undefined) { values.push(b.defaultWeeklyFee); sets.push(`default_weekly_fee = $${values.length}`); }
     if (b.currencySymbol !== undefined) { values.push(String(b.currencySymbol).trim().slice(0, 4) || '£'); sets.push(`currency_symbol = $${values.length}`); }
+    if (b.feeFrequency !== undefined) {
+      if (!['weekly', 'monthly', 'termly'].includes(b.feeFrequency)) { res.status(400).json({ error: 'Fee frequency must be weekly, monthly or termly' }); return; }
+      values.push(b.feeFrequency); sets.push(`fee_frequency = $${values.length}`);
+    }
     for (const column of ['logo', 'icon']) {
       const v = b[column];
       if (v === undefined) continue;

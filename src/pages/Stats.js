@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getSchoolMonthRange } from '../lib/store';
+import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getSchoolMonthRange, getTerms } from '../lib/store';
+import { feeFrequency, feePeriodsForYear, FREQUENCIES } from '../lib/feePeriods';
 import { CheckSquare, Coins } from 'lucide-react';
 import { money } from '../lib/branding';
 
@@ -36,6 +37,19 @@ function attendanceStatsForRange(attendance, studentIds, start, endExclusive) {
   return { P, L, A, total, pct: total ? Math.round(((P + L) / total) * 100) : 0 };
 }
 
+// Fee buckets for the chart/table: school months (weekly — as before), calendar
+// months (monthly) or the year's terms (termly). For monthly/termly the year's totals
+// cover every record fetched for that academic year rather than a date window, since
+// a calendar month (or term) can start before September's first Monday.
+function feeBuckets(yearLabel, frequency, terms) {
+  if (frequency === 'weekly') {
+    const months = monthsOfYear(yearLabel);
+    return { buckets: months, start: months[0].start, endExclusive: months[11].endExclusive };
+  }
+  const buckets = feePeriodsForYear(frequency, yearLabel, terms).map(p => ({ ym: String(p.key), start: p.start, endExclusive: p.endExclusive, label: p.short }));
+  return { buckets, start: '0000-01-01', endExclusive: '9999-12-31' };
+}
+
 function feeStatsForRange(fees, start, endExclusive) {
   const inRange = fees.filter(f => f.weekStarting >= start && f.weekStarting < endExclusive);
   const billed = inRange.reduce((s, f) => s + Number(f.amount), 0);
@@ -52,12 +66,16 @@ export default function Stats() {
   const [years, setYears] = useState([]);
   const [year, setYear] = useState('');
   const [dataByYear, setDataByYear] = useState({});
+  const [terms, setTerms] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const currentYear = await currentSchoolYear();
-      const [studentsData, classNamesData, yearsData] = await Promise.all([getStudents(), getClassNames(), getAcademicYears()]);
+      const [studentsData, classNamesData, yearsData, termsData] = await Promise.all([
+        getStudents(), getClassNames(), getAcademicYears(), feeFrequency() === 'termly' ? getTerms() : Promise.resolve([]),
+      ]);
+      setTerms(termsData);
       const entries = await Promise.all(yearsData.map(async y => {
         const [attendance, fees] = await Promise.all([getAttendance(y), getFees(y)]);
         return [y, { attendance, fees }];
@@ -97,7 +115,7 @@ export default function Stats() {
 
       {tab === 'attendance'
         ? <AttendanceStats months={months} attendance={attendance} allStudentIds={allStudentIds} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />
-        : <FeesStats months={months} fees={fees} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />}
+        : <FeesStats year={year} terms={terms} fees={fees} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />}
     </Layout>
   );
 }
@@ -231,14 +249,17 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
   );
 }
 
-function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
-  const yearRange = feeStatsForRange(fees, months[0].start, months[11].endExclusive);
+function FeesStats({ year, terms, fees, students, classNames, years, dataByYear }) {
+  const frequency = feeFrequency();
+  const bucketWord = frequency === 'termly' ? 'term' : 'month';
+  const { buckets: months, start: yearStart, endExclusive: yearEnd } = feeBuckets(year, frequency, terms);
+  const yearRange = feeStatsForRange(fees, yearStart, yearEnd);
   const monthly = months.map(m => ({ ...m, ...feeStatsForRange(fees, m.start, m.endExclusive) }));
   const yMax = Math.max(10, ...monthly.map(m => m.billed));
 
   const classRows = classNames.map(c => {
     const ids = new Set(students.filter(s => s.class === c).map(s => s.id));
-    const classFees = fees.filter(f => ids.has(f.studentId) && f.weekStarting >= months[0].start && f.weekStarting < months[11].endExclusive);
+    const classFees = fees.filter(f => ids.has(f.studentId) && f.weekStarting >= yearStart && f.weekStarting < yearEnd);
     const billed = classFees.reduce((s, f) => s + Number(f.amount), 0);
     const collected = classFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
     return { name: c, billed, collected, outstanding: billed - collected };
@@ -246,8 +267,8 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
 
   const yearRows = years.map(y => {
     const d = dataByYear[y] || { fees: [] };
-    const ms = monthsOfYear(y);
-    return { year: y, ...feeStatsForRange(d.fees, ms[0].start, ms[11].endExclusive) };
+    const b = feeBuckets(y, frequency, terms);
+    return { year: y, ...feeStatsForRange(d.fees, b.start, b.endExclusive) };
   });
   const avgCollected = yearRows.length ? yearRows.reduce((s, r) => s + r.collected, 0) / yearRows.length : 0;
   const avgOutstanding = yearRows.length ? yearRows.reduce((s, r) => s + r.outstanding, 0) / yearRows.length : 0;
@@ -265,7 +286,7 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
         <div className="card-header" style={{ marginBottom: 16 }}>
           <div>
             <div className="card-title">Fee collection trend</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>Collected vs outstanding by month, both classes</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>Collected vs outstanding by {bucketWord}, all classes{frequency !== 'weekly' ? ` · charged ${FREQUENCIES[frequency].adjective.toLowerCase()}` : ''}</div>
           </div>
         </div>
         <div className="axis-chart-scroll">
@@ -294,10 +315,10 @@ function FeesStats({ months, fees, students, classNames, years, dataByYear }) {
       </div>
 
       <div className="card">
-        <div className="card-title" style={{ marginBottom: 12 }}>Fees by month</div>
+        <div className="card-title" style={{ marginBottom: 12 }}>Fees by {bucketWord}</div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Month</th><th>Billed</th><th>Outstanding</th><th>Collected</th></tr></thead>
+            <thead><tr><th>{bucketWord === 'term' ? 'Term' : 'Month'}</th><th>Billed</th><th>Outstanding</th><th>Collected</th></tr></thead>
             <tbody>
               {monthly.map(m => (
                 <tr key={m.ym}>

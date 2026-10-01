@@ -4,7 +4,7 @@
 // login screen) instead of flashing a generic default until /api/settings answers.
 
 const CACHE_KEY = 'madrasah_branding';
-const DEFAULTS = { schoolName: 'Madrasah', schoolNameArabic: '', currencySymbol: '£' };
+const DEFAULTS = { schoolName: 'Madrasah', schoolNameArabic: '', currencySymbol: '£', feeFrequency: 'weekly' };
 
 let current = { ...DEFAULTS };
 try { current = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') }; } catch {}
@@ -16,6 +16,7 @@ export function setBranding(s) {
     schoolName: s.schoolName || current.schoolName,
     schoolNameArabic: s.schoolNameArabic ?? current.schoolNameArabic,
     currencySymbol: s.currencySymbol || current.currencySymbol,
+    feeFrequency: s.feeFrequency || current.feeFrequency,
   };
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(current)); } catch {}
   if (typeof document !== 'undefined') document.title = current.schoolName;
