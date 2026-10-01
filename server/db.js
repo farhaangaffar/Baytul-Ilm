@@ -28,4 +28,21 @@ async function query(text, params) {
   return getPool().query(text, params);
 }
 
-module.exports = { query };
+// Runs fn(client) inside one transaction on a single connection: committed if fn
+// finishes, rolled back if it throws — for changes that must happen together or not at all.
+async function transaction(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { query, transaction };

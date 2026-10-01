@@ -14,14 +14,28 @@ async function ensureColumns() {
   columnsReady = true;
 }
 
-async function loadSettings() {
+// Whose settings a request is about: the signed-in person's madrasah, or — before
+// anyone signs in (login screen, install manifest, icons) — the madrasah named by
+// ?m=<code>, which each device remembers after its first sign-in. Neither: null, and
+// the app shows a neutral name and icon rather than any particular madrasah's.
+async function madrasahFor(req, user) {
+  if (user) return { id: user.madrasahId, code: null };
+  const code = String(req.query.m || '').trim().toLowerCase();
+  if (!code) return null;
+  const { rows } = await query('SELECT id, code FROM madaaris WHERE lower(code) = $1 AND active', [code]);
+  return rows[0] || null;
+}
+
+async function loadSettings(mid) {
   await ensureColumns();
+  if (!mid) return {};
   const { rows } = await query(
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
             default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
             fee_frequency AS "feeFrequency", report_period AS "reportPeriod",
             logo IS NOT NULL AS "hasLogo", left(md5(icon), 8) AS "iconVersion"
-     FROM settings WHERE id = 1`
+     FROM settings WHERE madrasah_id = $1`,
+    [mid]
   );
   const row = rows[0];
   if (!row) return {};
@@ -35,9 +49,9 @@ async function loadSettings() {
 const LOGO_MAX_CHARS = 1_000_000;
 // The app icon (home screen, browser tab) is a square version of the logo that
 // the browser builds at upload time; with no logo, the neutral built-in icon.
-async function sendImage(res, column) {
+async function sendImage(res, column, mid) {
   await ensureColumns();
-  const { rows } = await query(`SELECT ${column} AS img FROM settings WHERE id = 1`);
+  const { rows } = mid ? await query(`SELECT ${column} AS img FROM settings WHERE madrasah_id = $1`, [mid]) : { rows: [] };
   const m = /^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(rows[0]?.img || '');
   if (!m) {
     if (column === 'icon') { res.setHeader('Cache-Control', 'no-cache'); res.redirect(302, '/icons/book-512.png'); return; }
@@ -48,16 +62,16 @@ async function sendImage(res, column) {
   res.status(200).send(Buffer.from(m[2], 'base64'));
 }
 
-// Web app manifest, built from the school's own name so the installed app's
-// home-screen label matches whichever madrasah this deployment belongs to.
+// Web app manifest, built from the madrasah's own name and icon so the installed
+// app's home-screen label and icon are theirs (the page points at it with ?m=<code>).
 // Served from here as an action on the settings route rather than a route of its own.
-function manifest(s) {
+function manifest(s, code) {
   const name = s.schoolName || 'Madrasah';
   // An uploaded icon is one 512px PNG with the logo inside the maskable safe zone,
   // so it serves every size/purpose; ?v changes with its content so installed
   // apps notice a new logo.
   const icons = s.hasIcon
-    ? ['any', 'maskable'].map(purpose => ({ src: `/api/settings?icon&v=${s.iconVersion}`, sizes: '512x512', type: 'image/png', purpose }))
+    ? ['any', 'maskable'].map(purpose => ({ src: `/api/settings?icon&m=${encodeURIComponent(code || '')}&v=${s.iconVersion}`, sizes: '512x512', type: 'image/png', purpose }))
     : [192, 512].flatMap(size => [
       { src: `/icons/book-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any' },
       { src: `/icons/book-maskable-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'maskable' },
@@ -76,18 +90,23 @@ function manifest(s) {
 }
 
 module.exports = async (req, res) => {
+  const user = await getUser(req);
   if (req.method === 'GET') {
-    // The login page and the install manifest are shown before anyone signs in,
-    // so the school's name (and logo) is public; everything else stays behind the session.
-    if (req.query.logo !== undefined) { await sendImage(res, 'logo'); return; }
-    if (req.query.icon !== undefined) { await sendImage(res, 'icon'); return; }
-    const s = await loadSettings();
+    // The login page and the install manifest are shown before anyone signs in, so a
+    // madrasah's name (and logo) is public; everything else stays behind the session.
+    const m = await madrasahFor(req, user);
+    const mid = m?.id;
+    if (req.query.logo !== undefined) { await sendImage(res, 'logo', mid); return; }
+    if (req.query.icon !== undefined) { await sendImage(res, 'icon', mid); return; }
+    const s = await loadSettings(mid);
     if (req.query.manifest !== undefined) {
+      let code = m?.code;
+      if (mid && !code) code = (await query('SELECT code FROM madaaris WHERE id = $1', [mid])).rows[0]?.code;
       res.setHeader('Content-Type', 'application/manifest+json');
-      res.status(200).send(JSON.stringify(manifest(s)));
+      res.status(200).send(JSON.stringify(manifest(s, code)));
       return;
     }
-    if (!(await getUser(req))) {
+    if (!user) {
       res.status(200).json({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic, hasLogo: s.hasLogo, hasIcon: s.hasIcon });
       return;
     }
@@ -95,7 +114,6 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const user = await getUser(req);
   if (!user) { res.status(401).json({ error: 'Not authenticated' }); return; }
   if (user.role !== 'owner') { res.status(403).json({ error: "You don't have access to this." }); return; }
 
@@ -125,7 +143,10 @@ module.exports = async (req, res) => {
       values.push(v); sets.push(`${column} = $${values.length}`);
     }
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
-    await query(`UPDATE settings SET ${sets.join(', ')} WHERE id = 1`, values);
+    values.push(user.madrasahId);
+    await query(`UPDATE settings SET ${sets.join(', ')} WHERE madrasah_id = $${values.length}`, values);
+    // Keep the name on the platform owner's Madaaris list in step with the madrasah's own.
+    if (b.schoolName) await query('UPDATE madaaris SET name = $1 WHERE id = $2', [b.schoolName, user.madrasahId]);
     res.status(200).json({ ok: true });
     return;
   }
