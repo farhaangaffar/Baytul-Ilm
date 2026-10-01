@@ -47,7 +47,7 @@ export default function TermsCard({ years, defaultYear, highlight }) {
         </select>
       </div>
       <div className="card-sub" style={{ marginBottom: 14 }}>
-        Your term dates for {year}. Needed when fees are charged termly{highlight ? ' — add them before adding any term fees' : ''}.
+        Your term dates for {year}. Used for termly fees and termly reports.
       </div>
 
       {loading ? <div className="text-muted text-sm">Loading…</div> : (

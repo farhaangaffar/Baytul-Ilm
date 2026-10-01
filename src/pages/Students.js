@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, academicYearOfMonth } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms } from '../lib/store';
+import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
@@ -13,7 +14,6 @@ import { feeUnit, feePer } from '../lib/feePeriods';
 const WAITING_LIST = 'Waiting list';
 
 function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
-function monthLabelFor(ym) { const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 
 export default function Students() {
   const [loading, setLoading] = useState(true);
@@ -44,6 +44,7 @@ export default function Students() {
   // fetched on demand rather than for everyone in the left section, since it's only
   // needed once you've actually opened someone's card.
   const [selectedReports, setSelectedReports] = useState([]);
+  const [reportTerms, setReportTerms] = useState([]); // term dates, for any termly reports in that list
   const [downloadingReport, setDownloadingReport] = useState(null);
 
   const fetchData = useCallback(async () => {
@@ -78,7 +79,10 @@ export default function Students() {
   useEffect(() => {
     if (!selected || selected.status!=='Inactive') { setSelectedReports([]); return; }
     let cancelled = false;
-    getAiSummaries(selected.id).then(r => { if (!cancelled) setSelectedReports(r); }).catch(()=>{});
+    getAiSummaries(selected.id).then(async r => {
+      const terms = r.some(x => isTermKey(x.month)) ? await getTerms().catch(() => []) : [];
+      if (!cancelled) { setReportTerms(terms); setSelectedReports(r); }
+    }).catch(()=>{});
     return () => { cancelled = true; };
   }, [selected]);
 
@@ -87,12 +91,13 @@ export default function Students() {
     try {
       // The report's own academic year, not whichever year happens to be loaded —
       // a left student's saved reports can span years before the current one.
-      const reportYear = academicYearOfMonth(report.month);
+      const p = periodForKey(report.month, reportTerms);
+      const reportYear = p.yearLabel;
       const [attendanceForYear, feesForYear] = await Promise.all([getAttendance(reportYear), getFees(reportYear)]);
       const bytes = await buildReportBytes(student, attendanceForYear, feesForYear, {
-        summary: report.summary, behavior: report.behavior, reportDate: new Date(report.updatedAt), dataMonth: report.month,
+        summary: report.summary, behavior: report.behavior, reportDate: new Date(report.updatedAt), period: p,
       });
-      downloadPdfBytes(bytes, `Report_${student.forename}_${student.surname}_${report.month}.pdf`);
+      downloadPdfBytes(bytes, `Report_${student.forename}_${student.surname}_${p.label.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       showToast(err.message || 'Could not generate that report');
     }
@@ -391,15 +396,15 @@ export default function Students() {
                       <div className="text-muted text-sm">No reports were saved for {selected.forename}.</div>
                     ):(()=>{
                       const byYear = {};
-                      selectedReports.forEach(r => { const yr=academicYearOfMonth(r.month); (byYear[yr]=byYear[yr]||[]).push(r); });
+                      selectedReports.forEach(r => { const p=periodForKey(r.month, reportTerms); const yr=p.yearLabel||'—'; (byYear[yr]=byYear[yr]||[]).push({...r,_p:p}); });
                       const years = Object.keys(byYear).sort().reverse();
-                      years.forEach(y => byYear[y].sort((a,b)=>b.month.localeCompare(a.month)));
+                      years.forEach(y => byYear[y].sort((a,b)=>b._p.start.localeCompare(a._p.start)));
                       return years.map(yr=>(
                         <div key={yr} style={{marginBottom:10}}>
                           <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Academic year {yr}</div>
                           {byYear[yr].map(r=>(
                             <div key={r.month} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',background:'#f9fafb',marginBottom:4,fontSize:13}}>
-                              <span>{monthLabelFor(r.month)}</span>
+                              <span>{r._p.label}</span>
                               <button className="btn btn-sm" onClick={()=>downloadReport(selected,r)} disabled={downloadingReport===r.month}>
                                 {downloadingReport===r.month?'…':<><Download size={12}/>Download</>}
                               </button>

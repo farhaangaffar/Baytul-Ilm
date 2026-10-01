@@ -48,6 +48,7 @@ export default function Settings() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
   const [savedFrequency, setSavedFrequency] = useState('weekly');
+  const [savedReportPeriod, setSavedReportPeriod] = useState('monthly');
   const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
   const [newYear, setNewYear] = useState('');
@@ -67,7 +68,7 @@ export default function Settings() {
     setLoading(true); setError(null);
     try {
       const [settingsData, yearsData, cy] = await Promise.all([getSettings(), getAcademicYears(), currentSchoolYear()]);
-      setForm(settingsData); setYears(yearsData); setCurrentYear(cy); setSavedFrequency(settingsData.feeFrequency || 'weekly');
+      setForm(settingsData); setYears(yearsData); setCurrentYear(cy); setSavedFrequency(settingsData.feeFrequency || 'weekly'); setSavedReportPeriod(settingsData.reportPeriod || 'monthly');
       // Logos uploaded before app icons were generated from them — build the
       // missing icon once, quietly, so the installed app picks up the logo too.
       if (settingsData.hasLogo && !settingsData.hasIcon) {
@@ -105,6 +106,24 @@ export default function Settings() {
       showToast(`Fees are now charged ${FREQUENCIES[next].adjective.toLowerCase()}`);
     } catch (err) {
       showToast(err.message || 'Could not change the fee frequency');
+    }
+  }
+
+  // Saved straight away, like the fee frequency.
+  async function changeReportPeriod(next) {
+    if (next === savedReportPeriod) return;
+    const msg = next === 'termly'
+      ? 'Make reports termly?\n\nEach student gets one report (one AI summary and behaviour rating) per term, covering attendance and fees for the whole term. Monthly reports already saved stay as they are.\n\nA Terms section will appear below for your term dates.'
+      : 'Make reports monthly?\n\nEach student gets one report per month. Termly reports already saved stay as they are.';
+    if (!window.confirm(msg)) return;
+    try {
+      await updateSettings({ reportPeriod: next });
+      setForm(f => ({ ...f, reportPeriod: next }));
+      setSavedReportPeriod(next);
+      setBranding({ reportPeriod: next });
+      showToast(`Reports are now ${next}`);
+    } catch (err) {
+      showToast(err.message || 'Could not change the report period');
     }
   }
 
@@ -257,6 +276,14 @@ export default function Settings() {
               )}
             </div>
             <div className="form-group">
+              <label>Reports are made</label>
+              <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)} style={{maxWidth:220}}>
+                <option value="monthly">Monthly</option>
+                <option value="termly">Termly (your term dates)</option>
+              </select>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One AI summary and behaviour rating per {savedReportPeriod === 'termly' ? 'term' : 'month'} for each student. Saved as soon as you change it.</span>
+            </div>
+            <div className="form-group">
               <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
               <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
                 onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
@@ -354,8 +381,8 @@ export default function Settings() {
       </div>
 
       {/* Terms */}
-      {/* Only needed (and shown) when fees are charged termly */}
-      {years.length > 0 && savedFrequency === 'termly' && <TermsCard years={years} defaultYear={currentYear} highlight />}
+      {/* Only needed (and shown) when fees are charged or reports are made termly */}
+      {years.length > 0 && (savedFrequency === 'termly' || savedReportPeriod === 'termly') && <TermsCard years={years} defaultYear={currentYear} highlight />}
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>

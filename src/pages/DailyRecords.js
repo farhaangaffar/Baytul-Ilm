@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, currentSchoolMonthKey as currentMonth } from '../lib/store';
+import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, attendanceCountsForMonth, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, getTerms, currentSchoolMonthKey as currentMonth } from '../lib/store';
+import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
@@ -186,6 +187,19 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
     const today = isoToday();
     setEditDate(records[today] !== undefined ? '' : today);
   }, [loadingRecords, records]);
+  // Reports are monthly (school month) or termly (Settings) — the summary below is
+  // written for, and saved against, the current month or term.
+  const termly = reportPeriodSetting() === 'termly';
+  const [terms, setTerms] = useState([]);
+  const [termsLoaded, setTermsLoaded] = useState(!termly);
+  useEffect(() => {
+    if (!termly) return;
+    getTerms().then(setTerms).catch(() => {}).finally(() => setTermsLoaded(true));
+  }, [termly]);
+  const period = currentReportPeriod(terms);
+  const inPeriod = d => !period ? false : (period.kind === 'month' ? d.startsWith(period.key) : d >= period.start && d < period.endExclusive);
+  const unitWord = termly ? 'term' : 'month';
+  const termlyNoTerms = termly && termsLoaded && !period;
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInstructions, setAiInstructions] = useState('');
@@ -287,11 +301,11 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
       // Fetch fresh rather than using local `records` — that state deliberately
       // isn't refreshed after every keystroke (to avoid losing textarea focus),
       // so it can be stale right after adding or editing an entry.
+      if (!period) { setAiSummary('Add your term dates in Settings → Terms first.'); setAiLoading(false); return; }
       const freshRecords = await getStudentRecords(student.id);
-      const month=currentMonth();
-      const monthDates=Object.keys(freshRecords).filter(d=>d.startsWith(month)).sort((a,b)=>b.localeCompare(a));
+      const monthDates=Object.keys(freshRecords).filter(inPeriod).sort((a,b)=>b.localeCompare(a));
       if (!monthDates.length) {
-        setAiSummary('No records found for this month. Add some daily entries first.');
+        setAiSummary(`No records found for this ${unitWord}. Add some daily entries first.`);
         setAiLoading(false);
         return;
       }
@@ -299,10 +313,11 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
         const e=freshRecords[d]||{};
         return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
       }).join('\n\n');
-      const year = await currentSchoolYear();
+      // Monthly: this year's attendance so far (as before). Termly: the term's own.
+      const year = termly ? period.yearLabel : await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
-      const counts = attendanceCountsFrom(attendanceForYear, student.id);
-      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${monthLabelFor(currentMonth())}.\n\nAttendance this year: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional monthly progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      const counts = termly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
+      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -321,7 +336,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
     const next = behavior === val ? '' : val; // click again to clear
     setBehavior(next); setSavingBehavior(val);
     try {
-      await saveAiSummary(student.id, currentMonth(), { summary: aiSummary, instructions: aiInstructions, behavior: next });
+      await saveAiSummary(student.id, period.key, { summary: aiSummary, instructions: aiInstructions, behavior: next });
     } catch (err) {
       showToast(err.message || 'Could not save behaviour rating');
       setBehavior(behavior); // revert on failure
@@ -332,7 +347,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
   async function addToReport() {
     setSavingSummary(true);
     try {
-      await saveAiSummary(student.id, currentMonth(), { summary: aiSummary, instructions: aiInstructions, behavior });
+      await saveAiSummary(student.id, period.key, { summary: aiSummary, instructions: aiInstructions, behavior });
       // Cleared rather than reloaded from what was just saved — once pushed,
       // this compose area is ready for the next report rather than sitting
       // there showing what was already submitted.
@@ -511,10 +526,11 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
         <div style={{position:'sticky',top:24}}>
           {isOwner && (<>
           <div className="card">
-            <div className="card-title" style={{marginBottom:4}}>Monthly summary</div>
+            <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
             <div className="card-sub" style={{marginBottom:14}}>
-              AI report paragraph for {student.forename} — {monthLabelFor(currentMonth())}
+              {period ? <>AI report paragraph for {student.forename} — {period.label}</> : (termlyNoTerms ? 'Add your term dates in Settings → Terms to write termly reports.' : 'Loading…')}
             </div>
+            {period && (<>
 
             <div className="form-group" style={{marginBottom:14}}>
               <label>Class behaviour (for report)</label>
@@ -544,12 +560,12 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
             </div>
 
             <button className="btn btn-ai" style={{width:'100%',justifyContent:'center',padding:'10px',marginBottom:14}} onClick={summarise} disabled={aiLoading}>
-              <Sparkles size={15}/>{aiLoading?'Generating…':(aiSummary?'Regenerate summary ↗':'Summarise this month ↗')}
+              <Sparkles size={15}/>{aiLoading?'Generating…':(aiSummary?'Regenerate summary ↗':`Summarise this ${unitWord} ↗`)}
             </button>
             {aiLoading&&<div className="ai-summary-box"><div style={{color:'var(--teal-dark)',fontStyle:'italic',fontSize:13}}>Reading through {student.forename}'s records…</div></div>}
             {aiSummary&&!aiLoading&&(
               <div className="ai-summary-box">
-                <div className="ai-summary-title"><Sparkles size={13}/>Summary — {monthLabelFor(currentMonth())}</div>
+                <div className="ai-summary-title"><Sparkles size={13}/>Summary — {period.label}</div>
                 <textarea
                   className="ai-summary-text"
                   value={aiSummary}
@@ -575,13 +591,14 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
                 Add daily records then click above to generate a summary for {student.forename}.
               </div>
             )}
+            </>)}
           </div>
           {previousSummaries.length>0&&(
             <div className="card" style={{marginTop:14}}>
               <div className="card-title" style={{marginBottom:12}}>Previous summaries</div>
               {previousSummaries.map(s=>(
                 <div key={s.month} style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontWeight:600,fontSize:12,marginBottom:4}}>{monthLabelFor(s.month)}</div>
+                  <div style={{fontWeight:600,fontSize:12,marginBottom:4}}>{periodForKey(s.month, terms).label}</div>
                   <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{s.summary}</div>
                 </div>
               ))}
@@ -589,10 +606,9 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
           )}
           </>)}
           <div className="card" style={{marginTop:isOwner?14:0}}>
-            <div className="card-title" style={{marginBottom:12}}>This month</div>
+            <div className="card-title" style={{marginBottom:12}}>This {unitWord}</div>
             {(()=>{
-              const month=currentMonth();
-              const md=Object.keys(records).filter(d=>d.startsWith(month));
+              const md=Object.keys(records).filter(inPeriod);
               return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
                 <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
                   <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>

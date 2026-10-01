@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, academicYearOfMonth, currentSchoolMonthKey as currentMonth } from '../lib/store';
+import { getStudents, getClassNames, getAttendance, getFees, avatarInitials, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, getTerms } from '../lib/store';
+import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
 import { FileText, Download, Plus } from 'lucide-react';
 
-function monthLabelFor(monthStr) { const [y,m]=monthStr.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
 
 export default function Reports() {
   const [loading, setLoading] = useState(true);
@@ -13,8 +13,12 @@ export default function Reports() {
   const [students, setStudents] = useState([]);
   const [classNames, setClassNames] = useState([]);
   const [activeClass, setActiveClass] = useState('');
-  const [attendance, setAttendance] = useState({});
-  const [fees, setFees] = useState([]);
+  // Attendance + fees per academic year, fetched as needed — a termly report (or an
+  // older saved report) can belong to a different year than the current one.
+  const yearData = useRef({});
+  const [currentYear, setCurrentYear] = useState('');
+  const [terms, setTerms] = useState([]);
+  const [period, setPeriod] = useState(null); // the month or term reports are being made for now
   const [currentSummaries, setCurrentSummaries] = useState({}); // studentId -> {summary, behavior} for this month, used for bulk download + "Add new report"
   const [selected, setSelected] = useState(null);
   const [studentReports, setStudentReports] = useState([]); // all saved ai_summaries rows for the selected student
@@ -30,10 +34,14 @@ export default function Reports() {
     setLoading(true); setError(null);
     try {
       const y = await currentSchoolYear();
+      const termsData = reportPeriodSetting() === 'termly' ? await getTerms() : [];
+      const p = currentReportPeriod(termsData);
       const [studentsData, classNamesData, attendanceData, feesData, savedSummaries] = await Promise.all([
-        getStudents(), getClassNames(), getAttendance(y), getFees(y), getAiSummariesForMonth(currentMonth()).catch(()=>[]),
+        getStudents(), getClassNames(), getAttendance(y), getFees(y), p ? getAiSummariesForMonth(p.key).catch(()=>[]) : Promise.resolve([]),
       ]);
-      setStudents(studentsData); setClassNames(classNamesData); setAttendance(attendanceData); setFees(feesData);
+      yearData.current = { [y]: { attendance: attendanceData, fees: feesData } };
+      setCurrentYear(y); setTerms(termsData); setPeriod(p);
+      setStudents(studentsData); setClassNames(classNamesData);
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
       const map = {};
       savedSummaries.forEach(s => { map[s.studentId] = { summary: s.summary, behavior: s.behavior }; });
@@ -49,6 +57,20 @@ export default function Reports() {
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(''),3000);}
 
+  async function dataFor(p) {
+    const yr = p.yearLabel || currentYear;
+    if (!yearData.current[yr]) {
+      const [attendance, fees] = await Promise.all([getAttendance(yr), getFees(yr)]);
+      yearData.current[yr] = { attendance, fees };
+    }
+    return yearData.current[yr];
+  }
+
+  async function reportBytes(student, p, { summary, behavior, reportDate }) {
+    const { attendance, fees } = await dataFor(p);
+    return buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, period: p });
+  }
+
   function setPreview(url, bytes) {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = url;
@@ -62,14 +84,15 @@ export default function Reports() {
       const summary = entry ? entry.summary : (currentSummaries[student.id]?.summary || '');
       const behavior = entry ? entry.behavior : (currentSummaries[student.id]?.behavior || '');
       const reportDate = entry ? new Date(entry.updatedAt) : new Date();
-      const dataMonth = entry ? entry.month : currentMonth();
-      const bytes = await buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth });
+      const p = entry ? periodForKey(entry.month, terms) : period;
+      if (!p) { setPreview('', null); setPreviewLoading(false); return; }
+      const bytes = await reportBytes(student, p, { summary, behavior, reportDate });
       setPreview(URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })), bytes);
     } catch (err) {
       showToast('Could not generate the PDF preview.');
     }
     setPreviewLoading(false);
-  }, [attendance, fees, currentSummaries]);
+  }, [currentSummaries, period, terms, currentYear]);
 
   async function selectStudent(student) {
     setSelected(student.id);
@@ -83,8 +106,9 @@ export default function Reports() {
   async function quickDownload(student) {
     setGenerating(student.id);
     try {
-      const bytes = await buildReportBytes(student, attendance, fees, {
-        summary: currentSummaries[student.id]?.summary || '', behavior: currentSummaries[student.id]?.behavior || '', reportDate: new Date(), dataMonth: currentMonth(),
+      if (!period) { showToast('Add your term dates in Settings → Terms first.'); setGenerating(''); return; }
+      const bytes = await reportBytes(student, period, {
+        summary: currentSummaries[student.id]?.summary || '', behavior: currentSummaries[student.id]?.behavior || '', reportDate: new Date(),
       });
       downloadBytes(bytes, `Report_${student.forename}_${student.surname}.pdf`);
       showToast(`Report downloaded for ${student.forename} ${student.surname}`);
@@ -99,12 +123,14 @@ export default function Reports() {
 
   // Sectioned by academic year, newest year and newest month first.
   const reportsByYear = {};
+  // Saved reports can be monthly ('YYYY-MM') or termly ('term:<id>') — each sorted by
+  // the date its period starts.
   studentReports.forEach(r => {
-    const yr = academicYearOfMonth(r.month);
-    (reportsByYear[yr] = reportsByYear[yr] || []).push(r);
+    const p = periodForKey(r.month, terms);
+    (reportsByYear[p.yearLabel || '—'] = reportsByYear[p.yearLabel || '—'] || []).push({ ...r, _p: p });
   });
   const years = Object.keys(reportsByYear).sort().reverse();
-  years.forEach(y => reportsByYear[y].sort((a, b) => b.month.localeCompare(a.month)));
+  years.forEach(y => reportsByYear[y].sort((a, b) => b._p.start.localeCompare(a._p.start)));
 
   // Split by class so a bulk download doesn't have to mean "every student in the
   // school" — pick a class, then "All reports" only covers that class's students.
@@ -122,10 +148,11 @@ export default function Reports() {
             <div className="card-header" style={{marginBottom:10}}>
               <div><div className="card-title">Select a student</div><div className="card-sub">Click a name for their report history</div></div>
               <button className="btn btn-primary btn-sm" onClick={async()=>{
+                if (!period) { showToast('Add your term dates in Settings → Terms first.'); return; }
                 setGenerating('all');
                 for(const s of classStudents){
-                  const bytes = await buildReportBytes(s, attendance, fees, {
-                    summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(), dataMonth: currentMonth(),
+                  const bytes = await reportBytes(s, period, {
+                    summary: currentSummaries[s.id]?.summary || '', behavior: currentSummaries[s.id]?.behavior || '', reportDate: new Date(),
                   });
                   downloadBytes(bytes, `Report_${s.forename}_${s.surname}.pdf`);
                 }
@@ -150,7 +177,7 @@ export default function Reports() {
                         <div className="text-muted text-sm">{s.class}</div>
                       </div>
                     </div>
-                    <button className="btn btn-sm" onClick={e=>{e.stopPropagation();quickDownload(s);}} disabled={!!generating} title="Download this month's report">{generating===s.id?'…':<Download size={12}/>}</button>
+                    <button className="btn btn-sm" onClick={e=>{e.stopPropagation();quickDownload(s);}} disabled={!!generating} title={`Download this ${period?.kind === 'term' ? 'term' : 'month'}'s report`}>{generating===s.id?'…':<Download size={12}/>}</button>
                   </div>
                 );
               })}
@@ -181,7 +208,7 @@ export default function Reports() {
                         return (
                           <div key={r.month} onClick={()=>generateAndPreview(preview, r)}
                             style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',cursor:'pointer',background:isActive?'#f9fafb':'transparent',border:isActive?'1px solid var(--border-strong)':'1px solid transparent',marginBottom:3,fontSize:13}}>
-                            <span>{monthLabelFor(r.month)}</span>
+                            <span>{r._p.label}</span>
                             {previewLoading&&isActive?<span className="text-muted text-sm">Loading…</span>:<Download size={13} className="text-muted"/>}
                           </div>
                         );
@@ -205,7 +232,7 @@ export default function Reports() {
       {preview&&(
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           <div className="flex justify-between items-center" style={{padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
-            <div style={{fontWeight:500,fontSize:13}}>{activeMonth?monthLabelFor(activeMonth):'New report — current month'}</div>
+            <div style={{fontWeight:500,fontSize:13}}>{activeMonth?periodForKey(activeMonth, terms).label:(period?`New report — ${period.label}`:'New report')}</div>
             <button className="btn btn-sm" disabled={!previewBytes} onClick={()=>downloadBytes(previewBytes, `Report_${preview.forename}_${preview.surname}.pdf`)}>
               <Download size={12}/>Download
             </button>
