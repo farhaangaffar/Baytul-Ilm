@@ -9,6 +9,7 @@ import {
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
+import { useAuth } from '../lib/AuthContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -30,6 +31,10 @@ function yearMonthBounds(yearLabel) {
 }
 
 export default function Fees() {
+  // Teachers can only mark a week as paid — no amounts, no un-marking, no adding
+  // or removing weeks. The server enforces the same rules.
+  const { isOwner } = useAuth();
+  const canToggle = f => isOwner || f.status !== 'Paid';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
@@ -90,7 +95,6 @@ export default function Fees() {
     try {
       if (wasPaid) await markFeeUnpaid(fee.id,year);
       else await markFeePaid(fee.id,year);
-      showToast(wasPaid?'Marked as unpaid':'Marked as paid');
       setConfirmToggle(null);
     } catch (err) {
       setFees(prev => prev.map(f => f.id===fee.id ? { ...f, status: fee.status, paidDate: fee.paidDate } : f));
@@ -274,15 +278,15 @@ export default function Fees() {
             const dotBg = f.status==='Paid' ? 'var(--green)' : 'var(--red)';
             return (
               <div className="day-cal-card" key={w} style={{background:bg, position:'relative'}}>
-                <button
+                {isOwner && <button
                   onClick={()=>setConfirmDeleteWeek(w)}
                   title={`Remove week of ${dateLabel} for all of ${selected.class} (e.g. holidays)`}
                   style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--text-soft)',padding:2,lineHeight:0}}>
                   <Trash2 size={12}/>
-                </button>
+                </button>}
                 <div className="day-cal-name">W/C</div>
                 <div className="day-cal-date">{dateLabel}</div>
-                <button className="day-cal-status" style={{background:dotBg}} onClick={()=>setConfirmToggle(f)}>
+                <button className="day-cal-status" style={{background:dotBg,cursor:canToggle(f)?'pointer':'default'}} onClick={()=>canToggle(f)&&setConfirmToggle(f)}>
                   {f.status==='Paid'?'✓':'✗'}
                 </button>
                 {isEditing ? (
@@ -294,11 +298,13 @@ export default function Fees() {
                     <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--green-text)'}} onClick={()=>saveEdit(f.id)}><Check size={12}/></button>
                     <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--red-text)'}} onClick={()=>setEditCell(null)}><X size={12}/></button>
                   </div>
-                ) : (
+                ) : isOwner ? (
                   <div className="day-cal-label" style={{cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}
                     onClick={()=>setEditCell({feeId:f.id,val:String(f.amount)})}>
                     {money(Number(f.amount))}<Pencil size={9} style={{opacity:.5}}/>
                   </div>
+                ) : (
+                  <div className="day-cal-label">{money(Number(f.amount))}</div>
                 )}
               </div>
             );
@@ -374,7 +380,7 @@ export default function Fees() {
         <div className="text-muted text-sm">
           {isCurrentYear ? 'Click a student’s card to view their full month' : `Browsing ${year} — showing ${referenceMonthLabel}. Click a student’s card to view their full month.`}
         </div>
-        <div style={{display:'flex',gap:8}}>
+        {isOwner && <div style={{display:'flex',gap:8}}>
           <button className="btn" onClick={()=>{
             const { min, max } = yearMonthBounds(year);
             const todayYM = isoToday().slice(0,7);
@@ -387,7 +393,7 @@ export default function Fees() {
             setAddMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
             setShowAddMonth(true);
           }}><Calendar size={13}/> Add a month</button>
-        </div>
+        </div>}
       </div>
 
       <div className="entity-grid">
@@ -416,8 +422,8 @@ export default function Fees() {
                     const paid = f.status==='Paid';
                     return (
                       <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
-                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'} (click to toggle)`}
-                        onClick={()=>setConfirmToggle(f)}>
+                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
+                        onClick={()=>canToggle(f)&&setConfirmToggle(f)}>
                         <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>
                     );

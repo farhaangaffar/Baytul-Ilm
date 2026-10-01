@@ -1,16 +1,18 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
+import { useAuth } from '../lib/AuthContext';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
   { label:'Students',           path:'/students',   icon:Users,         section:'Management' },
-  { label:'Attendance',         path:'/attendance', icon:CheckSquare },
-  { label:'Fees',               path:'/fees',       icon:Coins },
-  { label:'Daily records',      path:'/records',    icon:BookOpen },
+  { label:'Attendance',         path:'/attendance', icon:CheckSquare,   teacher:true },
+  { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true },
+  { label:'Daily records',      path:'/records',    icon:BookOpen,      teacher:true },
   { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup' },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
@@ -29,6 +31,10 @@ export default function Layout({ children, title, subtitle }) {
   const { pathname } = useLocation();
   const settings = useSettings();
   const installPrompt = useInstallPrompt();
+  const { user, isOwner } = useAuth();
+  const [changingPassword, setChangingPassword] = useState(false);
+  // Teachers only get their three pages (and no section headings).
+  const visibleNav = isOwner ? navItems : navItems.filter(i => i.teacher).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 
@@ -58,7 +64,7 @@ export default function Layout({ children, title, subtitle }) {
           <div className="sidebar-logo-en">{settings.schoolName}</div>
         </div>
         <nav className="sidebar-nav">
-          {navItems.map(item => {
+          {visibleNav.map(item => {
             const Icon = item.icon;
             const active = pathname === item.path;
             return (
@@ -76,7 +82,10 @@ export default function Layout({ children, title, subtitle }) {
             <Download size={16}/><span>Install app</span>
           </button>
         )}
-        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}}>
+        <button className="nav-link" onClick={() => setChangingPassword(true)}>
+          <KeyRound size={16}/><span>Change password</span>
+        </button>
+        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.email}` : undefined}>
           <LogOut size={16}/><span>Log out</span>
         </button>
       </aside>
@@ -92,6 +101,9 @@ export default function Layout({ children, title, subtitle }) {
                 <Download size={18}/>
               </button>
             )}
+            <button className="mobile-topbar-logout" onClick={() => setChangingPassword(true)} aria-label="Change password" title="Change password">
+              <KeyRound size={18}/>
+            </button>
             <button className="mobile-topbar-logout" onClick={handleLogout} aria-label="Log out">
               <LogOut size={18}/>
             </button>
@@ -99,7 +111,7 @@ export default function Layout({ children, title, subtitle }) {
         </div>
         <div className="mobile-chips-wrap">
           <div className="mobile-chips" ref={chipsRowRef} onScroll={e => { savedChipScroll = e.currentTarget.scrollLeft; }}>
-            {navItems.map(item => {
+            {visibleNav.map(item => {
               const Icon = item.icon;
               const active = pathname === item.path;
               return (
@@ -117,6 +129,7 @@ export default function Layout({ children, title, subtitle }) {
           </div>
         </div>
         <div className="page-body">{children}</div>
+        {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
       </div>
     </div>
   );

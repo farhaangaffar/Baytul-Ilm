@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS teachers (
   name     TEXT NOT NULL,
   phone    TEXT NOT NULL DEFAULT '',
   email    TEXT NOT NULL DEFAULT '',
-  subjects JSONB NOT NULL DEFAULT '[]'
+  subjects JSONB NOT NULL DEFAULT '[]',
+  sort_order INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS classes (
@@ -97,3 +98,17 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
 
 INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO academic_years (year) VALUES ('2025-26') ON CONFLICT (year) DO NOTHING;
+
+-- Individual logins (see server/auth.js). One owner (super admin); teachers are
+-- linked to a teachers row and only reach their own classes. Created by the API on
+-- first use too (ensureUsersTable), like the other added tables/columns.
+CREATE TABLE IF NOT EXISTS users (
+  id               BIGSERIAL PRIMARY KEY,
+  email            TEXT NOT NULL UNIQUE,
+  password_hash    TEXT NOT NULL,
+  role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
+  teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
+  active           BOOLEAN NOT NULL DEFAULT true,
+  session_version  INTEGER NOT NULL DEFAULT 0,
+  created_at       TIMESTAMP NOT NULL DEFAULT now()
+);

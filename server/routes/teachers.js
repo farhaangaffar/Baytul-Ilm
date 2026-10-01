@@ -3,13 +3,36 @@ const { requireAuth } = require('../auth');
 
 const FIELD_MAP = { name: 'name', phone: 'phone', email: 'email' };
 
+// sort_order (manual card order on Classes & Teachers) was added after the table
+// already existed in production — self-heal once per cold start, as elsewhere.
+let sortReady = false;
+async function ensureSortOrderColumn() {
+  if (sortReady) return;
+  await query('ALTER TABLE teachers ADD COLUMN IF NOT EXISTS sort_order INTEGER');
+  sortReady = true;
+}
+
 // Single flat file, dispatching on ?id= for item ops — see students.js for why.
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
+  await ensureSortOrderColumn();
+
+  if (req.query.action === 'reorder') {
+    // Persists a manually-dragged card order, same as students' reorder: anyone not
+    // in the list falls back to alphabetical after those with a position.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) { res.status(400).json({ error: 'ids[] is required' }); return; }
+    for (let i = 0; i < ids.length; i++) {
+      await query('UPDATE teachers SET sort_order = $1 WHERE id = $2', [i, ids[i]]);
+    }
+    res.status(200).json({ ok: true });
+    return;
+  }
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query('SELECT id, name, phone, email, subjects FROM teachers ORDER BY name');
+      const { rows } = await query('SELECT id, name, phone, email, subjects FROM teachers ORDER BY sort_order NULLS LAST, name');
       res.status(200).json(rows);
       return;
     }

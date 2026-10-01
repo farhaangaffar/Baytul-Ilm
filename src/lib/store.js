@@ -31,7 +31,16 @@ async function apiFetch(path, options = {}) {
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
     try { const body = await res.json(); if (body?.error) msg = body.error; } catch {}
-    if (res.status === 401) throw new AuthError(msg);
+    if (res.status === 401) {
+      // Signed out mid-use (login switched off, password reset, session expired):
+      // tell the app so it can go back to the sign-in screen. Not for the sign-in
+      // calls themselves, where a 401 just means a wrong password.
+      if (!/^\/api\/(login|session)\b/.test(path)) window.dispatchEvent(new Event('session-ended'));
+      throw new AuthError(msg);
+    }
+    // "Not allowed" usually means this tab is out of date about who's signed in (e.g.
+    // a different person signed in from another tab) — ask the app to re-check.
+    if (res.status === 403) window.dispatchEvent(new Event('session-check'));
     throw new Error(msg);
   }
   if (res.status === 204) return null;
@@ -39,16 +48,35 @@ async function apiFetch(path, options = {}) {
 }
 
 // ── Auth ──
-export async function login(password) {
-  return apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
+// Normal sign-in. Before the owner account exists, the school password answers
+// { setupRequired: true } instead of signing in (see server/routes/login.js).
+export async function login(email, password) {
+  return apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+}
+export async function setupOwner(recoveryKey, email, password) {
+  return apiFetch('/api/login?action=setup', { method: 'POST', body: JSON.stringify({ recoveryKey, email, password }) });
+}
+export async function recoverOwner(recoveryKey, password) {
+  return apiFetch('/api/login?action=recover', { method: 'POST', body: JSON.stringify({ recoveryKey, password }) });
+}
+export async function changePassword(currentPassword, newPassword) {
+  return apiFetch('/api/login?action=change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
 }
 export async function logout() {
   return apiFetch('/api/logout', { method: 'POST' });
 }
-export async function checkSession() {
-  const { authenticated } = await apiFetch('/api/session');
-  return authenticated;
+// → { authenticated, setupRequired, user?: { email, role, teacherId, classNames } }
+export async function getSession() {
+  return apiFetch('/api/session');
 }
+
+// ── Teacher logins (owner only) ──
+export async function getUsers() { return apiFetch('/api/users'); }
+export async function createUser(teacherId, email, password) {
+  return apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ teacherId, email, password }) });
+}
+export async function updateUser(id, data) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 
 // ── Academic years ──
 export async function getAcademicYears() { return apiFetch('/api/academic-years'); }
@@ -249,7 +277,15 @@ export async function getClass(id) { const list = await getClasses(); return lis
 export async function addClass(cls) { return apiFetch('/api/classes', { method: 'POST', body: JSON.stringify(cls) }); }
 export async function updateClass(id, data) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteClass(id) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
-export async function getClassNames() { const c = await getClasses(); return c.length ? c.map(c => c.name) : ['Class 1', 'Class 2']; }
+// Placeholder class names only for the owner of a brand-new setup — a teacher with
+// no classes assigned yet simply sees none.
+let sessionRole = null;
+export function setSessionRole(role) { sessionRole = role; }
+export async function getClassNames() {
+  const c = await getClasses();
+  if (c.length || sessionRole === 'teacher') return c.map(c => c.name);
+  return ['Class 1', 'Class 2'];
+}
 export async function classTeacherName(tid) { if (!tid) return 'Unassigned'; const t = await getTeacher(tid); return t ? t.name : 'Unassigned'; }
 
 // ── Teachers ──
@@ -257,6 +293,7 @@ export async function getTeachers() { return apiFetch('/api/teachers'); }
 export async function getTeacher(id) { const list = await getTeachers(); return list.find(t => t.id === id); }
 export async function addTeacher(t) { return apiFetch('/api/teachers', { method: 'POST', body: JSON.stringify(t) }); }
 export async function updateTeacher(id, data) { return apiFetch(`/api/teachers?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+export async function reorderTeachers(ids) { return apiFetch('/api/teachers?action=reorder', { method: 'POST', body: JSON.stringify({ ids }) }); }
 export async function deleteTeacher(id) { return apiFetch(`/api/teachers?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 
 // ── Settings ──

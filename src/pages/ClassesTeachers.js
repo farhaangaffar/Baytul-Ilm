@@ -4,10 +4,11 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getClasses, addClass, updateClass, deleteClass,
-  getTeachers, addTeacher, updateTeacher, deleteTeacher,
-  getStudents,
+  getTeachers, addTeacher, updateTeacher, deleteTeacher, reorderTeachers,
+  getStudents, getUsers, createUser, updateUser, deleteUser,
 } from '../lib/store';
-import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, GripVertical } from 'lucide-react';
+import ReorderableGrid from '../components/ReorderableGrid';
 
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
@@ -16,6 +17,8 @@ export default function ClassesTeachers() {
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
+  const [logins, setLogins] = useState([]);
+  const [loginModal, setLoginModal] = useState(null); // the teacher whose login is being set up / managed
 
   const [classModal, setClassModal] = useState(null);
   const [teacherModal, setTeacherModal] = useState(null);
@@ -25,8 +28,8 @@ export default function ClassesTeachers() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [classesData, teachersData, studentsData] = await Promise.all([getClasses(), getTeachers(), getStudents()]);
-      setClasses(classesData); setTeachers(teachersData); setStudents(studentsData);
+      const [classesData, teachersData, studentsData, loginsData] = await Promise.all([getClasses(), getTeachers(), getStudents(), getUsers()]);
+      setClasses(classesData); setTeachers(teachersData); setStudents(studentsData); setLogins(loginsData);
     } catch (err) {
       setError(err);
     }
@@ -65,7 +68,8 @@ export default function ClassesTeachers() {
   }
 
   async function saveTeacher(form) {
-    const subjects = (form.subjectsText || '').split(',').map(s => s.trim()).filter(Boolean);
+    // Commas or slashes both separate subjects ("Qaa'idah / Qur'aan, Fiqh").
+    const subjects = (form.subjectsText || '').split(/[,/]/).map(s => s.trim()).filter(Boolean);
     const data = { ...form, subjects };
     delete data.subjectsText;
     try {
@@ -182,53 +186,77 @@ export default function ClassesTeachers() {
               No teachers yet — click "Add teacher" to get started.
             </div>
           ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Subjects</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teachers.map(t => (
-                    <tr key={t.id}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="avatar" style={{ width: 28, height: 28, fontSize: 10 }}>
-                            {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                          </div>
-                          <span style={{ fontWeight: 500 }}>{t.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {(t.subjects || []).map(s => <span key={s} className="badge badge-gray">{s}</span>)}
-                          {(!t.subjects || t.subjects.length === 0) && <span className="text-muted text-sm">—</span>}
-                        </div>
-                      </td>
-                      <td className="text-muted text-sm">{t.phone || '—'}</td>
-                      <td className="text-muted text-sm">{t.email || '—'}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button className="btn btn-icon btn-sm" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'teacher', item: t })}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            // One card per teacher — everything visible at once on any screen width,
+            // instead of a wide table that scrolls sideways. Drag the grip to reorder.
+            <ReorderableGrid
+              items={teachers}
+              getId={t => t.id}
+              className="entity-grid"
+              onReordered={async ids => {
+                setTeachers(prev => ids.map(id => prev.find(t => t.id === id)).filter(Boolean));
+                try { await reorderTeachers(ids); }
+                catch (err) { showToast(err.message || 'Could not save the new order'); setTeachers(await getTeachers()); }
+              }}
+              renderItem={(t, { isDragging, handleProps, cardAttrs }) => {
+                const login = logins.find(l => l.teacherId === t.id);
+                const theirClasses = classes.filter(c => c.teacherId === t.id).map(c => c.name);
+                const subjects = (t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean);
+                const row = (label, content) => (
+                  <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 8, alignItems: 'baseline', padding: '7px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+                    <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{content}</div>
+                  </div>
+                );
+                return (
+                  <div key={t.id} className={`entity-card ${isDragging ? 'is-dragging' : ''}`} style={{ cursor: 'default' }} {...cardAttrs}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+                      {teachers.length > 1 && (
+                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 0 0 -8px' }}><GripVertical size={15} /></div>
+                      )}
+                      <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>
+                        {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="entity-card-name">{t.name}</div>
+                        <div className="entity-card-sub">{theirClasses.length ? theirClasses.join(', ') : 'No class assigned'}</div>
+                      </div>
+                      <button className="btn btn-icon btn-sm" title="Edit teacher" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
+                        <Pencil size={13} />
+                      </button>
+                      <button className="btn btn-icon btn-sm" title="Delete teacher" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'teacher', item: t })}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                    {row('Subjects', subjects.length
+                      ? <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{subjects.map(s => <span key={s} className="badge badge-gray" style={{ whiteSpace: 'nowrap' }}>{s}</span>)}</div>
+                      : <span className="text-muted">—</span>)}
+                    {row('Contact', (t.phone || t.email)
+                      ? <>{t.phone && <div>{t.phone}</div>}{t.email && <div className="text-muted">{t.email}</div>}</>
+                      : <span className="text-muted">—</span>)}
+                    {row('Login', (
+                      <button className="btn btn-sm" onClick={() => setLoginModal(t)} title={login ? 'Manage this login' : 'Give this teacher a login'} style={{ maxWidth: '100%' }}>
+                        <KeyRound size={12} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.email : 'Set up login'}</span>
+                        {login && !login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              }}
+            />
           )}
         </div>
+      )}
+
+      {/* Teacher login modal */}
+      {loginModal && (
+        <LoginModal
+          teacher={loginModal}
+          login={logins.find(l => l.teacherId === loginModal.id) || null}
+          classNames={classes.filter(c => c.teacherId === loginModal.id).map(c => c.name)}
+          onClose={() => setLoginModal(null)}
+          onChanged={async msg => { setLogins(await getUsers()); showToast(msg); }}
+        />
       )}
 
       {/* Class modal */}
@@ -354,7 +382,7 @@ function TeacherModal({ initial, onClose, onSave }) {
               <input
                 value={form.subjectsText || ''}
                 onChange={e => setForm({ ...form, subjectsText: e.target.value })}
-                placeholder="e.g. Quran, Arabic, Fiqh (comma separated)"
+                placeholder="e.g. Quran, Arabic, Fiqh (separate with commas or /)"
               />
             </div>
           </div>
@@ -363,6 +391,87 @@ function TeacherModal({ initial, onClose, onSave }) {
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-teal" disabled={!isValid} onClick={() => onSave(form)}>
             <Save size={13} /> {isNew ? 'Add teacher' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A teacher's login: the owner sets their email address and a password and passes them
+// on. The teacher then sees only the classes assigned to them on this page.
+function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
+  const [email, setEmail] = useState(login?.email || teacher.email || '');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  async function run(fn, msg) {
+    setSaving(true); setError('');
+    try { await fn(); await onChanged(msg); onClose(); }
+    catch (err) { setError(err.message || 'Something went wrong'); setSaving(false); }
+  }
+
+  function save() {
+    if (!login) return run(() => createUser(teacher.id, email, password), `Login created for ${teacher.name}`);
+    const changes = {};
+    if (email.trim().toLowerCase() !== login.email) changes.email = email;
+    if (password) changes.password = password;
+    if (!Object.keys(changes).length) { onClose(); return; }
+    return run(() => updateUser(login.id, changes), 'Login updated');
+  }
+
+  const canSave = login ? (email && (password === '' || password.length >= 8)) : (email && password.length >= 8);
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
+      <div className="modal" style={{ maxWidth: 400 }}>
+        <div className="modal-header">
+          <div className="modal-title">{login ? 'Login' : 'Set up login'} — {teacher.name}</div>
+          <button className="btn btn-icon" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>
+            {classNames.length
+              ? <>They'll see Attendance, Daily records and Fees for <strong>{classNames.join(', ')}</strong> only, and can mark fees as paid but not change amounts.</>
+              : <>They don't have a class yet — assign one on the Classes tab, or they'll see no students.</>}
+          </div>
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label>Email address</label>
+            <input type="email" inputMode="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="e.g. ahmed@gmail.com" />
+          </div>
+          <div className="form-group" style={{ marginBottom: 6 }}>
+            <label>{login ? 'New password (leave blank to keep the current one)' : 'Password (8+ characters)'}</label>
+            <input type="text" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>
+            {login ? 'Setting a new password signs them out on every device.' : "Pass these on to the teacher — they can change the password themselves once signed in."}
+          </div>
+          {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+
+          {login && (
+            <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" disabled={saving}
+                onClick={() => run(() => updateUser(login.id, { active: !login.active }), login.active ? 'Login switched off' : 'Login switched back on')}>
+                {login.active ? 'Switch off access' : 'Switch access back on'}
+              </button>
+              {confirmRemove ? (
+                <button className="btn btn-sm btn-danger" disabled={saving} onClick={() => run(() => deleteUser(login.id), 'Login removed')}>
+                  <Trash2 size={12} /> Yes, remove login
+                </button>
+              ) : (
+                <button className="btn btn-sm" style={{ color: 'var(--red)' }} disabled={saving} onClick={() => setConfirmRemove(true)}>
+                  <Trash2 size={12} /> Remove login
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving || !canSave}>
+            <Save size={13} />{saving ? 'Saving…' : (login ? 'Save' : 'Create login')}
           </button>
         </div>
       </div>

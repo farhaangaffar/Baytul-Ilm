@@ -1,9 +1,17 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, isOwner } = require('../auth');
 
 // Single flat file, dispatching on ?id= for item ops — see students.js for why.
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
+
+  // Teachers only see the classes assigned to them, and can't change any.
+  if (!isOwner(req)) {
+    if (id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const { rows } = await query('SELECT id, name, teacher_id AS "teacherId" FROM classes WHERE teacher_id = $1 ORDER BY name', [req.user.teacherId]);
+    res.status(200).json(rows);
+    return;
+  }
 
   if (!id) {
     if (req.method === 'GET') {
@@ -59,4 +67,4 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-});
+}, { teacher: true });

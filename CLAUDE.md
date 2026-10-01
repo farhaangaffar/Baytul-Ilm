@@ -32,6 +32,13 @@ codebase (one codebase, not a fork).
   `server/routes/` and a static `require` line in `api/router.js` — never add files
   to `api/` (each file there becomes a separate function; the free Hobby plan caps
   them at 12). The app stays on the Hobby plan until the first paying madrasah.
+- Logins (`server/auth.js`): one **owner** (super admin) and **teachers** linked to a
+  `teachers` row. `requireAuth(handler)` is owner-only by default; pass
+  `{ teacher: true }` only for routes teachers use, and scope their queries with
+  `teacherScope(req)` (their assigned classes' current students). Teachers get
+  Attendance, Daily records and Fees for their own classes, and on Fees may only
+  mark a week Paid. `ADMIN_PASSWORD` is only the first-time-setup / owner-recovery
+  key — it never signs anyone in once the owner account exists.
 - There's no migration runner: new columns are added by the API itself on first use
   (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
   for manual use and `db/schema.sql` updated.
