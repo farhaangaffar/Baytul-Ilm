@@ -67,7 +67,8 @@ export default function ClassesTeachers() {
   }
 
   async function saveTeacher(form) {
-    const subjects = (form.subjectsText || '').split(',').map(s => s.trim()).filter(Boolean);
+    // Commas or slashes both separate subjects ("Qaa'idah / Qur'aan, Fiqh").
+    const subjects = (form.subjectsText || '').split(/[,/]/).map(s => s.trim()).filter(Boolean);
     const data = { ...form, subjects };
     delete data.subjectsText;
     try {
@@ -204,12 +205,15 @@ export default function ClassesTeachers() {
                           <div className="avatar" style={{ width: 28, height: 28, fontSize: 10 }}>
                             {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                           </div>
-                          <span style={{ fontWeight: 500 }}>{t.name}</span>
+                          <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{t.name}</span>
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {(t.subjects || []).map(s => <span key={s} className="badge badge-gray">{s}</span>)}
+                        {/* One label per subject, each kept on one line — subjects saved as
+                            a single "A / B / C" entry are split for display too. */}
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minWidth: 140 }}>
+                          {(t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean)
+                            .map(s => <span key={s} className="badge badge-gray" style={{ whiteSpace: 'nowrap' }}>{s}</span>)}
                           {(!t.subjects || t.subjects.length === 0) && <span className="text-muted text-sm">—</span>}
                         </div>
                       </td>
@@ -379,7 +383,7 @@ function TeacherModal({ initial, onClose, onSave }) {
               <input
                 value={form.subjectsText || ''}
                 onChange={e => setForm({ ...form, subjectsText: e.target.value })}
-                placeholder="e.g. Quran, Arabic, Fiqh (comma separated)"
+                placeholder="e.g. Quran, Arabic, Fiqh (separate with commas or /)"
               />
             </div>
           </div>
