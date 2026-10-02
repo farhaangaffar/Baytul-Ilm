@@ -40,9 +40,11 @@ async function ensureLeaveDateColumn() {
 // /api routing only reliably supports plain files and single [id] segments
 // outside Next.js, not the [[...params]] optional catch-all, so id-style
 // operations go through a query string instead of a path segment.
+// Everything is limited to the signed-in person's madrasah.
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
   const action = req.query.action;
+  const mid = req.user.madrasahId;
   await ensureLeaveDateColumn();
 
   // Teachers can only list their own classes' current students; every change is owner-only.
@@ -50,8 +52,8 @@ module.exports = requireAuth(async (req, res) => {
     if (action || id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
     const scope = await teacherScope(req);
     const { rows } = await query(
-      `SELECT * FROM students WHERE class = ANY($1) AND status <> 'Inactive' ORDER BY sort_order NULLS LAST, forename, surname`,
-      [scope.classNames]
+      `SELECT * FROM students WHERE madrasah_id = $1 AND class = ANY($2) AND status <> 'Inactive' ORDER BY sort_order NULLS LAST, forename, surname`,
+      [mid, scope.classNames]
     );
     res.status(200).json(rows.map(toClient));
     return;
@@ -65,7 +67,7 @@ module.exports = requireAuth(async (req, res) => {
     const { ids } = req.body || {};
     if (!Array.isArray(ids) || !ids.length) { res.status(400).json({ error: 'ids[] is required' }); return; }
     for (let i = 0; i < ids.length; i++) {
-      await query('UPDATE students SET sort_order = $1 WHERE id = $2', [i, ids[i]]);
+      await query('UPDATE students SET sort_order = $1 WHERE id = $2 AND madrasah_id = $3', [i, ids[i], mid]);
     }
     res.status(200).json({ ok: true });
     return;
@@ -78,28 +80,31 @@ module.exports = requireAuth(async (req, res) => {
   // whole-history summary right on the card instead of linking out to other pages.
   if (action === 'totals') {
     if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
-    const ids = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (!ids.length) { res.status(400).json({ error: 'ids= is required (comma-separated student ids)' }); return; }
+    const requested = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!requested.length) { res.status(400).json({ error: 'ids= is required (comma-separated student ids)' }); return; }
+    // Only this madrasah's students, whatever ids were asked for.
+    const { rows: own } = await query('SELECT id FROM students WHERE id = ANY($1) AND madrasah_id = $2', [requested, mid]);
+    const ids = own.map(r => r.id);
     const [attRes, feeRes, recRes] = await Promise.all([
       query(
         `SELECT student_id,
                 COUNT(*) FILTER (WHERE status='P') AS present,
                 COUNT(*) FILTER (WHERE status='L') AS late,
                 COUNT(*) FILTER (WHERE status='A') AS absent
-         FROM attendance WHERE student_id = ANY($1) GROUP BY student_id`,
-        [ids]
+         FROM attendance WHERE student_id = ANY($1) AND madrasah_id = $2 GROUP BY student_id`,
+        [ids, mid]
       ),
       query(
         `SELECT student_id,
                 COALESCE(SUM(amount) FILTER (WHERE status='Paid'), 0) AS paid,
                 COALESCE(SUM(amount) FILTER (WHERE status!='Paid'), 0) AS owed
-         FROM fees WHERE student_id = ANY($1) GROUP BY student_id`,
-        [ids]
+         FROM fees WHERE student_id = ANY($1) AND madrasah_id = $2 GROUP BY student_id`,
+        [ids, mid]
       ),
       query(
         `SELECT student_id, COUNT(*) AS records_count
-         FROM daily_records WHERE student_id = ANY($1) GROUP BY student_id`,
-        [ids]
+         FROM daily_records WHERE student_id = ANY($1) AND madrasah_id = $2 GROUP BY student_id`,
+        [ids, mid]
       ),
     ]);
     const totals = {};
@@ -113,7 +118,7 @@ module.exports = requireAuth(async (req, res) => {
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query('SELECT * FROM students ORDER BY sort_order NULLS LAST, forename, surname');
+      const { rows } = await query('SELECT * FROM students WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, forename, surname', [mid]);
       res.status(200).json(rows.map(toClient));
       return;
     }
@@ -124,10 +129,14 @@ module.exports = requireAuth(async (req, res) => {
       // Preserve a client-supplied id when restoring a backup, so records that reference the
       // original student id (fees, attendance, daily records) still resolve after import.
       const newId = b.id || 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      if (b.id) {
+        const { rows: taken } = await query('SELECT 1 FROM students WHERE id = $1', [b.id]);
+        if (taken.length) { res.status(409).json({ error: 'A student with this id already exists.' }); return; }
+      }
       const { rows } = await query(
-        `INSERT INTO students (id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
-        [newId, b.forename, b.surname, b.dob || null, b.class,
+        `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        [newId, mid, b.forename, b.surname, b.dob || null, b.class,
          b.parent1Name || '', b.parent1Phone || '', b.parent2Name || '', b.parent2Phone || '',
          b.weeklyFee ?? 15, b.enrollDate || null, b.leaveDate || null, b.status || 'Active', b.notes || '']
       );
@@ -150,15 +159,15 @@ module.exports = requireAuth(async (req, res) => {
       sets.push(`${col} = $${values.length}`);
     });
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
-    values.push(id);
-    const { rows } = await query(`UPDATE students SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id`, values);
+    values.push(id, mid);
+    const { rows } = await query(`UPDATE students SET ${sets.join(', ')} WHERE id = $${values.length - 1} AND madrasah_id = $${values.length} RETURNING id`, values);
     if (!rows.length) { res.status(404).json({ error: 'Student not found' }); return; }
     res.status(200).json({ ok: true });
     return;
   }
 
   if (req.method === 'DELETE') {
-    await query('DELETE FROM students WHERE id = $1', [id]);
+    await query('DELETE FROM students WHERE id = $1 AND madrasah_id = $2', [id, mid]);
     res.status(200).json({ ok: true });
     return;
   }

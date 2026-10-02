@@ -311,6 +311,11 @@ export default function Students() {
         {search && !classNames.some(c=>students.some(s=>s.class===c && s.status!=='Inactive' && `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()))) && (
           <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>No students match your search.</div>
         )}
+        {classNames.length===0 && (
+          <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>
+            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them.
+          </div>
+        )}
 
         {leftStudents.length>0&&(
           <div className="card" style={{marginTop:20}}>

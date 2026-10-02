@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2 } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -17,6 +17,8 @@ const navItems = [
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
+  // Only the platform owner (the person who runs this service for every madrasah).
+  { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
 ];
 
 // Layout remounts fresh on every navigation (each page renders its own <Layout>), so the
@@ -31,10 +33,12 @@ export default function Layout({ children, title, subtitle }) {
   const { pathname } = useLocation();
   const settings = useSettings();
   const installPrompt = useInstallPrompt();
-  const { user, isOwner } = useAuth();
+  const { user, isOwner, isPlatformAdmin } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   // Teachers only get their three pages (and no section headings).
-  const visibleNav = isOwner ? navItems : navItems.filter(i => i.teacher).map(i => ({ ...i, section: undefined }));
+  const visibleNav = isOwner
+    ? navItems.filter(i => !i.platform || isPlatformAdmin)
+    : navItems.filter(i => i.teacher).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 
@@ -85,7 +89,7 @@ export default function Layout({ children, title, subtitle }) {
         <button className="nav-link" onClick={() => setChangingPassword(true)}>
           <KeyRound size={16}/><span>Change password</span>
         </button>
-        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.email}` : undefined}>
+        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.login}` : undefined}>
           <LogOut size={16}/><span>Log out</span>
         </button>
       </aside>

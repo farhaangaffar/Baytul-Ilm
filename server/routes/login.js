@@ -1,16 +1,19 @@
 const { query } = require('../db');
 const {
-  ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeEmail,
+  ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeLogin,
   validateNewCredentials, setSessionCookie, getUser,
 } = require('../auth');
 
 // Sign-in and everything around it, as ?action= variants of one route:
-//  (none)           POST {email, password} — normal sign-in. Before an owner account
-//                   exists, the school's old shared password (ADMIN_PASSWORD) instead
-//                   answers { setupRequired: true } so the owner can create their account.
-//  setup            POST {recoveryKey, email, password} — creates the owner account
-//                   (only while none exists).
-//  recover          POST {recoveryKey, password} — resets a forgotten owner password.
+//  (none)           POST {code, login, password} — normal sign-in. code is the
+//                   madrasah's code, always required (remembered on each device after the
+//                   first sign-in). Before any owner account exists, the old shared
+//                   password (ADMIN_PASSWORD) instead answers { setupRequired: true } so the
+//                   first owner can create their account.
+//  setup            POST {recoveryKey, login, password} — creates the first owner (madrasah 1,
+//                   and the platform owner) — only while no owner exists.
+//  recover          POST {recoveryKey, password} — resets a forgotten platform-owner password.
+//                   (Other madaaris' heads are reset by the platform owner.)
 //  change-password  POST {currentPassword, newPassword} — any signed-in user.
 // ADMIN_PASSWORD is the recovery key; once the owner account exists it never signs
 // anyone in by itself.
@@ -25,12 +28,22 @@ async function findOwner() {
   return rows[0] || null;
 }
 
-function publicUser(u) {
-  return { email: u.email, role: u.role };
+async function findPlatformOwner() {
+  const { rows } = await query(`SELECT * FROM users WHERE platform_admin ORDER BY id LIMIT 1`);
+  return rows[0] || null;
 }
 
-// Spend the same scrypt time when the email isn't registered, so response timing
-// doesn't reveal which emails have logins.
+async function madrasahOf(u) {
+  const { rows } = await query('SELECT code, name, active FROM madaaris WHERE id = $1', [u.madrasah_id]);
+  return rows[0];
+}
+
+function publicUser(u) {
+  return { login: u.login, role: u.role };
+}
+
+// Spend the same scrypt time when the username isn't registered, so response timing
+// doesn't reveal which usernames have logins.
 const DUMMY_HASH = hashPassword('not-a-real-password');
 
 module.exports = async (req, res) => {
@@ -43,20 +56,20 @@ module.exports = async (req, res) => {
   if (action === 'setup') {
     if (await findOwner()) { res.status(409).json({ error: 'The owner account has already been set up — sign in instead.' }); return; }
     if (!recoveryKeyMatches(b.recoveryKey)) { res.status(401).json({ error: 'The school password is incorrect.' }); return; }
-    const email = normalizeEmail(b.email);
-    const problem = validateNewCredentials(email, b.password);
+    const login = normalizeLogin(b.login ?? b.email);
+    const problem = validateNewCredentials(login, b.password);
     if (problem) { res.status(400).json({ error: problem }); return; }
     const { rows } = await query(
-      `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'owner') RETURNING *`,
-      [email, hashPassword(b.password)]
+      `INSERT INTO users (madrasah_id, login, password_hash, role, platform_admin) VALUES (1, $1, $2, 'owner', true) RETURNING *`,
+      [login, hashPassword(b.password)]
     );
     setSessionCookie(res, rows[0]);
-    res.status(200).json({ ok: true, user: publicUser(rows[0]) });
+    res.status(200).json({ ok: true, user: publicUser(rows[0]), madrasah: await madrasahOf(rows[0]) });
     return;
   }
 
   if (action === 'recover') {
-    const owner = await findOwner();
+    const owner = await findPlatformOwner();
     if (!owner) { res.status(400).json({ error: 'No owner account exists yet — sign in with the school password to set one up.' }); return; }
     if (!recoveryKeyMatches(b.recoveryKey)) { res.status(401).json({ error: 'The recovery key is incorrect.' }); return; }
     if (String(b.password || '').length < 8) { res.status(400).json({ error: 'Password must be at least 8 characters.' }); return; }
@@ -66,7 +79,7 @@ module.exports = async (req, res) => {
       [hashPassword(b.password), owner.id]
     );
     setSessionCookie(res, rows[0]);
-    res.status(200).json({ ok: true, user: publicUser(rows[0]) });
+    res.status(200).json({ ok: true, user: publicUser(rows[0]), madrasah: await madrasahOf(rows[0]) });
     return;
   }
 
@@ -93,14 +106,21 @@ module.exports = async (req, res) => {
     res.status(401).json({ error: 'Incorrect password' });
     return;
   }
-  const email = normalizeEmail(b.email);
-  const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
-  const user = rows[0];
+  // Everyone signs in to a particular madrasah: its code is always required (each device
+  // remembers it after the first sign-in, so it's only typed once).
+  const login = normalizeLogin(b.login ?? b.email);
+  const code = String(b.code || '').trim().toLowerCase();
+  if (!code) { res.status(400).json({ error: "Enter your madrasah code — ask the madrasah office if you don't know it.", needCode: true }); return; }
+  const { rows: candidates } = await query(
+    'SELECT u.* FROM users u JOIN madaaris m ON m.id = u.madrasah_id WHERE lower(m.code) = $1 AND u.login = $2',
+    [code, login]
+  );
+  const user = candidates[0];
   const ok = verifyPassword(b.password || '', user ? user.password_hash : DUMMY_HASH);
-  if (!user || !ok || !user.active) {
-    res.status(401).json({ error: user && ok && !user.active ? 'This login has been switched off — ask the madrasah office.' : 'Incorrect email or password' });
-    return;
-  }
+  if (!user || !ok) { res.status(401).json({ error: 'Incorrect madrasah code, username or password' }); return; }
+  const madrasah = await madrasahOf(user);
+  if (!user.active) { res.status(401).json({ error: 'This login has been switched off — ask the madrasah office.' }); return; }
+  if (!madrasah.active && !user.platform_admin) { res.status(401).json({ error: "This madrasah's access has been switched off." }); return; }
   setSessionCookie(res, user);
-  res.status(200).json({ ok: true, user: publicUser(user) });
+  res.status(200).json({ ok: true, user: publicUser(user), madrasah: { code: madrasah.code, name: madrasah.name } });
 };

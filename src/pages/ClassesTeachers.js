@@ -9,6 +9,7 @@ import {
 } from '../lib/store';
 import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, GripVertical } from 'lucide-react';
 import ReorderableGrid from '../components/ReorderableGrid';
+import { useAuth } from '../lib/AuthContext';
 
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,9 @@ export default function ClassesTeachers() {
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [logins, setLogins] = useState([]);
-  const [loginModal, setLoginModal] = useState(null); // the teacher whose login is being set up / managed
+  // The login being set up / managed: { kind: 'teacher' | 'class', item } — a teacher's
+  // own login, or one shared login for a whole class.
+  const [loginModal, setLoginModal] = useState(null);
 
   const [classModal, setClassModal] = useState(null);
   const [teacherModal, setTeacherModal] = useState(null);
@@ -141,6 +144,7 @@ export default function ClassesTeachers() {
                     <th>Class name</th>
                     <th>Teacher</th>
                     <th>Students</th>
+                    <th>Class login</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -150,6 +154,10 @@ export default function ClassesTeachers() {
                       <td style={{ fontWeight: 500 }}>{c.name}</td>
                       <td className="text-muted text-sm">{teacherName(c.teacherId)}</td>
                       <td className="text-muted text-sm">{studentCountForClass(c.name)} enrolled</td>
+                      <td>
+                        <LoginButton login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
+                          title="One shared login for this class — whoever teaches it that day can sign in" />
+                      </td>
                       <td>
                         <div className="flex items-center gap-2">
                           <button className="btn btn-icon btn-sm" onClick={() => setClassModal({ ...c })}>
@@ -234,11 +242,7 @@ export default function ClassesTeachers() {
                       ? <>{t.phone && <div>{t.phone}</div>}{t.email && <div className="text-muted">{t.email}</div>}</>
                       : <span className="text-muted">—</span>)}
                     {row('Login', (
-                      <button className="btn btn-sm" onClick={() => setLoginModal(t)} title={login ? 'Manage this login' : 'Give this teacher a login'} style={{ maxWidth: '100%' }}>
-                        <KeyRound size={12} style={{ flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.email : 'Set up login'}</span>
-                        {login && !login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}
-                      </button>
+                      <LoginButton login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
                     ))}
                   </div>
                 );
@@ -248,12 +252,13 @@ export default function ClassesTeachers() {
         </div>
       )}
 
-      {/* Teacher login modal */}
+      {/* Teacher or class login modal */}
       {loginModal && (
         <LoginModal
-          teacher={loginModal}
-          login={logins.find(l => l.teacherId === loginModal.id) || null}
-          classNames={classes.filter(c => c.teacherId === loginModal.id).map(c => c.name)}
+          kind={loginModal.kind}
+          item={loginModal.item}
+          login={logins.find(l => loginModal.kind === 'class' ? l.classId === loginModal.item.id : l.teacherId === loginModal.item.id) || null}
+          classNames={loginModal.kind === 'class' ? [loginModal.item.name] : classes.filter(c => c.teacherId === loginModal.item.id).map(c => c.name)}
           onClose={() => setLoginModal(null)}
           onChanged={async msg => { setLogins(await getUsers()); showToast(msg); }}
         />
@@ -398,10 +403,30 @@ function TeacherModal({ initial, onClose, onSave }) {
   );
 }
 
-// A teacher's login: the owner sets their email address and a password and passes them
-// on. The teacher then sees only the classes assigned to them on this page.
-function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
-  const [email, setEmail] = useState(login?.email || teacher.email || '');
+// The button on a teacher card or class row that opens its login.
+function LoginButton({ login, onClick, title }) {
+  return (
+    <button className="btn btn-sm" onClick={onClick} title={title} style={{ maxWidth: '100%' }}>
+      <KeyRound size={12} style={{ flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.login : 'Set up login'}</span>
+      {login && !login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}
+    </button>
+  );
+}
+
+// "Class 3B" → "class3b": a suggested username for a shared class login.
+function suggestUsername(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+// A login, set up by the owner: either a teacher's own (covering the classes assigned
+// to them) or one shared login for a whole class, so whoever is teaching it that day
+// can sign in. The owner sets a username (or email address) and a password and passes
+// them on, with the madrasah's code for the first sign-in on each device.
+function LoginModal({ kind, item, login, classNames, onClose, onChanged }) {
+  const { user } = useAuth();
+  const madrasahCode = user?.madrasah?.code;
+  const [loginName, setLoginName] = useState(login?.login || (kind === 'class' ? suggestUsername(item.name) : (item.email || '')));
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -414,39 +439,47 @@ function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
   }
 
   function save() {
-    if (!login) return run(() => createUser(teacher.id, email, password), `Login created for ${teacher.name}`);
+    if (!login) {
+      const owner = kind === 'class' ? { classId: item.id } : { teacherId: item.id };
+      return run(() => createUser({ ...owner, login: loginName, password }), `Login created for ${item.name}`);
+    }
     const changes = {};
-    if (email.trim().toLowerCase() !== login.email) changes.email = email;
+    if (loginName.trim().toLowerCase() !== login.login) changes.login = loginName;
     if (password) changes.password = password;
     if (!Object.keys(changes).length) { onClose(); return; }
     return run(() => updateUser(login.id, changes), 'Login updated');
   }
 
-  const canSave = login ? (email && (password === '' || password.length >= 8)) : (email && password.length >= 8);
+  const canSave = login ? (loginName && (password === '' || password.length >= 8)) : (loginName && password.length >= 8);
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
       <div className="modal" style={{ maxWidth: 400 }}>
         <div className="modal-header">
-          <div className="modal-title">{login ? 'Login' : 'Set up login'} — {teacher.name}</div>
+          <div className="modal-title">{login ? 'Login' : 'Set up login'} — {item.name}</div>
           <button className="btn btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>
-            {classNames.length
-              ? <>They'll see Attendance, Daily records and Fees for <strong>{classNames.join(', ')}</strong> only, and can mark fees as paid but not change amounts.</>
-              : <>They don't have a class yet — assign one on the Classes tab, or they'll see no students.</>}
+            {kind === 'class'
+              ? <>One login for <strong>{item.name}</strong>, shared by whoever is teaching it — handy when a teacher is off. It sees Attendance, Daily records and Fees for this class only, and can mark fees as paid but not change amounts.</>
+              : classNames.length
+                ? <>They'll see Attendance, Daily records and Fees for <strong>{classNames.join(', ')}</strong> only, and can mark fees as paid but not change amounts.</>
+                : <>They don't have a class yet — assign one on the Classes tab, or they'll see no students.</>}
           </div>
           <div className="form-group" style={{ marginBottom: 12 }}>
-            <label>Email address</label>
-            <input type="email" inputMode="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="e.g. ahmed@gmail.com" />
+            <label>Username or email address</label>
+            <input value={loginName} onChange={e => { setLoginName(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={kind === 'class' ? 'e.g. class1' : 'e.g. ahmed or ahmed@gmail.com'} />
           </div>
           <div className="form-group" style={{ marginBottom: 6 }}>
             <label>{login ? 'New password (leave blank to keep the current one)' : 'Password (8+ characters)'}</label>
             <input type="text" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>
-            {login ? 'Setting a new password signs them out on every device.' : "Pass these on to the teacher — they can change the password themselves once signed in."}
+            {login ? 'Setting a new password signs them out on every device.' : (kind === 'class'
+              ? 'Pass these on to the teachers who cover this class.'
+              : 'Pass these on to the teacher — they can change the password themselves once signed in.')}
+            {madrasahCode && <> On a new device they'll also need the madrasah code <strong style={{ color: 'var(--ink)' }}>{madrasahCode}</strong>.</>}
           </div>
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
 

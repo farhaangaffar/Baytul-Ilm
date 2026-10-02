@@ -6,6 +6,7 @@ import TermsCard from '../components/TermsCard';
 import { FREQUENCIES } from '../lib/feePeriods';
 import { Save, Plus, Trash2, X, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
+import { useAuth } from '../lib/AuthContext';
 
 const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
 
@@ -44,6 +45,7 @@ function logoImages(blob) {
 }
 
 export default function Settings() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
@@ -253,7 +255,12 @@ export default function Settings() {
     <Layout title="Settings" subtitle="School details, academic years and defaults">
       {/* School details — full width, fields in three columns (two on narrower screens) */}
       <div className="card">
-        <div className="card-title" style={{marginBottom:18}}>School details</div>
+        <div className="card-title" style={{marginBottom: user?.madrasah?.code ? 4 : 18}}>School details</div>
+        {user?.madrasah?.code && (
+          <div className="card-sub" style={{marginBottom:18}}>
+            Sign-in code <strong style={{color:'var(--ink)'}}>{user.madrasah.code}</strong> — staff type this the first time they sign in on a device.
+          </div>
+        )}
         <div className="form-grid school-grid">
           <div className="form-group">
             <label>Madrasah name (English)</label>

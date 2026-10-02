@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { requireAuth, teacherScope } = require('../auth');
+const { requireAuth, accessScope } = require('../auth');
 
 // late_time: the time ('HH:MM', the marker's own clock) a student was marked Late on
 // the day itself — stamped automatically by the Attendance page.
@@ -11,29 +11,34 @@ async function ensureColumns() {
 }
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-// Teachers: only their own classes' current students (see teacherScope).
+// Limited to the signed-in person's madrasah; teachers only see and mark their own
+// classes' current students (see accessScope).
 module.exports = requireAuth(async (req, res) => {
   await ensureColumns();
-  const scope = await teacherScope(req);
+  const mid = req.user.madrasahId;
+  const scope = await accessScope(req);
   if (req.method === 'GET') {
     const { year } = req.query;
     if (!year) { res.status(400).json({ error: 'year is required' }); return; }
     // ?times → { studentId: { date: 'HH:MM' } } for the Late marks that have a time.
     if (req.query.times !== undefined) {
-      const { rows } = await query("SELECT student_id, date, late_time FROM attendance WHERE year = $1 AND status = 'L' AND late_time IS NOT NULL", [year]);
+      const { rows } = await query(
+        "SELECT student_id, date, late_time FROM attendance WHERE year = $1 AND madrasah_id = $2 AND status = 'L' AND late_time IS NOT NULL",
+        [year, mid]
+      );
       const out = {};
       rows.forEach(r => {
-        if (scope && !scope.studentIds.has(r.student_id)) return;
+        if (!scope.studentIds.has(r.student_id)) return;
         if (!out[r.student_id]) out[r.student_id] = {};
         out[r.student_id][r.date] = r.late_time;
       });
       res.status(200).json(out);
       return;
     }
-    const { rows } = await query('SELECT student_id, date, status FROM attendance WHERE year = $1', [year]);
+    const { rows } = await query('SELECT student_id, date, status FROM attendance WHERE year = $1 AND madrasah_id = $2', [year, mid]);
     const out = {};
     rows.forEach(r => {
-      if (scope && !scope.studentIds.has(r.student_id)) return;
+      if (!scope.studentIds.has(r.student_id)) return;
       if (!out[r.student_id]) out[r.student_id] = {};
       out[r.student_id][r.date] = r.status;
     });
@@ -44,15 +49,15 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'PUT') {
     const { studentId, date, status, year, time } = req.body || {};
     if (!studentId || !date || !year) { res.status(400).json({ error: 'studentId, date and year are required' }); return; }
-    if (scope && !scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     if (!status) {
-      await query('DELETE FROM attendance WHERE year=$1 AND student_id=$2 AND date=$3', [year, studentId, date]);
+      await query('DELETE FROM attendance WHERE year=$1 AND student_id=$2 AND date=$3 AND madrasah_id=$4', [year, studentId, date, mid]);
     } else {
       const lateTime = status === 'L' && TIME_RE.test(time || '') ? time : null;
       await query(
-        `INSERT INTO attendance (year, student_id, date, status, late_time) VALUES ($1,$2,$3,$4,$5)
+        `INSERT INTO attendance (madrasah_id, year, student_id, date, status, late_time) VALUES ($6,$1,$2,$3,$4,$5)
          ON CONFLICT (year, student_id, date) DO UPDATE SET status = EXCLUDED.status, late_time = EXCLUDED.late_time`,
-        [year, studentId, date, status, lateTime]
+        [year, studentId, date, status, lateTime, mid]
       );
     }
     res.status(200).json({ ok: true });
