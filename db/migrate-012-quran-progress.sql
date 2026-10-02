@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS quran_progress (
   UNIQUE (student_id, date, kind)
 );
 CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id);
+-- 'ayah' (recorded by surah and ayah) or 'quarter' (recorded in juz quarters; the
+-- positions above are then the quarters' first and last ayahs).
+ALTER TABLE quran_progress ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'ayah';
 
 -- Juz a student had already memorised before records started here.
 CREATE TABLE IF NOT EXISTS quran_students (

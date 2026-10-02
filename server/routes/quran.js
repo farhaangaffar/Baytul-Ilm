@@ -31,6 +31,9 @@ async function ensureTables() {
     )
   `);
   await query('CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id)');
+  // How the teacher recorded it: by surah/ayah, or in juz quarters (the positions
+  // still hold the quarters' first and last ayahs, so progress maths is the same).
+  await query(`ALTER TABLE quran_progress ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'ayah'`);
   await query(`
     CREATE TABLE IF NOT EXISTS quran_students (
       student_id   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
@@ -52,7 +55,7 @@ function toClient(r) {
   return {
     studentId: r.student_id, date: r.date, kind: r.kind,
     fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah,
-    lesson: r.lesson, grade: r.grade, note: r.note,
+    lesson: r.lesson, grade: r.grade, note: r.note, unit: r.unit || 'ayah',
   };
 }
 
@@ -112,13 +115,14 @@ module.exports = requireAuth(async (req, res) => {
       pos = [int(b.fromSurah), int(b.fromAyah), int(b.toSurah), int(b.toAyah)];
       if (!validPos(pos[0], pos[1]) || !validPos(pos[2], pos[3])) { res.status(400).json({ error: 'Choose a surah and ayah for from and to.' }); return; }
     }
+    const unit = b.unit === 'quarter' && b.kind !== 'lesson' ? 'quarter' : 'ayah';
     await query(
-      `INSERT INTO quran_progress (madrasah_id, student_id, date, kind, from_surah, from_ayah, to_surah, to_ayah, lesson, grade, note, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
+      `INSERT INTO quran_progress (madrasah_id, student_id, date, kind, from_surah, from_ayah, to_surah, to_ayah, lesson, grade, note, unit, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
        ON CONFLICT (student_id, date, kind) DO UPDATE SET
          from_surah = EXCLUDED.from_surah, from_ayah = EXCLUDED.from_ayah, to_surah = EXCLUDED.to_surah, to_ayah = EXCLUDED.to_ayah,
-         lesson = EXCLUDED.lesson, grade = EXCLUDED.grade, note = EXCLUDED.note, updated_at = now()`,
-      [mid, b.studentId, b.date, b.kind, ...pos, String(b.lesson || '').slice(0, 200), b.grade || null, String(b.note || '').slice(0, 1000)]
+         lesson = EXCLUDED.lesson, grade = EXCLUDED.grade, note = EXCLUDED.note, unit = EXCLUDED.unit, updated_at = now()`,
+      [mid, b.studentId, b.date, b.kind, ...pos, String(b.lesson || '').slice(0, 200), b.grade || null, String(b.note || '').slice(0, 1000), unit]
     );
     res.status(200).json({ ok: true });
     return;

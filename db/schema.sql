@@ -175,6 +175,7 @@ CREATE TABLE IF NOT EXISTS quran_progress (
   lesson       TEXT NOT NULL DEFAULT '',
   grade        TEXT CHECK (grade IN ('good','weak','repeat')),
   note         TEXT NOT NULL DEFAULT '',
+  unit         TEXT NOT NULL DEFAULT 'ayah',  -- 'ayah' or 'quarter' (recorded in juz quarters)
   updated_at   TIMESTAMP NOT NULL DEFAULT now(),
   UNIQUE (student_id, date, kind)
 );

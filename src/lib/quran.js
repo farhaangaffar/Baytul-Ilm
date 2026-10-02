@@ -72,13 +72,55 @@ export function juzOf(surah, ayah) {
   return JUZ_RANGES.findIndex(([s, e]) => p >= s && p < e) + 1;
 }
 
-// "Al-Mulk 1–15", "Al-Mulk 28 – Al-Qalam 10"
+// Juz quarters (each juz in four, as marked in the mushaf — every second rub' al-hizb):
+// the position each of the 120 quarters starts at, juz 1 quarter 1 → juz 30 quarter 4.
+// From the standard Hafs hizb-quarter list (Tanzil data, via the quran-meta package).
+const JUZ_QUARTER_STARTS = [
+  0, 50, 81, 112, 148, 183, 209, 239, 259, 278, 307, 344, 385, 425, 463, 493, 516, 550, 580, 606,
+  640, 669, 695, 719, 750, 777, 824, 862, 899, 929, 954, 1000, 1041, 1095, 1124, 1160, 1200, 1235, 1268, 1294,
+  1327, 1356, 1389, 1434, 1478, 1513, 1556, 1602, 1648, 1696, 1725, 1759, 1802, 1901, 1951, 1990, 2029, 2078, 2127, 2171,
+  2214, 2271, 2348, 2430, 2483, 2533, 2595, 2632, 2673, 2747, 2811, 2843, 2875, 2932, 3042, 3159, 3214, 3263, 3302, 3340,
+  3385, 3439, 3490, 3533, 3563, 3592, 3629, 3674, 3732, 3809, 3932, 4021, 4089, 4133, 4173, 4226, 4264, 4298, 4348, 4430,
+  4510, 4554, 4600, 4625, 4705, 4809, 4901, 5053, 5104, 5136, 5177, 5217, 5241, 5323, 5447, 5551, 5672, 5829, 5948, 6090,
+];
+const quarterIndex = (juz, q) => (juz - 1) * 4 + (q - 1);
+// First and last ayah of juz `juz`, quarter `q` (1–4).
+export function quarterStart(juz, q) { return fromPosition(JUZ_QUARTER_STARTS[quarterIndex(juz, q)]); }
+export function quarterEnd(juz, q) {
+  const next = JUZ_QUARTER_STARTS[quarterIndex(juz, q) + 1];
+  return fromPosition((next ?? TOTAL_AYAHS) - 1);
+}
+// { juz, q } of the quarter an ayah is in.
+export function quarterOf(surah, ayah) {
+  const p = position(surah, ayah);
+  let i = JUZ_QUARTER_STARTS.length - 1;
+  while (i > 0 && JUZ_QUARTER_STARTS[i] > p) i--;
+  return { juz: Math.floor(i / 4) + 1, q: (i % 4) + 1 };
+}
+export const QUARTER_NAMES = ['1st quarter', '2nd quarter', '3rd quarter', '4th quarter'];
+
+// "Al-Mulk 1–15", "Al-Mulk 28 – Al-Qalam 10"; recorded in quarters: "Juz 29 Q1–Q3",
+// "Juz 29 Q4 – Juz 30 Q2", or a whole juz/juz range when it's every quarter.
 export function rangeLabel(e) {
   if (!e?.fromSurah) return '';
+  if (e.unit === 'quarter') {
+    const a = quarterOf(e.fromSurah, e.fromAyah), b = quarterOf(e.toSurah, e.toAyah);
+    const [s, t] = (a.juz * 4 + a.q) <= (b.juz * 4 + b.q) ? [a, b] : [b, a];
+    if (s.q === 1 && t.q === 4) return s.juz === t.juz ? `Juz ${s.juz}` : `Juz ${s.juz}–${t.juz}`;
+    if (s.juz === t.juz) return s.q === t.q ? `Juz ${s.juz} Q${s.q}` : `Juz ${s.juz} Q${s.q}–Q${t.q}`;
+    return `Juz ${s.juz} Q${s.q} – Juz ${t.juz} Q${t.q}`;
+  }
   const same = e.fromSurah === e.toSurah;
   return same
     ? `${surahName(e.fromSurah)} ${e.fromAyah}${e.toAyah !== e.fromAyah ? `–${e.toAyah}` : ''}`
     : `${surahName(e.fromSurah)} ${e.fromAyah} – ${surahName(e.toSurah)} ${e.toAyah}`;
+}
+
+// Where an entry ends — "Ya-Sin 40", or "end of Juz 23 Q2" when recorded in quarters.
+export function upToLabel(e) {
+  if (!e?.toSurah) return '';
+  if (e.unit === 'quarter') { const { juz, q } = quarterOf(e.toSurah, e.toAyah); return `end of Juz ${juz} Q${q}`; }
+  return `${surahName(e.toSurah)} ${e.toAyah}`;
 }
 
 // Positions covered by an entry, whichever way round it was written.

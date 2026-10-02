@@ -3,6 +3,7 @@ import { saveQuranEntry, deleteQuranEntry, savePriorJuz } from '../lib/store';
 import {
   SURAHS, ayahCount, surahName, rangeLabel, nextStart, hifzProgress, juzOf,
   QURAN_TYPES, KIND_LABELS, GRADES, ayahsMemorisedBetween,
+  quarterStart, quarterEnd, quarterOf, QUARTER_NAMES, upToLabel,
 } from '../lib/quran';
 import { Check, Trash2, BookOpen, Pencil } from 'lucide-react';
 
@@ -32,6 +33,31 @@ function Position({ surah, ayah, onChange, label }) {
   );
 }
 
+// Juz + quarter — "Juz 29" "2nd quarter". `edge` says whether this end of the range
+// means the quarter's first ayah (from) or its last (to).
+function QuarterPosition({ label, surah, ayah, edge, onChange }) {
+  const { juz, q } = quarterOf(surah, ayah);
+  const pick = (j, k) => { const p = edge === 'from' ? quarterStart(j, k) : quarterEnd(j, k); onChange(p.surah, p.ayah); };
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', width: 30, flexShrink: 0 }}>{label}</span>
+      <select value={juz} onChange={e => pick(Number(e.target.value), q)} style={{ ...inputStyle, flex: 1 }} aria-label={`${label} juz`}>
+        {Array.from({ length: 30 }, (_, i) => <option key={i} value={i + 1}>Juz {i + 1}</option>)}
+      </select>
+      <select value={q} onChange={e => pick(juz, Number(e.target.value))} style={{ ...inputStyle, flex: 1 }} aria-label={`${label} quarter`}>
+        {QUARTER_NAMES.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
+      </select>
+    </div>
+  );
+}
+
+// Snap a range to whole quarters: from the start of its first quarter to the end of its last.
+function toQuarters(f) {
+  const a = quarterOf(f.fromSurah, f.fromAyah), b = quarterOf(f.toSurah, f.toAyah);
+  const s = quarterStart(a.juz, a.q), t = quarterEnd(b.juz, b.q);
+  return { fromSurah: s.surah, fromAyah: s.ayah, toSurah: t.surah, toAyah: t.ayah };
+}
+
 function GradeButtons({ value, onChange }) {
   return (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -53,14 +79,17 @@ function defaultsFor(kind, date, entries) {
   const before = entries.filter(e => e.kind === kind && e.date < date).sort((a, b) => b.date.localeCompare(a.date));
   const last = before[0];
   if (kind === 'lesson') return { lesson: last?.lesson || '', grade: null, note: '' };
+  // Same way of recording as last time for this kind (surah/ayah or juz quarters).
+  const unit = last?.unit === 'quarter' ? 'quarter' : 'ayah';
+  const fit = r => (unit === 'quarter' ? { ...r, ...toQuarters(r) } : r);
   if (kind === 'sabaq' || kind === 'reading') {
     const n = nextStart(last) || { surah: 1, ayah: 1 };
-    return { fromSurah: n.surah, fromAyah: n.ayah, toSurah: n.surah, toAyah: n.ayah, grade: null, note: '' };
+    return fit({ fromSurah: n.surah, fromAyah: n.ayah, toSurah: n.surah, toAyah: n.ayah, grade: null, note: '', unit });
   }
   // Revision: start from where the last revision of this kind was, else where sabaq is.
   const ref = last || entries.filter(e => e.kind === 'sabaq').sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (ref) return { fromSurah: ref.fromSurah, fromAyah: ref.fromAyah, toSurah: ref.toSurah, toAyah: ref.toAyah, grade: null, note: '' };
-  return { fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, grade: null, note: '' };
+  if (ref) return fit({ fromSurah: ref.fromSurah, fromAyah: ref.fromAyah, toSurah: ref.toSurah, toAyah: ref.toAyah, grade: null, note: '', unit });
+  return fit({ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, grade: null, note: '', unit });
 }
 
 function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }) {
@@ -69,7 +98,7 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   // Reload when the day or the saved entry changes.
-  useEffect(() => { setF(initial()); setDirty(false); }, [date, existing?.date, existing?.grade, existing?.toAyah, existing?.toSurah, existing?.lesson, existing?.note]);
+  useEffect(() => { setF(initial()); setDirty(false); }, [date, existing?.date, existing?.grade, existing?.toAyah, existing?.toSurah, existing?.lesson, existing?.note, existing?.unit]);
   const set = patch => { setF(prev => ({ ...prev, ...patch })); setDirty(true); };
   const label = KIND_LABELS[kind];
 
@@ -88,14 +117,35 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
 
   return (
     <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label.name}</span>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
-        {existing && !dirty && <span className="badge badge-green" style={{ marginLeft: 'auto' }}><Check size={11} />Saved</span>}
+        {existing && !dirty && <span className="badge badge-green"><Check size={11} />Saved</span>}
+        {kind !== 'lesson' && (
+          // Record by surah and ayah, or in juz quarters.
+          <div style={{ marginLeft: 'auto', display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
+            {[['ayah', 'Surah & ayah'], ['quarter', 'Juz quarters']].map(([u, text]) => {
+              const on = (f.unit || 'ayah') === u;
+              return (
+                <button key={u} type="button" onClick={() => !on && set(u === 'quarter' ? { unit: u, ...toQuarters(f) } : { unit: u })}
+                  style={{ border: 'none', borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
+                    background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--text-muted)', boxShadow: on ? 'var(--shadow-sm)' : 'none' }}>
+                  {text}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       {kind === 'lesson' ? (
         <input value={f.lesson || ''} onChange={e => set({ lesson: e.target.value })} placeholder="e.g. Lesson 12, page 18"
           style={{ ...inputStyle, width: '100%', marginBottom: 8 }} />
+      ) : f.unit === 'quarter' ? (
+        <div style={{ display: 'grid', gap: 6, marginBottom: 8 }}>
+          <QuarterPosition label="From" edge="from" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
+          <QuarterPosition label="To" edge="to" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{rangeLabel({ ...f, unit: 'ayah' })}</div>
+        </div>
       ) : (
         <div style={{ display: 'grid', gap: 6, marginBottom: 8 }}>
           <Position label="From" surah={f.fromSurah} ayah={f.fromAyah}
@@ -222,7 +272,7 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
     headline = (
       <div style={{ fontSize: 13, marginBottom: 6 }}>
         {last
-          ? <>Up to: <strong>{kind === 'lesson' ? last.lesson : `${surahName(last.toSurah)} ${last.toAyah}`}</strong>{kind === 'reading' && <span className="text-muted"> (Juz {juzOf(last.toSurah, last.toAyah)})</span>} <span className="text-muted">· {fmtDate(last.date)}</span></>
+          ? <>Up to: <strong>{kind === 'lesson' ? last.lesson : upToLabel(last)}</strong>{kind === 'reading' && last.unit !== 'quarter' && <span className="text-muted"> (Juz {juzOf(last.toSurah, last.toAyah)})</span>} <span className="text-muted">· {fmtDate(last.date)}</span></>
           : <span className="text-muted">Nothing recorded yet.</span>}
       </div>
     );
@@ -277,6 +327,6 @@ export function quranFactsForReport(type, data, period) {
   const kind = type === 'nazira' ? 'reading' : 'lesson';
   const last = entries.filter(e => e.kind === kind && e.date < period.endExclusive).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!last) return '';
-  const where = kind === 'lesson' ? `Qaida: up to ${last.lesson}.` : `Qur'an reading (nazira): up to ${surahName(last.toSurah)} ${last.toAyah} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
+  const where = kind === 'lesson' ? `Qaida: up to ${last.lesson}.` : `Qur'an reading (nazira): up to ${upToLabel(last)} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
   return `${where} ${graded(kind)}`.trim();
 }
