@@ -99,11 +99,11 @@ codebase (one codebase, not a fork).
   `src/lib/quran.js` holds the surah, juz and juz-quarter data and the progress maths
   (an ayah's position 0–6235). The AI report
   summary is given exact Qur'an figures (`quranFactsForReport`).
-- Daily records (a student's page) is laid out in **rows of two cards whose edges line
-  up** (`PairRow`, one column on phones): Input progress | Progress, Add day | Monthly
-  summary, history | Previous summaries + This month. Cards never grow while typing —
-  all input happens in **pop-ups** (a Qur'an entry: `NewEntryModal` / `EditEntryModal`;
-  a day's comment, positives and concerns: the day pop-up). Keep new inputs that way.
+- Daily records (a student's page) is in **tabs** — Qur'an (Input progress, Progress) |
+  Daily record (the day editor, history, This month) | Report (owners: summary, previous
+  summaries) — each one centred column (`.student-page`), last tab remembered per device.
+  Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).
+  The owner disliked squashed side-by-side cards: give things room rather than more columns.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache

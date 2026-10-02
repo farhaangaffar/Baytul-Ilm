@@ -432,27 +432,19 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
    column's content off-screen on narrower-but-not-mobile viewports (e.g. an
    unfolded Z Fold). min-width:0 lets tracks actually shrink to fit. */
 .grid-2 > * { min-width: 0; }
-/* Daily records: rows of two cards whose edges line up; one column on phones. */
-.pair-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; align-items: start; }
-.pair-row-stretch { align-items: stretch; }
-.pair-cell { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.pair-cell > .card { margin: 0 !important; }
-.pair-row-stretch .pair-cell > .card:last-child { flex: 1; }
+/* Daily records, a student's page: tabs (Qur'an | Daily record | Report), each one
+   roomy column. */
+.student-page { max-width: 860px; margin: 0 auto; }
+.student-tabs { display: flex; gap: 4px; background: #e9ecf0; border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.student-tabs button { flex: 1; min-width: 0; white-space: nowrap; border: none; border-radius: 999px; padding: 9px 8px; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--text-muted); background: transparent; cursor: pointer; }
+.student-tabs button.active { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+.student-tab { display: flex; flex-direction: column; gap: 16px; }
+.student-tab > .card { margin: 0 !important; }
 /* Input progress: one button-row per part; on wide screens the rows grow (to a
    limit) so the card fills its height beside Progress. */
 .entry-rows { display: flex; flex-direction: column; gap: 6px; }
 .entry-row-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 0.8fr); }
 .entry-row { display: block; width: 100%; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font); text-align: left; min-height: 46px; }
-.pair-row-stretch .entry-card { display: flex; flex-direction: column; }
-.pair-row-stretch .entry-card .entry-rows { flex: 1; }
-.pair-row-stretch .entry-card .entry-row { flex: 1; max-height: 96px; }
-/* Add day card: the chosen day's comment / positives / concerns, read-only. */
-.day-preview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.day-preview-box { border-radius: 8px; padding: 8px; min-height: 84px; min-width: 0; background: #f3f4f6; }
-.day-preview-pos { background: var(--green-light); }
-.day-preview-neg { background: var(--red-light); }
-.day-preview-label { font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
-.day-preview-text { font-size: 12.5px; line-height: 1.4; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 /* Shown only on phones / only on wider screens (the 768px breakpoint below). */
 .only-narrow { display: none; }
 
@@ -513,7 +505,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
   .metrics-grid { grid-template-columns: repeat(2,1fr); }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .pair-row { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
   .entry-row-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 0.8fr); }
   .hide-narrow { display: none !important; }
   .only-narrow { display: block; }
