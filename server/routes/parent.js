@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
       one(`SELECT month, summary, behavior, updated_at FROM ai_summaries WHERE student_id = $1 AND madrasah_id = $2 AND summary <> '' ORDER BY month DESC`),
       query('SELECT id, year, name, start_date, end_date FROM terms WHERE madrasah_id = $1 ORDER BY start_date', [mid]).catch(() => ({ rows: [] })),
       one('SELECT * FROM quran_progress WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date, kind'),
-      one('SELECT prior_juz FROM quran_students WHERE student_id = $1 AND madrasah_id = $2'),
+      one('SELECT * FROM quran_students WHERE student_id = $1 AND madrasah_id = $2'),
       one('SELECT date, reason, note, seen, created_at FROM absence_reports WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date DESC LIMIT 20'),
       one(`SELECT c.quran_type, t.name AS teacher_name FROM students s
            JOIN classes c ON c.name = s.class AND c.madrasah_id = s.madrasah_id
@@ -58,13 +58,15 @@ module.exports = async (req, res) => {
         enrollDate: s.enroll_date, leaveDate: s.leave_date, weeklyFee: Number(s.weekly_fee),
       },
       teacherName: cls.rows[0]?.teacher_name || '',
-      quranType: cls.rows[0]?.quran_type || null,
+      // The child's own level if set, else their class's (a mixed class has none to show).
+      quranType: ['hifz', 'nazira', 'qaida'].includes(prior.rows[0]?.quran_type) ? prior.rows[0].quran_type
+        : (['hifz', 'nazira', 'qaida'].includes(cls.rows[0]?.quran_type) ? cls.rows[0].quran_type : null),
       attendance: att.rows.map(r => ({ year: r.year, date: r.date, status: r.status, lateTime: r.late_time })),
       fees: fees.rows.map(r => ({ id: String(r.id), studentId: sid, year: r.year, period: r.period || 'week', weekStarting: r.week_starting, amount: Number(r.amount), status: r.status, paidDate: r.paid_date })),
       reports: sums.rows.map(r => ({ month: r.month, summary: r.summary, behavior: r.behavior, updatedAt: r.updated_at })),
       terms: terms.rows.map(t => ({ id: String(t.id), year: t.year, name: t.name, startDate: t.start_date, endDate: t.end_date })),
       quran: {
-        entries: quran.rows.map(r => ({ date: r.date, kind: r.kind, fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah, lesson: r.lesson, grade: r.grade, note: r.note })),
+        entries: quran.rows.map(r => ({ date: r.date, kind: r.kind, fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah, lesson: r.lesson, grade: r.grade, note: r.note, unit: r.unit || 'ayah' })),
         priorJuz: prior.rows[0]?.prior_juz || [],
       },
       absences: absences.rows,

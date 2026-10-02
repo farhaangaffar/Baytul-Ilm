@@ -6,7 +6,7 @@ import { money } from '../lib/branding';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import ChangePasswordModal from '../components/ChangePasswordModal';
-import { LogOut, KeyRound, Download, CalendarX, Check } from 'lucide-react';
+import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 // The parent portal: one page, made for a phone. A family login sees each of their
 // children's attendance, fees, finished reports and Qur'an progress, and can tell the
@@ -39,6 +39,46 @@ function Tiles({ items }) {
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// [['2026-09', [...items]], …], newest month first; items oldest first within a month.
+function byMonth(items, dateOf) {
+  const groups = {};
+  items.forEach(it => { (groups[dateOf(it).slice(0, 7)] = groups[dateOf(it).slice(0, 7)] || []).push(it); });
+  return Object.keys(groups).sort().reverse().map(m => [m, groups[m].sort((a, b) => dateOf(a).localeCompare(dateOf(b)))]);
+}
+const monthName = ym => new Date(ym + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+// A card showing totals, with the full history tucked behind "Show by month".
+function OpenableSection({ title, summary, empty, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Section title={title} right={!empty && (
+      <button className="btn btn-sm" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}{open ? 'Hide' : 'By month'}
+      </button>
+    )}>
+      {summary}
+      {empty && <div className="text-muted text-sm">{empty}</div>}
+      {open && <div style={{ marginTop: 6 }}>{children}</div>}
+    </Section>
+  );
+}
+
+// One month inside an open section: its totals, tapped open for the details.
+function MonthRow({ month, right, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderTop: '1px solid var(--border)' }}>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', padding: '9px 0', cursor: 'pointer', fontFamily: 'var(--font)', color: 'var(--ink)', textAlign: 'left' }}>
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        <span style={{ fontWeight: 600, fontSize: 13.5, flex: 1 }}>{monthName(month)}</span>
+        {right}
+      </button>
+      {open && <div style={{ padding: '0 0 8px 22px' }}>{children}</div>}
     </div>
   );
 }
@@ -93,18 +133,19 @@ function ChildView({ child, reasons }) {
   if (error) return <div className="card" style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>;
   if (!data) return <div className="card text-muted" style={{ fontSize: 13 }}>Loading…</div>;
 
-  // Attendance: this school year (from September) and the latest marks.
+  // Attendance: totals for this school year (from September); the days themselves are
+  // tucked away by month.
   const now = new Date();
   const yearStart = `${now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1}-09-01`;
   const thisYear = data.attendance.filter(a => a.date >= yearStart);
   const count = s => thisYear.filter(a => a.status === s).length;
-  const latest = [...data.attendance].reverse().slice(0, 10);
   const marked = thisYear.length;
   const pct = marked ? Math.round(((count('P') + count('L')) / marked) * 100) : null;
+  const attendanceByMonth = byMonth(data.attendance, a => a.date);
 
   const unpaid = data.fees.filter(f => f.status !== 'Paid');
   const owed = unpaid.reduce((t, f) => t + f.amount, 0);
-  const paid = data.fees.filter(f => f.status === 'Paid').sort((a, b) => (b.paidDate || '').localeCompare(a.paidDate || '')).slice(0, 5);
+  const feesByMonth = byMonth(data.fees, f => f.weekStarting);
 
   async function download(r) {
     setDownloading(r.month);
@@ -121,39 +162,58 @@ function ChildView({ child, reasons }) {
 
   return (
     <>
-      <Section title="Attendance" right={<span className="text-muted text-sm">This school year</span>}>
-        <Tiles items={[[count('P'), 'Present', 'var(--green)'], [count('L'), 'Late', 'var(--amber)'], [count('A'), 'Absent', 'var(--red)'], [pct === null ? '—' : `${pct}%`, 'Attended']]} />
-        {latest.length === 0 && <div className="text-muted text-sm">No attendance marked yet.</div>}
-        {latest.map(a => (
-          <div key={a.date} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-            <span>{new Date(a.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS[a.status]?.[1] }} />
-              {a.status === 'L' && a.lateTime ? `Late · ${a.lateTime}` : STATUS[a.status]?.[0]}
-            </span>
-          </div>
-        ))}
-      </Section>
+      <OpenableSection title="Attendance" summary={
+        <Tiles items={[[count('P'), 'Present', 'var(--green)'], [count('L'), 'Late', 'var(--amber)'], [count('A'), 'Absent', 'var(--red)'], [pct === null ? '—' : `${pct}%`, 'This year']]} />
+      } empty={data.attendance.length === 0 && 'No attendance marked yet.'}>
+        {attendanceByMonth.map(([month, days]) => {
+          const n = s => days.filter(a => a.status === s).length;
+          return (
+            <MonthRow key={month} month={month}
+              right={<span style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                {[['P', n('P')], ['L', n('L')], ['A', n('A')]].map(([s, v]) => (
+                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS[s][1] }} />{v}</span>
+                ))}
+              </span>}>
+              {days.map(a => (
+                <div key={a.date} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13 }}>
+                  <span>{new Date(a.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS[a.status]?.[1] }} />
+                    {a.status === 'L' && a.lateTime ? `Late · ${a.lateTime}` : STATUS[a.status]?.[0]}
+                  </span>
+                </div>
+              ))}
+            </MonthRow>
+          );
+        })}
+      </OpenableSection>
 
-      <Section title="Fees">
-        <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, unpaid.length === 1 ? 'Unpaid period' : 'Unpaid periods']]} />
-        {unpaid.length === 0 && <div style={{ fontSize: 13, color: 'var(--green-text)' }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
-        {unpaid.map(f => (
-          <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-            <span>{feeLabel(f, data.terms)}</span><span style={{ fontWeight: 600, color: 'var(--red-text)' }}>{money(f.amount)}</span>
-          </div>
-        ))}
-        {paid.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Recently paid</div>
-            {paid.map(f => (
-              <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
-                <span>{feeLabel(f, data.terms)}</span><span>{money(f.amount)}{f.paidDate ? ` · paid ${formatDateGB(f.paidDate)}` : ''}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
+      <OpenableSection title="Fees" summary={
+        <>
+          <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, unpaid.length === 1 ? 'Unpaid period' : 'Unpaid periods']]} />
+          {data.fees.length > 0 && unpaid.length === 0 && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 4 }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
+        </>
+      } empty={data.fees.length === 0 && 'No fees yet.'}>
+        {feesByMonth.map(([month, items]) => {
+          const monthOwed = items.filter(f => f.status !== 'Paid').reduce((t, f) => t + f.amount, 0);
+          const monthPaid = items.filter(f => f.status === 'Paid').reduce((t, f) => t + f.amount, 0);
+          return (
+            <MonthRow key={month} month={month}
+              right={<span style={{ fontSize: 12, fontWeight: 600, color: monthOwed > 0 ? 'var(--red-text)' : 'var(--green-text)' }}>
+                {monthOwed > 0 ? `${money(monthOwed)} owed` : `${money(monthPaid)} paid`}
+              </span>}>
+              {items.map(f => (
+                <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '5px 0', fontSize: 13 }}>
+                  <span>{feeLabel(f, data.terms)}</span>
+                  {f.status === 'Paid'
+                    ? <span className="text-muted">{money(f.amount)} · paid{f.paidDate ? ` ${formatDateGB(f.paidDate)}` : ''}</span>
+                    : <span style={{ fontWeight: 600, color: 'var(--red-text)' }}>{money(f.amount)} owed</span>}
+                </div>
+              ))}
+            </MonthRow>
+          );
+        })}
+      </OpenableSection>
 
       {data.quranType && <QuranProgressCard student={data.student} type={data.quranType} data={data.quran} />}
 
