@@ -22,13 +22,26 @@ function monthLabelFor(ym) {
 
 // Stable textarea that doesn't lose focus on mobile
 // Key: do NOT re-render the textarea on every keystroke — use uncontrolled + ref-based save
+// Saves what's been typed if the box disappears (switching tab) before its debounce
+// or blur has fired.
+function useFlushOnUnmount(ref, timer, onSave) {
+  const save = useRef(onSave);
+  save.current = onSave;
+  useEffect(() => {
+    const el = ref.current;
+    return () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; if (el) save.current(el.value); } };
+  }, [ref, timer]);
+}
+
 function StableTextarea({ initialValue, onSave, placeholder, style }) {
   const ref = useRef(null);
   const timer = useRef(null);
+  useFlushOnUnmount(ref, timer, onSave);
 
   const handleChange = () => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      timer.current = null;
       if (ref.current) onSave(ref.current.value);
     }, 400);
   };
@@ -37,7 +50,7 @@ function StableTextarea({ initialValue, onSave, placeholder, style }) {
   // "Add day") can fire before the debounce timer does, and the edit is
   // never saved before this field's data gets refreshed from the server.
   const handleBlur = () => {
-    clearTimeout(timer.current);
+    clearTimeout(timer.current); timer.current = null;
     if (ref.current) onSave(ref.current.value);
   };
 
@@ -61,13 +74,14 @@ function StableTextarea({ initialValue, onSave, placeholder, style }) {
 function CommentBox({ initialValue, onSave, placeholder }) {
   const ref = useRef(null);
   const timer = useRef(null);
+  useFlushOnUnmount(ref, timer, onSave);
   const handleChange = () => {
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => { if(ref.current) onSave(ref.current.value); }, 400);
+    timer.current = setTimeout(() => { timer.current = null; if(ref.current) onSave(ref.current.value); }, 400);
   };
   // Flush immediately when focus leaves — see StableTextarea for why.
   const handleBlur = () => {
-    clearTimeout(timer.current);
+    clearTimeout(timer.current); timer.current = null;
     if (ref.current) onSave(ref.current.value);
   };
   return (
@@ -88,13 +102,13 @@ function CommentBox({ initialValue, onSave, placeholder }) {
   );
 }
 
-// "Sabaq: Al-Mulk 1–15" / "Reading: Ya-Sin 40" / "Lesson 12" — where a student is up to.
+// "Hifdh Jadeed: Al-Mulk 1–15" / "Naazhirah: Ya-Sin 40" / "Qaa'idah: Lesson 12" — where a student is up to.
 function quranUpTo(type, data) {
   const kind = { hifz: 'sabaq', nazira: 'reading', qaida: 'lesson' }[type];
   const last = (data?.entries || []).filter(e => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!kind || !last) return '';
-  if (kind === 'lesson') return `Qaida: ${last.lesson}`;
-  return kind === 'sabaq' ? `Sabaq: ${rangeLabel(last)}` : `Reading: ${upToLabel(last)}`;
+  if (kind === 'lesson') return `Qaa'idah: ${last.lesson}`;
+  return kind === 'sabaq' ? `Hifdh Jadeed: ${rangeLabel(last)}` : `Naazhirah: ${upToLabel(last)}`;
 }
 
 function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, classTypes, quranAll }) {
@@ -171,21 +185,28 @@ function keysFor(date) {
   return [date, monthKey, academicYearOfMonth(monthKey)];
 }
 
-function StudentRecords({ student, settings, classType, onBack, onRecordsChanged }) {
+function StudentRecords({ student, settings, classType, initialQuran, onQuranChanged, onBack, onRecordsChanged }) {
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
   const { isOwner } = useAuth();
   // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
   // Their level is their own if set, else their class's.
   const hasQuran = !!classType;
-  const [quran, setQuran] = useState(null);
-  const quranType = effectiveQuranType(classType, quran?.quranType);
+  // Starts from what the student list already loaded, so the page opens with the right
+  // level and cards straight away (no flash of the class default), then refreshes.
+  const [quran, setQuran] = useState(initialQuran || null);
+  const quranType = quran ? effectiveQuranType(classType, quran.quranType) : null;
+  // Which tab is showing — remembered between students (and visits) on this device.
+  const tabs = [hasQuran&&['quran',"Qur'an"],['day','Daily record'],isOwner&&['report','Report']].filter(Boolean);
+  const [tabPick, setTabPick] = useState(()=>{ try { return localStorage.getItem('records_tab')||''; } catch { return ''; } });
+  const tab = tabs.some(([k])=>k===tabPick) ? tabPick : tabs[0][0];
+  function pickTab(k){ setTabPick(k); try { localStorage.setItem('records_tab',k); } catch { /* fine */ } }
   // Which previous summary is open (only its title shows otherwise).
   const [openSummary, setOpenSummary] = useState(null);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
-    try { setQuran(await getQuranProgress(student.id)); } catch { /* the rest of the page still works */ }
-  }, [hasQuran, student.id]);
+    try { const q = await getQuranProgress(student.id); setQuran(q); onQuranChanged?.(student.id, q); } catch { /* the rest of the page still works */ }
+  }, [hasQuran, student.id, onQuranChanged]);
   useEffect(() => { refreshQuran(); }, [refreshQuran]);
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
@@ -220,7 +241,9 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
     getTerms().then(setTerms).catch(() => {}).finally(() => setTermsLoaded(true));
   }, [termly]);
   const period = currentReportPeriod(terms);
-  const inPeriod = d => !period ? false : (period.kind === 'month' ? d.startsWith(period.key) : d >= period.start && d < period.endExclusive);
+  // A school month runs from its first Monday to the next month's (so 2 Oct can still be
+  // September's), and a term between its dates — both carry start / endExclusive.
+  const inPeriod = d => !!period && d >= period.start && d < period.endExclusive;
   const unitWord = termly ? 'term' : 'month';
   const termlyNoTerms = termly && termsLoaded && !period;
   const [aiSummary, setAiSummary] = useState('');
@@ -423,7 +446,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
   if (loadingRecords) return <LoadingState />;
 
   return (
-    <div>
+    <div className="student-page">
       <div className="flex items-center gap-3" style={{marginBottom:20}}>
         <button className="btn btn-sm" onClick={onBack}><ArrowLeft size={14}/> All students</button>
         <div>
@@ -432,15 +455,26 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
         </div>
       </div>
 
-      <div className="grid-2" style={{alignItems:'flex-start'}}>
-        <div>
-          {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran}
- />}
+      {/* One thing at a time: Qur'an | Daily record | Report (heads only), each a
+          single roomy column. */}
+      {tabs.length>1&&(
+        <div className="student-tabs" role="tablist">
+          {tabs.map(([k,label])=>(
+            <button key={k} type="button" role="tab" aria-selected={tab===k} className={tab===k?'active':''} onClick={()=>pickTab(k)}>{label}</button>
+          ))}
+        </div>
+      )}
+      <div className="student-tab">
+        {tab==='quran'&&(<>
+          <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran} />
+          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior canEdit />}
+        </>)}
+        {tab==='day'&&(<>
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
               plain, calm, scannable history. Clicking any row in it (DayRow) just loads
               that date into this same card. */}
-          <div className="card mb-4" ref={editorRef}>
+          <div className="card" ref={editorRef}>
             <div className="flex items-center gap-2" style={{marginBottom:12}}>
               <div className="card-title" style={{marginBottom:0,flex:1}}>{editExists?'Edit day':'Add day'}</div>
               {editIsToday&&<span className="badge badge-teal">Today</span>}
@@ -513,7 +547,6 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
               </div>
             )}
           </div>
-
           {/* One unified card holds the whole history — year and month are just bold
               section dividers inside it, and every day is a plain list row, so the
               column stays calm even once lots of records have piled up. */}
@@ -548,12 +581,19 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
               );
             })}
           </div>
-        </div>
-
-        <div style={{position:'sticky',top:24}}>
-          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
-            canEdit />}
-          {isOwner && (<>
+          <div className="card">
+            <div className="card-title" style={{marginBottom:12}}>This {unitWord}</div>
+            {(()=>{
+              const md=Object.keys(records).filter(inPeriod);
+              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
+                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
+                  <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </>)}
+        {tab==='report'&&(<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
             <div className="card-sub" style={{marginBottom:14}}>
@@ -623,7 +663,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
             </>)}
           </div>
           {previousSummaries.length>0&&(
-            <div className="card" style={{marginTop:14}}>
+            <div className="card">
               <div className="card-title" style={{marginBottom:8}}>Previous summaries</div>
               {/* Just the month/term each was written for — tap one to read it. */}
               {previousSummaries.map(s=>{
@@ -642,19 +682,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
               })}
             </div>
           )}
-          </>)}
-          <div className="card" style={{marginTop:isOwner?14:0}}>
-            <div className="card-title" style={{marginBottom:12}}>This {unitWord}</div>
-            {(()=>{
-              const md=Object.keys(records).filter(inPeriod);
-              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
-                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                  <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>
-                </div>
-              ));
-            })()}
-          </div>
-        </div>
+        </>)}
       </div>
 
       {confirmDel&&(
@@ -686,7 +714,10 @@ export default function DailyRecords() {
   const [attendance, setAttendance] = useState({});
   const [allRecords, setAllRecords] = useState({});
   const [classTypes, setClassTypes] = useState({}); // class name → 'hifz' | 'nazira' | 'qaida'
-  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz }
+  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz, quranType }
+  const [quranAllLoaded, setQuranAllLoaded] = useState(false);
+  // Keeps the list's copy current after changes made on a student's page.
+  const updateQuranFor = useCallback((id, q) => setQuranAll(prev => ({ ...prev, [id]: q })), []);
   const [activeClass, setActiveClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   // Opening a student's records used to leave the list scrolled back to the top on
@@ -717,7 +748,7 @@ export default function DailyRecords() {
       setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
       setAttendance(attendanceData); setAllRecords(recordsData); setClassTypes(types);
       // Qur'an progress only matters when some class tracks it; never blocks the page.
-      if (Object.keys(types).length) getQuranProgress().then(setQuranAll).catch(() => {});
+      if (Object.keys(types).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
     } catch (err) {
       setError(err);
@@ -734,7 +765,7 @@ export default function DailyRecords() {
   // — relying on the close path alone missed some route back to the list.
   const refreshCounts = useCallback(() => {
     getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
-    if (Object.keys(classTypes).length) getQuranProgress().then(setQuranAll).catch(() => {});
+    if (Object.keys(classTypes).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
   }, [classTypes]);
   const closeStudent = useBackToClose(!!selectedStudent, () => {
     setSelectedStudent(null);
@@ -747,7 +778,9 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]}
+          initialQuran={quranAll[selectedStudent.id] || (quranAllLoaded ? { entries: [], priorJuz: [], quranType: null } : null)} onQuranChanged={updateQuranFor}
+          onBack={closeStudent} onRecordsChanged={refreshCounts}/>
         :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords} classTypes={classTypes} quranAll={quranAll}/>
       }
     </Layout>

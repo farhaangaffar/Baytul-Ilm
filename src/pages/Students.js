@@ -7,6 +7,7 @@ import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
+import ParentLogin from '../components/ParentLogin';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer } from '../lib/feePeriods';
@@ -463,6 +464,7 @@ export default function Students() {
                   </div>
                 )}
               </div>
+              <ParentLogin student={selected} students={students} />
               {selected.notes&&<div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>
             <div className="modal-footer">

@@ -51,6 +51,14 @@ codebase (one codebase, not a fork).
   records and Fees for their own classes, and on Fees may only mark a week Paid.
   `ADMIN_PASSWORD` is only the first-time-setup / platform-owner-recovery key — it never
   signs anyone in once an owner account exists.
+- **Parent logins** (role `parent`, one per family, `parent_students` links their
+  children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
+  closed to them; they only use `server/routes/parent.js`, which returns their own
+  children's attendance, fees, **finished** reports (saved summaries — never daily
+  comments) and Qur'an progress, and takes absence reports (`absence_reports`, shown to
+  staff on Attendance via `server/routes/absences.js`). The front end gives them one
+  page (`src/pages/ParentPortal.js`). Each madrasah switches the portal on in Settings.
+  Never add parent access to a staff route — add what parents need to `parent.js`.
 - There's no migration runner: small new columns are added by the API itself on first
   use (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
   for manual use and `db/schema.sql` updated. Changes that restructure existing data
@@ -78,13 +86,24 @@ codebase (one codebase, not a fork).
 - Qur'an progress: a class's `quran_type` (hifz / nazira / qaida, or **mixed**) and a
   student's own level (`quran_students.quran_type`, which overrides it — children move
   up; in a mixed class it's chosen per student) decide what Daily records shows
-  (`effectiveQuranType()`, `src/components/QuranCards.js`). Hifz is recorded by **surah and ayah**
+  (`effectiveQuranType()`, `src/components/QuranCards.js`). **Names on screen** (the owner's
+  wording — use them everywhere, never the stored keys): levels hifz/nazira/qaida show as
+  **Hifdh / Naazhirah / Qaa'idah**; kinds sabaq/sabqi/manzil/reading/lesson show as **Hifdh
+  Jadeed / Muraaja'ah Qareebah / Muraaja'ah / Naazhirah / Qaa'idah** (`KIND_LABELS`,
+  `QURAN_TYPES` in `src/lib/quran.js`). Hifdh Jadeed is never recorded in quarters;
+  Muraaja'ah Qareebah's "To" offers "Until new lesson" (the ayah before the latest Hifdh
+  Jadeed). Hifz is recorded by **surah and ayah**
   (sabaq / sabqi / manzil, graded good / weak / repeat) — or, per entry, in **juz
   quarters** (`unit = 'quarter'`; the from/to positions are still stored as the
   quarters' first and last ayahs, so all progress maths is the same).
   `src/lib/quran.js` holds the surah, juz and juz-quarter data and the progress maths
   (an ayah's position 0–6235). The AI report
   summary is given exact Qur'an figures (`quranFactsForReport`).
+- Daily records (a student's page) is in **tabs** — Qur'an (Input progress, Progress) |
+  Daily record (the day editor, history, This month) | Report (owners: summary, previous
+  summaries) — each one centred column (`.student-page`), last tab remembered per device.
+  Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).
+  The owner disliked squashed side-by-side cards: give things room rather than more columns.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache

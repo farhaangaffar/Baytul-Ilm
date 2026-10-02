@@ -84,6 +84,15 @@ export async function createUser(data) {
 export async function updateUser(id, data) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 
+// ── Parent portal (parent logins only) — see server/routes/parent.js ──
+export async function getParentHome() { return apiFetch('/api/parent'); }
+export async function getParentChild(studentId) { return apiFetch(`/api/parent?studentId=${encodeURIComponent(studentId)}`); }
+export async function reportAbsence(data) { return apiFetch('/api/parent?action=absence', { method: 'POST', body: JSON.stringify(data) }); }
+
+// ── Absences parents have reported (staff) — see server/routes/absences.js ──
+export async function getReportedAbsences(from) { return apiFetch(`/api/absences${from ? `?from=${from}` : ''}`); }
+export async function markAbsenceSeen(id) { return apiFetch(`/api/absences?id=${encodeURIComponent(id)}`, { method: 'PATCH' }); }
+
 // ── Madaaris (platform owner only) ──
 export async function getMadaaris() { return apiFetch('/api/madaaris'); }
 // data: { name, code, headLogin, headPassword }

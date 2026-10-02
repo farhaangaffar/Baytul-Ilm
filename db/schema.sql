@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS settings (
   report_period       TEXT NOT NULL DEFAULT 'monthly', -- 'monthly' | 'termly' (Reports / AI summaries)
   currency_symbol     TEXT NOT NULL DEFAULT '£',
   logo                TEXT, -- data: URL (PNG/JPEG), downsized in the browser before upload
-  icon                TEXT  -- data: URL, 512px square app icon built from the logo
+  icon                TEXT, -- data: URL, 512px square app icon built from the logo
+  parent_portal       BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS attendance (
@@ -141,7 +142,7 @@ CREATE TABLE IF NOT EXISTS users (
   madrasah_id      INTEGER NOT NULL REFERENCES madaaris(id),
   login            TEXT NOT NULL,
   password_hash    TEXT NOT NULL,
-  role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
+  role             TEXT NOT NULL CONSTRAINT users_role_check CHECK (role IN ('owner','teacher','parent')),
   teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
   class_id         TEXT UNIQUE REFERENCES classes(id) ON DELETE CASCADE,
   platform_admin   BOOLEAN NOT NULL DEFAULT false,
@@ -188,6 +189,27 @@ CREATE TABLE IF NOT EXISTS quran_students (
   prior_juz    INTEGER[] NOT NULL DEFAULT '{}',
   quran_type   TEXT  -- the student's own level; NULL = same as their class
 );
+
+-- Parent portal: which children each family login covers, and absences parents report.
+CREATE TABLE IF NOT EXISTS parent_students (
+  user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  PRIMARY KEY (user_id, student_id)
+);
+CREATE TABLE IF NOT EXISTS absence_reports (
+  id           BIGSERIAL PRIMARY KEY,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date         DATE NOT NULL,
+  reason       TEXT NOT NULL,
+  note         TEXT NOT NULL DEFAULT '',
+  reported_by  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  seen         BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE (student_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_absence_reports_madrasah_date ON absence_reports (madrasah_id, date);
 
 -- AI requests per madrasah, counted on the platform owner's Madaaris page.
 CREATE TABLE IF NOT EXISTS ai_usage (

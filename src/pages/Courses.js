@@ -5,8 +5,8 @@ import { getStudents } from '../lib/store';
 import { BookOpen, Star, Scale, Music, Pencil } from 'lucide-react';
 
 const courses = [
-  { id: 'hifz', name: 'Hifz ul-Quran', desc: 'Full memorisation of the Holy Quran — 30 Juz programme with daily revision and weekly testing.', icon: BookOpen, level: 'Hifz', color: 'var(--teal)', bg: 'var(--teal-light)', teacher: 'Ustadh Ibrahim', days: 'Sat–Wed', time: '8:00–9:30 AM' },
-  { id: 'nazra', name: 'Nazra (Quran Reading)', desc: 'Correct reading of the Quran with basic Tajweed rules. Foundation for all further Quranic studies.', icon: BookOpen, level: 'Nazra', color: 'var(--navy)', bg: 'var(--navy-faint)', teacher: 'Ustadha Maryam', days: 'Tue', time: '2:00–3:30 PM' },
+  { id: 'hifz', name: "Hifdh ul-Qur'an", desc: 'Full memorisation of the Holy Quran — 30 Juz programme with daily revision and weekly testing.', icon: BookOpen, level: 'Hifdh', color: 'var(--teal)', bg: 'var(--teal-light)', teacher: 'Ustadh Ibrahim', days: 'Sat–Wed', time: '8:00–9:30 AM' },
+  { id: 'nazra', name: "Naazhirah (Qur'an reading)", desc: 'Correct reading of the Quran with basic Tajweed rules. Foundation for all further Quranic studies.', icon: BookOpen, level: 'Naazhirah', color: 'var(--navy)', bg: 'var(--navy-faint)', teacher: 'Ustadha Maryam', days: 'Tue', time: '2:00–3:30 PM' },
   { id: 'arabic', name: 'Arabic Language', desc: 'Grammar (Nahw & Sarf), vocabulary, and reading comprehension. Sataeen and Hidayatun Nahw texts used.', icon: Pencil, level: 'All', color: '#378ADD', bg: '#E6F1FB', teacher: 'Ustadha Maryam', days: 'Sat, Mon, Wed', time: '10:00–11:30 AM' },
   { id: 'islamic', name: 'Islamic Studies', desc: "Aqeedah, Seerah of the Prophet ﷺ, history of Islam, and general Islamic knowledge across 4 levels.", icon: Star, level: 'All', color: 'var(--amber)', bg: 'var(--amber-light)', teacher: 'Ustadh Bilal', days: 'Sat–Tue', time: '2:00–3:30 PM' },
   { id: 'fiqh', name: 'Fiqh (Islamic Jurisprudence)', desc: 'Hanafi curriculum covering Taharah, Salah, Sawm, Zakah, and Hajj using Nur ul-Idah.', icon: Scale, level: 'Intermediate', color: '#7F77DD', bg: '#EEEDFE', teacher: 'Ustadh Bilal', days: 'Sun, Tue', time: '12:00–1:00 PM' },
@@ -58,7 +58,7 @@ export default function Courses() {
         <table>
           <thead><tr><th>Level</th><th>Students enrolled</th><th>Classes</th></tr></thead>
           <tbody>
-            {[['Nazra','Nazra',2],['Hifz','Hifz',3],['Alimiyya','Alimiyya',2],['Tajweed','Tajweed',1]].map(([label, level, cls]) => (
+            {[['Naazhirah','Naazhirah',2],['Hifdh','Hifdh',3],['Alimiyya','Alimiyya',2],['Tajweed','Tajweed',1]].map(([label, level, cls]) => (
               <tr key={label}>
                 <td style={{ fontWeight: 500 }}>{label}</td>
                 <td>

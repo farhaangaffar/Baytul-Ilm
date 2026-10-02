@@ -181,6 +181,16 @@ tbody tr:hover td { background: #f9fafb; }
 .entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .entity-card-name { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; }
 .entity-card-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 2px; }
+/* Classes & Teachers: small outlined cards, side by side as space allows, each with a
+   row of three boxes (InfoBox / LoginBox). */
+.box-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.box-card { border: 1px solid #dfe3e8; border-radius: 12px; padding: 10px; background: var(--surface); min-width: 0; }
+.box-card.is-dragging { opacity: 0.45; }
+.box-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.info-box { background: #f3f4f6; border-radius: 8px; padding: 6px; min-height: 46px; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 12.5px; line-height: 1.25; color: var(--ink); }
+.info-box-label { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+.info-box-button { border: 1px solid #dfe3e8; background: #fff; cursor: pointer; font-family: var(--font); }
+.info-box-button:hover { border-color: #c5ccd5; }
 .entity-card.is-dragging, .card.is-dragging { opacity: 0.45; box-shadow: var(--shadow-sm); transform: scale(0.98); }
 .drag-handle { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin: -4px -4px -4px 0; border-radius: 8px; color: var(--text-soft); flex-shrink: 0; touch-action: none; }
 .drag-handle:hover { background: #f3f4f6; color: var(--text-muted); }
@@ -422,6 +432,20 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
    column's content off-screen on narrower-but-not-mobile viewports (e.g. an
    unfolded Z Fold). min-width:0 lets tracks actually shrink to fit. */
 .grid-2 > * { min-width: 0; }
+/* Daily records, a student's page: tabs (Qur'an | Daily record | Report), each one
+   roomy column. */
+.student-page { max-width: 860px; margin: 0 auto; }
+.student-tabs { display: flex; gap: 4px; background: #e9ecf0; border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.student-tabs button { flex: 1; min-width: 0; white-space: nowrap; border: none; border-radius: 999px; padding: 9px 8px; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--text-muted); background: transparent; cursor: pointer; }
+.student-tabs button.active { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+.student-tab { display: flex; flex-direction: column; gap: 16px; }
+.student-tab > .card { margin: 0 !important; }
+/* Input progress: one button-row per part (name, + Add). */
+.entry-rows { display: flex; flex-direction: column; gap: 6px; }
+.entry-row-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); }
+.entry-row { display: block; width: 100%; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font); text-align: left; min-height: 46px; }
+/* Shown only on phones / only on wider screens (the 768px breakpoint below). */
+.only-narrow { display: none; }
 
 /* Reports page — the "select a student" / "student header + history" panels
    unified into one card split down the middle, rather than two separate
@@ -480,6 +504,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
   .metrics-grid { grid-template-columns: repeat(2,1fr); }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .only-narrow { display: block; }
+  .only-wide { display: none; }
   .record-panels { grid-template-columns: 1fr; }
   .modal-overlay { padding: 10px; align-items: flex-end; backdrop-filter: none; }
   .modal { max-height: 95vh; max-height: 95dvh; border-radius: 20px 20px 0 0; }

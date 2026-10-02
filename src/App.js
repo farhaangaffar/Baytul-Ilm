@@ -11,6 +11,7 @@ import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import Madaaris        from './pages/Madaaris';
+import ParentPortal    from './pages/ParentPortal';
 import { getSession } from './lib/store';
 import { setMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
@@ -80,6 +81,15 @@ export default function App() {
   }
 
   const isOwner = session.user.role === 'owner';
+
+  // Parents: their own children only, on one page of their own — none of the staff pages.
+  if (session.user.role === 'parent') {
+    return (
+      <AuthProvider value={{ user: session.user }}>
+        <SettingsProvider><ParentPortal /></SettingsProvider>
+      </AuthProvider>
+    );
+  }
 
   return (
     <AuthProvider value={{ user: session.user }}>
