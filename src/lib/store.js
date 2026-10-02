@@ -312,10 +312,14 @@ export async function deleteClass(id) { return apiFetch(`/api/classes?id=${encod
 export async function getQuranProgress(studentId) {
   return apiFetch(`/api/quran${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`);
 }
-// entry: { studentId, date, kind, fromSurah, fromAyah, toSurah, toAyah, lesson, grade, note }
-export async function saveQuranEntry(entry) { return apiFetch('/api/quran', { method: 'PUT', body: JSON.stringify(entry) }); }
-export async function deleteQuranEntry(studentId, date, kind) {
-  return apiFetch('/api/quran', { method: 'DELETE', body: JSON.stringify({ studentId, date, kind }) });
+// entry: { studentId, date, kind, fromSurah, fromAyah, toSurah, toAyah, lesson, grade, note, unit }
+// A new entry each time (a day can have several); pass `id` to change an existing one.
+export async function addQuranEntry(entry) { return apiFetch('/api/quran', { method: 'POST', body: JSON.stringify(entry) }); }
+export async function updateQuranEntry(id, entry) {
+  return apiFetch(`/api/quran?id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(entry) });
+}
+export async function deleteQuranEntry(studentId, id) {
+  return apiFetch(`/api/quran?id=${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ studentId }) });
 }
 // A student's own Qur'an level ('hifz' | 'nazira' | 'qaida'), or null to follow their class.
 export async function saveStudentQuranType(studentId, quranType) {
@@ -483,6 +487,6 @@ export async function importAllData(payload) {
   for (const [studentId, q] of Object.entries(quran || {})) {
     if (q.priorJuz?.length) await savePriorJuz(studentId, q.priorJuz);
     if (q.quranType) await saveStudentQuranType(studentId, q.quranType);
-    for (const e of q.entries || []) await saveQuranEntry(e);
+    for (const { id, ...e } of q.entries || []) await addQuranEntry({ ...e, studentId });
   }
 }

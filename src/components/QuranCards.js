@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { saveQuranEntry, deleteQuranEntry, savePriorJuz, saveStudentQuranType } from '../lib/store';
+import React, { useState, useEffect, useRef } from 'react';
+import { addQuranEntry, updateQuranEntry, deleteQuranEntry, savePriorJuz, saveStudentQuranType } from '../lib/store';
 import {
   SURAHS, ayahCount, surahName, rangeLabel, nextStart, hifzProgress, juzOf,
   QURAN_TYPES, KIND_LABELS, GRADES, ayahsMemorisedBetween,
   quarterStart, quarterEnd, quarterOf, QUARTER_NAMES, upToLabel,
 } from '../lib/quran';
-import { Check, Trash2, BookOpen, Pencil } from 'lucide-react';
+import { Check, Trash2, BookOpen, Pencil, X } from 'lucide-react';
 
 // Qur'an progress on a student's Daily records page: an entry card for one day
 // (sabaq / sabqi / manzil for hifz, reading for nazira, lesson for qaida) and a
@@ -76,7 +76,8 @@ function GradeButtons({ value, onChange }) {
 
 // What to prefill for a kind that hasn't been entered on this date yet.
 function defaultsFor(kind, date, entries) {
-  const before = entries.filter(e => e.kind === kind && e.date < date).sort((a, b) => b.date.localeCompare(a.date));
+  // The latest of this kind up to this day (including earlier ones the same day).
+  const before = entries.filter(e => e.kind === kind && e.date <= date).sort(newestFirst);
   const last = before[0];
   if (kind === 'lesson') return { lesson: last?.lesson || '', grade: null, note: '' };
   // Same way of recording as last time for this kind (surah/ayah or juz quarters).
@@ -87,64 +88,20 @@ function defaultsFor(kind, date, entries) {
     return fit({ fromSurah: n.surah, fromAyah: n.ayah, toSurah: n.surah, toAyah: n.ayah, grade: null, note: '', unit });
   }
   // Revision: start from where the last revision of this kind was, else where sabaq is.
-  const ref = last || entries.filter(e => e.kind === 'sabaq').sort((a, b) => b.date.localeCompare(a.date))[0];
+  const ref = last || entries.filter(e => e.kind === 'sabaq').sort(newestFirst)[0];
   if (ref) return fit({ fromSurah: ref.fromSurah, fromAyah: ref.fromAyah, toSurah: ref.toSurah, toAyah: ref.toAyah, grade: null, note: '', unit });
   return fit({ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, grade: null, note: '', unit });
 }
 
-// One kind (sabaq / sabqi / …) for one day. Not recorded yet: the inputs, prefilled to
-// carry on from last time. Recorded: a one-line summary — the inputs clear away, like a
-// finished day on Add day — with Edit to correct a mistake and the bin to remove it.
-function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }) {
-  const initial = () => existing ? { ...existing } : defaultsFor(kind, date, entries);
-  const [f, setF] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(!existing);
-  // Reload when the day or the saved entry changes.
-  useEffect(() => { setF(initial()); setEditing(!existing); }, [date, existing?.date, existing?.grade, existing?.toAyah, existing?.toSurah, existing?.lesson, existing?.note, existing?.unit]);
-  const set = patch => setF(prev => ({ ...prev, ...patch }));
-  const label = KIND_LABELS[kind];
-
-  async function save() {
-    setSaving(true);
-    try { await saveQuranEntry({ studentId, date, kind, ...f }); setEditing(false); await onSaved(); }
-    catch (err) { onError(err.message || 'Could not save'); }
-    setSaving(false);
-  }
-  async function remove() {
-    setSaving(true);
-    try { await deleteQuranEntry(studentId, date, kind); await onSaved(); }
-    catch (err) { onError(err.message || 'Could not remove'); }
-    setSaving(false);
-  }
-
-  if (existing && !editing) {
-    const g = GRADES.find(x => x.key === existing.grade);
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-        <Check size={14} style={{ color: 'var(--green)', flexShrink: 0 }} />
-        <span style={{ fontWeight: 700, width: 58, flexShrink: 0 }}>{label.name}</span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          {kind === 'lesson' ? existing.lesson : rangeLabel(existing)}
-          {g && <span style={{ color: g.text, fontWeight: 600 }}> · {g.label}</span>}
-          {existing.note && <span className="text-muted"> — {existing.note}</span>}
-        </span>
-        <button className="btn btn-sm" onClick={() => setEditing(true)} disabled={saving}><Pencil size={12} />Edit</button>
-        <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} title={`Remove ${label.name.toLowerCase()} for this day`} onClick={remove} disabled={saving}>
-          <Trash2 size={13} />
-        </button>
-      </div>
-    );
-  }
-
+// The inputs for one entry: from / to (surah & ayah, or juz quarters), or a qaida lesson;
+// then Good / Weak / Repeat and a note. Shared by Input progress and the edit pop-up.
+function EntryFields({ kind, f, set, children }) {
   return (
-    <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label.name}</span>
-        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
-        {kind !== 'lesson' && (
-          // Record by surah and ayah, or in juz quarters.
-          <div style={{ marginLeft: 'auto', display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
+    <>
+      {kind !== 'lesson' && (
+        // Record by surah and ayah, or in juz quarters.
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
             {[['ayah', 'Surah & ayah'], ['quarter', 'Juz quarters']].map(([u, text]) => {
               const on = (f.unit || 'ayah') === u;
               return (
@@ -156,8 +113,8 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
       {kind === 'lesson' ? (
         <input value={f.lesson || ''} onChange={e => set({ lesson: e.target.value })} placeholder="e.g. Lesson 12, page 18"
           style={{ ...inputStyle, width: '100%', marginBottom: 8 }} />
@@ -169,8 +126,7 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 6, marginBottom: 8 }}>
-          <Position label="From" surah={f.fromSurah} ayah={f.fromAyah}
-            onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
+          <Position label="From" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
           <Position label="To" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
         </div>
       )}
@@ -178,12 +134,92 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
       <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
         <input value={f.note || ''} onChange={e => set({ note: e.target.value })} placeholder="Note (optional)"
           style={{ ...inputStyle, flex: 1 }} />
-        {existing && (
-          <button className="btn btn-sm" onClick={() => { setF(initial()); setEditing(false); }} disabled={saving}>Cancel</button>
-        )}
-        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
+        {children}
+      </div>
+    </>
+  );
+}
+
+// One kind (sabaq / sabqi / …) on Input progress. Always a fresh entry, prefilled to
+// carry on from the last one; saving adds it (a day can have several of a kind) and the
+// row clears ready for the next. Recorded entries are changed from Progress → Recent.
+function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
+  const [f, setF] = useState(() => defaultsFor(kind, date, entries));
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  // Typed into but not saved yet — kept when another row records something.
+  const touched = useRef(false);
+  const shownDate = useRef(date);
+  // A fresh, prefilled form when the day changes, or after a save (if untouched).
+  useEffect(() => {
+    if (shownDate.current !== date) { shownDate.current = date; touched.current = false; setJustSaved(false); }
+    if (!touched.current) setF(defaultsFor(kind, date, entries));
+  }, [kind, date, entries]);
+  const set = patch => { touched.current = true; setF(prev => ({ ...prev, ...patch })); setJustSaved(false); };
+  const label = KIND_LABELS[kind];
+
+  async function save() {
+    setSaving(true);
+    try { await addQuranEntry({ studentId, date, kind, ...f }); touched.current = false; setJustSaved(true); await onSaved(); }
+    catch (err) { onError(err.message || 'Could not save'); }
+    setSaving(false);
+  }
+
+  return (
+    <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label.name}</span>
+        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
+        {justSaved && <span className="badge badge-green"><Check size={11} />Recorded</span>}
+      </div>
+      <EntryFields kind={kind} f={f} set={set}>
+        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      </EntryFields>
+    </div>
+  );
+}
+
+// Pop-up for changing (or removing) one recorded entry — opened from Progress → Recent.
+function EditEntryModal({ entry, studentId, onClose, onSaved }) {
+  const [f, setF] = useState({ ...entry });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const set = patch => setF(prev => ({ ...prev, ...patch }));
+  const label = KIND_LABELS[entry.kind];
+
+  async function run(fn) {
+    setBusy(true); setError('');
+    try { await fn(); await onSaved(); onClose(); }
+    catch (err) { setError(err.message || 'Something went wrong'); setBusy(false); }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && onClose()}>
+      <div className="modal" style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <div className="modal-title">Change {label.name.toLowerCase()}</div>
+          <button className="btn btn-icon" onClick={onClose} disabled={busy}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group" style={{ marginBottom: 10 }}>
+            <label>Date</label>
+            <input type="date" value={f.date} max={isoToday()} onChange={e => e.target.value && set({ date: e.target.value })} style={{ ...inputStyle, width: '100%' }} />
+          </div>
+          <EntryFields kind={entry.kind} f={f} set={set} />
+          {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+        </div>
+        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+          {confirmDelete
+            ? <button className="btn btn-danger" disabled={busy} onClick={() => run(() => deleteQuranEntry(studentId, entry.id))}><Trash2 size={13} />Yes, delete</button>
+            : <button className="btn" style={{ color: 'var(--red)' }} disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={13} />Delete</button>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+            <button className="btn btn-primary" disabled={busy} onClick={() => run(() => updateQuranEntry(entry.id, { ...f, studentId }))}>
+              <Check size={13} />{busy ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -219,13 +255,11 @@ function LevelPicker({ student, type, classType, data, onChanged, onError }) {
   );
 }
 
-// "Input progress": the day's entries for one student. `type` is the student's level (their
-// own, or their class's); `classType` is the class setting (possibly 'mixed'). The date
-// can be controlled from outside (tapping a past entry under Progress → Recent opens it here).
-export function QuranEntryCard({ student, type, classType, data, onChanged, date: dateProp, onDateChange, cardRef }) {
-  const [ownDate, setOwnDate] = useState(isoToday());
-  const date = dateProp ?? ownDate;
-  const setDate = onDateChange ?? setOwnDate;
+// "Input progress": new entries for one student (today, or a past day picked with the
+// date box). `type` is the student's level (their own, or their class's); `classType` is
+// the class setting (possibly 'mixed'). Recorded entries are changed from Progress.
+export function QuranEntryCard({ student, type, classType, data, onChanged }) {
+  const [date, setDate] = useState(isoToday());
   const [error, setError] = useState('');
   const kinds = QURAN_TYPES[type]?.kinds || [];
   const entries = data?.entries || [];
@@ -239,7 +273,7 @@ export function QuranEntryCard({ student, type, classType, data, onChanged, date
   // Mixed class and no level chosen for this student yet.
   if (data && !type) {
     return (
-      <div className="card mb-4" ref={cardRef}>
+      <div className="card mb-4">
         {header}
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose whether {student.forename} is doing Hifz, Nazira or Qaida — you can change it later as they move up.</div>
         {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
@@ -247,7 +281,7 @@ export function QuranEntryCard({ student, type, classType, data, onChanged, date
     );
   }
   return (
-    <div className="card mb-4" ref={cardRef}>
+    <div className="card mb-4">
       {header}
       {date === isoToday() && <div style={{ marginBottom: 6 }}><span className="badge badge-teal">Today</span></div>}
       <input type="date" value={date} max={isoToday()} onChange={e => e.target.value && setDate(e.target.value)}
@@ -256,7 +290,6 @@ export function QuranEntryCard({ student, type, classType, data, onChanged, date
       {!data && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '10px 0' }}>Loading…</div>}
       {data && kinds.map(kind => (
         <EntryRow key={kind} studentId={student.id} kind={kind} date={date} entries={entries}
-          existing={entries.find(e => e.date === date && e.kind === kind)}
           onSaved={async () => { setError(''); await onChanged(); }} onError={setError} />
       ))}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
@@ -269,14 +302,20 @@ function gradeDot(grade) {
   return g ? <span title={g.label} style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: g.color, flexShrink: 0 }} /> : null;
 }
 
-// Where a student is up to, with the 30-juz bar for hifz. With `onPick`, each Recent entry
-// can be tapped to open that day in Input progress (to correct it).
-export function QuranProgressCard({ student, type, data, onChanged, canEditPrior, onPick }) {
+// Newest first: by day, then by when it was recorded.
+const newestFirst = (a, b) => b.date.localeCompare(a.date) || Number(b.id || 0) - Number(a.id || 0);
+
+// Where a student is up to, with the 30-juz bar for hifz. With `canEdit`, each Recent entry
+// can be tapped to change or delete it in a pop-up.
+export function QuranProgressCard({ student, type, data, onChanged, canEditPrior, canEdit }) {
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const [editingPrior, setEditingPrior] = useState(false);
   const [error, setError] = useState('');
   const entries = data?.entries || [];
   const priorJuz = data?.priorJuz || [];
-  const recent = [...entries].sort((a, b) => b.date.localeCompare(a.date) || a.kind.localeCompare(b.kind)).slice(0, 8);
+  const sorted = [...entries].sort(newestFirst);
+  const recent = showAll ? sorted : sorted.slice(0, 8);
 
   async function togglePrior(j) {
     const next = priorJuz.includes(j) ? priorJuz.filter(x => x !== j) : [...priorJuz, j];
@@ -354,12 +393,12 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
       {recent.length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            Recent{onPick && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}> · tap one to change it</span>}
+            Recent{canEdit && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}> · tap one to change it</span>}
           </div>
           {recent.map(e => (
-            <div key={`${e.date}-${e.kind}`} onClick={onPick ? () => onPick(e.date) : undefined} role={onPick ? 'button' : undefined}
-              title={onPick ? 'Open this day in Input progress' : undefined}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5, cursor: onPick ? 'pointer' : 'default' }}>
+            <div key={e.id || `${e.date}-${e.kind}`} onClick={canEdit ? () => setEditingEntry(e) : undefined} role={canEdit ? 'button' : undefined}
+              title={canEdit ? 'Change or delete this entry' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5, cursor: canEdit ? 'pointer' : 'default' }}>
               {gradeDot(e.grade)}
               <span style={{ width: 70, flexShrink: 0, color: 'var(--text-muted)' }}>{fmtDate(e.date)}</span>
               <span style={{ width: 56, flexShrink: 0, fontWeight: 600 }}>{KIND_LABELS[e.kind]?.name}</span>
@@ -368,7 +407,15 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
               </span>
             </div>
           ))}
+          {sorted.length > 8 && (
+            <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
+              {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
+            </button>
+          )}
         </div>
+      )}
+      {editingEntry && (
+        <EditEntryModal entry={editingEntry} studentId={student.id} onClose={() => setEditingEntry(null)} onSaved={onChanged} />
       )}
     </div>
   );
