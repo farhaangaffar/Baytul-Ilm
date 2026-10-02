@@ -42,7 +42,7 @@ module.exports = async (req, res) => {
       // Finished reports only — a saved summary, not the teacher's daily notes.
       one(`SELECT month, summary, behavior, updated_at FROM ai_summaries WHERE student_id = $1 AND madrasah_id = $2 AND summary <> '' ORDER BY month DESC`),
       query('SELECT id, year, name, start_date, end_date FROM terms WHERE madrasah_id = $1 ORDER BY start_date', [mid]).catch(() => ({ rows: [] })),
-      one('SELECT * FROM quran_progress WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date, kind'),
+      one('SELECT * FROM quran_progress WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date, id'),
       one('SELECT * FROM quran_students WHERE student_id = $1 AND madrasah_id = $2'),
       one('SELECT date, reason, note, seen, created_at FROM absence_reports WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date DESC LIMIT 20'),
       one(`SELECT c.quran_type, t.name AS teacher_name FROM students s
@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       reports: sums.rows.map(r => ({ month: r.month, summary: r.summary, behavior: r.behavior, updatedAt: r.updated_at })),
       terms: terms.rows.map(t => ({ id: String(t.id), year: t.year, name: t.name, startDate: t.start_date, endDate: t.end_date })),
       quran: {
-        entries: quran.rows.map(r => ({ date: r.date, kind: r.kind, fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah, lesson: r.lesson, grade: r.grade, note: r.note, unit: r.unit || 'ayah' })),
+        entries: quran.rows.map(r => ({ id: String(r.id), date: r.date, kind: r.kind, fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah, lesson: r.lesson, grade: r.grade, note: r.note, unit: r.unit || 'ayah' })),
         priorJuz: prior.rows[0]?.prior_juz || [],
       },
       absences: absences.rows,
