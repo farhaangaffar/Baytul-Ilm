@@ -2,7 +2,7 @@ const { query } = require('../db');
 const { requireAuth, accessScope } = require('../auth');
 
 // Qur'an progress (hifz, nazira, qaida), recorded by the teacher each day on the Daily
-// records page. One entry per student per day per kind:
+// records page. Each entry has a kind (and a day can have several):
 //   hifz:   sabaq (new lesson), sabqi (recent revision), manzil (older revision)
 //   nazira: reading      qaida: lesson
 // Positions are surah + ayah (Hafs numbering); a qaida lesson is free text (lesson or
@@ -26,11 +26,14 @@ async function ensureTables() {
       lesson       TEXT NOT NULL DEFAULT '',
       grade        TEXT CHECK (grade IN ('good','weak','repeat')),
       note         TEXT NOT NULL DEFAULT '',
-      updated_at   TIMESTAMP NOT NULL DEFAULT now(),
-      UNIQUE (student_id, date, kind)
+      updated_at   TIMESTAMP NOT NULL DEFAULT now()
     )
   `);
   await query('CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id)');
+  await query('CREATE INDEX IF NOT EXISTS idx_quran_progress_student_date ON quran_progress (student_id, date)');
+  // A day can have several entries of one kind — earlier test copies of this table
+  // allowed only one per student/day/kind.
+  await query('ALTER TABLE quran_progress DROP CONSTRAINT IF EXISTS quran_progress_student_id_date_kind_key');
   // How the teacher recorded it: by surah/ayah, or in juz quarters (the positions
   // still hold the quarters' first and last ayahs, so progress maths is the same).
   await query(`ALTER TABLE quran_progress ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'ayah'`);
@@ -56,7 +59,7 @@ const validPos = (s, a) => s >= 1 && s <= 114 && a >= 1 && a <= 286;
 
 function toClient(r) {
   return {
-    studentId: r.student_id, date: r.date, kind: r.kind,
+    id: String(r.id), studentId: r.student_id, date: r.date, kind: r.kind,
     fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah,
     lesson: r.lesson, grade: r.grade, note: r.note, unit: r.unit || 'ayah',
   };
@@ -75,14 +78,14 @@ module.exports = requireAuth(async (req, res) => {
     if (studentId) {
       if (!scope.studentIds.has(studentId)) { forbidden(); return; }
       const [{ rows }, { rows: prior }] = await Promise.all([
-        query('SELECT * FROM quran_progress WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date, kind', [studentId, mid]),
+        query('SELECT * FROM quran_progress WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date, id', [studentId, mid]),
         query('SELECT prior_juz, quran_type FROM quran_students WHERE student_id = $1 AND madrasah_id = $2', [studentId, mid]),
       ]);
       res.status(200).json({ entries: rows.map(toClient), priorJuz: prior[0]?.prior_juz || [], quranType: prior[0]?.quran_type || null });
       return;
     }
     const [{ rows }, { rows: prior }] = await Promise.all([
-      query('SELECT * FROM quran_progress WHERE madrasah_id = $1 ORDER BY date, kind', [mid]),
+      query('SELECT * FROM quran_progress WHERE madrasah_id = $1 ORDER BY date, id', [mid]),
       query('SELECT student_id, prior_juz, quran_type FROM quran_students WHERE madrasah_id = $1', [mid]),
     ]);
     const out = {};
@@ -121,31 +124,48 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  // Each entry is its own row: a day can have more than one of the same kind (e.g. two
+  // sabaq). POST adds one; PUT ?id= changes one; DELETE ?id= removes one.
+  const id = req.query.id;
+
+  if (req.method === 'DELETE') {
+    if (!id) { res.status(400).json({ error: 'id is required' }); return; }
+    await query('DELETE FROM quran_progress WHERE id = $1 AND student_id = $2 AND madrasah_id = $3', [id, b.studentId, mid]);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
   if (!ISO.test(String(b.date || '')) || !KINDS.includes(b.kind)) { res.status(400).json({ error: 'date and kind are required' }); return; }
 
-  if (req.method === 'PUT') {
+  if (req.method === 'POST' || req.method === 'PUT') {
     if (b.grade != null && !GRADES.includes(b.grade)) { res.status(400).json({ error: 'Unknown grade' }); return; }
     let pos = [null, null, null, null];
     if (b.kind !== 'lesson') {
       pos = [int(b.fromSurah), int(b.fromAyah), int(b.toSurah), int(b.toAyah)];
       if (!validPos(pos[0], pos[1]) || !validPos(pos[2], pos[3])) { res.status(400).json({ error: 'Choose a surah and ayah for from and to.' }); return; }
+      // Surahs may run backwards (An-Nas up to An-Naba); ayahs within one surah can't.
+      if (pos[0] === pos[2] && pos[3] < pos[1]) { res.status(400).json({ error: "The 'to' ayah is before the 'from' ayah." }); return; }
     }
     const unit = b.unit === 'quarter' && b.kind !== 'lesson' ? 'quarter' : 'ayah';
-    await query(
+    const fields = [b.date, b.kind, ...pos, String(b.lesson || '').slice(0, 200), b.grade || null, String(b.note || '').slice(0, 1000), unit];
+    if (req.method === 'PUT') {
+      if (!id) { res.status(400).json({ error: 'id is required' }); return; }
+      const { rowCount } = await query(
+        `UPDATE quran_progress SET date = $1, kind = $2, from_surah = $3, from_ayah = $4, to_surah = $5, to_ayah = $6,
+           lesson = $7, grade = $8, note = $9, unit = $10, updated_at = now()
+         WHERE id = $11 AND student_id = $12 AND madrasah_id = $13`,
+        [...fields, id, b.studentId, mid]
+      );
+      if (!rowCount) { res.status(404).json({ error: 'Entry not found' }); return; }
+      res.status(200).json({ ok: true });
+      return;
+    }
+    const { rows } = await query(
       `INSERT INTO quran_progress (madrasah_id, student_id, date, kind, from_surah, from_ayah, to_surah, to_ayah, lesson, grade, note, unit, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
-       ON CONFLICT (student_id, date, kind) DO UPDATE SET
-         from_surah = EXCLUDED.from_surah, from_ayah = EXCLUDED.from_ayah, to_surah = EXCLUDED.to_surah, to_ayah = EXCLUDED.to_ayah,
-         lesson = EXCLUDED.lesson, grade = EXCLUDED.grade, note = EXCLUDED.note, unit = EXCLUDED.unit, updated_at = now()`,
-      [mid, b.studentId, b.date, b.kind, ...pos, String(b.lesson || '').slice(0, 200), b.grade || null, String(b.note || '').slice(0, 1000), unit]
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now()) RETURNING id`,
+      [mid, b.studentId, ...fields]
     );
-    res.status(200).json({ ok: true });
-    return;
-  }
-
-  if (req.method === 'DELETE') {
-    await query('DELETE FROM quran_progress WHERE student_id = $1 AND date = $2 AND kind = $3 AND madrasah_id = $4', [b.studentId, b.date, b.kind, mid]);
-    res.status(200).json({ ok: true });
+    res.status(201).json({ ok: true, id: String(rows[0].id) });
     return;
   }
 

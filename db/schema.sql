@@ -164,8 +164,8 @@ CREATE TABLE IF NOT EXISTS terms (
 );
 CREATE INDEX IF NOT EXISTS idx_terms_madrasah ON terms (madrasah_id);
 
--- Qur'an progress, recorded on Daily records (server/routes/quran.js): one entry per
--- student per day per kind — hifz sabaq / sabqi / manzil, nazira reading, qaida lesson.
+-- Qur'an progress, recorded on Daily records (server/routes/quran.js): one row per entry
+-- (a day can have several) — hifz sabaq / sabqi / manzil, nazira reading, qaida lesson.
 CREATE TABLE IF NOT EXISTS quran_progress (
   id           BIGSERIAL PRIMARY KEY,
   madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
@@ -177,10 +177,10 @@ CREATE TABLE IF NOT EXISTS quran_progress (
   grade        TEXT CHECK (grade IN ('good','weak','repeat')),
   note         TEXT NOT NULL DEFAULT '',
   unit         TEXT NOT NULL DEFAULT 'ayah',  -- 'ayah' or 'quarter' (recorded in juz quarters)
-  updated_at   TIMESTAMP NOT NULL DEFAULT now(),
-  UNIQUE (student_id, date, kind)
+  updated_at   TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id);
+CREATE INDEX IF NOT EXISTS idx_quran_progress_student_date ON quran_progress (student_id, date);
 
 -- Juz a student had already memorised before records started here.
 CREATE TABLE IF NOT EXISTS quran_students (

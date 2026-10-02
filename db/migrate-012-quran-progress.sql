@@ -6,8 +6,8 @@
 -- What a class studies: 'hifz' | 'nazira' | 'qaida', or NULL for none.
 ALTER TABLE classes ADD COLUMN IF NOT EXISTS quran_type TEXT;
 
--- One entry per student per day per kind. Positions are surah + ayah (Hafs numbering);
--- a qaida lesson is free text.
+-- One row per entry (a day can have several of a kind, e.g. two sabaq). Positions are
+-- surah + ayah (Hafs numbering); a qaida lesson is free text.
 CREATE TABLE IF NOT EXISTS quran_progress (
   id           BIGSERIAL PRIMARY KEY,
   madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
@@ -18,10 +18,12 @@ CREATE TABLE IF NOT EXISTS quran_progress (
   lesson       TEXT NOT NULL DEFAULT '',
   grade        TEXT CHECK (grade IN ('good','weak','repeat')),
   note         TEXT NOT NULL DEFAULT '',
-  updated_at   TIMESTAMP NOT NULL DEFAULT now(),
-  UNIQUE (student_id, date, kind)
+  updated_at   TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id);
+CREATE INDEX IF NOT EXISTS idx_quran_progress_student_date ON quran_progress (student_id, date);
+-- Earlier test copies allowed only one entry per student/day/kind.
+ALTER TABLE quran_progress DROP CONSTRAINT IF EXISTS quran_progress_student_id_date_kind_key;
 -- 'ayah' (recorded by surah and ayah) or 'quarter' (recorded in juz quarters; the
 -- positions above are then the quarters' first and last ayahs).
 ALTER TABLE quran_progress ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'ayah';

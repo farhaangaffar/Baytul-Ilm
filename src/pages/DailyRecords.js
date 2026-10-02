@@ -180,9 +180,6 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
   const hasQuran = !!classType;
   const [quran, setQuran] = useState(null);
   const quranType = effectiveQuranType(classType, quran?.quranType);
-  // The day open in Input progress — today, or a past day picked from Progress → Recent.
-  const [quranDate, setQuranDate] = useState(isoToday());
-  const quranCardRef = useRef(null);
   // Which previous summary is open (only its title shows otherwise).
   const [openSummary, setOpenSummary] = useState(null);
   const refreshQuran = useCallback(async () => {
@@ -438,7 +435,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
       <div className="grid-2" style={{alignItems:'flex-start'}}>
         <div>
           {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran}
-            date={quranDate} onDateChange={setQuranDate} cardRef={quranCardRef} />}
+ />}
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
               plain, calm, scannable history. Clicking any row in it (DayRow) just loads
@@ -555,7 +552,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
 
         <div style={{position:'sticky',top:24}}>
           {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
-            onPick={d => { setQuranDate(d); quranCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />}
+            canEdit />}
           {isOwner && (<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
