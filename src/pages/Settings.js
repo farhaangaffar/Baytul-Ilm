@@ -129,6 +129,17 @@ export default function Settings() {
     }
   }
 
+  // Saved straight away, like the fee and report choices.
+  async function changeParentPortal(on) {
+    try {
+      await updateSettings({ parentPortal: on });
+      setForm(f => ({ ...f, parentPortal: on }));
+      showToast(on ? 'Parent portal switched on' : 'Parent portal switched off');
+    } catch (err) {
+      showToast(err.message || 'Could not change the parent portal');
+    }
+  }
+
   async function saveSettings() {
     setSaving(true);
     try {
@@ -315,6 +326,16 @@ export default function Settings() {
               onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}/>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
               Used when enrolling new students. Can be changed per student.
+            </span>
+          </div>
+          <div className="form-group">
+            <label>Parent portal</label>
+            <select value={form.parentPortal ? 'on' : 'off'} onChange={e=>changeParentPortal(e.target.value==='on')}>
+              <option value="off">Off</option>
+              <option value="on">On — parents can sign in</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              Parents see their own children's attendance, fees, finished reports and Qur'an progress, and can report an absence. Set up each family's login from a student's profile.
             </span>
           </div>
           <div className="form-group" style={{gridColumn:'1 / -1'}}>

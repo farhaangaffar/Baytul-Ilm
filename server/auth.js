@@ -26,7 +26,7 @@ async function ensureUsersTable() {
       madrasah_id      INTEGER NOT NULL REFERENCES madaaris(id),
       login            TEXT NOT NULL,
       password_hash    TEXT NOT NULL,
-      role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
+      role             TEXT NOT NULL CONSTRAINT users_role_check CHECK (role IN ('owner','teacher','parent')),
       teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
       class_id         TEXT UNIQUE REFERENCES classes(id) ON DELETE CASCADE,
       platform_admin   BOOLEAN NOT NULL DEFAULT false,

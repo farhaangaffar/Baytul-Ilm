@@ -51,6 +51,14 @@ codebase (one codebase, not a fork).
   records and Fees for their own classes, and on Fees may only mark a week Paid.
   `ADMIN_PASSWORD` is only the first-time-setup / platform-owner-recovery key — it never
   signs anyone in once an owner account exists.
+- **Parent logins** (role `parent`, one per family, `parent_students` links their
+  children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
+  closed to them; they only use `server/routes/parent.js`, which returns their own
+  children's attendance, fees, **finished** reports (saved summaries — never daily
+  comments) and Qur'an progress, and takes absence reports (`absence_reports`, shown to
+  staff on Attendance via `server/routes/absences.js`). The front end gives them one
+  page (`src/pages/ParentPortal.js`). Each madrasah switches the portal on in Settings.
+  Never add parent access to a staff route — add what parents need to `parent.js`.
 - There's no migration runner: small new columns are added by the API itself on first
   use (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
   for manual use and `db/schema.sql` updated. Changes that restructure existing data
