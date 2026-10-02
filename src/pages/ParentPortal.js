@@ -78,15 +78,42 @@ function MonthRow({ month, right, children }) {
         <span style={{ fontWeight: 600, fontSize: 13.5, flex: 1 }}>{monthName(month)}</span>
         {right}
       </button>
-      {open && <div style={{ padding: '0 0 8px 22px' }}>{children}</div>}
+      {open && <div style={{ padding: '0 0 8px' }}>{children}</div>}
     </div>
   );
 }
 
-function feeLabel(f, terms) {
-  if (f.period === 'month') return new Date(f.weekStarting + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  if (f.period === 'term') return terms.find(t => t.startDate === f.weekStarting)?.name || `Term from ${formatDateGB(f.weekStarting)}`;
-  return `Week of ${formatDateGB(f.weekStarting)}`;
+// A short period name that fits in a box, with a second line: "4 Jan" / "Week",
+// "Jan" / "2027", or the term's name.
+function feeBoxLabel(f, terms) {
+  const d = new Date(f.weekStarting + 'T12:00:00');
+  if (f.period === 'month') return { text: d.toLocaleDateString('en-GB', { month: 'short' }), sub: String(d.getFullYear()) };
+  if (f.period === 'term') return { text: terms.find(t => t.startDate === f.weekStarting)?.name || d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: 'Term' };
+  return { text: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: 'Week' };
+}
+
+// One line of four equal boxes (a day's attendance, or one fee): the first names it,
+// the rest are the choices, with the one that applies filled in its colour.
+const TONES = { green: ['var(--green-light)', 'var(--green)', 'var(--green-text)'], amber: ['var(--amber-light)', 'var(--amber)', 'var(--amber-text)'], red: ['var(--red-light)', 'var(--red)', 'var(--red-text)'] };
+function BoxRow({ cells }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6, marginBottom: 6 }}>
+      {cells.map((c, i) => {
+        const [bg, border, text] = c.tone ? TONES[c.tone] : [];
+        const style = c.label
+          ? { background: '#f3f4f6', border: '1px solid transparent', color: 'var(--ink)', fontWeight: 600 }
+          : c.tone
+            ? { background: bg, border: `1px solid ${border}`, color: text, fontWeight: 700 }
+            : { background: '#fafbfc', border: '1px solid #dfe3e8', color: 'var(--text-muted)', fontWeight: 500 };
+        return (
+          <div key={i} style={{ ...style, borderRadius: 8, padding: '5px 2px', minHeight: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden' }}>
+            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.text}</div>
+            {c.sub && <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.sub}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function AbsenceForm({ child, reasons, onSent }) {
@@ -174,15 +201,17 @@ function ChildView({ child, reasons }) {
                   <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS[s][1] }} />{v}</span>
                 ))}
               </span>}>
-              {days.map(a => (
-                <div key={a.date} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13 }}>
-                  <span>{new Date(a.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS[a.status]?.[1] }} />
-                    {a.status === 'L' && a.lateTime ? `Late · ${a.lateTime}` : STATUS[a.status]?.[0]}
-                  </span>
-                </div>
-              ))}
+              {days.map(a => {
+                const d = new Date(a.date + 'T12:00:00');
+                return (
+                  <BoxRow key={a.date} cells={[
+                    { label: true, text: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: d.toLocaleDateString('en-GB', { weekday: 'short' }) },
+                    { text: 'Present', tone: a.status === 'P' && 'green' },
+                    { text: 'Late', tone: a.status === 'L' && 'amber', sub: a.status === 'L' ? a.lateTime : undefined },
+                    { text: 'Absent', tone: a.status === 'A' && 'red' },
+                  ]} />
+                );
+              })}
             </MonthRow>
           );
         })}
@@ -203,12 +232,12 @@ function ChildView({ child, reasons }) {
                 {monthOwed > 0 ? `${money(monthOwed)} owed` : `${money(monthPaid)} paid`}
               </span>}>
               {items.map(f => (
-                <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '5px 0', fontSize: 13 }}>
-                  <span>{feeLabel(f, data.terms)}</span>
-                  {f.status === 'Paid'
-                    ? <span className="text-muted">{money(f.amount)} · paid{f.paidDate ? ` ${formatDateGB(f.paidDate)}` : ''}</span>
-                    : <span style={{ fontWeight: 600, color: 'var(--red-text)' }}>{money(f.amount)} owed</span>}
-                </div>
+                <BoxRow key={f.id} cells={[
+                  { label: true, ...feeBoxLabel(f, data.terms) },
+                  { label: true, text: money(f.amount) },
+                  { text: 'Paid', tone: f.status === 'Paid' && 'green', sub: f.status === 'Paid' && f.paidDate ? new Date(f.paidDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : undefined },
+                  { text: 'Owed', tone: f.status !== 'Paid' && 'red' },
+                ]} />
               ))}
             </MonthRow>
           );
