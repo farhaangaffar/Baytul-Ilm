@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS classes (
   id          TEXT PRIMARY KEY,
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
   name        TEXT NOT NULL,
-  teacher_id  TEXT REFERENCES teachers(id) ON DELETE SET NULL
+  teacher_id  TEXT REFERENCES teachers(id) ON DELETE SET NULL,
+  quran_type  TEXT  -- 'hifz' | 'nazira' | 'qaida', or NULL: what Qur'an progress is recorded
 );
 CREATE INDEX IF NOT EXISTS idx_classes_madrasah ON classes (madrasah_id);
 
@@ -161,6 +162,30 @@ CREATE TABLE IF NOT EXISTS terms (
   CHECK (end_date >= start_date)
 );
 CREATE INDEX IF NOT EXISTS idx_terms_madrasah ON terms (madrasah_id);
+
+-- Qur'an progress, recorded on Daily records (server/routes/quran.js): one entry per
+-- student per day per kind — hifz sabaq / sabqi / manzil, nazira reading, qaida lesson.
+CREATE TABLE IF NOT EXISTS quran_progress (
+  id           BIGSERIAL PRIMARY KEY,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date         DATE NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('sabaq','sabqi','manzil','reading','lesson')),
+  from_surah   INTEGER, from_ayah INTEGER, to_surah INTEGER, to_ayah INTEGER,
+  lesson       TEXT NOT NULL DEFAULT '',
+  grade        TEXT CHECK (grade IN ('good','weak','repeat')),
+  note         TEXT NOT NULL DEFAULT '',
+  updated_at   TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE (student_id, date, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id);
+
+-- Juz a student had already memorised before records started here.
+CREATE TABLE IF NOT EXISTS quran_students (
+  student_id   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  prior_juz    INTEGER[] NOT NULL DEFAULT '{}'
+);
 
 -- AI requests per madrasah, counted on the platform owner's Madaaris page.
 CREATE TABLE IF NOT EXISTS ai_usage (

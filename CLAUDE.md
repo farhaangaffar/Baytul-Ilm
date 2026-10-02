@@ -75,6 +75,11 @@ codebase (one codebase, not a fork).
   (`currentReportPeriod()`, `periodForKey()`, `feesForReport()`) for ranges, labels and
   which fees belong on a report. The Terms section in Settings shows when fees or
   reports are termly.
+- Qur'an progress: a class's `quran_type` (hifz / nazira / qaida) decides what Daily
+  records shows (`src/components/QuranCards.js`). Hifz is recorded by **surah and ayah**
+  (sabaq / sabqi / manzil, graded good / weak / repeat); `src/lib/quran.js` holds the
+  surah and juz data and the progress maths (an ayah's position 0–6235). The AI report
+  summary is given exact Qur'an figures (`quranFactsForReport`).
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache

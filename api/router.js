@@ -15,6 +15,7 @@ const routes = {
   fees: require('../server/routes/fees'),
   login: require('../server/routes/login'),
   madaaris: require('../server/routes/madaaris'),
+  quran: require('../server/routes/quran'),
   logout: require('../server/routes/logout'),
   session: require('../server/routes/session'),
   settings: require('../server/routes/settings'),
