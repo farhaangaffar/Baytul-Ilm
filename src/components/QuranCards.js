@@ -130,15 +130,15 @@ function carryOnFrom(kind, date, entries) {
   return last ? nextStart(last) : null;
 }
 
-// Surah & ayah / Juz quarters switch.
+// Surah & ayah / Juz quarters switch — its own full-width line, two equal halves.
 function UnitToggle({ f, set }) {
   return (
-    <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
+    <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 3, marginBottom: 8 }}>
       {[['ayah', 'Surah & ayah'], ['quarter', 'Juz quarters']].map(([u, text]) => {
         const on = (f.unit || 'ayah') === u;
         return (
           <button key={u} type="button" onClick={() => !on && set(u === 'quarter' ? { unit: u, ...toQuarters(f) } : { unit: u })}
-            style={{ border: 'none', borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
+            style={{ flex: 1, border: 'none', borderRadius: 999, padding: '6px 10px', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
               background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--text-muted)', boxShadow: on ? 'var(--shadow-sm)' : 'none' }}>
             {text}
           </button>
@@ -231,11 +231,14 @@ function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
         </div>
         <div className="modal-body">
           {(label.quarters || next) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-              {next && <button type="button" className="btn btn-sm" onClick={carryOn}>Carry on from {surahName(next.surah)} {next.ayah}</button>}
-              <span style={{ flex: 1 }} />
+            <>
               {label.quarters && <UnitToggle f={f} set={set} />}
-            </div>
+              {next && (
+                <button type="button" className="btn btn-sm" onClick={carryOn} style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }}>
+                  Carry on from {surahName(next.surah)} {next.ayah}
+                </button>
+              )}
+            </>
           )}
           <EntryFields kind={kind} f={f} set={set} untilNew={untilNew}>
             <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
@@ -274,7 +277,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
             <label>Date</label>
             <input type="date" value={f.date} max={isoToday()} onChange={e => e.target.value && set({ date: e.target.value })} style={boxInput} />
           </div>
-          {(label.quarters || entry.unit === 'quarter') && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><UnitToggle f={f} set={set} /></div>}
+          {(label.quarters || entry.unit === 'quarter') && <UnitToggle f={f} set={set} />}
           <EntryFields kind={entry.kind} f={f} set={set} />
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
         </div>
