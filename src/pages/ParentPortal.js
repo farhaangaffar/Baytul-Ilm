@@ -6,6 +6,7 @@ import { money } from '../lib/branding';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import BoxRow from '../components/BoxRow';
 import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 // The parent portal: one page, made for a phone. A family login sees each of their
@@ -15,7 +16,6 @@ import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp } 
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const headerBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, border: 'none', borderRadius: 8, background: 'transparent', color: '#fff', opacity: 0.85, cursor: 'pointer', flexShrink: 0 };
-const STATUS = { P: ['Present', 'var(--green)'], L: ['Late', 'var(--amber)'], A: ['Absent', 'var(--red)'] };
 
 function Section({ title, children, right }) {
   return (
@@ -67,18 +67,18 @@ function OpenableSection({ title, summary, empty, children }) {
   );
 }
 
-// One month inside an open section: its totals, tapped open for the details.
-function MonthRow({ month, right, children }) {
+// One month inside an open section: a row of four boxes (the month, then its totals),
+// tapped open for a row per day or fee underneath.
+function MonthRow({ month, cells, children }) {
   const [open, setOpen] = useState(false);
+  const d = new Date(month + '-15T12:00:00');
   return (
-    <div style={{ borderTop: '1px solid var(--border)' }}>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', padding: '9px 0', cursor: 'pointer', fontFamily: 'var(--font)', color: 'var(--ink)', textAlign: 'left' }}>
-        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        <span style={{ fontWeight: 600, fontSize: 13.5, flex: 1 }}>{monthName(month)}</span>
-        {right}
+    <div style={{ marginBottom: open ? 12 : 0 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={monthName(month)}
+        style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font)', textAlign: 'left' }}>
+        <BoxRow cells={[{ header: true, open, text: d.toLocaleDateString('en-GB', { month: 'short' }), sub: String(d.getFullYear()) }, ...cells]} />
       </button>
-      {open && <div style={{ padding: '0 0 8px' }}>{children}</div>}
+      {open && <div style={{ marginTop: 2 }}>{children}</div>}
     </div>
   );
 }
@@ -92,29 +92,6 @@ function feeBoxLabel(f, terms) {
   return { text: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: 'Week' };
 }
 
-// One line of four equal boxes (a day's attendance, or one fee): the first names it,
-// the rest are the choices, with the one that applies filled in its colour.
-const TONES = { green: ['var(--green-light)', 'var(--green)', 'var(--green-text)'], amber: ['var(--amber-light)', 'var(--amber)', 'var(--amber-text)'], red: ['var(--red-light)', 'var(--red)', 'var(--red-text)'] };
-function BoxRow({ cells }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6, marginBottom: 6 }}>
-      {cells.map((c, i) => {
-        const [bg, border, text] = c.tone ? TONES[c.tone] : [];
-        const style = c.label
-          ? { background: '#f3f4f6', border: '1px solid transparent', color: 'var(--ink)', fontWeight: 600 }
-          : c.tone
-            ? { background: bg, border: `1px solid ${border}`, color: text, fontWeight: 700 }
-            : { background: '#fafbfc', border: '1px solid #dfe3e8', color: 'var(--text-muted)', fontWeight: 500 };
-        return (
-          <div key={i} style={{ ...style, borderRadius: 8, padding: '5px 2px', minHeight: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden' }}>
-            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.text}</div>
-            {c.sub && <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.sub}</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function AbsenceForm({ child, reasons, onSent }) {
   const [date, setDate] = useState(isoToday());
@@ -172,6 +149,7 @@ function ChildView({ child, reasons }) {
 
   const unpaid = data.fees.filter(f => f.status !== 'Paid');
   const owed = unpaid.reduce((t, f) => t + f.amount, 0);
+  const paidTotal = data.fees.filter(f => f.status === 'Paid').reduce((t, f) => t + f.amount, 0);
   const feesByMonth = byMonth(data.fees, f => f.weekStarting);
 
   async function download(r) {
@@ -190,17 +168,16 @@ function ChildView({ child, reasons }) {
   return (
     <>
       <OpenableSection title="Attendance" summary={
-        <Tiles items={[[count('P'), 'Present', 'var(--green)'], [count('L'), 'Late', 'var(--amber)'], [count('A'), 'Absent', 'var(--red)'], [pct === null ? '—' : `${pct}%`, 'This year']]} />
+        <Tiles items={[[count('P'), 'Present', 'var(--green)'], [count('L'), 'Late', 'var(--amber)'], [count('A'), 'Absent', 'var(--red)'], [pct === null ? '—' : `${pct}%`, 'Attended']]} />
       } empty={data.attendance.length === 0 && 'No attendance marked yet.'}>
         {attendanceByMonth.map(([month, days]) => {
           const n = s => days.filter(a => a.status === s).length;
           return (
-            <MonthRow key={month} month={month}
-              right={<span style={{ display: 'flex', gap: 10, fontSize: 12 }}>
-                {[['P', n('P')], ['L', n('L')], ['A', n('A')]].map(([s, v]) => (
-                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS[s][1] }} />{v}</span>
-                ))}
-              </span>}>
+            <MonthRow key={month} month={month} cells={[
+              { text: n('P'), sub: 'Present', tone: n('P') > 0 && 'green' },
+              { text: n('L'), sub: 'Late', tone: n('L') > 0 && 'amber' },
+              { text: n('A'), sub: 'Absent', tone: n('A') > 0 && 'red' },
+            ]}>
               {days.map(a => {
                 const d = new Date(a.date + 'T12:00:00');
                 return (
@@ -219,7 +196,7 @@ function ChildView({ child, reasons }) {
 
       <OpenableSection title="Fees" summary={
         <>
-          <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, unpaid.length === 1 ? 'Unpaid period' : 'Unpaid periods']]} />
+          <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, 'Unpaid'], [money(paidTotal), 'Paid', paidTotal > 0 ? 'var(--green)' : undefined], [data.fees.length - unpaid.length, 'Settled']]} />
           {data.fees.length > 0 && unpaid.length === 0 && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 4 }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
         </>
       } empty={data.fees.length === 0 && 'No fees yet.'}>
@@ -227,10 +204,11 @@ function ChildView({ child, reasons }) {
           const monthOwed = items.filter(f => f.status !== 'Paid').reduce((t, f) => t + f.amount, 0);
           const monthPaid = items.filter(f => f.status === 'Paid').reduce((t, f) => t + f.amount, 0);
           return (
-            <MonthRow key={month} month={month}
-              right={<span style={{ fontSize: 12, fontWeight: 600, color: monthOwed > 0 ? 'var(--red-text)' : 'var(--green-text)' }}>
-                {monthOwed > 0 ? `${money(monthOwed)} owed` : `${money(monthPaid)} paid`}
-              </span>}>
+            <MonthRow key={month} month={month} cells={[
+              { label: true, text: money(monthOwed + monthPaid), sub: 'Total' },
+              { text: money(monthPaid), sub: 'Paid', tone: monthPaid > 0 && 'green' },
+              { text: money(monthOwed), sub: 'Owed', tone: monthOwed > 0 && 'red' },
+            ]}>
               {items.map(f => (
                 <BoxRow key={f.id} cells={[
                   { label: true, ...feeBoxLabel(f, data.terms) },

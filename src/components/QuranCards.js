@@ -6,6 +6,7 @@ import {
   quarterStart, quarterEnd, quarterOf, QUARTER_NAMES, upToLabel,
 } from '../lib/quran';
 import { Check, Trash2, BookOpen, Pencil, X } from 'lucide-react';
+import BoxRow from './BoxRow';
 
 // Qur'an progress on a student's Daily records page: an entry card for one day
 // (sabaq / sabqi / manzil for hifz, reading for nazira, lesson for qaida) and a
@@ -297,10 +298,7 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
   );
 }
 
-function gradeDot(grade) {
-  const g = GRADES.find(x => x.key === grade);
-  return g ? <span title={g.label} style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: g.color, flexShrink: 0 }} /> : null;
-}
+const GRADE_TONES = { good: 'green', weak: 'amber', repeat: 'red' };
 
 // Newest first: by day, then by when it was recorded.
 const newestFirst = (a, b) => b.date.localeCompare(a.date) || Number(b.id || 0) - Number(a.id || 0);
@@ -395,18 +393,21 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
             Recent{canEdit && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}> · tap one to change it</span>}
           </div>
-          {recent.map(e => (
-            <div key={e.id || `${e.date}-${e.kind}`} onClick={canEdit ? () => setEditingEntry(e) : undefined} role={canEdit ? 'button' : undefined}
-              title={canEdit ? 'Change or delete this entry' : undefined}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5, cursor: canEdit ? 'pointer' : 'default' }}>
-              {gradeDot(e.grade)}
-              <span style={{ width: 70, flexShrink: 0, color: 'var(--text-muted)' }}>{fmtDate(e.date)}</span>
-              <span style={{ width: 56, flexShrink: 0, fontWeight: 600 }}>{KIND_LABELS[e.kind]?.name}</span>
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.note || undefined}>
-                {e.kind === 'lesson' ? e.lesson : rangeLabel(e)}{e.note ? <span className="text-muted"> — {e.note}</span> : null}
-              </span>
-            </div>
-          ))}
+          {recent.map(e => {
+            const d = new Date(e.date + 'T12:00:00');
+            const g = GRADES.find(x => x.key === e.grade);
+            return (
+              <div key={e.id || `${e.date}-${e.kind}`} onClick={canEdit ? () => setEditingEntry(e) : undefined} role={canEdit ? 'button' : undefined}
+                title={canEdit ? 'Change or delete this entry' : (e.note || undefined)} style={{ cursor: canEdit ? 'pointer' : 'default' }}>
+                <BoxRow columns="minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, 1fr)" cells={[
+                  { label: true, text: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: d.toLocaleDateString('en-GB', { weekday: 'short' }) },
+                  { label: true, text: KIND_LABELS[e.kind]?.name },
+                  { label: true, wrap: true, text: e.kind === 'lesson' ? e.lesson : rangeLabel(e).replace(/-/g, '\u2011').replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2'), sub: e.note || undefined }, // keep "An-Naba" and "1–20" whole
+                  { text: g ? g.label : '—', tone: g && GRADE_TONES[g.key] },
+                ]} />
+              </div>
+            );
+          })}
           {sorted.length > 8 && (
             <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
               {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
