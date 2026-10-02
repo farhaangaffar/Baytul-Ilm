@@ -180,6 +180,11 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
   const hasQuran = !!classType;
   const [quran, setQuran] = useState(null);
   const quranType = effectiveQuranType(classType, quran?.quranType);
+  // The day open in Input progress — today, or a past day picked from Progress → Recent.
+  const [quranDate, setQuranDate] = useState(isoToday());
+  const quranCardRef = useRef(null);
+  // Which previous summary is open (only its title shows otherwise).
+  const [openSummary, setOpenSummary] = useState(null);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
     try { setQuran(await getQuranProgress(student.id)); } catch { /* the rest of the page still works */ }
@@ -432,7 +437,8 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
 
       <div className="grid-2" style={{alignItems:'flex-start'}}>
         <div>
-          {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran} />}
+          {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran}
+            date={quranDate} onDateChange={setQuranDate} cardRef={quranCardRef} />}
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
               plain, calm, scannable history. Clicking any row in it (DayRow) just loads
@@ -548,7 +554,8 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
         </div>
 
         <div style={{position:'sticky',top:24}}>
-          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior />}
+          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
+            onPick={d => { setQuranDate(d); quranCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />}
           {isOwner && (<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
@@ -620,13 +627,22 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
           </div>
           {previousSummaries.length>0&&(
             <div className="card" style={{marginTop:14}}>
-              <div className="card-title" style={{marginBottom:12}}>Previous summaries</div>
-              {previousSummaries.map(s=>(
-                <div key={s.month} style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontWeight:600,fontSize:12,marginBottom:4}}>{periodForKey(s.month, terms).label}</div>
-                  <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{s.summary}</div>
-                </div>
-              ))}
+              <div className="card-title" style={{marginBottom:8}}>Previous summaries</div>
+              {/* Just the month/term each was written for — tap one to read it. */}
+              {previousSummaries.map(s=>{
+                const open = openSummary===s.month;
+                return (
+                  <div key={s.month} style={{borderTop:'1px solid var(--border)'}}>
+                    <button type="button" onClick={()=>setOpenSummary(open?null:s.month)} aria-expanded={open}
+                      style={{display:'flex',alignItems:'center',gap:6,width:'100%',background:'none',border:'none',padding:'9px 0',cursor:'pointer',fontFamily:'var(--font)',fontWeight:600,fontSize:13,color:'var(--ink)',textAlign:'left'}}>
+                      {open?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
+                      <span style={{flex:1}}>{periodForKey(s.month, terms).label}</span>
+                      {s.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{s.behavior}</span>}
+                    </button>
+                    {open&&<div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap',padding:'0 0 12px 20px'}}>{s.summary}</div>}
+                  </div>
+                );
+              })}
             </div>
           )}
           </>)}
