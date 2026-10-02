@@ -171,21 +171,23 @@ function keysFor(date) {
   return [date, monthKey, academicYearOfMonth(monthKey)];
 }
 
-function StudentRecords({ student, settings, classType, onBack, onRecordsChanged }) {
+function StudentRecords({ student, settings, classType, initialQuran, onQuranChanged, onBack, onRecordsChanged }) {
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
   const { isOwner } = useAuth();
   // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
   // Their level is their own if set, else their class's.
   const hasQuran = !!classType;
-  const [quran, setQuran] = useState(null);
-  const quranType = effectiveQuranType(classType, quran?.quranType);
+  // Starts from what the student list already loaded, so the page opens with the right
+  // level and cards straight away (no flash of the class default), then refreshes.
+  const [quran, setQuran] = useState(initialQuran || null);
+  const quranType = quran ? effectiveQuranType(classType, quran.quranType) : null;
   // Which previous summary is open (only its title shows otherwise).
   const [openSummary, setOpenSummary] = useState(null);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
-    try { setQuran(await getQuranProgress(student.id)); } catch { /* the rest of the page still works */ }
-  }, [hasQuran, student.id]);
+    try { const q = await getQuranProgress(student.id); setQuran(q); onQuranChanged?.(student.id, q); } catch { /* the rest of the page still works */ }
+  }, [hasQuran, student.id, onQuranChanged]);
   useEffect(() => { refreshQuran(); }, [refreshQuran]);
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
@@ -688,7 +690,10 @@ export default function DailyRecords() {
   const [attendance, setAttendance] = useState({});
   const [allRecords, setAllRecords] = useState({});
   const [classTypes, setClassTypes] = useState({}); // class name → 'hifz' | 'nazira' | 'qaida'
-  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz }
+  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz, quranType }
+  const [quranAllLoaded, setQuranAllLoaded] = useState(false);
+  // Keeps the list's copy current after changes made on a student's page.
+  const updateQuranFor = useCallback((id, q) => setQuranAll(prev => ({ ...prev, [id]: q })), []);
   const [activeClass, setActiveClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   // Opening a student's records used to leave the list scrolled back to the top on
@@ -719,7 +724,7 @@ export default function DailyRecords() {
       setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
       setAttendance(attendanceData); setAllRecords(recordsData); setClassTypes(types);
       // Qur'an progress only matters when some class tracks it; never blocks the page.
-      if (Object.keys(types).length) getQuranProgress().then(setQuranAll).catch(() => {});
+      if (Object.keys(types).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
     } catch (err) {
       setError(err);
@@ -736,7 +741,7 @@ export default function DailyRecords() {
   // — relying on the close path alone missed some route back to the list.
   const refreshCounts = useCallback(() => {
     getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
-    if (Object.keys(classTypes).length) getQuranProgress().then(setQuranAll).catch(() => {});
+    if (Object.keys(classTypes).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
   }, [classTypes]);
   const closeStudent = useBackToClose(!!selectedStudent, () => {
     setSelectedStudent(null);
@@ -749,7 +754,9 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]}
+          initialQuran={quranAll[selectedStudent.id] || (quranAllLoaded ? { entries: [], priorJuz: [], quranType: null } : null)} onQuranChanged={updateQuranFor}
+          onBack={closeStudent} onRecordsChanged={refreshCounts}/>
         :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords} classTypes={classTypes} quranAll={quranAll}/>
       }
     </Layout>

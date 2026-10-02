@@ -181,6 +181,16 @@ tbody tr:hover td { background: #f9fafb; }
 .entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .entity-card-name { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; }
 .entity-card-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 2px; }
+/* Classes & Teachers: small outlined cards, side by side as space allows, each with a
+   row of three boxes (InfoBox / LoginBox). */
+.box-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.box-card { border: 1px solid #dfe3e8; border-radius: 12px; padding: 10px; background: var(--surface); min-width: 0; }
+.box-card.is-dragging { opacity: 0.45; }
+.box-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.info-box { background: #f3f4f6; border-radius: 8px; padding: 6px; min-height: 46px; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 12.5px; line-height: 1.25; color: var(--ink); }
+.info-box-label { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+.info-box-button { border: 1px solid #dfe3e8; background: #fff; cursor: pointer; font-family: var(--font); }
+.info-box-button:hover { border-color: #c5ccd5; }
 .entity-card.is-dragging, .card.is-dragging { opacity: 0.45; box-shadow: var(--shadow-sm); transform: scale(0.98); }
 .drag-handle { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin: -4px -4px -4px 0; border-radius: 8px; color: var(--text-soft); flex-shrink: 0; touch-action: none; }
 .drag-handle:hover { background: #f3f4f6; color: var(--text-muted); }

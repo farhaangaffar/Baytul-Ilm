@@ -140,36 +140,25 @@ export default function ClassesTeachers() {
           ) : (<>
             {/* One small card per class — name and Qur'an level on top, then teacher /
                 students / class login as three boxes; side by side on wider screens. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 10 }}>
-              {classes.map(c => {
-                const login = logins.find(l => l.classId === c.id);
-                const box = { background: '#f3f4f6', borderRadius: 8, padding: '6px 6px', minHeight: 46, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center', fontSize: 12.5, lineHeight: 1.25 };
-                const sub = { fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 };
-                return (
-                  <div key={c.id} style={{ border: '1px solid #dfe3e8', borderRadius: 12, padding: 10 }}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        {c.name}
-                        {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal">{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]}</span>}
-                      </div>
-                      <button className="btn btn-icon btn-sm" title="Edit class" onClick={() => setClassModal({ ...c })}><Pencil size={13} /></button>
-                      <button className="btn btn-icon btn-sm" title="Delete class" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}><Trash2 size={13} /></button>
+            <div className="box-card-grid">
+              {classes.map(c => (
+                <div key={c.id} className="box-card">
+                  <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {c.name}
+                      {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal">{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]}</span>}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
-                      <div style={box}><div style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{teacherName(c.teacherId)}</div><div style={sub}>Teacher</div></div>
-                      <div style={box}><div style={{ fontWeight: 600 }}>{studentCountForClass(c.name)}</div><div style={sub}>Students</div></div>
-                      <button type="button" onClick={() => setLoginModal({ kind: 'class', item: c })} title="One shared login for this class — whoever teaches it that day can sign in"
-                        style={{ ...box, border: '1px solid #dfe3e8', background: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', color: 'var(--ink)' }}>
-                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 0 }}>
-                          <KeyRound size={12} style={{ flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.login : 'Set up'}</span>
-                        </div>
-                        <div style={sub}>{login ? (login.active ? 'Class login' : 'Login off') : 'Class login'}</div>
-                      </button>
-                    </div>
+                    <button className="btn btn-icon btn-sm" title="Edit class" onClick={() => setClassModal({ ...c })}><Pencil size={13} /></button>
+                    <button className="btn btn-icon btn-sm" title="Delete class" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}><Trash2 size={13} /></button>
                   </div>
-                );
-              })}
+                  <div className="box-row-3">
+                    <InfoBox value={teacherName(c.teacherId)} label="Teacher" />
+                    <InfoBox value={studentCountForClass(c.name)} label="Students" />
+                    <LoginBox login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
+                      title="One shared login for this class — whoever teaches it that day can sign in" />
+                  </div>
+                </div>
+              ))}
             </div>
           </>)}
         </div>
@@ -197,7 +186,7 @@ export default function ClassesTeachers() {
             <ReorderableGrid
               items={teachers}
               getId={t => t.id}
-              className="entity-grid"
+              className="box-card-grid"
               onReordered={async ids => {
                 setTeachers(prev => ids.map(id => prev.find(t => t.id === id)).filter(Boolean));
                 try { await reorderTeachers(ids); }
@@ -207,24 +196,19 @@ export default function ClassesTeachers() {
                 const login = logins.find(l => l.teacherId === t.id);
                 const theirClasses = classes.filter(c => c.teacherId === t.id).map(c => c.name);
                 const subjects = (t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean);
-                const row = (label, content) => (
-                  <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 8, alignItems: 'baseline', padding: '7px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
-                    <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{content}</div>
-                  </div>
-                );
+                const contact = [t.phone, t.email].filter(Boolean).join(' · ');
                 return (
-                  <div key={t.id} className={`entity-card ${isDragging ? 'is-dragging' : ''}`} style={{ cursor: 'default' }} {...cardAttrs}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+                  <div key={t.id} className={`box-card ${isDragging ? 'is-dragging' : ''}`} {...cardAttrs}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
                       {teachers.length > 1 && (
-                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 0 0 -8px' }}><GripVertical size={15} /></div>
+                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 -4px 0 -6px' }}><GripVertical size={15} /></div>
                       )}
-                      <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>
+                      <div className="avatar" style={{ width: 30, height: 30, fontSize: 11, flexShrink: 0 }}>
                         {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="entity-card-name">{t.name}</div>
-                        <div className="entity-card-sub">{theirClasses.length ? theirClasses.join(', ') : 'No class assigned'}</div>
+                        <div style={{ fontWeight: 600, fontSize: 14.5 }}>{t.name}</div>
+                        {contact && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>{contact}</div>}
                       </div>
                       <button className="btn btn-icon btn-sm" title="Edit teacher" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
                         <Pencil size={13} />
@@ -233,15 +217,11 @@ export default function ClassesTeachers() {
                         <Trash2 size={13} />
                       </button>
                     </div>
-                    {row('Subjects', subjects.length
-                      ? <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{subjects.map(s => <span key={s} className="badge badge-gray" style={{ whiteSpace: 'nowrap' }}>{s}</span>)}</div>
-                      : <span className="text-muted">—</span>)}
-                    {row('Contact', (t.phone || t.email)
-                      ? <>{t.phone && <div>{t.phone}</div>}{t.email && <div className="text-muted">{t.email}</div>}</>
-                      : <span className="text-muted">—</span>)}
-                    {row('Login', (
-                      <LoginButton login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
-                    ))}
+                    <div className="box-row-3">
+                      <InfoBox value={theirClasses.length ? theirClasses.join(', ') : '—'} label={theirClasses.length === 1 ? 'Class' : 'Classes'} />
+                      <InfoBox value={subjects.length ? subjects.join(', ') : '—'} label="Subjects" />
+                      <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
+                    </div>
                   </div>
                 );
               }}
@@ -411,13 +391,25 @@ function TeacherModal({ initial, onClose, onSave }) {
   );
 }
 
-// The button on a teacher card or class row that opens its login.
-function LoginButton({ login, onClick, title }) {
+// One grey box on a class or teacher card: a value with its label underneath.
+function InfoBox({ value, label }) {
   return (
-    <button className="btn btn-sm" onClick={onClick} title={title} style={{ maxWidth: '100%' }}>
-      <KeyRound size={12} style={{ flexShrink: 0 }} />
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.login : 'Set up login'}</span>
-      {login && !login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}
+    <div className="info-box">
+      <div style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{value}</div>
+      <div className="info-box-label">{label}</div>
+    </div>
+  );
+}
+
+// The box on a teacher or class card that opens its login.
+function LoginBox({ login, onClick, title }) {
+  return (
+    <button type="button" className="info-box info-box-button" onClick={onClick} title={title}>
+      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 0, maxWidth: '100%' }}>
+        <KeyRound size={12} style={{ flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.login : 'Set up'}</span>
+      </div>
+      <div className="info-box-label">{login && !login.active ? 'Login off' : 'Login'}</div>
     </button>
   );
 }
