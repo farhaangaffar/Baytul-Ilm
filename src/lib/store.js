@@ -317,6 +317,10 @@ export async function saveQuranEntry(entry) { return apiFetch('/api/quran', { me
 export async function deleteQuranEntry(studentId, date, kind) {
   return apiFetch('/api/quran', { method: 'DELETE', body: JSON.stringify({ studentId, date, kind }) });
 }
+// A student's own Qur'an level ('hifz' | 'nazira' | 'qaida'), or null to follow their class.
+export async function saveStudentQuranType(studentId, quranType) {
+  return apiFetch('/api/quran?action=type', { method: 'PUT', body: JSON.stringify({ studentId, quranType }) });
+}
 export async function savePriorJuz(studentId, priorJuz) {
   return apiFetch('/api/quran?action=prior', { method: 'PUT', body: JSON.stringify({ studentId, priorJuz }) });
 }
@@ -478,6 +482,7 @@ export async function importAllData(payload) {
   }
   for (const [studentId, q] of Object.entries(quran || {})) {
     if (q.priorJuz?.length) await savePriorJuz(studentId, q.priorJuz);
+    if (q.quranType) await saveStudentQuranType(studentId, q.quranType);
     for (const e of q.entries || []) await saveQuranEntry(e);
   }
 }

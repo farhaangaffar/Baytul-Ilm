@@ -1,15 +1,17 @@
 const { query } = require('../db');
 const { requireAuth, isOwner, teacherClassNames } = require('../auth');
 
-// quran_type: what the class studies — 'hifz' | 'nazira' | 'qaida', or null for none —
-// which decides the Qur'an progress fields on Daily records (server/routes/quran.js).
+// quran_type: what the class studies — 'hifz' | 'nazira' | 'qaida', 'mixed' (each
+// student's level is set individually), or null for none. It decides the Qur'an
+// progress fields on Daily records; a student's own level (quran_students.quran_type,
+// server/routes/quran.js) overrides it.
 let columnsReady = false;
 async function ensureColumns() {
   if (columnsReady) return;
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS quran_type TEXT');
   columnsReady = true;
 }
-const QURAN_TYPES = ['hifz', 'nazira', 'qaida'];
+const QURAN_TYPES = ['hifz', 'nazira', 'qaida', 'mixed'];
 const COLS = 'id, name, teacher_id AS "teacherId", quran_type AS "quranType"';
 
 // A class's teacher must be one of the same madrasah's teachers.

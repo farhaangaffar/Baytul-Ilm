@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { saveQuranEntry, deleteQuranEntry, savePriorJuz } from '../lib/store';
+import { saveQuranEntry, deleteQuranEntry, savePriorJuz, saveStudentQuranType } from '../lib/store';
 import {
   SURAHS, ayahCount, surahName, rangeLabel, nextStart, hifzProgress, juzOf,
   QURAN_TYPES, KIND_LABELS, GRADES, ayahsMemorisedBetween,
@@ -170,19 +170,64 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
   );
 }
 
-// The day's Qur'an entries for one student.
-export function QuranEntryCard({ student, type, data, onChanged }) {
+// The student's Qur'an level — Hifz / Nazira / Qaida. Teachers change it as a child moves
+// up; in a mixed class it's chosen here the first time.
+function LevelPicker({ student, type, classType, data, onChanged, onError }) {
+  const [busy, setBusy] = useState(false);
+  const own = data?.quranType || null;
+  async function pick(next) {
+    // Choosing the class's own level clears the student's override.
+    const value = next === classType ? null : next;
+    if (value === own) return;
+    setBusy(true);
+    try { await saveStudentQuranType(student.id, value); await onChanged(); }
+    catch (err) { onError(err.message || 'Could not change the level'); }
+    setBusy(false);
+  }
+  return (
+    <div style={{ display: 'flex', gap: 4, background: '#eef1f5', borderRadius: 999, padding: 2 }} aria-label="Qur'an level">
+      {Object.entries(QURAN_TYPES).map(([k, t]) => {
+        const on = type === k;
+        return (
+          <button key={k} type="button" disabled={busy} onClick={() => pick(k)}
+            style={{ border: 'none', borderRadius: 999, padding: '4px 11px', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
+              background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--text-muted)', boxShadow: on ? 'var(--shadow-sm)' : 'none' }}>
+            {t.label.split(' ')[0]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// The day's Qur'an entries for one student. `type` is the student's level (their own, or
+// their class's); `classType` is the class setting (possibly 'mixed').
+export function QuranEntryCard({ student, type, classType, data, onChanged }) {
   const [date, setDate] = useState(isoToday());
   const [error, setError] = useState('');
   const kinds = QURAN_TYPES[type]?.kinds || [];
   const entries = data?.entries || [];
+  const header = (
+    <div className="flex items-center gap-2" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
+      <BookOpen size={15} style={{ color: 'var(--teal-dark)' }} />
+      <div className="card-title" style={{ marginBottom: 0, flex: 1 }}>Qur'an</div>
+      {data && <LevelPicker student={student} type={type} classType={classType} data={data} onChanged={onChanged} onError={setError} />}
+    </div>
+  );
+  // Mixed class and no level chosen for this student yet.
+  if (data && !type) {
+    return (
+      <div className="card mb-4">
+        {header}
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose whether {student.forename} is doing Hifz, Nazira or Qaida — you can change it later as they move up.</div>
+        {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
+      </div>
+    );
+  }
   return (
     <div className="card mb-4">
-      <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
-        <BookOpen size={15} style={{ color: 'var(--teal-dark)' }} />
-        <div className="card-title" style={{ marginBottom: 0, flex: 1 }}>Qur'an — {QURAN_TYPES[type]?.label}</div>
-        {date === isoToday() && <span className="badge badge-teal">Today</span>}
-      </div>
+      {header}
+      {date === isoToday() && <div style={{ marginBottom: 6 }}><span className="badge badge-teal">Today</span></div>}
       <input type="date" value={date} max={isoToday()} onChange={e => e.target.value && setDate(e.target.value)}
         style={{ ...inputStyle, width: '100%', marginBottom: 4, border: '1px solid var(--border)', background: '#fff' }} />
       {/* Rows wait for the history to load, so their prefilled positions carry on from it. */}

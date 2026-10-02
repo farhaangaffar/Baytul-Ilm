@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { QuranEntryCard, QuranProgressCard, quranFactsForReport } from '../components/QuranCards';
-import { rangeLabel, upToLabel, QURAN_TYPES } from '../lib/quran';
+import { rangeLabel, upToLabel, effectiveQuranType } from '../lib/quran';
 import { getClasses, getQuranProgress, getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, attendanceCountsForMonth, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, getTerms, currentSchoolMonthKey as currentMonth } from '../lib/store';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { checkSummaryFit } from '../lib/summaryFit';
@@ -121,7 +121,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               onMouseLeave={e=>e.currentTarget.style.boxShadow=''}>
               <div style={{marginBottom:12}}>
                 <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
-                <div className="text-muted text-sm">{quranUpTo(classTypes[s.class], quranAll[s.id]) || s.class}</div>
+                <div className="text-muted text-sm">{quranUpTo(effectiveQuranType(classTypes[s.class], quranAll[s.id]?.quranType), quranAll[s.id]) || s.class}</div>
               </div>
               {/* Neutral tile + colored corner dot — same language as the Fees week-pills
                   and Attendance mark buttons, rather than a solid-colored tile per stat. */}
@@ -171,13 +171,15 @@ function keysFor(date) {
   return [date, monthKey, academicYearOfMonth(monthKey)];
 }
 
-function StudentRecords({ student, settings, quranType, onBack, onRecordsChanged }) {
+function StudentRecords({ student, settings, classType, onBack, onRecordsChanged }) {
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
   const { isOwner } = useAuth();
-  // Qur'an progress, when the student's class is a hifz / nazira / qaida class.
-  const hasQuran = !!QURAN_TYPES[quranType];
+  // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
+  // Their level is their own if set, else their class's.
+  const hasQuran = !!classType;
   const [quran, setQuran] = useState(null);
+  const quranType = effectiveQuranType(classType, quran?.quranType);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
     try { setQuran(await getQuranProgress(student.id)); } catch { /* the rest of the page still works */ }
@@ -337,7 +339,7 @@ function StudentRecords({ student, settings, quranType, onBack, onRecordsChanged
       const attendanceForYear = await getAttendance(year);
       const counts = termly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
       // Qur'an progress for the period, as exact figures the summary can quote.
-      const quranFacts = hasQuran ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
+      const quranFacts = quranType ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
       const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\n${quranFacts}` : ''}\n\n${entries}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Cover: overall attitude and behaviour, ${quranFacts ? "their Qur'an progress (quote the figures above accurately), " : ''}key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
@@ -430,7 +432,7 @@ function StudentRecords({ student, settings, quranType, onBack, onRecordsChanged
 
       <div className="grid-2" style={{alignItems:'flex-start'}}>
         <div>
-          {hasQuran && <QuranEntryCard student={student} type={quranType} data={quran} onChanged={refreshQuran} />}
+          {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran} />}
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
               plain, calm, scannable history. Clicking any row in it (DayRow) just loads
@@ -546,7 +548,7 @@ function StudentRecords({ student, settings, quranType, onBack, onRecordsChanged
         </div>
 
         <div style={{position:'sticky',top:24}}>
-          {hasQuran && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior />}
+          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior />}
           {isOwner && (<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
@@ -732,7 +734,7 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} quranType={classTypes[selectedStudent.class]} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
         :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords} classTypes={classTypes} quranAll={quranAll}/>
       }
     </Layout>
