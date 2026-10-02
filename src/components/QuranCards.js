@@ -504,7 +504,7 @@ export function quranFactsForReport(type, data, period) {
   const graded = k => {
     const list = inPeriod.filter(e => e.kind === k);
     const count = g => list.filter(e => e.grade === g).length;
-    return list.length ? `${list.length} ${KIND_LABELS[k].name} (${KIND_LABELS[k].hint.toLowerCase()}) sessions (${count('good')} good, ${count('weak')} weak, ${count('repeat')} to repeat)` : '';
+    return list.length ? `${list.length} ${KIND_LABELS[k].name} (${KIND_LABELS[k].hint}) sessions (${count('good')} good, ${count('weak')} weak, ${count('repeat')} to repeat)` : '';
   };
   if (type === 'hifz') {
     const p = hifzProgress(entries, data.priorJuz || []);

@@ -227,7 +227,7 @@ export const KIND_LABELS = {
   sabaq: { name: 'Hifdh Jadeed', hint: 'New lesson', quarters: false },
   sabqi: { name: "Muraaja'ah Qareebah", hint: 'Recent revision', quarters: true },
   manzil: { name: "Muraaja'ah", hint: 'Older revision', quarters: true },
-  reading: { name: 'Naazhirah', hint: 'Where they read to', quarters: true },
+  reading: { name: 'Naazhirah', hint: "Qur'an reading", quarters: true },
   lesson: { name: "Qaa'idah", hint: 'Lesson / page', quarters: false },
 };
 
