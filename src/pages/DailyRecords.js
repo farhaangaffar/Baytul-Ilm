@@ -436,6 +436,8 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
         <div>
           {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran}
  />}
+          {/* On phones, Progress sits right under Input progress (on wider screens it's in the right column). */}
+          {quranType && <div className="only-narrow"><QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior canEdit /></div>}
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
               plain, calm, scannable history. Clicking any row in it (DayRow) just loads
@@ -551,8 +553,8 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
         </div>
 
         <div style={{position:'sticky',top:24}}>
-          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
-            canEdit />}
+          {quranType && <div className="only-wide"><QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
+            canEdit /></div>}
           {isOwner && (<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>

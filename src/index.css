@@ -422,6 +422,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
    column's content off-screen on narrower-but-not-mobile viewports (e.g. an
    unfolded Z Fold). min-width:0 lets tracks actually shrink to fit. */
 .grid-2 > * { min-width: 0; }
+/* Shown only on phones / only on wider screens (the 768px breakpoint below). */
+.only-narrow { display: none; }
 
 /* Reports page — the "select a student" / "student header + history" panels
    unified into one card split down the middle, rather than two separate
@@ -480,6 +482,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
   .metrics-grid { grid-template-columns: repeat(2,1fr); }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .only-narrow { display: block; }
+  .only-wide { display: none; }
   .record-panels { grid-template-columns: 1fr; }
   .modal-overlay { padding: 10px; align-items: flex-end; backdrop-filter: none; }
   .modal { max-height: 95vh; max-height: 95dvh; border-radius: 20px 20px 0 0; }

@@ -381,7 +381,7 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
   const entries = data?.entries || [];
   const priorJuz = data?.priorJuz || [];
   const sorted = [...entries].sort(newestFirst);
-  const recent = showAll ? sorted : sorted.slice(0, 8);
+  const recent = showAll ? sorted : sorted.slice(0, 3);
 
   async function togglePrior(j) {
     const next = priorJuz.includes(j) ? priorJuz.filter(x => x !== j) : [...priorJuz, j];
@@ -476,7 +476,7 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
               </div>
             );
           })}
-          {sorted.length > 8 && (
+          {sorted.length > 3 && (
             <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
               {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
             </button>
