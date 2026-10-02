@@ -137,8 +137,41 @@ export default function ClassesTeachers() {
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
               No classes yet — click "Add class" to create one.
             </div>
-          ) : (
-            <div className="table-wrap">
+          ) : (<>
+            {/* Phones: one small card per class — name and Qur'an level on top, then
+                teacher / students / class login as three boxes. No sideways scrolling. */}
+            <div className="only-narrow">
+              {classes.map(c => {
+                const login = logins.find(l => l.classId === c.id);
+                const box = { background: '#f3f4f6', borderRadius: 8, padding: '6px 6px', minHeight: 46, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center', fontSize: 12.5, lineHeight: 1.25 };
+                const sub = { fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 };
+                return (
+                  <div key={c.id} style={{ border: '1px solid #dfe3e8', borderRadius: 12, padding: 10, marginBottom: 8 }}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        {c.name}
+                        {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal">{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]}</span>}
+                      </div>
+                      <button className="btn btn-icon btn-sm" title="Edit class" onClick={() => setClassModal({ ...c })}><Pencil size={13} /></button>
+                      <button className="btn btn-icon btn-sm" title="Delete class" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}><Trash2 size={13} /></button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+                      <div style={box}><div style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{teacherName(c.teacherId)}</div><div style={sub}>Teacher</div></div>
+                      <div style={box}><div style={{ fontWeight: 600 }}>{studentCountForClass(c.name)}</div><div style={sub}>Students</div></div>
+                      <button type="button" onClick={() => setLoginModal({ kind: 'class', item: c })} title="One shared login for this class — whoever teaches it that day can sign in"
+                        style={{ ...box, border: '1px solid #dfe3e8', background: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', color: 'var(--ink)' }}>
+                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 0 }}>
+                          <KeyRound size={12} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.login : 'Set up'}</span>
+                        </div>
+                        <div style={sub}>{login ? (login.active ? 'Class login' : 'Login off') : 'Class login'}</div>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="table-wrap only-wide">
               <table>
                 <thead>
                   <tr>
@@ -177,7 +210,7 @@ export default function ClassesTeachers() {
                 </tbody>
               </table>
             </div>
-          )}
+          </>)}
         </div>
       )}
 
