@@ -92,19 +92,22 @@ function defaultsFor(kind, date, entries) {
   return fit({ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, grade: null, note: '', unit });
 }
 
+// One kind (sabaq / sabqi / …) for one day. Not recorded yet: the inputs, prefilled to
+// carry on from last time. Recorded: a one-line summary — the inputs clear away, like a
+// finished day on Add day — with Edit to correct a mistake and the bin to remove it.
 function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }) {
   const initial = () => existing ? { ...existing } : defaultsFor(kind, date, entries);
   const [f, setF] = useState(initial);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [editing, setEditing] = useState(!existing);
   // Reload when the day or the saved entry changes.
-  useEffect(() => { setF(initial()); setDirty(false); }, [date, existing?.date, existing?.grade, existing?.toAyah, existing?.toSurah, existing?.lesson, existing?.note, existing?.unit]);
-  const set = patch => { setF(prev => ({ ...prev, ...patch })); setDirty(true); };
+  useEffect(() => { setF(initial()); setEditing(!existing); }, [date, existing?.date, existing?.grade, existing?.toAyah, existing?.toSurah, existing?.lesson, existing?.note, existing?.unit]);
+  const set = patch => setF(prev => ({ ...prev, ...patch }));
   const label = KIND_LABELS[kind];
 
   async function save() {
     setSaving(true);
-    try { await saveQuranEntry({ studentId, date, kind, ...f }); setDirty(false); await onSaved(); }
+    try { await saveQuranEntry({ studentId, date, kind, ...f }); setEditing(false); await onSaved(); }
     catch (err) { onError(err.message || 'Could not save'); }
     setSaving(false);
   }
@@ -115,12 +118,30 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
     setSaving(false);
   }
 
+  if (existing && !editing) {
+    const g = GRADES.find(x => x.key === existing.grade);
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
+        <Check size={14} style={{ color: 'var(--green)', flexShrink: 0 }} />
+        <span style={{ fontWeight: 700, width: 58, flexShrink: 0 }}>{label.name}</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          {kind === 'lesson' ? existing.lesson : rangeLabel(existing)}
+          {g && <span style={{ color: g.text, fontWeight: 600 }}> · {g.label}</span>}
+          {existing.note && <span className="text-muted"> — {existing.note}</span>}
+        </span>
+        <button className="btn btn-sm" onClick={() => setEditing(true)} disabled={saving}><Pencil size={12} />Edit</button>
+        <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} title={`Remove ${label.name.toLowerCase()} for this day`} onClick={remove} disabled={saving}>
+          <Trash2 size={13} />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label.name}</span>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
-        {existing && !dirty && <span className="badge badge-green"><Check size={11} />Saved</span>}
         {kind !== 'lesson' && (
           // Record by surah and ayah, or in juz quarters.
           <div style={{ marginLeft: 'auto', display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
@@ -158,11 +179,9 @@ function EntryRow({ studentId, kind, date, existing, entries, onSaved, onError }
         <input value={f.note || ''} onChange={e => set({ note: e.target.value })} placeholder="Note (optional)"
           style={{ ...inputStyle, flex: 1 }} />
         {existing && (
-          <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} title={`Remove ${label.name.toLowerCase()} for this day`} onClick={remove} disabled={saving}>
-            <Trash2 size={13} />
-          </button>
+          <button className="btn btn-sm" onClick={() => { setF(initial()); setEditing(false); }} disabled={saving}>Cancel</button>
         )}
-        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving || (existing && !dirty)}>
+        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
@@ -200,24 +219,27 @@ function LevelPicker({ student, type, classType, data, onChanged, onError }) {
   );
 }
 
-// The day's Qur'an entries for one student. `type` is the student's level (their own, or
-// their class's); `classType` is the class setting (possibly 'mixed').
-export function QuranEntryCard({ student, type, classType, data, onChanged }) {
-  const [date, setDate] = useState(isoToday());
+// "Input progress": the day's entries for one student. `type` is the student's level (their
+// own, or their class's); `classType` is the class setting (possibly 'mixed'). The date
+// can be controlled from outside (tapping a past entry under Progress → Recent opens it here).
+export function QuranEntryCard({ student, type, classType, data, onChanged, date: dateProp, onDateChange, cardRef }) {
+  const [ownDate, setOwnDate] = useState(isoToday());
+  const date = dateProp ?? ownDate;
+  const setDate = onDateChange ?? setOwnDate;
   const [error, setError] = useState('');
   const kinds = QURAN_TYPES[type]?.kinds || [];
   const entries = data?.entries || [];
   const header = (
     <div className="flex items-center gap-2" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
       <BookOpen size={15} style={{ color: 'var(--teal-dark)' }} />
-      <div className="card-title" style={{ marginBottom: 0, flex: 1 }}>Qur'an</div>
+      <div className="card-title" style={{ marginBottom: 0, flex: 1 }}>Input progress</div>
       {data && <LevelPicker student={student} type={type} classType={classType} data={data} onChanged={onChanged} onError={setError} />}
     </div>
   );
   // Mixed class and no level chosen for this student yet.
   if (data && !type) {
     return (
-      <div className="card mb-4">
+      <div className="card mb-4" ref={cardRef}>
         {header}
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose whether {student.forename} is doing Hifz, Nazira or Qaida — you can change it later as they move up.</div>
         {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
@@ -225,7 +247,7 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
     );
   }
   return (
-    <div className="card mb-4">
+    <div className="card mb-4" ref={cardRef}>
       {header}
       {date === isoToday() && <div style={{ marginBottom: 6 }}><span className="badge badge-teal">Today</span></div>}
       <input type="date" value={date} max={isoToday()} onChange={e => e.target.value && setDate(e.target.value)}
@@ -247,8 +269,9 @@ function gradeDot(grade) {
   return g ? <span title={g.label} style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: g.color, flexShrink: 0 }} /> : null;
 }
 
-// Where a student is up to, with the 30-juz bar for hifz.
-export function QuranProgressCard({ student, type, data, onChanged, canEditPrior }) {
+// Where a student is up to, with the 30-juz bar for hifz. With `onPick`, each Recent entry
+// can be tapped to open that day in Input progress (to correct it).
+export function QuranProgressCard({ student, type, data, onChanged, canEditPrior, onPick }) {
   const [editingPrior, setEditingPrior] = useState(false);
   const [error, setError] = useState('');
   const entries = data?.entries || [];
@@ -325,14 +348,18 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
 
   return (
     <div className="card mb-4">
-      <div className="card-title" style={{ marginBottom: 12 }}>Qur'an progress</div>
+      <div className="card-title" style={{ marginBottom: 12 }}>Progress</div>
       {headline}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
       {recent.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Recent</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+            Recent{onPick && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}> · tap one to change it</span>}
+          </div>
           {recent.map(e => (
-            <div key={`${e.date}-${e.kind}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5 }}>
+            <div key={`${e.date}-${e.kind}`} onClick={onPick ? () => onPick(e.date) : undefined} role={onPick ? 'button' : undefined}
+              title={onPick ? 'Open this day in Input progress' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5, cursor: onPick ? 'pointer' : 'default' }}>
               {gradeDot(e.grade)}
               <span style={{ width: 70, flexShrink: 0, color: 'var(--text-muted)' }}>{fmtDate(e.date)}</span>
               <span style={{ width: 56, flexShrink: 0, fontWeight: 600 }}>{KIND_LABELS[e.kind]?.name}</span>
