@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addQuranEntry, updateQuranEntry, deleteQuranEntry, savePriorJuz, saveStudentQuranType } from '../lib/store';
 import {
   SURAHS, ayahCount, surahName, rangeLabel, nextStart, hifzProgress, juzOf,
@@ -188,19 +188,13 @@ function missing(kind, f) {
   return filled(f) ? '' : (f.unit === 'quarter' ? 'Choose the juz and quarter for From and To.' : 'Choose the surah and ayah for From and To.');
 }
 
-// One kind (sabaq / sabqi / …) on Input progress. Always a new, empty entry; saving adds
-// it (a day can have several of a kind) and the row clears for the next one. Recorded
-// entries are changed from Progress → Recent.
-function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
+// Pop-up for recording one new entry of a kind (opened from a row on Input progress).
+// Starts empty; "Carry on from" / "Until new lesson" fill it in from the history.
+function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
   const [f, setF] = useState(() => blankFor(kind, entries));
   const [saving, setSaving] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
-  // A new day starts empty.
-  const shownDate = useRef(date);
-  useEffect(() => {
-    if (shownDate.current !== date) { shownDate.current = date; setF(blankFor(kind, entries)); setJustSaved(false); }
-  }, [kind, date, entries]);
-  const set = patch => { setF(prev => ({ ...prev, ...patch })); setJustSaved(false); };
+  const [error, setError] = useState('');
+  const set = patch => { setF(prev => ({ ...prev, ...patch })); setError(''); };
   const label = KIND_LABELS[kind];
   const next = blank(f.fromSurah) ? carryOnFrom(kind, date, entries) : null;
   const untilNew = untilNewLesson(kind, date, entries);
@@ -214,35 +208,40 @@ function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
 
   async function save() {
     const why = missing(kind, f);
-    if (why) { onError(why); return; }
+    if (why) { setError(why); return; }
     setSaving(true);
     try {
       // "Until new lesson" ends mid-quarter, so that entry is kept by surah and ayah.
       const { toUntilNew, ...entry } = f;
       await addQuranEntry({ studentId, date, kind, ...entry, unit: toUntilNew ? 'ayah' : entry.unit });
-      setF(prev => ({ ...blankFor(kind, entries), unit: prev.unit })); // clear for the next entry
-      setJustSaved(true); await onSaved();
-    } catch (err) { onError(err.message || 'Could not save'); }
-    setSaving(false);
+      await onSaved(); onClose();
+    } catch (err) { setError(err.message || 'Could not save'); setSaving(false); }
   }
 
   return (
-    <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label.name}</span>
-        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
-        {justSaved && <span className="badge badge-green"><Check size={11} />Recorded</span>}
-        <span style={{ flex: 1 }} />
-        {label.quarters && <UnitToggle f={f} set={set} />}
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
+      <div className="modal" style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">{label.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label.hint} · {date === isoToday() ? 'today' : fmtDate(date)}</div>
+          </div>
+          <button className="btn btn-icon" onClick={onClose} disabled={saving}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          {(label.quarters || next) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              {next && <button type="button" className="btn btn-sm" onClick={carryOn}>Carry on from {surahName(next.surah)} {next.ayah}</button>}
+              <span style={{ flex: 1 }} />
+              {label.quarters && <UnitToggle f={f} set={set} />}
+            </div>
+          )}
+          <EntryFields kind={kind} f={f} set={set} untilNew={untilNew}>
+            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
+          </EntryFields>
+          {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+        </div>
       </div>
-      {next && (
-        <button type="button" className="btn btn-sm" onClick={carryOn} style={{ marginBottom: 6 }}>
-          Carry on from {surahName(next.surah)} {next.ayah}
-        </button>
-      )}
-      <EntryFields kind={kind} f={f} set={set} untilNew={untilNew}>
-        <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
-      </EntryFields>
     </div>
   );
 }
@@ -330,6 +329,7 @@ function LevelPicker({ student, type, classType, data, onChanged, onError }) {
 export function QuranEntryCard({ student, type, classType, data, onChanged }) {
   const [date, setDate] = useState(isoToday());
   const [error, setError] = useState('');
+  const [adding, setAdding] = useState(null); // the kind whose pop-up is open
   const kinds = QURAN_TYPES[type]?.kinds || [];
   const entries = data?.entries || [];
   const header = (
@@ -350,18 +350,49 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
     );
   }
   return (
-    <div className="card mb-4">
+    <div className="card mb-4 entry-card">
       {header}
-      {date === isoToday() && <div style={{ marginBottom: 6 }}><span className="badge badge-teal">Today</span></div>}
-      <input type="date" value={date} max={isoToday()} onChange={e => e.target.value && setDate(e.target.value)}
-        style={{ ...boxInput, background: '#fff', marginBottom: 4 }} />
-      {/* Rows wait for the history to load (for "Carry on from" and the last way of recording). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <input type="date" value={date} max={isoToday()} onChange={e => e.target.value && setDate(e.target.value)}
+          style={{ ...boxInput, background: '#fff', flex: 1 }} aria-label="Date" />
+        {date === isoToday() && <span className="badge badge-teal">Today</span>}
+      </div>
       {!data && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '10px 0' }}>Loading…</div>}
-      {data && kinds.map(kind => (
-        <EntryRow key={kind} studentId={student.id} kind={kind} date={date} entries={entries}
-          onSaved={async () => { setError(''); await onChanged(); }} onError={setError} />
-      ))}
+      {/* One row per part: its name, what's recorded on this day, the last time before
+          it, and + Add (a pop-up). On wider screens the rows grow to fill the card. */}
+      {data && <div className="entry-rows">{kinds.map(kind => {
+        const label = KIND_LABELS[kind];
+        const onDay = entries.filter(e => e.kind === kind && e.date === date).sort(newestFirst);
+        const latest = onDay[0];
+        const g = latest && GRADES.find(x => x.key === latest.grade);
+        const show = e => kind === 'lesson' ? e.lesson : rangeLabel(e).replace(/-/g, '\u2011').replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2');
+        const what = latest ? show(latest) : 'Not recorded';
+        // The last one before this day — where they got to.
+        const before = entries.filter(e => e.kind === kind && e.date < date).sort(newestFirst)[0];
+        const bg = before && GRADES.find(x => x.key === before.grade);
+        const beforeDate = before && new Date(before.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        return (
+          <button key={kind} type="button" className="entry-row" onClick={() => setAdding(kind)} title={`Record ${label.name}`}>
+            {/* Four boxes; on phones the "last time" box is left out (entry-row-grid). */}
+            <BoxRow fill className="entry-row-grid" columns={null} cells={[
+              { label: true, wrap: 'words', text: label.name, sub: label.hint },
+              latest
+                ? { wrap: true, text: what, sub: onDay.length > 1 ? `+ ${onDay.length - 1} more` : (g ? g.label : 'Recorded'), tone: g ? GRADE_TONES[g.key] : 'green' }
+                : { text: date === isoToday() ? 'Not yet' : 'Not recorded' },
+              before
+                ? { label: true, wrap: true, className: 'hide-narrow', text: show(before), sub: `Last · ${beforeDate}${bg ? ` · ${bg.label}` : ''}` }
+                : { label: true, className: 'hide-narrow', text: '—', sub: 'Last time' },
+              { action: true, text: '+ Add' },
+            ]} />
+          </button>
+        );
+      })}</div>}
+      {data && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>Tap a row to record it · change entries under Progress</div>}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
+      {adding && (
+        <NewEntryModal studentId={student.id} kind={adding} date={date} entries={entries}
+          onClose={() => setAdding(null)} onSaved={async () => { setError(''); await onChanged(); }} />
+      )}
     </div>
   );
 }
