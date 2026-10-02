@@ -113,7 +113,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
                   <div className="form-group" style={{ textAlign: 'left', marginBottom: 14 }}>
                     <label>Madrasah code</label>
                     <input value={code} onChange={e => { setCode(e.target.value); setError(''); }} placeholder="e.g. al-noor" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-                    <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>From your madrasah office. Only needed the first time on this device.</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>From your madrasah office. This device remembers it after you sign in.</span>
                   </div>
                 ) : (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, textAlign: 'left' }}>
@@ -126,7 +126,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             )}
             {field(setupRequired ? 'School password' : 'Password', password, setPassword, { type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
-            {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && !loginName))}
+            {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && (!loginName || !code.trim())))}
             {!setupRequired && (
               <button type="button" onClick={() => switchMode('recover')} style={{ ...linkBtn, marginTop: 14 }}>
                 Forgot the platform owner password?

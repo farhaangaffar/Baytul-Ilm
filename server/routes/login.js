@@ -5,10 +5,9 @@ const {
 } = require('../auth');
 
 // Sign-in and everything around it, as ?action= variants of one route:
-//  (none)           POST {code?, login, password} — normal sign-in. code is the
-//                   madrasah's code (remembered on each device after the first sign-in);
-//                   without it, the username/password pair must match exactly one login
-//                   across all madaaris. Before any owner account exists, the old shared
+//  (none)           POST {code, login, password} — normal sign-in. code is the
+//                   madrasah's code, always required (remembered on each device after the
+//                   first sign-in). Before any owner account exists, the old shared
 //                   password (ADMIN_PASSWORD) instead answers { setupRequired: true } so the
 //                   first owner can create their account.
 //  setup            POST {recoveryKey, login, password} — creates the first owner (madrasah 1,
@@ -107,23 +106,18 @@ module.exports = async (req, res) => {
     res.status(401).json({ error: 'Incorrect password' });
     return;
   }
+  // Everyone signs in to a particular madrasah: its code is always required (each device
+  // remembers it after the first sign-in, so it's only typed once).
   const login = normalizeLogin(b.login ?? b.email);
   const code = String(b.code || '').trim().toLowerCase();
-  const { rows: candidates } = code
-    ? await query('SELECT u.* FROM users u JOIN madaaris m ON m.id = u.madrasah_id WHERE lower(m.code) = $1 AND u.login = $2', [code, login])
-    : await query('SELECT * FROM users WHERE login = $1', [login]);
-  // Same username in more than one madrasah: whichever one the password belongs to.
-  const matches = candidates.filter(u => verifyPassword(b.password || '', u.password_hash));
-  if (!candidates.length) verifyPassword(b.password || '', DUMMY_HASH);
-  if (matches.length > 1) {
-    res.status(400).json({ error: 'Please enter your madrasah code as well — ask the madrasah office if you don\'t know it.', needCode: true });
-    return;
-  }
-  const user = matches[0];
-  if (!user) {
-    res.status(401).json({ error: code ? 'Incorrect madrasah code, username or password' : 'Incorrect username or password' });
-    return;
-  }
+  if (!code) { res.status(400).json({ error: "Enter your madrasah code — ask the madrasah office if you don't know it.", needCode: true }); return; }
+  const { rows: candidates } = await query(
+    'SELECT u.* FROM users u JOIN madaaris m ON m.id = u.madrasah_id WHERE lower(m.code) = $1 AND u.login = $2',
+    [code, login]
+  );
+  const user = candidates[0];
+  const ok = verifyPassword(b.password || '', user ? user.password_hash : DUMMY_HASH);
+  if (!user || !ok) { res.status(401).json({ error: 'Incorrect madrasah code, username or password' }); return; }
   const madrasah = await madrasahOf(user);
   if (!user.active) { res.status(401).json({ error: 'This login has been switched off — ask the madrasah office.' }); return; }
   if (!madrasah.active && !user.platform_admin) { res.status(401).json({ error: "This madrasah's access has been switched off." }); return; }
