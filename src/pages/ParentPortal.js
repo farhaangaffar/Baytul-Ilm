@@ -73,12 +73,13 @@ function MonthRow({ month, cells, children }) {
   const [open, setOpen] = useState(false);
   const d = new Date(month + '-15T12:00:00');
   return (
-    <div style={{ marginBottom: open ? 12 : 0 }}>
+    // Opened, the month and its days sit together in an outlined panel.
+    <div style={open ? { border: '1px solid #dfe3e8', borderRadius: 12, background: '#fbfcfd', padding: '6px 6px 0', margin: '4px 0 12px' } : undefined}>
       <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={monthName(month)}
         style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font)', textAlign: 'left' }}>
         <BoxRow cells={[{ header: true, open, text: d.toLocaleDateString('en-GB', { month: 'short' }), sub: String(d.getFullYear()) }, ...cells]} />
       </button>
-      {open && <div style={{ marginTop: 2 }}>{children}</div>}
+      {open && <div style={{ borderTop: '1px dashed #d5dae0', paddingTop: 6, marginTop: 2 }}>{children}</div>}
     </div>
   );
 }

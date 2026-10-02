@@ -15,59 +15,108 @@ import BoxRow from './BoxRow';
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
 
-const inputStyle = { padding: '8px 10px', border: 'none', borderRadius: 'var(--r-md)', fontFamily: 'var(--font)', fontSize: 13, background: '#f9fafb', minWidth: 0 };
+// Box-style inputs, matching the BoxRow boxes used on Progress, Attendance and Fees.
+const BOX = { height: 40, borderRadius: 8, minWidth: 0, fontFamily: 'var(--font)', fontSize: 12.5 };
+const boxInput = { ...BOX, width: '100%', border: '1px solid #dfe3e8', background: '#fafbfc', color: 'var(--ink)', padding: '0 8px' };
+const boxLabel = { ...BOX, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' };
+const grid4 = { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 };
+const blank = v => v === '' || v == null;
 
-// Surah dropdown + ayah number — "Al-Mulk" "15".
+// "From" box, surah dropdown (two boxes wide), ayah box. Starts empty.
 function Position({ surah, ayah, onChange, label }) {
-  const max = ayahCount(surah);
+  const max = surah ? ayahCount(surah) : 286;
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', width: 30, flexShrink: 0 }}>{label}</span>
-      <select value={surah} onChange={e => onChange(Number(e.target.value), Math.min(ayah, ayahCount(Number(e.target.value))) || 1)}
-        style={{ ...inputStyle, flex: 1 }} aria-label={`${label} surah`}>
+    <div style={grid4}>
+      <div style={boxLabel}>{label}</div>
+      <select value={surah || ''} onChange={e => { const s = Number(e.target.value); onChange(s, blank(ayah) ? '' : Math.min(ayah, ayahCount(s))); }}
+        style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} surah`}>
+        <option value="" disabled>Surah…</option>
         {SURAHS.map(([name], i) => <option key={i} value={i + 1}>{i + 1}. {name}</option>)}
       </select>
-      <input type="number" min={1} max={max} value={ayah} inputMode="numeric"
-        onChange={e => onChange(surah, Math.max(1, Math.min(max, Number(e.target.value) || 1)))}
-        style={{ ...inputStyle, width: 64 }} aria-label={`${label} ayah`} title={`Ayah (1–${max})`} />
+      <input type="number" min={1} max={max} value={blank(ayah) ? '' : ayah} inputMode="numeric" placeholder="Ayah"
+        onChange={e => onChange(surah, e.target.value === '' ? '' : Math.max(1, Math.min(max, Number(e.target.value) || 1)))}
+        style={{ ...boxInput, textAlign: 'center' }} aria-label={`${label} ayah`} title={`Ayah (1–${max})`} />
     </div>
   );
 }
 
-// Juz + quarter — "Juz 29" "2nd quarter". `edge` says whether this end of the range
-// means the quarter's first ayah (from) or its last (to).
+// "From" box, juz, quarter (two boxes wide). `edge` says whether this end of the range
+// means the quarter's first ayah (from) or its last (to). Starts empty; the position is
+// set once both juz and quarter are chosen.
 function QuarterPosition({ label, surah, ayah, edge, onChange }) {
-  const { juz, q } = quarterOf(surah, ayah);
-  const pick = (j, k) => { const p = edge === 'from' ? quarterStart(j, k) : quarterEnd(j, k); onChange(p.surah, p.ayah); };
+  const known = !blank(surah) && !blank(ayah) ? quarterOf(surah, ayah) : null;
+  const [pending, setPending] = useState({ juz: '', q: '' });
+  useEffect(() => { if (blank(surah)) setPending({ juz: '', q: '' }); }, [surah]);
+  const juz = known ? known.juz : pending.juz, q = known ? known.q : pending.q;
+  const pick = (j, k) => {
+    if (blank(j) || blank(k)) { setPending({ juz: j, q: k }); return; }
+    const p = edge === 'from' ? quarterStart(j, k) : quarterEnd(j, k); onChange(p.surah, p.ayah);
+  };
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', width: 30, flexShrink: 0 }}>{label}</span>
-      <select value={juz} onChange={e => pick(Number(e.target.value), q)} style={{ ...inputStyle, flex: 1 }} aria-label={`${label} juz`}>
+    <div style={grid4}>
+      <div style={boxLabel}>{label}</div>
+      <select value={juz} onChange={e => pick(Number(e.target.value), q)} style={boxInput} aria-label={`${label} juz`}>
+        <option value="" disabled>Juz…</option>
         {Array.from({ length: 30 }, (_, i) => <option key={i} value={i + 1}>Juz {i + 1}</option>)}
       </select>
-      <select value={q} onChange={e => pick(juz, Number(e.target.value))} style={{ ...inputStyle, flex: 1 }} aria-label={`${label} quarter`}>
+      <select value={q} onChange={e => pick(juz, Number(e.target.value))} style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} quarter`}>
+        <option value="" disabled>Quarter…</option>
         {QUARTER_NAMES.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
       </select>
     </div>
   );
 }
 
+const filled = f => !blank(f.fromSurah) && !blank(f.fromAyah) && !blank(f.toSurah) && !blank(f.toAyah);
+
 // Snap a range to whole quarters: from the start of its first quarter to the end of its last.
 function toQuarters(f) {
+  if (!filled(f)) return {};
   const a = quarterOf(f.fromSurah, f.fromAyah), b = quarterOf(f.toSurah, f.toAyah);
   const s = quarterStart(a.juz, a.q), t = quarterEnd(b.juz, b.q);
   return { fromSurah: s.surah, fromAyah: s.ayah, toSurah: t.surah, toAyah: t.ayah };
 }
 
+// Good / Weak / Repeat as boxes — plain until chosen, then filled in their colour.
 function GradeButtons({ value, onChange }) {
+  return GRADES.map(g => {
+    const on = value === g.key;
+    return (
+      <button key={g.key} type="button" onClick={() => onChange(on ? null : g.key)} aria-pressed={on}
+        style={{ ...BOX, cursor: 'pointer', fontWeight: on ? 700 : 500,
+          background: on ? g.bg : '#fafbfc', color: on ? g.text : 'var(--text-muted)', border: `1px solid ${on ? g.color : '#dfe3e8'}` }}>
+        {g.label}
+      </button>
+    );
+  });
+}
+
+// An empty entry. Keeps the way of recording (surah/ayah or juz quarters) used last time.
+function blankFor(kind, entries) {
+  if (kind === 'lesson') return { lesson: '', grade: null, note: '' };
+  const last = entries.filter(e => e.kind === kind).sort(newestFirst)[0];
+  return { fromSurah: '', fromAyah: '', toSurah: '', toAyah: '', grade: null, note: '', unit: last?.unit === 'quarter' ? 'quarter' : 'ayah' };
+}
+
+// Where a new sabaq / reading would carry on from (the ayah after the last one), offered
+// as a one-tap shortcut; nothing for revision or lessons.
+function carryOnFrom(kind, date, entries) {
+  if (kind !== 'sabaq' && kind !== 'reading') return null;
+  const last = entries.filter(e => e.kind === kind && e.date <= date).sort(newestFirst)[0];
+  return last ? nextStart(last) : null;
+}
+
+// Surah & ayah / Juz quarters switch.
+function UnitToggle({ f, set }) {
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
-      {GRADES.map(g => {
-        const on = value === g.key;
+    <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
+      {[['ayah', 'Surah & ayah'], ['quarter', 'Juz quarters']].map(([u, text]) => {
+        const on = (f.unit || 'ayah') === u;
         return (
-          <button key={g.key} type="button" className="btn btn-sm" onClick={() => onChange(on ? null : g.key)}
-            style={{ flex: 1, justifyContent: 'center', background: on ? g.bg : undefined, color: on ? g.text : undefined, boxShadow: on ? `inset 0 0 0 1.5px ${g.color}` : undefined }}>
-            {g.label}
+          <button key={u} type="button" onClick={() => !on && set(u === 'quarter' ? { unit: u, ...toQuarters(f) } : { unit: u })}
+            style={{ border: 'none', borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
+              background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--text-muted)', boxShadow: on ? 'var(--shadow-sm)' : 'none' }}>
+            {text}
           </button>
         );
       })}
@@ -75,106 +124,92 @@ function GradeButtons({ value, onChange }) {
   );
 }
 
-// What to prefill for a kind that hasn't been entered on this date yet.
-function defaultsFor(kind, date, entries) {
-  // The latest of this kind up to this day (including earlier ones the same day).
-  const before = entries.filter(e => e.kind === kind && e.date <= date).sort(newestFirst);
-  const last = before[0];
-  if (kind === 'lesson') return { lesson: last?.lesson || '', grade: null, note: '' };
-  // Same way of recording as last time for this kind (surah/ayah or juz quarters).
-  const unit = last?.unit === 'quarter' ? 'quarter' : 'ayah';
-  const fit = r => (unit === 'quarter' ? { ...r, ...toQuarters(r) } : r);
-  if (kind === 'sabaq' || kind === 'reading') {
-    const n = nextStart(last) || { surah: 1, ayah: 1 };
-    return fit({ fromSurah: n.surah, fromAyah: n.ayah, toSurah: n.surah, toAyah: n.ayah, grade: null, note: '', unit });
-  }
-  // Revision: start from where the last revision of this kind was, else where sabaq is.
-  const ref = last || entries.filter(e => e.kind === 'sabaq').sort(newestFirst)[0];
-  if (ref) return fit({ fromSurah: ref.fromSurah, fromAyah: ref.fromAyah, toSurah: ref.toSurah, toAyah: ref.toAyah, grade: null, note: '', unit });
-  return fit({ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, grade: null, note: '', unit });
-}
-
-// The inputs for one entry: from / to (surah & ayah, or juz quarters), or a qaida lesson;
-// then Good / Weak / Repeat and a note. Shared by Input progress and the edit pop-up.
+// The inputs for one entry, as rows of boxes: From, To (or a qaida lesson), a note, then
+// Good / Weak / Repeat with `children` (the Save box) as the fourth. Shared by Input
+// progress and the edit pop-up.
 function EntryFields({ kind, f, set, children }) {
   return (
-    <>
-      {kind !== 'lesson' && (
-        // Record by surah and ayah, or in juz quarters.
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-          <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 2 }}>
-            {[['ayah', 'Surah & ayah'], ['quarter', 'Juz quarters']].map(([u, text]) => {
-              const on = (f.unit || 'ayah') === u;
-              return (
-                <button key={u} type="button" onClick={() => !on && set(u === 'quarter' ? { unit: u, ...toQuarters(f) } : { unit: u })}
-                  style={{ border: 'none', borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
-                    background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--text-muted)', boxShadow: on ? 'var(--shadow-sm)' : 'none' }}>
-                  {text}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+    <div style={{ display: 'grid', gap: 6 }}>
       {kind === 'lesson' ? (
-        <input value={f.lesson || ''} onChange={e => set({ lesson: e.target.value })} placeholder="e.g. Lesson 12, page 18"
-          style={{ ...inputStyle, width: '100%', marginBottom: 8 }} />
+        <input value={f.lesson || ''} onChange={e => set({ lesson: e.target.value })} placeholder="Lesson, e.g. Lesson 12, page 18" style={boxInput} />
       ) : f.unit === 'quarter' ? (
-        <div style={{ display: 'grid', gap: 6, marginBottom: 8 }}>
+        <>
           <QuarterPosition label="From" edge="from" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
           <QuarterPosition label="To" edge="to" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{rangeLabel({ ...f, unit: 'ayah' })}</div>
-        </div>
+          {filled(f) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{rangeLabel({ ...f, unit: 'ayah' })}</div>}
+        </>
       ) : (
-        <div style={{ display: 'grid', gap: 6, marginBottom: 8 }}>
+        <>
           <Position label="From" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
           <Position label="To" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
-        </div>
+        </>
       )}
-      <GradeButtons value={f.grade} onChange={g => set({ grade: g })} />
-      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-        <input value={f.note || ''} onChange={e => set({ note: e.target.value })} placeholder="Note (optional)"
-          style={{ ...inputStyle, flex: 1 }} />
+      <input value={f.note || ''} onChange={e => set({ note: e.target.value })} placeholder="Note (optional)" style={boxInput} />
+      <div style={children ? grid4 : { ...grid4, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <GradeButtons value={f.grade} onChange={g => set({ grade: g })} />
         {children}
       </div>
-    </>
+    </div>
   );
 }
 
-// One kind (sabaq / sabqi / …) on Input progress. Always a fresh entry, prefilled to
-// carry on from the last one; saving adds it (a day can have several of a kind) and the
-// row clears ready for the next. Recorded entries are changed from Progress → Recent.
+// What's missing before an entry can be saved, if anything.
+function missing(kind, f) {
+  if (kind === 'lesson') return f.lesson?.trim() ? '' : 'Write the lesson first.';
+  return filled(f) ? '' : (f.unit === 'quarter' ? 'Choose the juz and quarter for From and To.' : 'Choose the surah and ayah for From and To.');
+}
+
+// One kind (sabaq / sabqi / …) on Input progress. Always a new, empty entry; saving adds
+// it (a day can have several of a kind) and the row clears for the next one. Recorded
+// entries are changed from Progress → Recent.
 function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
-  const [f, setF] = useState(() => defaultsFor(kind, date, entries));
+  const [f, setF] = useState(() => blankFor(kind, entries));
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  // Typed into but not saved yet — kept when another row records something.
-  const touched = useRef(false);
+  // A new day starts empty.
   const shownDate = useRef(date);
-  // A fresh, prefilled form when the day changes, or after a save (if untouched).
   useEffect(() => {
-    if (shownDate.current !== date) { shownDate.current = date; touched.current = false; setJustSaved(false); }
-    if (!touched.current) setF(defaultsFor(kind, date, entries));
+    if (shownDate.current !== date) { shownDate.current = date; setF(blankFor(kind, entries)); setJustSaved(false); }
   }, [kind, date, entries]);
-  const set = patch => { touched.current = true; setF(prev => ({ ...prev, ...patch })); setJustSaved(false); };
+  const set = patch => { setF(prev => ({ ...prev, ...patch })); setJustSaved(false); };
   const label = KIND_LABELS[kind];
+  const next = blank(f.fromSurah) ? carryOnFrom(kind, date, entries) : null;
+
+  function carryOn() {
+    if (f.unit === 'quarter') {
+      const { juz, q } = quarterOf(next.surah, next.ayah), s = quarterStart(juz, q), t = quarterEnd(juz, q);
+      set({ fromSurah: s.surah, fromAyah: s.ayah, toSurah: t.surah, toAyah: t.ayah });
+    } else set({ fromSurah: next.surah, fromAyah: next.ayah, toSurah: next.surah, toAyah: '' });
+  }
 
   async function save() {
+    const why = missing(kind, f);
+    if (why) { onError(why); return; }
     setSaving(true);
-    try { await addQuranEntry({ studentId, date, kind, ...f }); touched.current = false; setJustSaved(true); await onSaved(); }
-    catch (err) { onError(err.message || 'Could not save'); }
+    try {
+      await addQuranEntry({ studentId, date, kind, ...f });
+      setF(prev => ({ ...blankFor(kind, entries), unit: prev.unit })); // clear for the next entry
+      setJustSaved(true); await onSaved();
+    } catch (err) { onError(err.message || 'Could not save'); }
     setSaving(false);
   }
 
   return (
     <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label.name}</span>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
         {justSaved && <span className="badge badge-green"><Check size={11} />Recorded</span>}
+        <span style={{ flex: 1 }} />
+        {kind !== 'lesson' && <UnitToggle f={f} set={set} />}
       </div>
+      {next && (
+        <button type="button" className="btn btn-sm" onClick={carryOn} style={{ marginBottom: 6 }}>
+          Carry on from {surahName(next.surah)} {next.ayah}
+        </button>
+      )}
       <EntryFields kind={kind} f={f} set={set}>
-        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
       </EntryFields>
     </div>
   );
@@ -205,8 +240,9 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
         <div className="modal-body">
           <div className="form-group" style={{ marginBottom: 10 }}>
             <label>Date</label>
-            <input type="date" value={f.date} max={isoToday()} onChange={e => e.target.value && set({ date: e.target.value })} style={{ ...inputStyle, width: '100%' }} />
+            <input type="date" value={f.date} max={isoToday()} onChange={e => e.target.value && set({ date: e.target.value })} style={boxInput} />
           </div>
+          {entry.kind !== 'lesson' && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><UnitToggle f={f} set={set} /></div>}
           <EntryFields kind={entry.kind} f={f} set={set} />
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
         </div>
@@ -216,7 +252,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
             : <button className="btn" style={{ color: 'var(--red)' }} disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={13} />Delete</button>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
-            <button className="btn btn-primary" disabled={busy} onClick={() => run(() => updateQuranEntry(entry.id, { ...f, studentId }))}>
+            <button className="btn btn-primary" disabled={busy} onClick={() => { const why = missing(entry.kind, f); if (why) setError(why); else run(() => updateQuranEntry(entry.id, { ...f, studentId })); }}>
               <Check size={13} />{busy ? 'Saving…' : 'Save changes'}
             </button>
           </div>
@@ -286,8 +322,8 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
       {header}
       {date === isoToday() && <div style={{ marginBottom: 6 }}><span className="badge badge-teal">Today</span></div>}
       <input type="date" value={date} max={isoToday()} onChange={e => e.target.value && setDate(e.target.value)}
-        style={{ ...inputStyle, width: '100%', marginBottom: 4, border: '1px solid var(--border)', background: '#fff' }} />
-      {/* Rows wait for the history to load, so their prefilled positions carry on from it. */}
+        style={{ ...boxInput, background: '#fff', marginBottom: 4 }} />
+      {/* Rows wait for the history to load (for "Carry on from" and the last way of recording). */}
       {!data && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '10px 0' }}>Loading…</div>}
       {data && kinds.map(kind => (
         <EntryRow key={kind} studentId={student.id} kind={kind} date={date} entries={entries}
