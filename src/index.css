@@ -440,9 +440,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .student-tabs button.active { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
 .student-tab { display: flex; flex-direction: column; gap: 16px; }
 .student-tab > .card { margin: 0 !important; }
-/* Input progress: one button-row per part (name, last stop, + Add). */
+/* Input progress: one button-row per part (name, + Add). */
 .entry-rows { display: flex; flex-direction: column; gap: 6px; }
-.entry-row-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(0, 0.8fr); }
+.entry-row-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); }
 .entry-row { display: block; width: 100%; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font); text-align: left; min-height: 46px; }
 /* Shown only on phones / only on wider screens (the 768px breakpoint below). */
 .only-narrow { display: none; }

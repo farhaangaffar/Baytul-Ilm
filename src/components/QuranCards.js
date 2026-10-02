@@ -358,17 +358,14 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
         {date === isoToday() && <span className="badge badge-teal">Today</span>}
       </div>
       {!data && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '10px 0' }}>Loading…</div>}
-      {/* One row per part: its name, a plain reminder of where they last stopped, and
-          + Add (a pop-up). Grades and the full history are under Progress. */}
+      {/* One row per part: its name and + Add (a pop-up, which offers "Carry on from" the
+          last stop). Grades and the full history are under Progress. */}
       {data && <div className="entry-rows">{kinds.map(kind => {
         const label = KIND_LABELS[kind];
-        const last = entries.filter(e => e.kind === kind && e.date <= date).sort(newestFirst)[0];
-        const stop = last && (kind === 'lesson' ? last.lesson : upToLabel(last).replace(/^end of/, 'End of').replace(/-/g, '\u2011'));
         return (
           <button key={kind} type="button" className="entry-row" onClick={() => setAdding(kind)} title={`Record ${label.name}`}>
             <BoxRow className="entry-row-grid" columns={null} cells={[
               { label: true, wrap: 'words', text: label.name, sub: label.hint },
-              last ? { label: true, wrap: true, text: stop, sub: 'Last stop' } : { label: true, text: '—', sub: 'No previous stop' },
               { action: true, text: '+ Add' },
             ]} />
           </button>
