@@ -358,30 +358,17 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
         {date === isoToday() && <span className="badge badge-teal">Today</span>}
       </div>
       {!data && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '10px 0' }}>Loading…</div>}
-      {/* One row per part: its name, what's recorded on this day, the last time before
-          it, and + Add (a pop-up). On wider screens the rows grow to fill the card. */}
+      {/* One row per part: its name, a plain reminder of where they last stopped, and
+          + Add (a pop-up). Grades and the full history are under Progress. */}
       {data && <div className="entry-rows">{kinds.map(kind => {
         const label = KIND_LABELS[kind];
-        const onDay = entries.filter(e => e.kind === kind && e.date === date).sort(newestFirst);
-        const latest = onDay[0];
-        const g = latest && GRADES.find(x => x.key === latest.grade);
-        const show = e => kind === 'lesson' ? e.lesson : rangeLabel(e).replace(/-/g, '\u2011').replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2');
-        const what = latest ? show(latest) : 'Not recorded';
-        // The last one before this day — where they got to.
-        const before = entries.filter(e => e.kind === kind && e.date < date).sort(newestFirst)[0];
-        const bg = before && GRADES.find(x => x.key === before.grade);
-        const beforeDate = before && new Date(before.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        const last = entries.filter(e => e.kind === kind && e.date <= date).sort(newestFirst)[0];
+        const stop = last && (kind === 'lesson' ? last.lesson : upToLabel(last).replace(/^end of/, 'End of').replace(/-/g, '\u2011'));
         return (
           <button key={kind} type="button" className="entry-row" onClick={() => setAdding(kind)} title={`Record ${label.name}`}>
-            {/* Four boxes; on phones the "last time" box is left out (entry-row-grid). */}
-            <BoxRow fill className="entry-row-grid" columns={null} cells={[
+            <BoxRow className="entry-row-grid" columns={null} cells={[
               { label: true, wrap: 'words', text: label.name, sub: label.hint },
-              latest
-                ? { wrap: true, text: what, sub: onDay.length > 1 ? `+ ${onDay.length - 1} more` : (g ? g.label : 'Recorded'), tone: g ? GRADE_TONES[g.key] : 'green' }
-                : { text: date === isoToday() ? 'Not yet' : 'Not recorded' },
-              before
-                ? { label: true, wrap: true, className: 'hide-narrow', text: show(before), sub: `Last · ${beforeDate}${bg ? ` · ${bg.label}` : ''}` }
-                : { label: true, className: 'hide-narrow', text: '—', sub: 'Last time' },
+              last ? { label: true, wrap: true, text: stop, sub: 'Last stop' } : { label: true, text: '—', sub: 'No previous stop' },
               { action: true, text: '+ Add' },
             ]} />
           </button>
@@ -436,11 +423,6 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
             </div>
           ))}
         </div>
-        {p.latest && (
-          <div style={{ fontSize: 12.5, marginBottom: 10 }}>
-            Latest Hifdh Jadeed: <strong>{rangeLabel(p.latest)}</strong> <span className="text-muted">(Juz {juzOf(p.latest.toSurah, p.latest.toAyah)}, {p.latest.date === today ? 'today' : fmtDate(p.latest.date)})</span>
-          </div>
-        )}
         {/* 30 juz, 1 → 30, each filled by how much of it is memorised. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 4 }}>
           {p.juz.map((f, i) => {
@@ -471,15 +453,9 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
       </>
     );
   } else if (type === 'nazira' || type === 'qaida') {
+    // Where they're up to is the top line of Recent below; only say when there's nothing.
     const kind = type === 'nazira' ? 'reading' : 'lesson';
-    const last = entries.filter(e => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))[0];
-    headline = (
-      <div style={{ fontSize: 13, marginBottom: 6 }}>
-        {last
-          ? <>Up to: <strong>{kind === 'lesson' ? last.lesson : upToLabel(last)}</strong>{kind === 'reading' && last.unit !== 'quarter' && <span className="text-muted"> (Juz {juzOf(last.toSurah, last.toAyah)})</span>} <span className="text-muted">· {fmtDate(last.date)}</span></>
-          : <span className="text-muted">Nothing recorded yet.</span>}
-      </div>
-    );
+    if (!entries.some(e => e.kind === kind)) headline = <div className="text-muted" style={{ fontSize: 13, marginBottom: 6 }}>Nothing recorded yet.</div>;
   }
 
   return (
