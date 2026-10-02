@@ -88,13 +88,13 @@ function CommentBox({ initialValue, onSave, placeholder }) {
   );
 }
 
-// "Sabaq: Al-Mulk 1–15" / "Reading: Ya-Sin 40" / "Lesson 12" — where a student is up to.
+// "Hifdh Jadeed: Al-Mulk 1–15" / "Naazhirah: Ya-Sin 40" / "Qaa'idah: Lesson 12" — where a student is up to.
 function quranUpTo(type, data) {
   const kind = { hifz: 'sabaq', nazira: 'reading', qaida: 'lesson' }[type];
   const last = (data?.entries || []).filter(e => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!kind || !last) return '';
-  if (kind === 'lesson') return `Qaida: ${last.lesson}`;
-  return kind === 'sabaq' ? `Sabaq: ${rangeLabel(last)}` : `Reading: ${upToLabel(last)}`;
+  if (kind === 'lesson') return `Qaa'idah: ${last.lesson}`;
+  return kind === 'sabaq' ? `Hifdh Jadeed: ${rangeLabel(last)}` : `Naazhirah: ${upToLabel(last)}`;
 }
 
 function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, classTypes, quranAll }) {

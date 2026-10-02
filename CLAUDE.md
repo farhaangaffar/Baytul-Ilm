@@ -86,7 +86,13 @@ codebase (one codebase, not a fork).
 - Qur'an progress: a class's `quran_type` (hifz / nazira / qaida, or **mixed**) and a
   student's own level (`quran_students.quran_type`, which overrides it — children move
   up; in a mixed class it's chosen per student) decide what Daily records shows
-  (`effectiveQuranType()`, `src/components/QuranCards.js`). Hifz is recorded by **surah and ayah**
+  (`effectiveQuranType()`, `src/components/QuranCards.js`). **Names on screen** (the owner's
+  wording — use them everywhere, never the stored keys): levels hifz/nazira/qaida show as
+  **Hifdh / Naazhirah / Qaa'idah**; kinds sabaq/sabqi/manzil/reading/lesson show as **Hifdh
+  Jadeed / Muraaja'ah Qareebah / Muraaja'ah / Naazhirah / Qaa'idah** (`KIND_LABELS`,
+  `QURAN_TYPES` in `src/lib/quran.js`). Hifdh Jadeed is never recorded in quarters;
+  Muraaja'ah Qareebah's "To" offers "Until new lesson" (the ayah before the latest Hifdh
+  Jadeed). Hifz is recorded by **surah and ayah**
   (sabaq / sabqi / manzil, graded good / weak / repeat) — or, per entry, in **juz
   quarters** (`unit = 'quarter'`; the from/to positions are still stored as the
   quarters' first and last ayahs, so all progress maths is the same).

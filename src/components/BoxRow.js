@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 // One line of equal boxes — a day's attendance, a fee, a Qur'an entry. Label boxes
 // (grey) name the line; choice boxes stay plain unless they apply, when they fill in
 // their tone. A header box (with a chevron) heads a month that opens.
-//   cells: [{ text, sub?, label?, header?, open?, tone?: 'green'|'amber'|'red', wrap? }]
+//   cells: [{ text, sub?, label?, header?, open?, tone?: 'green'|'amber'|'red', wrap?: true | 'words' }]
 //   columns: CSS grid columns (default four equal ones)
 const TONES = {
   green: ['var(--green-light)', 'var(--green)', 'var(--green-text)'],
@@ -24,7 +24,8 @@ export default function BoxRow({ cells, columns = 'repeat(4, minmax(0, 1fr))' })
           : c.tone
             ? { background: bg, border: `1px solid ${border}`, color: text, fontWeight: 700 }
             : { background: '#fafbfc', border: '1px solid #dfe3e8', color: 'var(--text-muted)', fontWeight: 500 };
-        const line = c.wrap ? { overflowWrap: 'break-word' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+        // wrap: true breaks long words if it must; 'words' only between words.
+        const line = c.wrap ? { overflowWrap: c.wrap === 'words' ? 'normal' : 'break-word' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
         return (
           <div key={i} style={{ ...style, borderRadius: 8, padding: '5px 4px', minHeight: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden', minWidth: 0 }}>
             <div style={{ ...line, display: c.header ? 'flex' : 'block', alignItems: 'center', justifyContent: 'center', gap: 2 }}>

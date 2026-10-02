@@ -352,7 +352,7 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
                 {Object.entries(CLASS_QURAN_OPTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
               </select>
               <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                Hifz tracks sabaq, sabqi and manzil; Nazira where they read to; Qaida the lesson. Choose Mixed if the class has all three — each student's level is then set on Daily records (and can be changed for any student as they move up).
+                Hifdh tracks Hifdh Jadeed (new lesson), Muraaja'ah Qareebah (recent revision) and Muraaja'ah (older revision); Naazhirah where they read to; Qaa'idah the lesson. Choose Mixed if the class has all three — each student's level is then set on Daily records (and can be changed for any student as they move up).
               </span>
             </div>
           </div>

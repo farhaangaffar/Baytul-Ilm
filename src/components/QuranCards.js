@@ -3,14 +3,15 @@ import { addQuranEntry, updateQuranEntry, deleteQuranEntry, savePriorJuz, saveSt
 import {
   SURAHS, ayahCount, surahName, rangeLabel, nextStart, hifzProgress, juzOf,
   QURAN_TYPES, KIND_LABELS, GRADES, ayahsMemorisedBetween,
-  quarterStart, quarterEnd, quarterOf, QUARTER_NAMES, upToLabel,
+  quarterStart, quarterEnd, quarterOf, QUARTER_NAMES, upToLabel, juzSurahs, ayahBefore,
 } from '../lib/quran';
 import { Check, Trash2, BookOpen, Pencil, X } from 'lucide-react';
 import BoxRow from './BoxRow';
 
 // Qur'an progress on a student's Daily records page: an entry card for one day
-// (sabaq / sabqi / manzil for hifz, reading for nazira, lesson for qaida) and a
-// progress card (30-juz bar for hifz). Data comes from /api/quran via the parent.
+// (Hifdh Jadeed / Muraaja'ah Qareebah / Muraaja'ah for Hifdh — stored as sabaq /
+// sabqi / manzil; Naazhirah = reading; Qaa'idah = lesson) and a progress card (30-juz
+// bar for Hifdh). Data comes from /api/quran via the parent. Names: KIND_LABELS.
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
@@ -19,19 +20,30 @@ function fmtDate(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('e
 const BOX = { height: 40, borderRadius: 8, minWidth: 0, fontFamily: 'var(--font)', fontSize: 12.5 };
 const boxInput = { ...BOX, width: '100%', border: '1px solid #dfe3e8', background: '#fafbfc', color: 'var(--ink)', padding: '0 8px' };
 const boxLabel = { ...BOX, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' };
+const boxSelect = { ...boxInput, padding: '0 2px 0 6px', fontSize: 12 };
 const grid4 = { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 };
 const blank = v => v === '' || v == null;
 
-// "From" box, surah dropdown (two boxes wide), ayah box. Starts empty.
+// "From" box, juz, surah (narrowed to that juz), ayah. Starts empty; choosing a juz
+// first shortens the surah list.
 function Position({ surah, ayah, onChange, label }) {
+  const [picked, setPicked] = useState('');
+  useEffect(() => { if (blank(surah)) setPicked(''); }, [surah]);
+  const juz = picked && (blank(surah) || juzSurahs(picked).includes(surah)) ? picked : (!blank(surah) ? juzOf(surah, blank(ayah) ? 1 : ayah) : '');
+  const surahs = juz ? juzSurahs(juz) : SURAHS.map((_, i) => i + 1);
   const max = surah ? ayahCount(surah) : 286;
   return (
     <div style={grid4}>
       <div style={boxLabel}>{label}</div>
+      <select value={juz} onChange={e => { const j = Number(e.target.value); setPicked(j); if (!blank(surah) && !juzSurahs(j).includes(surah)) onChange('', ''); }}
+        style={boxSelect} aria-label={`${label} juz`}>
+        <option value="" disabled>Juz</option>
+        {Array.from({ length: 30 }, (_, i) => <option key={i} value={i + 1}>Juz {i + 1}</option>)}
+      </select>
       <select value={surah || ''} onChange={e => { const s = Number(e.target.value); onChange(s, blank(ayah) ? '' : Math.min(ayah, ayahCount(s))); }}
-        style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} surah`}>
-        <option value="" disabled>Surah…</option>
-        {SURAHS.map(([name], i) => <option key={i} value={i + 1}>{i + 1}. {name}</option>)}
+        style={boxSelect} aria-label={`${label} surah`}>
+        <option value="" disabled>Surah</option>
+        {surahs.map(n => <option key={n} value={n}>{surahName(n)}</option>)}
       </select>
       <input type="number" min={1} max={max} value={blank(ayah) ? '' : ayah} inputMode="numeric" placeholder="Ayah"
         onChange={e => onChange(surah, e.target.value === '' ? '' : Math.max(1, Math.min(max, Number(e.target.value) || 1)))}
@@ -43,25 +55,27 @@ function Position({ surah, ayah, onChange, label }) {
 // "From" box, juz, quarter (two boxes wide). `edge` says whether this end of the range
 // means the quarter's first ayah (from) or its last (to). Starts empty; the position is
 // set once both juz and quarter are chosen.
-function QuarterPosition({ label, surah, ayah, edge, onChange }) {
+function QuarterPosition({ label, surah, ayah, edge, onChange, untilNew, untilOn }) {
   const known = !blank(surah) && !blank(ayah) ? quarterOf(surah, ayah) : null;
   const [pending, setPending] = useState({ juz: '', q: '' });
   useEffect(() => { if (blank(surah)) setPending({ juz: '', q: '' }); }, [surah]);
-  const juz = known ? known.juz : pending.juz, q = known ? known.q : pending.q;
+  const juz = known ? known.juz : pending.juz, q = untilOn ? 'new' : known ? known.q : pending.q;
   const pick = (j, k) => {
+    if (k === 'new') { onChange(untilNew.surah, untilNew.ayah, true); return; }
     if (blank(j) || blank(k)) { setPending({ juz: j, q: k }); return; }
-    const p = edge === 'from' ? quarterStart(j, k) : quarterEnd(j, k); onChange(p.surah, p.ayah);
+    const p = edge === 'from' ? quarterStart(j, k) : quarterEnd(j, k); onChange(p.surah, p.ayah, false);
   };
   return (
     <div style={grid4}>
       <div style={boxLabel}>{label}</div>
-      <select value={juz} onChange={e => pick(Number(e.target.value), q)} style={boxInput} aria-label={`${label} juz`}>
-        <option value="" disabled>Juz…</option>
+      <select value={juz} onChange={e => pick(Number(e.target.value), q)} style={boxSelect} aria-label={`${label} juz`}>
+        <option value="" disabled>Juz</option>
         {Array.from({ length: 30 }, (_, i) => <option key={i} value={i + 1}>Juz {i + 1}</option>)}
       </select>
-      <select value={q} onChange={e => pick(juz, Number(e.target.value))} style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} quarter`}>
+      <select value={q} onChange={e => pick(juz, e.target.value === 'new' ? 'new' : Number(e.target.value))} style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} quarter`}>
         <option value="" disabled>Quarter…</option>
-        {QUARTER_NAMES.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
+        {QUARTER_NAMES.map((n, i) => <option key={i} value={i + 1}>{edge === 'to' ? `End of ${n}` : n}</option>)}
+        {untilNew && <option value="new">Until new lesson</option>}
       </select>
     </div>
   );
@@ -95,7 +109,16 @@ function GradeButtons({ value, onChange }) {
 function blankFor(kind, entries) {
   if (kind === 'lesson') return { lesson: '', grade: null, note: '' };
   const last = entries.filter(e => e.kind === kind).sort(newestFirst)[0];
-  return { fromSurah: '', fromAyah: '', toSurah: '', toAyah: '', grade: null, note: '', unit: last?.unit === 'quarter' ? 'quarter' : 'ayah' };
+  const unit = KIND_LABELS[kind].quarters && last?.unit === 'quarter' ? 'quarter' : 'ayah';
+  return { fromSurah: '', fromAyah: '', toSurah: '', toAyah: '', grade: null, note: '', unit };
+}
+
+// Where the new lesson (latest Hifdh Jadeed up to this day) starts — Muraaja'ah Al
+// Qareebah can run "until new lesson", i.e. to the ayah before it.
+function untilNewLesson(kind, date, entries) {
+  if (kind !== 'sabqi') return null;
+  const last = entries.filter(e => e.kind === 'sabaq' && e.date <= date && !blank(e.fromSurah)).sort(newestFirst)[0];
+  return last ? ayahBefore(last.fromSurah, last.fromAyah) : null;
 }
 
 // Where a new sabaq / reading would carry on from (the ayah after the last one), offered
@@ -127,21 +150,27 @@ function UnitToggle({ f, set }) {
 // The inputs for one entry, as rows of boxes: From, To (or a qaida lesson), a note, then
 // Good / Weak / Repeat with `children` (the Save box) as the fourth. Shared by Input
 // progress and the edit pop-up.
-function EntryFields({ kind, f, set, children }) {
+function EntryFields({ kind, f, set, children, untilNew }) {
   return (
     <div style={{ display: 'grid', gap: 6 }}>
       {kind === 'lesson' ? (
-        <input value={f.lesson || ''} onChange={e => set({ lesson: e.target.value })} placeholder="Lesson, e.g. Lesson 12, page 18" style={boxInput} />
+        <input value={f.lesson || ''} onChange={e => set({ lesson: e.target.value })} placeholder="Qaa'idah lesson / page, e.g. Lesson 12, page 18" style={boxInput} />
       ) : f.unit === 'quarter' ? (
         <>
           <QuarterPosition label="From" edge="from" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
-          <QuarterPosition label="To" edge="to" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
+          <QuarterPosition label="To" edge="to" surah={f.toSurah} ayah={f.toAyah} untilNew={untilNew} untilOn={!!f.toUntilNew}
+            onChange={(s, a, until) => set({ toSurah: s, toAyah: a, toUntilNew: until })} />
           {filled(f) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{rangeLabel({ ...f, unit: 'ayah' })}</div>}
         </>
       ) : (
         <>
           <Position label="From" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
           <Position label="To" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
+          {untilNew && (
+            <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => set({ toSurah: untilNew.surah, toAyah: untilNew.ayah })}>
+              To: until new lesson ({surahName(untilNew.surah)} {untilNew.ayah})
+            </button>
+          )}
         </>
       )}
       <input value={f.note || ''} onChange={e => set({ note: e.target.value })} placeholder="Note (optional)" style={boxInput} />
@@ -174,6 +203,7 @@ function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
   const set = patch => { setF(prev => ({ ...prev, ...patch })); setJustSaved(false); };
   const label = KIND_LABELS[kind];
   const next = blank(f.fromSurah) ? carryOnFrom(kind, date, entries) : null;
+  const untilNew = untilNewLesson(kind, date, entries);
 
   function carryOn() {
     if (f.unit === 'quarter') {
@@ -187,7 +217,9 @@ function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
     if (why) { onError(why); return; }
     setSaving(true);
     try {
-      await addQuranEntry({ studentId, date, kind, ...f });
+      // "Until new lesson" ends mid-quarter, so that entry is kept by surah and ayah.
+      const { toUntilNew, ...entry } = f;
+      await addQuranEntry({ studentId, date, kind, ...entry, unit: toUntilNew ? 'ayah' : entry.unit });
       setF(prev => ({ ...blankFor(kind, entries), unit: prev.unit })); // clear for the next entry
       setJustSaved(true); await onSaved();
     } catch (err) { onError(err.message || 'Could not save'); }
@@ -201,14 +233,14 @@ function EntryRow({ studentId, kind, date, entries, onSaved, onError }) {
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{label.hint}</span>
         {justSaved && <span className="badge badge-green"><Check size={11} />Recorded</span>}
         <span style={{ flex: 1 }} />
-        {kind !== 'lesson' && <UnitToggle f={f} set={set} />}
+        {label.quarters && <UnitToggle f={f} set={set} />}
       </div>
       {next && (
         <button type="button" className="btn btn-sm" onClick={carryOn} style={{ marginBottom: 6 }}>
           Carry on from {surahName(next.surah)} {next.ayah}
         </button>
       )}
-      <EntryFields kind={kind} f={f} set={set}>
+      <EntryFields kind={kind} f={f} set={set} untilNew={untilNew}>
         <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
       </EntryFields>
     </div>
@@ -234,7 +266,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && onClose()}>
       <div className="modal" style={{ maxWidth: 440 }}>
         <div className="modal-header">
-          <div className="modal-title">Change {label.name.toLowerCase()}</div>
+          <div className="modal-title">Change {label.name}</div>
           <button className="btn btn-icon" onClick={onClose} disabled={busy}><X size={16} /></button>
         </div>
         <div className="modal-body">
@@ -242,7 +274,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
             <label>Date</label>
             <input type="date" value={f.date} max={isoToday()} onChange={e => e.target.value && set({ date: e.target.value })} style={boxInput} />
           </div>
-          {entry.kind !== 'lesson' && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><UnitToggle f={f} set={set} /></div>}
+          {(label.quarters || entry.unit === 'quarter') && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><UnitToggle f={f} set={set} /></div>}
           <EntryFields kind={entry.kind} f={f} set={set} />
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
         </div>
@@ -262,7 +294,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
   );
 }
 
-// The student's Qur'an level — Hifz / Nazira / Qaida. Teachers change it as a child moves
+// The student's Qur'an level — Hifdh / Naazhirah / Qaa'idah. Teachers change it as a child moves
 // up; in a mixed class it's chosen here the first time.
 function LevelPicker({ student, type, classType, data, onChanged, onError }) {
   const [busy, setBusy] = useState(false);
@@ -312,7 +344,7 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
     return (
       <div className="card mb-4">
         {header}
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose whether {student.forename} is doing Hifz, Nazira or Qaida — you can change it later as they move up.</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose whether {student.forename} is doing Hifdh, Naazhirah or Qaa'idah — you can change it later as they move up.</div>
         {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>{error}</div>}
       </div>
     );
@@ -375,7 +407,7 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
         </div>
         {p.latest && (
           <div style={{ fontSize: 12.5, marginBottom: 10 }}>
-            Latest sabaq: <strong>{rangeLabel(p.latest)}</strong> <span className="text-muted">(Juz {juzOf(p.latest.toSurah, p.latest.toAyah)}, {p.latest.date === today ? 'today' : fmtDate(p.latest.date)})</span>
+            Latest Hifdh Jadeed: <strong>{rangeLabel(p.latest)}</strong> <span className="text-muted">(Juz {juzOf(p.latest.toSurah, p.latest.toAyah)}, {p.latest.date === today ? 'today' : fmtDate(p.latest.date)})</span>
           </div>
         )}
         {/* 30 juz, 1 → 30, each filled by how much of it is memorised. */}
@@ -435,9 +467,9 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
             return (
               <div key={e.id || `${e.date}-${e.kind}`} onClick={canEdit ? () => setEditingEntry(e) : undefined} role={canEdit ? 'button' : undefined}
                 title={canEdit ? 'Change or delete this entry' : (e.note || undefined)} style={{ cursor: canEdit ? 'pointer' : 'default' }}>
-                <BoxRow columns="minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, 1fr)" cells={[
+                <BoxRow columns="minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 0.9fr)" cells={[
                   { label: true, text: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: d.toLocaleDateString('en-GB', { weekday: 'short' }) },
-                  { label: true, text: KIND_LABELS[e.kind]?.name },
+                  { label: true, wrap: 'words', text: KIND_LABELS[e.kind]?.name },
                   { label: true, wrap: true, text: e.kind === 'lesson' ? e.lesson : rangeLabel(e).replace(/-/g, '\u2011').replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2'), sub: e.note || undefined }, // keep "An-Naba" and "1–20" whole
                   { text: g ? g.label : '—', tone: g && GRADE_TONES[g.key] },
                 ]} />
@@ -467,7 +499,7 @@ export function quranFactsForReport(type, data, period) {
   const graded = k => {
     const list = inPeriod.filter(e => e.kind === k);
     const count = g => list.filter(e => e.grade === g).length;
-    return list.length ? `${list.length} ${KIND_LABELS[k].name.toLowerCase()} sessions (${count('good')} good, ${count('weak')} weak, ${count('repeat')} to repeat)` : '';
+    return list.length ? `${list.length} ${KIND_LABELS[k].name} (${KIND_LABELS[k].hint.toLowerCase()}) sessions (${count('good')} good, ${count('weak')} weak, ${count('repeat')} to repeat)` : '';
   };
   if (type === 'hifz') {
     const p = hifzProgress(entries, data.priorJuz || []);
@@ -475,14 +507,14 @@ export function quranFactsForReport(type, data, period) {
     const parts = [
       `New ayahs memorised in ${period.label}: ${learned}.`,
       `Total memorised: ${p.completeJuz} complete juz (${p.percent}% of the Qur'an).`,
-      p.latest ? `Latest sabaq: ${rangeLabel(p.latest)} (Juz ${juzOf(p.latest.toSurah, p.latest.toAyah)}).` : '',
+      p.latest ? `Latest Hifdh Jadeed (new lesson): ${rangeLabel(p.latest)} (Juz ${juzOf(p.latest.toSurah, p.latest.toAyah)}).` : '',
       ['sabaq', 'sabqi', 'manzil'].map(graded).filter(Boolean).join('; '),
     ].filter(Boolean);
-    return `Hifz (Qur'an memorisation): ${parts.join(' ')}`;
+    return `Hifdh (Qur'an memorisation — use these Arabic names for the parts, as given): ${parts.join(' ')}`;
   }
   const kind = type === 'nazira' ? 'reading' : 'lesson';
   const last = entries.filter(e => e.kind === kind && e.date < period.endExclusive).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!last) return '';
-  const where = kind === 'lesson' ? `Qaida: up to ${last.lesson}.` : `Qur'an reading (nazira): up to ${upToLabel(last)} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
+  const where = kind === 'lesson' ? `Qaa'idah: up to ${last.lesson}.` : `Naazhirah (Qur'an reading): up to ${upToLabel(last)} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
   return `${where} ${graded(kind)}`.trim();
 }

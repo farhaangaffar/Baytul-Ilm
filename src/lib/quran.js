@@ -1,4 +1,4 @@
-// Qur'an reference data and hifz progress maths.
+// Qur'an reference data and hifz (Hifdh) progress maths.
 //
 // Hifz is recorded by surah and ayah (Hafs numbering, 6,236 ayahs). Each ayah has a
 // position 0–6235 counting from Al-Fatihah 1 to An-Nas 6, which makes ranges, juz
@@ -99,6 +99,17 @@ export function quarterOf(surah, ayah) {
 }
 export const QUARTER_NAMES = ['1st quarter', '2nd quarter', '3rd quarter', '4th quarter'];
 
+// Surahs with at least one ayah in juz `juz`.
+export function juzSurahs(juz) {
+  const [start, end] = JUZ_RANGES[juz - 1] || [];
+  if (start == null) return [];
+  const first = fromPosition(start).surah, last = fromPosition(end - 1).surah;
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+}
+
+// The ayah just before one — where revision "until the new lesson" ends.
+export function ayahBefore(surah, ayah) { return fromPosition(position(surah, ayah) - 1); }
+
 // "Al-Mulk 1–15", "Al-Mulk 28 – Al-Qalam 10"; recorded in quarters: "Juz 29 Q1–Q3",
 // "Juz 29 Q4 – Juz 30 Q2", or a whole juz/juz range when it's every quarter.
 export function rangeLabel(e) {
@@ -190,15 +201,15 @@ export function nextStart(e) {
 }
 
 export const QURAN_TYPES = {
-  hifz: { label: 'Hifz', kinds: ['sabaq', 'sabqi', 'manzil'] },
-  nazira: { label: 'Nazira (reading)', kinds: ['reading'] },
-  qaida: { label: 'Qaida', kinds: ['lesson'] },
+  hifz: { label: 'Hifdh', kinds: ['sabaq', 'sabqi', 'manzil'] },
+  nazira: { label: 'Naazhirah', kinds: ['reading'] },
+  qaida: { label: "Qaa'idah", kinds: ['lesson'] },
 };
 
 // What a class can be set to on Classes & Teachers — the three levels, or mixed (each
 // student's level chosen individually).
 export const CLASS_QURAN_OPTIONS = {
-  hifz: 'Hifz', nazira: 'Nazira (reading)', qaida: 'Qaida', mixed: 'Mixed — set each student',
+  hifz: 'Hifdh', nazira: 'Naazhirah', qaida: "Qaa'idah", mixed: 'Mixed — set each student',
 };
 
 // A student's Qur'an level: their own if set, else their class's (a mixed class has none
@@ -209,12 +220,15 @@ export function effectiveQuranType(classType, studentType) {
   return QURAN_TYPES[classType] ? classType : null;
 }
 
+// The names shown for each kind of entry (the stored keys stay sabaq / sabqi / manzil /
+// reading / lesson, and hifz / nazira / qaida for levels). `quarters`: can it be
+// recorded in juz quarters — a new lesson is never a whole quarter.
 export const KIND_LABELS = {
-  sabaq: { name: 'Sabaq', hint: 'New lesson' },
-  sabqi: { name: 'Sabqi', hint: 'Recent revision' },
-  manzil: { name: 'Manzil', hint: 'Older revision' },
-  reading: { name: 'Reading', hint: 'Where they read to' },
-  lesson: { name: 'Lesson', hint: 'Qaida lesson / page' },
+  sabaq: { name: 'Hifdh Jadeed', hint: 'New lesson', quarters: false },
+  sabqi: { name: "Muraaja'ah Qareebah", hint: 'Recent revision', quarters: true },
+  manzil: { name: "Muraaja'ah", hint: 'Older revision', quarters: true },
+  reading: { name: 'Naazhirah', hint: 'Where they read to', quarters: true },
+  lesson: { name: "Qaa'idah", hint: 'Lesson / page', quarters: false },
 };
 
 export const GRADES = [
