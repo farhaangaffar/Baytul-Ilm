@@ -121,10 +121,11 @@ function untilNewLesson(kind, date, entries) {
   return last ? ayahBefore(last.fromSurah, last.fromAyah) : null;
 }
 
-// Where a new sabaq / reading would carry on from (the ayah after the last one), offered
-// as a one-tap shortcut; nothing for revision or lessons.
+// Where a new entry would carry on from — the ayah after the last one of the same kind
+// (new lesson, either revision, or reading) — offered as a one-tap shortcut; not for
+// Qaa'idah lessons.
 function carryOnFrom(kind, date, entries) {
-  if (kind !== 'sabaq' && kind !== 'reading') return null;
+  if (kind === 'lesson') return null;
   const last = entries.filter(e => e.kind === kind && e.date <= date).sort(newestFirst)[0];
   return last ? nextStart(last) : null;
 }
