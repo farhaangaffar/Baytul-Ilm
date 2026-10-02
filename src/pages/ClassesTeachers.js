@@ -138,15 +138,15 @@ export default function ClassesTeachers() {
               No classes yet — click "Add class" to create one.
             </div>
           ) : (<>
-            {/* Phones: one small card per class — name and Qur'an level on top, then
-                teacher / students / class login as three boxes. No sideways scrolling. */}
-            <div className="only-narrow">
+            {/* One small card per class — name and Qur'an level on top, then teacher /
+                students / class login as three boxes; side by side on wider screens. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 10 }}>
               {classes.map(c => {
                 const login = logins.find(l => l.classId === c.id);
                 const box = { background: '#f3f4f6', borderRadius: 8, padding: '6px 6px', minHeight: 46, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center', fontSize: 12.5, lineHeight: 1.25 };
                 const sub = { fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 };
                 return (
-                  <div key={c.id} style={{ border: '1px solid #dfe3e8', borderRadius: 12, padding: 10, marginBottom: 8 }}>
+                  <div key={c.id} style={{ border: '1px solid #dfe3e8', borderRadius: 12, padding: 10 }}>
                     <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
                       <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         {c.name}
@@ -170,45 +170,6 @@ export default function ClassesTeachers() {
                   </div>
                 );
               })}
-            </div>
-            <div className="table-wrap only-wide">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Class name</th>
-                    <th>Teacher</th>
-                    <th>Students</th>
-                    <th>Class login</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map(c => (
-                    <tr key={c.id}>
-                      <td style={{ fontWeight: 500 }}>
-                        {c.name}
-                        {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal" style={{ marginLeft: 8 }}>{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType].split(' ')[0]}</span>}
-                      </td>
-                      <td className="text-muted text-sm">{teacherName(c.teacherId)}</td>
-                      <td className="text-muted text-sm">{studentCountForClass(c.name)} enrolled</td>
-                      <td>
-                        <LoginButton login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
-                          title="One shared login for this class — whoever teaches it that day can sign in" />
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button className="btn btn-icon btn-sm" onClick={() => setClassModal({ ...c })}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </>)}
         </div>
