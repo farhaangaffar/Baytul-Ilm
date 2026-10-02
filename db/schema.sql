@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS classes (
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
   name        TEXT NOT NULL,
   teacher_id  TEXT REFERENCES teachers(id) ON DELETE SET NULL,
-  quran_type  TEXT  -- 'hifz' | 'nazira' | 'qaida', or NULL: what Qur'an progress is recorded
+  quran_type  TEXT  -- 'hifz' | 'nazira' | 'qaida' | 'mixed' (set per student), or NULL: not tracked
 );
 CREATE INDEX IF NOT EXISTS idx_classes_madrasah ON classes (madrasah_id);
 
@@ -186,7 +186,8 @@ CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madras
 CREATE TABLE IF NOT EXISTS quran_students (
   student_id   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
   madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
-  prior_juz    INTEGER[] NOT NULL DEFAULT '{}'
+  prior_juz    INTEGER[] NOT NULL DEFAULT '{}',
+  quran_type   TEXT  -- the student's own level; NULL = same as their class
 );
 
 -- Parent portal: which children each family login covers, and absences parents report.

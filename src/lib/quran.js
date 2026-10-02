@@ -195,6 +195,20 @@ export const QURAN_TYPES = {
   qaida: { label: 'Qaida', kinds: ['lesson'] },
 };
 
+// What a class can be set to on Classes & Teachers — the three levels, or mixed (each
+// student's level chosen individually).
+export const CLASS_QURAN_OPTIONS = {
+  hifz: 'Hifz', nazira: 'Nazira (reading)', qaida: 'Qaida', mixed: 'Mixed — set each student',
+};
+
+// A student's Qur'an level: their own if set, else their class's (a mixed class has none
+// until one is chosen for them). null = not tracked / not chosen yet.
+export function effectiveQuranType(classType, studentType) {
+  if (!classType) return null;
+  if (QURAN_TYPES[studentType]) return studentType;
+  return QURAN_TYPES[classType] ? classType : null;
+}
+
 export const KIND_LABELS = {
   sabaq: { name: 'Sabaq', hint: 'New lesson' },
   sabqi: { name: 'Sabqi', hint: 'Recent revision' },

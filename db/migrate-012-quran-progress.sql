@@ -32,3 +32,6 @@ CREATE TABLE IF NOT EXISTS quran_students (
   madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
   prior_juz    INTEGER[] NOT NULL DEFAULT '{}'
 );
+-- A student's own level ('hifz' | 'nazira' | 'qaida'), for mixed classes and children who
+-- move up; NULL = same as their class. (A class's quran_type can also be 'mixed'.)
+ALTER TABLE quran_students ADD COLUMN IF NOT EXISTS quran_type TEXT;

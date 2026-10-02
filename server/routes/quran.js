@@ -41,6 +41,9 @@ async function ensureTables() {
       prior_juz    INTEGER[] NOT NULL DEFAULT '{}'
     )
   `);
+  // The student's own level (hifz / nazira / qaida), for mixed classes and for children
+  // who move up; NULL means "same as their class".
+  await query('ALTER TABLE quran_students ADD COLUMN IF NOT EXISTS quran_type TEXT');
   ready = true;
 }
 
@@ -73,19 +76,19 @@ module.exports = requireAuth(async (req, res) => {
       if (!scope.studentIds.has(studentId)) { forbidden(); return; }
       const [{ rows }, { rows: prior }] = await Promise.all([
         query('SELECT * FROM quran_progress WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date, kind', [studentId, mid]),
-        query('SELECT prior_juz FROM quran_students WHERE student_id = $1 AND madrasah_id = $2', [studentId, mid]),
+        query('SELECT prior_juz, quran_type FROM quran_students WHERE student_id = $1 AND madrasah_id = $2', [studentId, mid]),
       ]);
-      res.status(200).json({ entries: rows.map(toClient), priorJuz: prior[0]?.prior_juz || [] });
+      res.status(200).json({ entries: rows.map(toClient), priorJuz: prior[0]?.prior_juz || [], quranType: prior[0]?.quran_type || null });
       return;
     }
     const [{ rows }, { rows: prior }] = await Promise.all([
       query('SELECT * FROM quran_progress WHERE madrasah_id = $1 ORDER BY date, kind', [mid]),
-      query('SELECT student_id, prior_juz FROM quran_students WHERE madrasah_id = $1', [mid]),
+      query('SELECT student_id, prior_juz, quran_type FROM quran_students WHERE madrasah_id = $1', [mid]),
     ]);
     const out = {};
-    const slot = sid => (out[sid] = out[sid] || { entries: [], priorJuz: [] });
+    const slot = sid => (out[sid] = out[sid] || { entries: [], priorJuz: [], quranType: null });
     rows.forEach(r => { if (scope.studentIds.has(r.student_id)) slot(r.student_id).entries.push(toClient(r)); });
-    prior.forEach(p => { if (scope.studentIds.has(p.student_id)) slot(p.student_id).priorJuz = p.prior_juz; });
+    prior.forEach(p => { if (scope.studentIds.has(p.student_id)) Object.assign(slot(p.student_id), { priorJuz: p.prior_juz, quranType: p.quran_type || null }); });
     res.status(200).json(out);
     return;
   }
@@ -93,6 +96,18 @@ module.exports = requireAuth(async (req, res) => {
   const b = req.body || {};
   if (!b.studentId) { res.status(400).json({ error: 'studentId is required' }); return; }
   if (!scope.studentIds.has(b.studentId)) { forbidden(); return; }
+
+  if (req.method === 'PUT' && req.query.action === 'type') {
+    // A student's own Qur'an level; null goes back to following their class.
+    const type = ['hifz', 'nazira', 'qaida'].includes(b.quranType) ? b.quranType : null;
+    await query(
+      `INSERT INTO quran_students (student_id, madrasah_id, quran_type) VALUES ($1, $2, $3)
+       ON CONFLICT (student_id) DO UPDATE SET quran_type = EXCLUDED.quran_type`,
+      [b.studentId, mid, type]
+    );
+    res.status(200).json({ ok: true, quranType: type });
+    return;
+  }
 
   if (req.method === 'PUT' && req.query.action === 'prior') {
     const juz = Array.isArray(b.priorJuz) ? [...new Set(b.priorJuz.map(int))].filter(j => j >= 1 && j <= 30).sort((x, y) => x - y) : null;
