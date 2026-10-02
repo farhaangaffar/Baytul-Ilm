@@ -133,7 +133,7 @@ function carryOnFrom(kind, date, entries) {
 // Surah & ayah / Juz quarters switch — its own full-width line, two equal halves.
 function UnitToggle({ f, set }) {
   return (
-    <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 3, marginBottom: 8 }}>
+    <div style={{ display: 'flex', background: '#eef1f5', borderRadius: 999, padding: 3, marginBottom: 8, height: 36, boxSizing: 'border-box' }}>
       {[['ayah', 'Surah & ayah'], ['quarter', 'Juz quarters']].map(([u, text]) => {
         const on = (f.unit || 'ayah') === u;
         return (
@@ -234,7 +234,8 @@ function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
             <>
               {label.quarters && <UnitToggle f={f} set={set} />}
               {next && (
-                <button type="button" className="btn btn-sm" onClick={carryOn} style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }}>
+                <button type="button" className="btn" onClick={carryOn}
+                  style={{ width: '100%', height: 36, borderRadius: 999, justifyContent: 'center', fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
                   Carry on from {surahName(next.surah)} {next.ayah}
                 </button>
               )}
