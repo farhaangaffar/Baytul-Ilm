@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, attendanceCountsForMonth, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, getTerms, currentSchoolMonthKey as currentMonth } from '../lib/store';
+import { QuranEntryCard, QuranProgressCard, quranFactsForReport } from '../components/QuranCards';
+import { rangeLabel, upToLabel, effectiveQuranType } from '../lib/quran';
+import { getClasses, getQuranProgress, getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, attendanceCountsForMonth, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, getTerms, currentSchoolMonthKey as currentMonth } from '../lib/store';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -86,7 +88,16 @@ function CommentBox({ initialValue, onSave, placeholder }) {
   );
 }
 
-function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords }) {
+// "Sabaq: Al-Mulk 1–15" / "Reading: Ya-Sin 40" / "Lesson 12" — where a student is up to.
+function quranUpTo(type, data) {
+  const kind = { hifz: 'sabaq', nazira: 'reading', qaida: 'lesson' }[type];
+  const last = (data?.entries || []).filter(e => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!kind || !last) return '';
+  if (kind === 'lesson') return `Qaida: ${last.lesson}`;
+  return kind === 'sabaq' ? `Sabaq: ${rangeLabel(last)}` : `Reading: ${upToLabel(last)}`;
+}
+
+function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, classTypes, quranAll }) {
   // Excludes anyone whose enrollDate is still in the future (hasn't started yet) and
   // anyone marked Inactive (has left) — a left student's history stays fully visible
   // via their card in the Students page's "students who have left" section instead.
@@ -110,7 +121,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               onMouseLeave={e=>e.currentTarget.style.boxShadow=''}>
               <div style={{marginBottom:12}}>
                 <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
-                <div className="text-muted text-sm">{s.class}</div>
+                <div className="text-muted text-sm">{quranUpTo(effectiveQuranType(classTypes[s.class], quranAll[s.id]?.quranType), quranAll[s.id]) || s.class}</div>
               </div>
               {/* Neutral tile + colored corner dot — same language as the Fees week-pills
                   and Attendance mark buttons, rather than a solid-colored tile per stat. */}
@@ -160,10 +171,22 @@ function keysFor(date) {
   return [date, monthKey, academicYearOfMonth(monthKey)];
 }
 
-function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
+function StudentRecords({ student, settings, classType, onBack, onRecordsChanged }) {
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
   const { isOwner } = useAuth();
+  // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
+  // Their level is their own if set, else their class's.
+  const hasQuran = !!classType;
+  const [quran, setQuran] = useState(null);
+  const quranType = effectiveQuranType(classType, quran?.quranType);
+  // Which previous summary is open (only its title shows otherwise).
+  const [openSummary, setOpenSummary] = useState(null);
+  const refreshQuran = useCallback(async () => {
+    if (!hasQuran) return;
+    try { setQuran(await getQuranProgress(student.id)); } catch { /* the rest of the page still works */ }
+  }, [hasQuran, student.id]);
+  useEffect(() => { refreshQuran(); }, [refreshQuran]);
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
   // Only the month/year grouping keys collapse — there's no per-day accordion any
@@ -304,7 +327,7 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
       if (!period) { setAiSummary('Add your term dates in Settings → Terms first.'); setAiLoading(false); return; }
       const freshRecords = await getStudentRecords(student.id);
       const monthDates=Object.keys(freshRecords).filter(inPeriod).sort((a,b)=>b.localeCompare(a));
-      if (!monthDates.length) {
+      if (!monthDates.length && !hasQuran) {
         setAiSummary(`No records found for this ${unitWord}. Add some daily entries first.`);
         setAiLoading(false);
         return;
@@ -317,7 +340,9 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
       const year = termly ? period.yearLabel : await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
       const counts = termly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
-      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.\n\n${entries}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Cover: overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      // Qur'an progress for the period, as exact figures the summary can quote.
+      const quranFacts = quranType ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
+      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\n${quranFacts}` : ''}\n\n${entries}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Cover: overall attitude and behaviour, ${quranFacts ? "their Qur'an progress (quote the figures above accurately), " : ''}key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -409,6 +434,8 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
 
       <div className="grid-2" style={{alignItems:'flex-start'}}>
         <div>
+          {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran}
+ />}
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
               plain, calm, scannable history. Clicking any row in it (DayRow) just loads
@@ -524,6 +551,8 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
         </div>
 
         <div style={{position:'sticky',top:24}}>
+          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
+            canEdit />}
           {isOwner && (<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
@@ -595,13 +624,22 @@ function StudentRecords({ student, settings, onBack, onRecordsChanged }) {
           </div>
           {previousSummaries.length>0&&(
             <div className="card" style={{marginTop:14}}>
-              <div className="card-title" style={{marginBottom:12}}>Previous summaries</div>
-              {previousSummaries.map(s=>(
-                <div key={s.month} style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontWeight:600,fontSize:12,marginBottom:4}}>{periodForKey(s.month, terms).label}</div>
-                  <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{s.summary}</div>
-                </div>
-              ))}
+              <div className="card-title" style={{marginBottom:8}}>Previous summaries</div>
+              {/* Just the month/term each was written for — tap one to read it. */}
+              {previousSummaries.map(s=>{
+                const open = openSummary===s.month;
+                return (
+                  <div key={s.month} style={{borderTop:'1px solid var(--border)'}}>
+                    <button type="button" onClick={()=>setOpenSummary(open?null:s.month)} aria-expanded={open}
+                      style={{display:'flex',alignItems:'center',gap:6,width:'100%',background:'none',border:'none',padding:'9px 0',cursor:'pointer',fontFamily:'var(--font)',fontWeight:600,fontSize:13,color:'var(--ink)',textAlign:'left'}}>
+                      {open?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
+                      <span style={{flex:1}}>{periodForKey(s.month, terms).label}</span>
+                      {s.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{s.behavior}</span>}
+                    </button>
+                    {open&&<div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap',padding:'0 0 12px 20px'}}>{s.summary}</div>}
+                  </div>
+                );
+              })}
             </div>
           )}
           </>)}
@@ -647,6 +685,8 @@ export default function DailyRecords() {
   const [settings, setSettings] = useState(null);
   const [attendance, setAttendance] = useState({});
   const [allRecords, setAllRecords] = useState({});
+  const [classTypes, setClassTypes] = useState({}); // class name → 'hifz' | 'nazira' | 'qaida'
+  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz }
   const [activeClass, setActiveClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   // Opening a student's records used to leave the list scrolled back to the top on
@@ -669,11 +709,15 @@ export default function DailyRecords() {
     setLoading(true); setError(null);
     try {
       const year = await currentSchoolYear();
-      const [studentsData, classNamesData, settingsData, attendanceData, recordsData] = await Promise.all([
-        getStudents(), getClassNames(), getSettings(), getAttendance(year), getDailyRecords(),
+      const [studentsData, classesData, settingsData, attendanceData, recordsData] = await Promise.all([
+        getStudents(), getClasses(), getSettings(), getAttendance(year), getDailyRecords(),
       ]);
+      const classNamesData = classesData.map(c => c.name);
+      const types = Object.fromEntries(classesData.filter(c => c.quranType).map(c => [c.name, c.quranType]));
       setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
-      setAttendance(attendanceData); setAllRecords(recordsData);
+      setAttendance(attendanceData); setAllRecords(recordsData); setClassTypes(types);
+      // Qur'an progress only matters when some class tracks it; never blocks the page.
+      if (Object.keys(types).length) getQuranProgress().then(setQuranAll).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
     } catch (err) {
       setError(err);
@@ -690,7 +734,8 @@ export default function DailyRecords() {
   // — relying on the close path alone missed some route back to the list.
   const refreshCounts = useCallback(() => {
     getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
-  }, []);
+    if (Object.keys(classTypes).length) getQuranProgress().then(setQuranAll).catch(() => {});
+  }, [classTypes]);
   const closeStudent = useBackToClose(!!selectedStudent, () => {
     setSelectedStudent(null);
     refreshCounts();
@@ -702,8 +747,8 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
-        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
+        :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords} classTypes={classTypes} quranAll={quranAll}/>
       }
     </Layout>
   );

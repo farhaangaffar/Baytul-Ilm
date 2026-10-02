@@ -1,6 +1,19 @@
 const { query } = require('../db');
 const { requireAuth, isOwner, teacherClassNames } = require('../auth');
 
+// quran_type: what the class studies — 'hifz' | 'nazira' | 'qaida', 'mixed' (each
+// student's level is set individually), or null for none. It decides the Qur'an
+// progress fields on Daily records; a student's own level (quran_students.quran_type,
+// server/routes/quran.js) overrides it.
+let columnsReady = false;
+async function ensureColumns() {
+  if (columnsReady) return;
+  await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS quran_type TEXT');
+  columnsReady = true;
+}
+const QURAN_TYPES = ['hifz', 'nazira', 'qaida', 'mixed'];
+const COLS = 'id, name, teacher_id AS "teacherId", quran_type AS "quranType"';
+
 // A class's teacher must be one of the same madrasah's teachers.
 async function teacherOk(teacherId, mid) {
   if (!teacherId) return true;
@@ -12,19 +25,20 @@ async function teacherOk(teacherId, mid) {
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
   const mid = req.user.madrasahId;
+  await ensureColumns();
 
   // Teachers (and class logins) only see their own classes, and can't change any.
   if (!isOwner(req)) {
     if (id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
     const names = await teacherClassNames(req.user);
-    const { rows } = await query('SELECT id, name, teacher_id AS "teacherId" FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY name', [mid, names]);
+    const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY name`, [mid, names]);
     res.status(200).json(rows);
     return;
   }
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query('SELECT id, name, teacher_id AS "teacherId" FROM classes WHERE madrasah_id = $1 ORDER BY name', [mid]);
+      const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 ORDER BY name`, [mid]);
       res.status(200).json(rows);
       return;
     }
@@ -35,8 +49,8 @@ module.exports = requireAuth(async (req, res) => {
       if (!(await teacherOk(b.teacherId, mid))) { res.status(400).json({ error: 'Teacher not found' }); return; }
       const newId = b.id || 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const { rows } = await query(
-        'INSERT INTO classes (id, madrasah_id, name, teacher_id) VALUES ($1,$2,$3,$4) RETURNING id, name, teacher_id AS "teacherId"',
-        [newId, mid, b.name, b.teacherId || null]
+        `INSERT INTO classes (id, madrasah_id, name, teacher_id, quran_type) VALUES ($1,$2,$3,$4,$5) RETURNING ${COLS}`,
+        [newId, mid, b.name, b.teacherId || null, QURAN_TYPES.includes(b.quranType) ? b.quranType : null]
       );
       res.status(201).json(rows[0]);
       return;
@@ -58,6 +72,9 @@ module.exports = requireAuth(async (req, res) => {
     if (b.teacherId !== undefined) {
       if (!(await teacherOk(b.teacherId, mid))) { res.status(400).json({ error: 'Teacher not found' }); return; }
       values.push(b.teacherId || null); sets.push(`teacher_id = $${values.length}`);
+    }
+    if (b.quranType !== undefined) {
+      values.push(QURAN_TYPES.includes(b.quranType) ? b.quranType : null); sets.push(`quran_type = $${values.length}`);
     }
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
     values.push(id, mid);

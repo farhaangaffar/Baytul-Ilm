@@ -10,6 +10,7 @@ import {
 import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, GripVertical } from 'lucide-react';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { useAuth } from '../lib/AuthContext';
+import { CLASS_QURAN_OPTIONS } from '../lib/quran';
 
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
@@ -151,7 +152,10 @@ export default function ClassesTeachers() {
                 <tbody>
                   {classes.map(c => (
                     <tr key={c.id}>
-                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ fontWeight: 500 }}>
+                        {c.name}
+                        {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal" style={{ marginLeft: 8 }}>{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType].split(' ')[0]}</span>}
+                      </td>
                       <td className="text-muted text-sm">{teacherName(c.teacherId)}</td>
                       <td className="text-muted text-sm">{studentCountForClass(c.name)} enrolled</td>
                       <td>
@@ -340,6 +344,16 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
                 <option value="">— Unassigned —</option>
                 {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
+            </div>
+            <div className="form-group">
+              <label>Qur'an</label>
+              <select value={form.quranType || ''} onChange={e => setForm({ ...form, quranType: e.target.value })}>
+                <option value="">— Not tracked —</option>
+                {Object.entries(CLASS_QURAN_OPTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              </select>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                Hifz tracks sabaq, sabqi and manzil; Nazira where they read to; Qaida the lesson. Choose Mixed if the class has all three — each student's level is then set on Daily records (and can be changed for any student as they move up).
+              </span>
             </div>
           </div>
         </div>
