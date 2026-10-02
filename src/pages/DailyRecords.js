@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { QuranEntryCard, QuranProgressCard, quranFactsForReport } from '../components/QuranCards';
-import { rangeLabel, surahName, QURAN_TYPES } from '../lib/quran';
+import { rangeLabel, upToLabel, QURAN_TYPES } from '../lib/quran';
 import { getClasses, getQuranProgress, getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, attendanceCountsForMonth, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, getTerms, currentSchoolMonthKey as currentMonth } from '../lib/store';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { checkSummaryFit } from '../lib/summaryFit';
@@ -94,7 +94,7 @@ function quranUpTo(type, data) {
   const last = (data?.entries || []).filter(e => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!kind || !last) return '';
   if (kind === 'lesson') return `Qaida: ${last.lesson}`;
-  return kind === 'sabaq' ? `Sabaq: ${rangeLabel(last)}` : `Reading: ${surahName(last.toSurah)} ${last.toAyah}`;
+  return kind === 'sabaq' ? `Sabaq: ${rangeLabel(last)}` : `Reading: ${upToLabel(last)}`;
 }
 
 function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, classTypes, quranAll }) {
