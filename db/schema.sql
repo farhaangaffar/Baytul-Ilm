@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS settings (
   icon                TEXT, -- data: URL, 512px square app icon built from the logo
   parent_portal       BOOLEAN NOT NULL DEFAULT false,
   school_days         INTEGER[] NOT NULL DEFAULT '{1,2,3,4}', -- days classes meet (0 Sun … 6 Sat)
-  fee_auto            BOOLEAN NOT NULL DEFAULT true -- add monthly/termly fees by themselves; weekly start on first payment
+  fee_auto            BOOLEAN NOT NULL DEFAULT true, -- add fees by themselves (monthly/termly periods; weekly fee weeks)
+  fee_auto_since      DATE -- Monday automatic weekly fees began; earlier weeks are never filled in
 );
 
 -- Fee periods removed on purpose (e.g. an August with no classes), for a whole class
@@ -87,6 +88,14 @@ CREATE TABLE IF NOT EXISTS fee_skips (
   class       TEXT NOT NULL DEFAULT '',
   student_id  TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (madrasah_id, period, start_date, class, student_id)
+);
+
+-- Weekly fees: weeks the head switched off (Settings → Fee weeks); every other week is charged.
+CREATE TABLE IF NOT EXISTS fee_weeks_off (
+  madrasah_id   INTEGER NOT NULL REFERENCES madaaris(id),
+  year          TEXT NOT NULL,
+  week_starting DATE NOT NULL,
+  PRIMARY KEY (madrasah_id, week_starting)
 );
 
 CREATE TABLE IF NOT EXISTS attendance (

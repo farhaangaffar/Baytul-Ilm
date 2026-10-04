@@ -82,12 +82,14 @@ codebase (one codebase, not a fork).
   default): monthly/termly — the current month's/term's fees are added for every active
   student when it starts (`/api/fees?action=auto`, run by `ensureAutoFees()` before fees
   are read); a period removed on purpose is remembered in `fee_skips` (class or student)
-  so it isn't re-added. Weekly — a week stays unmarked until someone is first marked
-  paid for it, which starts it for the whole class (`?action=pay-week`, head only).
-  Joining/leaving: only active children billed, from their enrol date, not after their
-  leave date; a child joining after a week started for their class gets it too (weekly
-  fill in `?action=auto`, only for weeks since `settings.fee_auto_since` so older
-  history is never touched); one child's removed week/month is remembered in `fee_skips`.
+  so it isn't re-added. Weekly — **Settings → Fee weeks** (`FeeWeeksCard`, head only):
+  every week is on unless switched off (`fee_weeks_off`); on-weeks are charged to every
+  child when their Monday arrives (`?action=auto`, only weeks since
+  `settings.fee_auto_since`, so older history is never touched); switching a week off
+  removes its unpaid fees (payments stay). Removing a week for a class or child on the
+  Fees page is remembered in `fee_skips`. Joining/leaving: only active children billed,
+  from their enrol date (whole period — the head edits the amount if needed), never
+  after their leave date. Teachers only tick/untick fees that exist.
   The current **academic year** adds itself from 1 September (`/api/academic-years` GET).
 - **School days** (Settings, `settings.school_days`, JS day numbers, Mon–Thu by default):
   `getWeekDates()` / `isSchoolDay()` in `src/lib/store.js` — never assume Mon–Thu.

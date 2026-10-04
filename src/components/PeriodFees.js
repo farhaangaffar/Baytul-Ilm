@@ -76,7 +76,6 @@ export default function PeriodFees({ frequency }) {
   // Only this frequency's records — weekly records from before a switch stay on their own.
   const periodFees = fees.filter(f => f.period === freq.period);
   const classFees = periodFees.filter(f => ids.has(f.studentId));
-  const yearTotals = feeTotals(classFees, '0000-01-01', '9999-12-31');
   const periodTotals = current ? feeTotals(classFees, current.start, current.endExclusive) : { collected: 0, outstanding: 0 };
   const feeFor = (sid, p) => periodFees.find(f => f.studentId === sid && f.weekStarting === p.start);
 
@@ -173,11 +172,15 @@ export default function PeriodFees({ frequency }) {
         </div>
       ) : (
         <>
-          <div className="stat-grid-v2">
-            <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{money(yearTotals.collected)}</div><div className="l">Collected — {activeClass} ({year})</div></div>
-            <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>{money(yearTotals.outstanding)}</div><div className="l">Outstanding ({year})</div></div>
-            <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{money(periodTotals.collected)}</div><div className="l">Collected — {current ? current.label : `this ${unit}`}</div></div>
-            <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>{money(periodTotals.outstanding)}</div><div className="l">Outstanding — {current ? current.label : `this ${unit}`}</div></div>
+          {/* This month / term only, for this class (the year's totals are on Stats). */}
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+            {activeClass} · this {unit} — {current ? current.label : '—'}
+          </div>
+          <div className="stat-grid-v2" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{money(periodTotals.collected)}</div><div className="l">Collected</div></div>
+            <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>{money(periodTotals.outstanding)}</div><div className="l">Outstanding</div></div>
+            <div className="stat-card-v2"><div className="n">{current ? new Set(classFees.filter(f => f.status !== 'Paid' && f.weekStarting >= current.start && f.weekStarting < current.endExclusive).map(f => f.studentId)).size : 0}</div><div className="l">Children owing</div></div>
+            <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
           </div>
 
           <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>

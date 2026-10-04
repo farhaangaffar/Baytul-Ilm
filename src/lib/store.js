@@ -276,9 +276,12 @@ export async function getFees(year) {
   await ensureAutoFees();
   return apiFetch(`/api/fees?year=${encodeURIComponent(year)}`);
 }
-// Weekly: marks one student paid for a week, starting that week for their whole class.
-export async function payWeekFee(year, studentId, weekStarting) {
-  return apiFetch('/api/fees?action=pay-week', { method: 'POST', body: JSON.stringify({ year, studentId, weekStarting }) });
+// Settings → Fee weeks (weekly fees): which weeks are switched off, and how many fees each
+// week has. setFeeWeeks switches weeks on/off (off removes fees not yet paid).
+export async function getFeeWeeks(year) { return apiFetch(`/api/fees?action=fee-weeks&year=${encodeURIComponent(year)}`); }
+export async function setFeeWeeks(weeks, on) {
+  autoFeesRun = null;
+  return apiFetch('/api/fees?action=fee-weeks', { method: 'POST', body: JSON.stringify({ weeks, on }) });
 }
 export async function addFeeRecord(rec, year) {
   return apiFetch('/api/fees', { method: 'POST', body: JSON.stringify({ ...rec, year }) });

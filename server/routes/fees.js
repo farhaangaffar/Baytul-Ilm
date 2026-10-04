@@ -23,6 +23,12 @@ async function ensurePeriodColumn() {
     student_id  TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (madrasah_id, period, start_date, class, student_id)
   )`);
+  await query(`CREATE TABLE IF NOT EXISTS fee_weeks_off (
+    madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+    year         TEXT NOT NULL,
+    week_starting DATE NOT NULL,
+    PRIMARY KEY (madrasah_id, week_starting)
+  )`);
   // The Monday automatic fees first ran — weeks before it are never filled in, so history
   // from before the feature is left exactly as it was.
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_auto_since DATE`);
@@ -93,30 +99,35 @@ function mondayOf(dateStr) {
 // Teachers may see their own classes' fees and tick an added fee paid or untick it
 // (a mistake) — nothing else: no amounts, no adding/starting/removing weeks or months.
 // Everything else is owner-only.
-// Weekly: make sure everyone who should owe a started week has it — every active
-// classmate enrolled by the week's end and not left before it starts, unless that
-// week was removed for them on purpose (fee_skips). Returns how many were added.
-async function fillWeek(mid, className, year, week, allowed, alwaysId = null) {
-  const { rows } = await query(
-    `SELECT s.id, s.weekly_fee FROM students s
-     WHERE s.madrasah_id = $1 AND s.class = $2
-       AND (s.id = $5 OR (s.status = 'Active'
-         AND (s.enroll_date IS NULL OR s.enroll_date < $4)
-         AND (s.leave_date IS NULL OR s.leave_date >= $3)
-         AND NOT EXISTS (SELECT 1 FROM fee_skips k WHERE k.madrasah_id = $1 AND k.period = 'week' AND k.start_date = $3
-                         AND (k.student_id = s.id OR (k.student_id = '' AND k.class = s.class)))))`,
-    [mid, className, week, plusDays(week, 7), alwaysId || '']
+// Weekly fee weeks (Settings → Fee weeks): every week is charged unless the head
+// switched it off (fee_weeks_off). A week's year follows the school-month rule — the
+// week of a September's first Monday starts the new year.
+function firstMondayOf(y, m) { // m: 1–12
+  const d = new Date(Date.UTC(y, m - 1, 1, 12));
+  while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+  return isoDay(d);
+}
+function yearOfWeek(monday) {
+  const y = Number(monday.slice(0, 4));
+  const start = monday >= firstMondayOf(y, 9) ? y : y - 1;
+  return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+}
+// Charges one week to everyone who should owe it — active, enrolled by the week's end,
+// not left before it starts, not removed for them or their class on purpose
+// (fee_skips) — limited to `ids`. Returns how many fees were added.
+async function fillWeek(mid, week, ids) {
+  const { rowCount } = await query(
+    `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status)
+     SELECT $1, $2, s.id, 'week', $3, s.weekly_fee, 'Pending' FROM students s
+     WHERE s.madrasah_id = $1 AND s.status = 'Active' AND s.id = ANY($5)
+       AND (s.enroll_date IS NULL OR s.enroll_date < $4)
+       AND (s.leave_date IS NULL OR s.leave_date >= $3)
+       AND NOT EXISTS (SELECT 1 FROM fee_skips k WHERE k.madrasah_id = $1 AND k.period = 'week' AND k.start_date = $3
+                       AND (k.student_id = s.id OR (k.student_id = '' AND k.class = s.class)))
+     ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
+    [mid, yearOfWeek(week), week, plusDays(week, 7), ids]
   );
-  let added = 0;
-  for (const c of rows.filter(x => allowed(x.id))) {
-    const { rowCount } = await query(
-      `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,'week',$4,$5,'Pending')
-       ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
-      [mid, year, c.id, week, c.weekly_fee]
-    );
-    added += rowCount;
-  }
-  return added;
+  return rowCount;
 }
 
 module.exports = requireAuth(async (req, res) => {
@@ -150,18 +161,21 @@ module.exports = requireAuth(async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
     const { rows: cfg } = await query('SELECT fee_frequency, fee_auto, fee_auto_since FROM settings WHERE madrasah_id = $1', [mid]);
     if (cfg[0] && cfg[0].fee_auto !== false && cfg[0].fee_frequency === 'weekly') {
-      // Weekly: children who joined after a week started for their class owe it too.
+      // Weekly: every fee week that has arrived (its Monday has come) is charged —
+      // except weeks switched off in Settings, and weeks from before automatic fees began
+      // (history is never changed).
       let since = cfg[0].fee_auto_since;
       if (!since) {
         since = mondayOf(isoDay(new Date()));
         await query('UPDATE settings SET fee_auto_since = $2 WHERE madrasah_id = $1', [mid, since]);
       }
-      const { rows: started } = await query(
-        `SELECT DISTINCT s.class, f.year, f.week_starting FROM fees f JOIN students s ON s.id = f.student_id AND s.madrasah_id = f.madrasah_id
-         WHERE f.madrasah_id = $1 AND f.period = 'week' AND f.week_starting >= $2`, [mid, since]
-      );
+      const { rows: off } = await query('SELECT week_starting FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting >= $2', [mid, since]);
+      const offSet = new Set(off.map(r => r.week_starting));
+      const ids = [...scope.studentIds];
       let created = 0;
-      for (const w of started) created += await fillWeek(mid, w.class, w.year, w.week_starting, id => scope.studentIds.has(id));
+      for (let w = since; w <= mondayOf(isoDay(new Date())); w = plusDays(w, 7)) {
+        if (!offSet.has(w)) created += await fillWeek(mid, w, ids);
+      }
       res.status(200).json({ ok: true, created });
       return;
     }
@@ -189,29 +203,37 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
-  if (action === 'pay-week') {
-    // Weekly: the first time anyone in a class is marked paid for a week, that week
-    // starts for the whole class (everyone else then owes it) and this student is paid.
-    // Weeks nobody pays (holidays) are never charged.
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
-    const { year, studentId, weekStarting } = req.body || {};
-    if (!year || !studentId || !/^\d{4}-\d{2}-\d{2}$/.test(String(weekStarting || ''))) {
-      res.status(400).json({ error: 'year, studentId and weekStarting are required' }); return;
+  if (action === 'fee-weeks') {
+    // Settings → Fee weeks (head only). GET ?year= → { off: [Mondays], charged: {Monday: n} }.
+    // POST { weeks: [Mondays], on: true|false } switches weeks on or off. Off: the week is
+    // never charged, and fees not yet paid for it are removed (payments stay recorded).
+    // On: charged again — straight away if the week has already arrived.
+    if (req.method === 'GET') {
+      const year = String(req.query.year || '');
+      const { rows: off } = await query('SELECT week_starting FROM fee_weeks_off WHERE madrasah_id = $1 AND year = $2 ORDER BY 1', [mid, year]);
+      const { rows: charged } = await query(
+        `SELECT week_starting, count(*)::int AS n FROM fees WHERE madrasah_id = $1 AND year = $2 AND period = 'week' GROUP BY 1`, [mid, year]);
+      res.status(200).json({ off: off.map(r => r.week_starting), charged: Object.fromEntries(charged.map(r => [r.week_starting, r.n])) });
+      return;
     }
-    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
-    const week = mondayOf(weekStarting);
-    const { rows: me } = await query('SELECT class FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
-    if (!me.length) { res.status(404).json({ error: 'Student not found' }); return; }
-    // The paying student is always included; classmates follow the joining/leaving and
-    // removed-week rules (fillWeek).
-    await fillWeek(mid, me[0].class, year, week, id => scope.studentIds.has(id), studentId);
-    // Paying for a week that had been removed for them brings it back for good.
-    await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = $2 AND student_id = $3`, [mid, week, studentId]);
-    await query(
-      `UPDATE fees SET status = 'Paid', paid_date = $5 WHERE madrasah_id = $1 AND year = $2 AND student_id = $3 AND period = 'week' AND week_starting = $4`,
-      [mid, year, studentId, week, isoDay(new Date())]
-    );
-    res.status(200).json({ ok: true });
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { weeks, on } = req.body || {};
+    const list = Array.isArray(weeks) ? [...new Set(weeks.map(String).filter(w => /^\d{4}-\d{2}-\d{2}$/.test(w)).map(mondayOf))] : [];
+    if (!list.length || typeof on !== 'boolean') { res.status(400).json({ error: 'weeks[] and on are required' }); return; }
+    let removed = 0, added = 0;
+    const today = mondayOf(isoDay(new Date()));
+    const all = [...scope.studentIds];
+    for (const w of list) {
+      if (on) {
+        await query('DELETE FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting = $2', [mid, w]);
+        if (w <= today) added += await fillWeek(mid, w, all);
+      } else {
+        await query('INSERT INTO fee_weeks_off (madrasah_id, year, week_starting) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [mid, yearOfWeek(w), w]);
+        const { rowCount } = await query(`DELETE FROM fees WHERE madrasah_id = $1 AND period = 'week' AND week_starting = $2 AND status <> 'Paid'`, [mid, w]);
+        removed += rowCount;
+      }
+    }
+    res.status(200).json({ ok: true, removed, added });
     return;
   }
 
@@ -260,6 +282,10 @@ module.exports = requireAuth(async (req, res) => {
       res.status(400).json({ error: 'year, weeks[] and students[] ({id, weeklyFee}) are required' });
       return;
     }
+    // Added back by hand: forget these weeks were ever removed for these students' classes.
+    const { rows: wcls } = await query('SELECT DISTINCT class FROM students WHERE id = ANY($1) AND madrasah_id = $2', [students.map(s => s.id), mid]);
+    await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = ANY($2::date[]) AND (student_id = ANY($3) OR class = ANY($4))`,
+      [mid, weeks, students.map(s => s.id), wcls.map(c => c.class)]);
     let created = 0;
     for (const week of weeks) {
       for (const s of students) {
@@ -296,7 +322,7 @@ module.exports = requireAuth(async (req, res) => {
        AND student_id IN (SELECT id FROM students WHERE class = $3 AND madrasah_id = $5)`,
       [year, weeks, className, period, mid]
     );
-    if (period !== 'week') {
+    {
       for (const start of weeks) {
         await query(`INSERT INTO fee_skips (madrasah_id, period, start_date, class) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [mid, period, start, className]);
       }
@@ -333,6 +359,8 @@ module.exports = requireAuth(async (req, res) => {
        AND student_id IN (SELECT id FROM students WHERE class = $3 AND madrasah_id = $4)`,
       [year, weekStarting, className, mid]
     );
+    // Removed for this class on purpose — automatic fees won't charge it again.
+    await query(`INSERT INTO fee_skips (madrasah_id, period, start_date, class) VALUES ($1,'week',$2,$3) ON CONFLICT DO NOTHING`, [mid, weekStarting, className]);
     res.status(200).json({ ok: true });
     return;
   }

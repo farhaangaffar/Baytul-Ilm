@@ -5,7 +5,6 @@ import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy,
-  payWeekFee,
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
@@ -67,11 +66,9 @@ function WeeklyFees() {
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   const [toggling, setToggling] = useState(false);
-  // Weekly fees with "Add fees automatically" on: a week nobody has paid yet is unmarked
-  // for the whole class, and the first "paid" on it starts it for everyone.
+  // With "Add fees automatically" on, weeks are charged by themselves (Settings → Fee
+  // weeks); a week not charged (switched off, or not here yet) shows as unmarked.
   const autoWeeks = getBranding().feeAuto !== false;
-  const canStartWeek = autoWeeks && isOwner;
-  const [confirmStart, setConfirmStart] = useState(null); // { studentId, week }
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
@@ -114,19 +111,6 @@ function WeeklyFees() {
     } catch (err) {
       setFees(prev => prev.map(f => f.id===fee.id ? { ...f, status: fee.status, paidDate: fee.paidDate } : f));
       showToast(err.message || 'Could not update this record');
-    }
-    setToggling(false);
-  }
-
-  async function startWeekPaid() {
-    const { studentId, week } = confirmStart;
-    setToggling(true);
-    try {
-      await payWeekFee(year, studentId, week);
-      await refresh();
-      setConfirmStart(null);
-    } catch (err) {
-      showToast(err.message || 'Could not mark this week');
     }
     setToggling(false);
   }
@@ -216,8 +200,6 @@ function WeeklyFees() {
   // via their card in the Students page's "students who have left" section instead.
   const classStudents = students.filter(s=>s.class===activeClass && s.status==='Active' && hasEnrolledBy(s, isoToday()));
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
-  const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonth = getCurrentSchoolMonth(referenceDate);
   const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
   const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
@@ -252,30 +234,6 @@ function WeeklyFees() {
           <button className={willBePaid?'btn btn-green':'btn btn-danger'} onClick={confirmTogglePaid} disabled={toggling}>
             {willBePaid?<Check size={13}/>:<X size={13}/>}{toggling?'Saving…':(willBePaid?'Mark paid':'Mark unpaid')}
           </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const startStudent = confirmStart && students.find(s=>s.id===confirmStart.studentId);
-  const confirmStartModal = confirmStart&&(
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&!toggling&&setConfirmStart(null)}>
-      <div className="modal" style={{maxWidth:380}}>
-        <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
-          <div style={{width:48,height:48,borderRadius:'50%',background:'var(--green-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
-            <Check size={22} color="var(--green-text)"/>
-          </div>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>
-            Mark week of {formatDayMonthGB(confirmStart.week)} as paid?
-          </div>
-          <div style={{color:'var(--text-muted)',fontSize:12.5}}>
-            {startStudent?`${startStudent.forename} ${startStudent.surname}`:''} — {money(Number(startStudent?.weeklyFee||0))}.
-            <br/>This is the first payment this week, so the week starts for everyone in {startStudent?.class}: the others will show as owing.
-          </div>
-        </div>
-        <div className="modal-footer" style={{justifyContent:'center'}}>
-          <button className="btn" onClick={()=>setConfirmStart(null)} disabled={toggling}>Cancel</button>
-          <button className="btn btn-green" onClick={startWeekPaid} disabled={toggling}><Check size={13}/>{toggling?'Saving…':'Mark paid'}</button>
         </div>
       </div>
     </div>
@@ -321,11 +279,8 @@ function WeeklyFees() {
                 <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
                   <div className="day-cal-name">W/C</div>
                   <div className="day-cal-date">{dateLabel}</div>
-                  {canStartWeek
-                    ? <button className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)'}} title="Tap to mark paid"
-                        onClick={()=>setConfirmStart({studentId:selected.id, week:w})}>·</button>
-                    : <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>}
-                  <div className="day-cal-label">{autoWeeks ? 'Unmarked' : 'Not added'}</div>
+                  <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>
+                  <div className="day-cal-label">{autoWeeks ? 'Not charged' : 'Not added'}</div>
                 </div>
               );
             }
@@ -401,7 +356,6 @@ function WeeklyFees() {
           </div>
         )}
         {confirmToggleModal}
-        {confirmStartModal}
         {toast&&<div className="toast">✓ {toast}</div>}
       </Layout>
     );
@@ -419,17 +373,13 @@ function WeeklyFees() {
         ))}
       </div>
 
-      <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(totalPaid)}</div><div className="l">Collected — {activeClass} ({year})</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(totalOwed)}</div><div className="l">Outstanding ({year})</div></div>
-        <div className="stat-card-v2"><div className="n">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid records</div></div>
-        <div className="stat-card-v2"><div className="n">{classStudents.filter(s=>s.status==='Active').length}</div><div className="l">Active students</div></div>
-      </div>
-
-      <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'-4px 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>This month — {referenceMonthLabel}</div>
+      {/* This month only, for this class (the year's totals are on Stats). */}
+      <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'0 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>{activeClass} · this month — {referenceMonthLabel}</div>
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected this month</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding this month</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">{new Set(classMonthFees.filter(f=>f.status!=='Paid').map(f=>f.studentId)).size}</div><div className="l">Children owing</div></div>
+        <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
@@ -471,9 +421,8 @@ function WeeklyFees() {
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
                       return (
-                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled={!canStartWeek}
-                          title={canStartWeek ? `Week of ${dateLabel} — unmarked (tap to mark paid)` : `Week of ${dateLabel} — not started`}
-                          onClick={e=>{ e.stopPropagation(); if (canStartWeek) setConfirmStart({studentId:s.id, week:w}); }}>
+                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled
+                          title={`Week of ${dateLabel} — ${autoWeeks ? 'not charged' : 'not added'}`}>
                           <span className="d">{dayNum}</span><span className="dot"></span>
                         </button>
                       );
@@ -593,7 +542,6 @@ function WeeklyFees() {
       })()}
 
       {confirmToggleModal}
-      {confirmStartModal}
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );

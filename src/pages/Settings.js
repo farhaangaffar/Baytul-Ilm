@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
 import TermsCard from '../components/TermsCard';
+import FeeWeeksCard from '../components/FeeWeeksCard';
 import { FREQUENCIES } from '../lib/feePeriods';
 import { Save, Plus, Trash2, X, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
@@ -376,7 +377,7 @@ export default function Settings() {
             </select>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
               {(savedFrequency || 'weekly') === 'weekly'
-                ? "Each week starts for a class the first time anyone in it is marked paid; everyone else then shows as owing. Weeks without classes are never charged."
+                ? "Each week switched on under Fee weeks (below) is charged to every child when it arrives. Switch off half-terms and holidays there."
                 : `Each ${FREQUENCIES[savedFrequency].unit}'s fees are added for every student when it starts. Remove one (e.g. a month with no classes) on the Fees page and it won't come back.`}
             </span>
           </div>
@@ -420,6 +421,8 @@ export default function Settings() {
 
       {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
       {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
+      {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
+      {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
 
       {/* Academic years — rarely changed, so a slim full-width strip */}
       <div className="card" style={{marginTop:16}}>
