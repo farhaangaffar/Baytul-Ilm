@@ -117,7 +117,7 @@ export default function Attendance() {
     const newYear = academicYearOfMonth(newMonth);
     if (newYear === year) { setMonthAnchor(newMonth); return; }
     if (!years.includes(newYear)) {
-      showToast(`No ${newYear} academic year yet — add it in Settings to browse further.`);
+      showToast(`No ${newYear} academic year yet — it starts on 1 September.`);
       return;
     }
     setYear(newYear);

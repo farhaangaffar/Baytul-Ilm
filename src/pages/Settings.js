@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
 import TermsCard from '../components/TermsCard';
 import FeeWeeksCard from '../components/FeeWeeksCard';
 import { FREQUENCIES } from '../lib/feePeriods';
@@ -54,10 +54,7 @@ export default function Settings() {
   const [savedReportPeriod, setSavedReportPeriod] = useState('monthly');
   const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
-  const [newYear, setNewYear] = useState('');
-  const [yearError, setYearError] = useState('');
   const [toast, setToast] = useState('');
-  const [confirmDel, setConfirmDel] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -204,36 +201,6 @@ export default function Settings() {
       showToast(err.message || 'Could not remove logo');
     }
     setLogoBusy(false);
-  }
-
-  async function addYear() {
-    const y = newYear.trim();
-    // accept formats: 2026-27 or 26-27
-    const match = y.match(/^(\d{2,4})-(\d{2})$/);
-    if (!match) { setYearError('Format must be e.g. 2026-27 or 26-27'); return; }
-    const short = match[1].length===4 ? match[1].slice(2)+'-'+match[2] : y;
-    if (years.includes(short)) { setYearError('That year already exists'); return; }
-    try {
-      await addAcademicYear(short);
-      setYears(await getAcademicYears());
-      setNewYear('');
-      setYearError('');
-      showToast(`${short} added`);
-    } catch (err) {
-      setYearError(err.message || 'Could not add year');
-    }
-  }
-
-  async function doDelete(y) {
-    if (years.length<=1) { showToast('You must have at least one academic year'); return; }
-    try {
-      await removeAcademicYear(y);
-      setYears(await getAcademicYears());
-      setConfirmDel(null);
-      showToast(`${y} removed`);
-    } catch (err) {
-      showToast(err.message || 'Could not remove year');
-    }
   }
 
   async function handleExport() {
@@ -424,50 +391,6 @@ export default function Settings() {
       {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
       {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
 
-      {/* Academic years — rarely changed, so a slim full-width strip */}
-      <div className="card" style={{marginTop:16}}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
-          <div style={{flex:'1 1 280px',minWidth:0}}>
-            <div className="card-title" style={{marginBottom:4}}>Academic years</div>
-            <div className="card-sub" style={{marginBottom:12}}>
-              Attendance and fee data is stored separately per year. New years appear in the switcher on Attendance and Fees.
-            </div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-              {years.map(y=>(
-                <div key={y} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 4px 4px 12px',borderRadius:999,background:'#f9fafb',border:'1px solid var(--border)'}}>
-                  <span style={{fontWeight:600,fontSize:13}}>{y}</span>
-                  <button
-                    className="btn btn-icon btn-sm"
-                    style={{color:'var(--red)',padding:4}}
-                    onClick={()=>years.length>1?setConfirmDel(y):showToast('Must have at least one year')}
-                    title={`Remove ${y}`}
-                  >
-                    <Trash2 size={12}/>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{flex:'0 1 300px',minWidth:0}}>
-            <div className="flex items-center gap-2">
-              <input
-                value={newYear}
-                onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
-                placeholder="e.g. 2026-27"
-                onKeyDown={e=>e.key==='Enter'&&addYear()}
-                aria-label="New academic year"
-                style={{flex:1,minWidth:0,padding:'9px 14px',border:'none',outline:'none',background:'#f9fafb',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
-              />
-              <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add year</button>
-            </div>
-            {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:6}}>{yearError}</div>}
-            <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>
-              Format: <strong>2026-27</strong> or <strong>26-27</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:6}}>Backup &amp; restore</div>
@@ -480,27 +403,6 @@ export default function Settings() {
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
         </div>
       </div>
-
-      {/* Delete year confirm */}
-      {confirmDel&&(
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDel(null)}>
-          <div className="modal" style={{maxWidth:400}}>
-            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
-              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
-                <Trash2 size={24} color="var(--red)"/>
-              </div>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove {confirmDel}?</div>
-              <div style={{color:'var(--text-muted)',fontSize:13}}>
-                The attendance and fee data for {confirmDel} will remain in storage but the year will no longer appear in the switcher.
-              </div>
-            </div>
-            <div className="modal-footer" style={{justifyContent:'center'}}>
-              <button className="btn" onClick={()=>setConfirmDel(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={()=>doDelete(confirmDel)}><Trash2 size={13}/>Remove</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {pendingRestore&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>
