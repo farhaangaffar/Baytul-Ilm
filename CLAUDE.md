@@ -116,7 +116,8 @@ codebase (one codebase, not a fork).
   (an ayah's position 0–6235). The AI report
   summary is given exact Qur'an figures (`quranFactsForReport`).
 - Daily records (a student's page) is in **tabs** — Qur'an (Input progress, Progress) |
-  Daily record (the day editor, history, This month) | Report (owners: summary, previous
+  Daily record (the day editor; Records — academic-year boxes → month boxes → a card of
+  day boxes → that day's record in the same card; This month) | Report (owners: summary, previous
   summaries) — each one centred column (`.student-page`), last tab remembered per device.
   Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).
   The owner disliked squashed side-by-side cards: give things room rather than more columns.
