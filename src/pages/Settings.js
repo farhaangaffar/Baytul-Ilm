@@ -362,8 +362,6 @@ export default function Settings() {
       </div>
       {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
       {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
-      {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
-      {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
 
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>
@@ -401,6 +399,9 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
+      {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
 
       {/* Backup & restore */}
       <div className="card" style={{marginTop:16}}>

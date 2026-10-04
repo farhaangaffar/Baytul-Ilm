@@ -66,7 +66,7 @@ codebase (one codebase, not a fork).
   (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
-- Settings page: three cards (Your madrasah · Fees [+ Fee weeks, Terms] · Classes & parents)
+- Settings page: three cards (Your madrasah · Fees [+ Fee weeks] · Classes & parents [+ Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
 - School-specific details (name, Arabic name, currency, logo/app icon) come from
