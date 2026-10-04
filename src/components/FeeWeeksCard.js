@@ -24,12 +24,14 @@ export default function FeeWeeksCard({ years, defaultYear }) {
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
 
-  const load = useCallback(async () => {
+  // quiet: refresh after a change without blanking the card ("Loading…").
+  const load = useCallback(async (quiet = false) => {
     if (!year) return;
-    setLoading(true); setError('');
+    if (!quiet) setLoading(true);
+    setError('');
     try { const r = await getFeeWeeks(year); setOff(new Set(r.off)); setCharged(r.charged || {}); }
     catch (err) { setError(err.message || 'Could not load the fee weeks'); }
-    setLoading(false);
+    if (!quiet) setLoading(false);
   }, [year]);
   useEffect(() => { load(); }, [load]);
 
@@ -46,13 +48,16 @@ export default function FeeWeeksCard({ years, defaultYear }) {
         `${paidOrOwed === 1 ? 'This week has' : `${paidOrOwed} of these weeks have`} already been charged.\n\n`
         + 'Switch off and remove fees not yet paid, for everyone? Payments already made stay recorded.')) return;
     }
+    // Show the change straight away; save in the background, then refresh quietly.
+    const before = off;
+    setOff(prev => { const next = new Set(prev); weeks.forEach(w => (on ? next.delete(w) : next.add(w))); return next; });
     setBusy(true); setError(''); setNote('');
     try {
       const r = await setFeeWeeks(weeks, on);
-      await load();
+      await load(true);
       if (r.removed) setNote(`${r.removed} unpaid fee${r.removed === 1 ? '' : 's'} removed`);
       else if (r.added) setNote(`${r.added} fee${r.added === 1 ? '' : 's'} charged`);
-    } catch (err) { setError(err.message || 'Could not change the fee weeks'); }
+    } catch (err) { setOff(before); setError(err.message || 'Could not change the fee weeks'); }
     setBusy(false);
   }
 
@@ -85,13 +90,13 @@ export default function FeeWeeksCard({ years, defaultYear }) {
                 {weeks.map(w => {
                   const on = !off.has(w);
                   return (
-                    <button key={w} type="button" disabled={busy} onClick={() => apply([w], !on)} aria-pressed={on}
+                    <button key={w} type="button" onClick={() => apply([w], !on)} aria-pressed={on}
                       title={`Week of ${w.split('-').reverse().join('/')} — ${on ? 'charged' : 'not charged'}${charged[w] ? ` (${charged[w]} fees)` : ''}`}
                       style={{ height: 34, borderRadius: 8, fontFamily: 'var(--font)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', position: 'relative',
-                        border: `1px solid ${on ? 'var(--ink)' : '#dfe3e8'}`, background: on ? 'var(--ink)' : '#fafbfc', color: on ? '#fff' : 'var(--text-soft)',
+                        border: `1px solid ${on ? 'var(--green)' : '#dfe3e8'}`, background: on ? 'var(--green-light)' : '#fafbfc', color: on ? 'var(--green-text)' : 'var(--text-soft)',
                         boxShadow: w === thisWeek ? '0 0 0 2px var(--blue)' : 'none' }}>
                       {dayNum(w)}
-                      {charged[w] ? <span style={{ position: 'absolute', top: 3, right: 4, width: 5, height: 5, borderRadius: '50%', background: on ? '#fff' : 'var(--text-soft)' }} /> : null}
+                      {charged[w] ? <span style={{ position: 'absolute', top: 3, right: 4, width: 5, height: 5, borderRadius: '50%', background: on ? 'var(--green-text)' : 'var(--text-soft)' }} /> : null}
                     </button>
                   );
                 })}
