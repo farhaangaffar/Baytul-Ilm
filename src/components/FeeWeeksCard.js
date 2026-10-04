@@ -72,8 +72,7 @@ export default function FeeWeeksCard({ years, defaultYear }) {
         </select>
       </div>
       <div className="card-sub" style={{ marginBottom: 12 }}>
-        Weeks switched on are charged to every child when their month starts, so a whole month can be paid at once. Switch off half-terms and holidays — they're never charged.
-        {' '}{onCount} of {allWeeks.length} weeks on for {year}.
+        Green weeks are charged when their month starts. Tap a holiday to switch it off. {onCount} of {allWeeks.length} weeks on.
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-sm" disabled={busy || loading} onClick={() => apply(allWeeks.filter(w => off.has(w)), true)}>Select all</button>
@@ -82,7 +81,7 @@ export default function FeeWeeksCard({ years, defaultYear }) {
         {note && !busy && <span className="text-muted text-sm" style={{ alignSelf: 'center' }}>{note}</span>}
       </div>
       {loading ? <div className="text-muted text-sm">Loading…</div> : (
-        <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ display: 'grid', gap: 6, maxWidth: 560 }}>
           {months.map(({ ym, weeks }) => (
             <div key={ym} style={{ display: 'grid', gridTemplateColumns: '44px 1fr', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{monthName(ym)}</div>
@@ -106,7 +105,7 @@ export default function FeeWeeksCard({ years, defaultYear }) {
         </div>
       )}
       <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10 }}>
-        Each box is the Monday a week starts. A small dot means that week has already been charged. Saved as soon as you tap.
+        Each box is the Monday a week starts; a dot means it's already been charged.
       </div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>{error}</div>}
     </div>
