@@ -6,19 +6,16 @@ import { KeyRound, Trash2, Save } from 'lucide-react';
 
 // On a student's profile (Students page): the family's parent-portal logins. A login
 // covers each of that parent's children, and each parent can have their own login (both
-// see the same children). Siblings sharing a parent's phone number are ticked; others
-// with the same surname are only offered, unticked — a shared surname isn't the same
-// family. The owner sets a username and password and passes them on with the madrasah code.
+// see the same children). Only children sharing a parent's phone number are listed (and
+// ticked) — a shared surname isn't the same family. The owner sets a username and password and passes them on with the madrasah code.
 
 const digits = p => String(p || '').replace(/\D/g, '');
 
-// { family: children sharing a parent's phone number, sameName: others with the surname }.
+// Brothers and sisters: current children sharing one of this child's parent phone numbers.
 function siblingsOf(student, students) {
   const phones = [digits(student.parent1Phone), digits(student.parent2Phone)].filter(p => p.length >= 6);
-  const others = students.filter(s => s.id !== student.id && s.status !== 'Inactive');
-  const family = others.filter(s => phones.some(p => p === digits(s.parent1Phone) || p === digits(s.parent2Phone)));
-  const sameName = others.filter(s => !family.includes(s) && s.surname.trim().toLowerCase() === student.surname.trim().toLowerCase());
-  return { family, sameName };
+  return students.filter(s => s.id !== student.id && s.status !== 'Inactive'
+    && phones.some(p => p === digits(s.parent1Phone) || p === digits(s.parent2Phone)));
 }
 
 const field = { padding: '8px 10px', border: 'none', borderRadius: 'var(--r-md)', background: '#f9fafb', fontFamily: 'var(--font)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
@@ -39,7 +36,7 @@ export default function ParentLogin({ student, students }) {
   }, [student.id]);
   useEffect(() => { load(); }, [load]);
 
-  const { family, sameName } = siblingsOf(student, students);
+  const family = siblingsOf(student, students);
   const nameOf = id => { const s = students.find(x => x.id === id); return s ? s.forename : 'a student'; };
 
   // A first login is suggested for parent 1; a second one (the other parent) for parent 2,
@@ -73,8 +70,8 @@ export default function ParentLogin({ student, students }) {
     return run(() => updateUser(editing, changes));
   }
 
-  // The children shown as tick boxes: this student, likely siblings, and anyone already linked.
-  const candidates = [student, ...family, ...sameName];
+  // The children shown as tick boxes: this student, their brothers and sisters, and anyone already linked.
+  const candidates = [student, ...family];
   form.studentIds.forEach(id => { if (!candidates.some(c => c.id === id)) { const s = students.find(x => x.id === id); if (s) candidates.push(s); } });
   const canSave = form.login.trim() && form.studentIds.length && (editing === 'new' ? form.password.length >= 8 : (form.password === '' || form.password.length >= 8));
 
