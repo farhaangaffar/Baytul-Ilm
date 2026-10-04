@@ -247,6 +247,32 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  if (action === 'add-week') {
+    // Head only (teachers never reach here): one child, one week — e.g. a parent paying
+    // ahead, or a week removed for them by mistake. Only weeks switched on in
+    // Settings → Fee weeks. { studentId, weekStarting, paid }.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { studentId, weekStarting, paid } = req.body || {};
+    if (!studentId || !/^\d{4}-\d{2}-\d{2}$/.test(String(weekStarting || ''))) { res.status(400).json({ error: 'studentId and weekStarting are required' }); return; }
+    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const week = mondayOf(weekStarting);
+    const { rows: isOff } = await query('SELECT 1 FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting = $2', [mid, week]);
+    if (isOff.length) { res.status(400).json({ error: 'That week is switched off in Settings → Fee weeks.' }); return; }
+    const { rows: st } = await query('SELECT weekly_fee FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
+    if (!st.length) { res.status(404).json({ error: 'Student not found' }); return; }
+    const year = yearOfWeek(week);
+    await query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2) ON CONFLICT (madrasah_id, year) DO NOTHING', [mid, year]);
+    await query(
+      `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status, paid_date) VALUES ($1,$2,$3,'week',$4,$5,$6,$7)
+       ON CONFLICT (year, student_id, period, week_starting) DO UPDATE SET status = EXCLUDED.status, paid_date = EXCLUDED.paid_date`,
+      [mid, year, studentId, week, st[0].weekly_fee, paid ? 'Paid' : 'Pending', paid ? isoDay(new Date()) : null]
+    );
+    // Added back by hand for this child — no longer counts as removed for them.
+    await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = $2 AND student_id = $3`, [mid, week, studentId]);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
   if (action === 'add-month') {
     // Batch-adds fee records for every (week x active student in a class), skipping any
     // that already exist. The DB's unique(year, student_id, week_starting) constraint

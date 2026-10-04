@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
-  updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
+  updateFeeAmount, deleteWeekFees, getFeeWeeks, addStudentWeek, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy,
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -69,6 +69,11 @@ function WeeklyFees() {
   // With "Add fees automatically" on, weeks are charged by themselves (Settings → Fee
   // weeks); a week not charged (switched off, or not here yet) shows as unmarked.
   const autoWeeks = getBranding().feeAuto !== false;
+  // Head only: weeks switched off in Settings → Fee weeks (can't be added for a child),
+  // and the week being added for one child (pop-up).
+  const [offWeeks, setOffWeeks] = useState(new Set());
+  const [addWeek, setAddWeek] = useState(null); // { studentId, week }
+  const canAddWeek = w => isOwner && autoWeeks && !offWeeks.has(w);
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
@@ -90,6 +95,21 @@ function WeeklyFees() {
   const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
 
   async function refresh(y2) { setFees(await getFees(y2||year)); }
+  // Which weeks are switched off, for the year on screen (head only).
+  useEffect(() => {
+    if (!isOwner || !autoWeeks || !year) return;
+    getFeeWeeks(year).then(r => setOffWeeks(new Set(r.off))).catch(() => {});
+  }, [isOwner, autoWeeks, year]);
+  async function confirmAddWeek(paid) {
+    setToggling(true);
+    try {
+      await addStudentWeek(addWeek.studentId, addWeek.week, paid);
+      await refresh();
+      setAddWeek(null);
+      showToast(paid ? 'Week added and marked paid' : 'Week added');
+    } catch (err) { showToast(err.message || 'Could not add this week'); }
+    setToggling(false);
+  }
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
   async function switchYear(y) {
@@ -239,6 +259,25 @@ function WeeklyFees() {
     </div>
   );
 
+  const addWeekStudent = addWeek && students.find(s=>s.id===addWeek.studentId);
+  const addWeekModal = addWeek&&(
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&!toggling&&setAddWeek(null)}>
+      <div className="modal" style={{maxWidth:380}}>
+        <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>Add week of {formatDayMonthGB(addWeek.week)}?</div>
+          <div style={{color:'var(--text-muted)',fontSize:12.5}}>
+            Just for {addWeekStudent?`${addWeekStudent.forename} ${addWeekStudent.surname}`:'this child'} — {money(Number(addWeekStudent?.weeklyFee||0))}. Nobody else is charged.
+          </div>
+        </div>
+        <div className="modal-footer" style={{justifyContent:'center',flexWrap:'wrap'}}>
+          <button className="btn" onClick={()=>setAddWeek(null)} disabled={toggling}>Cancel</button>
+          <button className="btn" onClick={()=>confirmAddWeek(false)} disabled={toggling}>Add as owed</button>
+          <button className="btn btn-green" onClick={()=>confirmAddWeek(true)} disabled={toggling}><Check size={13}/>{toggling?'Saving…':'Add & mark paid'}</button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (selected) {
     const monthWeeks = getWeekStartsForMonth(monthAnchor);
     const studentFees = fees.filter(f=>f.studentId===selected.id);
@@ -279,8 +318,11 @@ function WeeklyFees() {
                 <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
                   <div className="day-cal-name">W/C</div>
                   <div className="day-cal-date">{dateLabel}</div>
-                  <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>
-                  <div className="day-cal-label">{autoWeeks ? 'Not charged' : 'Not added'}</div>
+                  {canAddWeek(w)
+                    ? <button className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)'}} title="Add this week for this child"
+                        onClick={()=>setAddWeek({studentId:selected.id, week:w})}>+</button>
+                    : <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>}
+                  <div className="day-cal-label">{offWeeks.has(w) ? 'Week off' : autoWeeks ? 'Not charged' : 'Not added'}</div>
                 </div>
               );
             }
@@ -356,6 +398,7 @@ function WeeklyFees() {
           </div>
         )}
         {confirmToggleModal}
+        {addWeekModal}
         {toast&&<div className="toast">✓ {toast}</div>}
       </Layout>
     );
@@ -421,8 +464,9 @@ function WeeklyFees() {
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
                       return (
-                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled
-                          title={`Week of ${dateLabel} — ${autoWeeks ? 'not charged' : 'not added'}`}>
+                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled={!canAddWeek(w)}
+                          title={`Week of ${dateLabel} — ${offWeeks.has(w) ? 'switched off in Settings' : autoWeeks ? 'not charged' : 'not added'}${canAddWeek(w) ? ' (tap to add for this child)' : ''}`}
+                          onClick={e=>{ e.stopPropagation(); if (canAddWeek(w)) setAddWeek({studentId:s.id, week:w}); }}>
                           <span className="d">{dayNum}</span><span className="dot"></span>
                         </button>
                       );
@@ -542,6 +586,7 @@ function WeeklyFees() {
       })()}
 
       {confirmToggleModal}
+        {addWeekModal}
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );
