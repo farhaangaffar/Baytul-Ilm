@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
-  updateFeeAmount, deleteWeekFees, getFeeWeeks, addStudentWeek, getMondayOf, getWeekStartsForMonth, getClassNames,
+  updateFeeAmount, deleteWeekFees, deleteFeeRecord, getFeeWeeks, addStudentWeek, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy,
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -332,7 +332,7 @@ function WeeklyFees() {
               <div className="day-cal-card" key={w} style={{background:bg, position:'relative'}}>
                 {isOwner && <button
                   onClick={()=>setConfirmDeleteWeek(w)}
-                  title={`Remove week of ${dateLabel} for all of ${selected.class} (e.g. holidays)`}
+                  title={`Remove week of ${dateLabel} — for ${selected.forename} or the whole class`}
                   style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--text-soft)',padding:2,lineHeight:0}}>
                   <Trash2 size={12}/>
                 </button>}
@@ -375,14 +375,26 @@ function WeeklyFees() {
             <div className="modal" style={{maxWidth:400}}>
               <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
                 <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
-                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove this week?</div>
+                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove week of {formatDayMonthGB(confirmDeleteWeek)}?</div>
                 <div style={{color:'var(--text-muted)',fontSize:13}}>
-                  Week of {formatDayMonthGB(confirmDeleteWeek)} will be removed for every student in {selected.class}.
-                  <br/><span style={{fontSize:12}}>Useful for holiday weeks. This cannot be undone.</span>
+                  Just for {selected.forename}, or for everyone in {selected.class}?
+                  <br/><span style={{fontSize:12}}>Whole class: useful for a holiday week. It isn't charged again either way. This cannot be undone.</span>
                 </div>
               </div>
-              <div className="modal-footer" style={{justifyContent:'center'}}>
+              <div className="modal-footer" style={{justifyContent:'center',flexWrap:'wrap'}}>
                 <button className="btn" onClick={()=>setConfirmDeleteWeek(null)}>Cancel</button>
+                {/* Just this child: removes their one fee (remembered, so it isn't added back). */}
+                <button className="btn btn-danger" style={{background:'#fff',color:'var(--red)',border:'1px solid var(--red)'}} onClick={async ()=>{
+                  try {
+                    const mine = lookup[confirmDeleteWeek];
+                    if (mine) await deleteFeeRecord(mine.id, year);
+                    await refresh();
+                    setConfirmDeleteWeek(null);
+                    showToast(`Week removed for ${selected.forename}`);
+                  } catch (err) {
+                    showToast(err.message || 'Could not remove week');
+                  }
+                }}><Trash2 size={13}/>Just {selected.forename}</button>
                 <button className="btn btn-danger" onClick={async ()=>{
                   try {
                     await deleteWeekFees(confirmDeleteWeek, year, selected.class);
@@ -392,7 +404,7 @@ function WeeklyFees() {
                   } catch (err) {
                     showToast(err.message || 'Could not remove week');
                   }
-                }}><Trash2 size={13}/>Remove week</button>
+                }}><Trash2 size={13}/>Everyone in {selected.class}</button>
               </div>
             </div>
           </div>
