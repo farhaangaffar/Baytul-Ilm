@@ -145,7 +145,7 @@ export default function Dashboard() {
       <div className="ring-row">
         <div className="card ring-card">
           <div className="card-title">Attendance — this week</div>
-          <div className="card-sub">Present or late, both classes</div>
+          <div className="card-sub">Present or late, all classes</div>
           <div className="ring-wrap">
             <div className="ring" style={{background:`conic-gradient(var(--green) 0% ${weekAttPct}%, var(--red) ${weekAttPct}% 100%)`}}/>
             <div className="ring-inner"><div className="n">{weekAttPct}%</div><div className="l">Present/Late</div></div>
@@ -175,7 +175,7 @@ export default function Dashboard() {
         <div className="card-header" style={{marginBottom:16}}>
           <div>
             <div className="card-title">Daily attendance</div>
-            <div className="card-sub" style={{marginBottom:0}}>Present / late / absent per day, both classes</div>
+            <div className="card-sub" style={{marginBottom:0}}>Present / late / absent per day, all classes</div>
           </div>
           <div className="nav-arrow-row">
             <button className="nav-arrow-btn" onClick={()=>shiftWeek(-1)}>‹</button>

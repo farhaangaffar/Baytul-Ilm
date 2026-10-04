@@ -13,6 +13,7 @@ const routes = {
   attendance: require('../server/routes/attendance'),
   classes: require('../server/routes/classes'),
   'daily-records': require('../server/routes/daily-records'),
+  demo: require('../server/routes/demo'),
   fees: require('../server/routes/fees'),
   login: require('../server/routes/login'),
   madaaris: require('../server/routes/madaaris'),

@@ -151,6 +151,7 @@ module.exports = async (req, res) => {
     for (const column of ['logo', 'icon']) {
       const v = b[column];
       if (v === undefined) continue;
+      if (user.demo) { res.status(403).json({ error: "Logos can't be uploaded in the demo." }); return; }
       if (v !== null && !(typeof v === 'string' && /^data:image\/(png|jpeg);base64,/.test(v) && v.length <= LOGO_MAX_CHARS)) {
         res.status(400).json({ error: 'Logo must be a PNG or JPEG under about 700 KB' }); return;
       }
@@ -167,3 +168,6 @@ module.exports = async (req, res) => {
 
   res.status(405).json({ error: 'Method not allowed' });
 };
+
+// Used by the demo (server/demo.js) to make sure its tables exist before filling them.
+module.exports.ensure = ensureColumns;

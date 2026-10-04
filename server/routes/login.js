@@ -86,6 +86,7 @@ module.exports = async (req, res) => {
   if (action === 'change-password') {
     const me = await getUser(req);
     if (!me) { res.status(401).json({ error: 'Not authenticated' }); return; }
+    if (me.demo) { res.status(403).json({ error: "Passwords can't be changed in the demo." }); return; }
     const { rows: [row] } = await query('SELECT * FROM users WHERE id = $1', [me.id]);
     if (!verifyPassword(b.currentPassword, row.password_hash)) { res.status(401).json({ error: 'Your current password is incorrect.' }); return; }
     if (String(b.newPassword || '').length < 8) { res.status(400).json({ error: 'Password must be at least 8 characters.' }); return; }

@@ -363,7 +363,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt, studentId: student.id })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'API error');

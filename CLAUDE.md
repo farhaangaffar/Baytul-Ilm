@@ -60,6 +60,14 @@ codebase (one codebase, not a fork).
   staff on Attendance via `server/routes/absences.js`). The front end gives them one
   page (`src/pages/ParentPortal.js`). Each madrasah switches the portal on in Settings.
   Never add parent access to a staff route — add what parents need to `parent.js`.
+- **Demo** ("Try the demo" on the sign-in screen of a device with no madrasah yet, or any
+  link ending `?demo`): `server/demo.js` builds each visitor a private made-up madrasah
+  (`madaaris.demo_until`, 24 hours; expired ones stop signing in and are deleted when the
+  next demo starts — no timer) with head / teacher / parent logins; `/api/demo` signs in
+  as one, and the green bar (`src/components/Demo.js`) switches between them. In a demo
+  (`req.user.demo`): no password, login or logo changes, no Backup, and AI summaries are
+  ready-made (no AI cost). Demos never appear on the Madaaris page. If a new table of
+  school data is added, add it to `TABLES` in `server/demo.js` so demos are fully deleted.
 - There's no migration runner: small new columns are added by the API itself on first
   use (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`), with a matching `db/migrate-NNN-*.sql`
   for manual use and `db/schema.sql` updated. Changes that restructure existing data

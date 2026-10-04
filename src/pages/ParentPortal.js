@@ -6,6 +6,8 @@ import { money } from '../lib/branding';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import { DemoBar, leaveDemo } from '../components/Demo';
+import { useAuth } from '../lib/AuthContext';
 import BoxRow from '../components/BoxRow';
 import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -263,6 +265,7 @@ function ChildView({ child, reasons }) {
 
 export default function ParentPortal() {
   const settings = useSettings();
+  const { user } = useAuth();
   const [home, setHome] = useState(null);
   const [error, setError] = useState('');
   const [active, setActive] = useState('');
@@ -274,17 +277,18 @@ export default function ParentPortal() {
       .catch(err => setError(err.message || 'Could not load'));
   }, []);
 
-  async function signOut() { await logout().catch(() => {}); window.location.reload(); }
+  async function signOut() { if (user?.demo) { leaveDemo(); return; } await logout().catch(() => {}); window.location.reload(); }
   const child = home?.children.find(c => c.id === active);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page)' }}>
+      <DemoBar user={user} />
       <div style={{ background: 'var(--ink)', color: '#fff', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {settings.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 20, lineHeight: 1.2 }}>{settings.schoolNameArabic}</div>}
           <div style={{ fontSize: 12, opacity: 0.8 }}>{settings.schoolName} · Parents</div>
         </div>
-        <button onClick={() => setChangingPassword(true)} aria-label="Change password" title="Change password" style={headerBtn}><KeyRound size={18} /></button>
+        {!user?.demo && <button onClick={() => setChangingPassword(true)} aria-label="Change password" title="Change password" style={headerBtn}><KeyRound size={18} /></button>}
         <button onClick={signOut} aria-label="Log out" title="Log out" style={headerBtn}><LogOut size={18} /></button>
       </div>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 16 }}>

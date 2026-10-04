@@ -402,8 +402,8 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Backup & restore */}
-      <div className="card" style={{marginTop:16}}>
+      {/* Backup & restore (not in the demo — its data is made up) */}
+      {!user?.demo && <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:6}}>Backup &amp; restore</div>
         <div className="card-sub" style={{marginBottom:16}}>
           Download one regularly, and always before restoring.
@@ -413,7 +413,7 @@ export default function Settings() {
           <button className="btn" onClick={()=>fileInputRef.current?.click()}><Upload size={14}/>Restore from backup</button>
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
         </div>
-      </div>
+      </div>}
 
       {pendingRestore&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>
