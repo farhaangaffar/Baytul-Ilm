@@ -377,7 +377,7 @@ export default function Settings() {
             </select>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
               {(savedFrequency || 'weekly') === 'weekly'
-                ? "Each week switched on under Fee weeks (below) is charged to every child when it arrives. Switch off half-terms and holidays there."
+                ? "Each week switched on under Fee weeks (below) is charged to every child when its month starts. Switch off half-terms and holidays there."
                 : `Each ${FREQUENCIES[savedFrequency].unit}'s fees are added for every student when it starts. Remove one (e.g. a month with no classes) on the Fees page and it won't come back.`}
             </span>
           </div>

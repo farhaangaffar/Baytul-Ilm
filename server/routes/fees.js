@@ -107,6 +107,16 @@ function firstMondayOf(y, m) { // m: 1–12
   while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
   return isoDay(d);
 }
+// End (exclusive) of the school month running today — months run from their first
+// Monday — so all of this month's fee weeks are due at once (parents often pay a
+// whole month in advance).
+function currentSchoolMonthEnd() {
+  const today = isoDay(new Date());
+  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+  const next = (yy, mm) => (mm === 12 ? [yy + 1, 1] : [yy, mm + 1]);
+  const [ny, nm] = today >= firstMondayOf(y, m) ? next(y, m) : [y, m];
+  return firstMondayOf(ny, nm);
+}
 function yearOfWeek(monday) {
   const y = Number(monday.slice(0, 4));
   const start = monday >= firstMondayOf(y, 9) ? y : y - 1;
@@ -161,7 +171,7 @@ module.exports = requireAuth(async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
     const { rows: cfg } = await query('SELECT fee_frequency, fee_auto, fee_auto_since FROM settings WHERE madrasah_id = $1', [mid]);
     if (cfg[0] && cfg[0].fee_auto !== false && cfg[0].fee_frequency === 'weekly') {
-      // Weekly: every fee week that has arrived (its Monday has come) is charged —
+      // Weekly: every fee week of the school month now running (and any before it) is charged —
       // except weeks switched off in Settings, and weeks from before automatic fees began
       // (history is never changed).
       let since = cfg[0].fee_auto_since;
@@ -173,7 +183,7 @@ module.exports = requireAuth(async (req, res) => {
       const offSet = new Set(off.map(r => r.week_starting));
       const ids = [...scope.studentIds];
       let created = 0;
-      for (let w = since; w <= mondayOf(isoDay(new Date())); w = plusDays(w, 7)) {
+      for (let w = since, end = currentSchoolMonthEnd(); w < end; w = plusDays(w, 7)) {
         if (!offSet.has(w)) created += await fillWeek(mid, w, ids);
       }
       res.status(200).json({ ok: true, created });
@@ -207,7 +217,7 @@ module.exports = requireAuth(async (req, res) => {
     // Settings → Fee weeks (head only). GET ?year= → { off: [Mondays], charged: {Monday: n} }.
     // POST { weeks: [Mondays], on: true|false } switches weeks on or off. Off: the week is
     // never charged, and fees not yet paid for it are removed (payments stay recorded).
-    // On: charged again — straight away if the week has already arrived.
+    // On: charged again — straight away if it's in this school month or earlier.
     if (req.method === 'GET') {
       const year = String(req.query.year || '');
       const { rows: off } = await query('SELECT week_starting FROM fee_weeks_off WHERE madrasah_id = $1 AND year = $2 ORDER BY 1', [mid, year]);
@@ -221,12 +231,12 @@ module.exports = requireAuth(async (req, res) => {
     const list = Array.isArray(weeks) ? [...new Set(weeks.map(String).filter(w => /^\d{4}-\d{2}-\d{2}$/.test(w)).map(mondayOf))] : [];
     if (!list.length || typeof on !== 'boolean') { res.status(400).json({ error: 'weeks[] and on are required' }); return; }
     let removed = 0, added = 0;
-    const today = mondayOf(isoDay(new Date()));
+    const monthEnd = currentSchoolMonthEnd();
     const all = [...scope.studentIds];
     for (const w of list) {
       if (on) {
         await query('DELETE FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting = $2', [mid, w]);
-        if (w <= today) added += await fillWeek(mid, w, all);
+        if (w < monthEnd) added += await fillWeek(mid, w, all);
       } else {
         await query('INSERT INTO fee_weeks_off (madrasah_id, year, week_starting) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [mid, yearOfWeek(w), w]);
         const { rowCount } = await query(`DELETE FROM fees WHERE madrasah_id = $1 AND period = 'week' AND week_starting = $2 AND status <> 'Paid'`, [mid, w]);

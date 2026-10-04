@@ -84,7 +84,7 @@ codebase (one codebase, not a fork).
   are read); a period removed on purpose is remembered in `fee_skips` (class or student)
   so it isn't re-added. Weekly — **Settings → Fee weeks** (`FeeWeeksCard`, head only):
   every week is on unless switched off (`fee_weeks_off`); on-weeks are charged to every
-  child when their Monday arrives (`?action=auto`, only weeks since
+  child when their school month starts — a whole month can be paid ahead (`?action=auto`, only weeks since
   `settings.fee_auto_since`, so older history is never touched); switching a week off
   removes its unpaid fees (payments stay). Removing a week for a class or child on the
   Fees page is remembered in `fee_skips`. Joining/leaving: only active children billed,

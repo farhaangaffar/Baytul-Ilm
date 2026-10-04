@@ -3,8 +3,8 @@ import { CalendarCheck } from 'lucide-react';
 import { getFeeWeeks, setFeeWeeks, getWeekStartsForMonth, getMondayOf } from '../lib/store';
 
 // Settings → Fee weeks (weekly fees, added automatically): the school year month by
-// month, one box per week. Weeks switched on are charged to every child when they
-// arrive; weeks switched off (half-terms, holidays) are never charged.
+// month, one box per week. Weeks switched on are charged to every child when their
+// (school) month starts; weeks switched off (half-terms, holidays) are never charged.
 function yearMonths(label) {
   const start = /^\d{4}-/.test(label) ? Number(label.slice(0, 4)) : 2000 + Number(label.slice(0, 2));
   return Array.from({ length: 12 }, (_, i) => {
@@ -72,7 +72,7 @@ export default function FeeWeeksCard({ years, defaultYear }) {
         </select>
       </div>
       <div className="card-sub" style={{ marginBottom: 12 }}>
-        Weeks switched on are charged to every child when they arrive. Switch off half-terms and holidays — they're never charged.
+        Weeks switched on are charged to every child when their month starts, so a whole month can be paid at once. Switch off half-terms and holidays — they're never charged.
         {' '}{onCount} of {allWeeks.length} weeks on for {year}.
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
