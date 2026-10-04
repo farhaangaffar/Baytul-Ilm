@@ -4,19 +4,21 @@ import { useSettings } from '../lib/SettingsContext';
 import { useAuth } from '../lib/AuthContext';
 import { KeyRound, Trash2, Save } from 'lucide-react';
 
-// On a student's profile (Students page): the family's parent-portal login. One login
-// per family covers each of their children; siblings are suggested from a shared
-// parent phone number or surname. The owner sets a username and password and passes
-// them on with the madrasah code.
+// On a student's profile (Students page): the family's parent-portal logins. A login
+// covers each of that parent's children, and each parent can have their own login (both
+// see the same children). Siblings sharing a parent's phone number are ticked; others
+// with the same surname are only offered, unticked — a shared surname isn't the same
+// family. The owner sets a username and password and passes them on with the madrasah code.
 
 const digits = p => String(p || '').replace(/\D/g, '');
 
+// { family: children sharing a parent's phone number, sameName: others with the surname }.
 function siblingsOf(student, students) {
   const phones = [digits(student.parent1Phone), digits(student.parent2Phone)].filter(p => p.length >= 6);
-  return students.filter(s => s.id !== student.id && s.status !== 'Inactive' && (
-    phones.some(p => p === digits(s.parent1Phone) || p === digits(s.parent2Phone)) ||
-    s.surname.trim().toLowerCase() === student.surname.trim().toLowerCase()
-  ));
+  const others = students.filter(s => s.id !== student.id && s.status !== 'Inactive');
+  const family = others.filter(s => phones.some(p => p === digits(s.parent1Phone) || p === digits(s.parent2Phone)));
+  const sameName = others.filter(s => !family.includes(s) && s.surname.trim().toLowerCase() === student.surname.trim().toLowerCase());
+  return { family, sameName };
 }
 
 const field = { padding: '8px 10px', border: 'none', borderRadius: 'var(--r-md)', background: '#f9fafb', fontFamily: 'var(--font)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
@@ -37,12 +39,18 @@ export default function ParentLogin({ student, students }) {
   }, [student.id]);
   useEffect(() => { load(); }, [load]);
 
-  const siblings = siblingsOf(student, students);
+  const { family, sameName } = siblingsOf(student, students);
   const nameOf = id => { const s = students.find(x => x.id === id); return s ? s.forename : 'a student'; };
 
+  // A first login is suggested for parent 1; a second one (the other parent) for parent 2,
+  // seeing the same children as the first.
   function startNew() {
     setEditing('new'); setError(''); setConfirmRemove(false);
-    setForm({ login: digits(student.parent1Phone) || student.surname.toLowerCase().replace(/[^a-z0-9]/g, ''), password: '', studentIds: [student.id, ...siblings.map(s => s.id)] });
+    const taken = new Set((logins || []).map(l => l.login));
+    const login = [digits(student.parent1Phone), digits(student.parent2Phone)].find(p => p && !taken.has(p))
+      || (taken.size ? '' : student.surname.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const studentIds = logins?.length ? [...new Set(logins.flatMap(l => l.studentIds))] : [student.id, ...family.map(s => s.id)];
+    setForm({ login, password: '', studentIds });
   }
   function startEdit(l) {
     setEditing(l.id); setError(''); setConfirmRemove(false);
@@ -66,7 +74,7 @@ export default function ParentLogin({ student, students }) {
   }
 
   // The children shown as tick boxes: this student, likely siblings, and anyone already linked.
-  const candidates = [student, ...siblings];
+  const candidates = [student, ...family, ...sameName];
   form.studentIds.forEach(id => { if (!candidates.some(c => c.id === id)) { const s = students.find(x => x.id === id); if (s) candidates.push(s); } });
   const canSave = form.login.trim() && form.studentIds.length && (editing === 'new' ? form.password.length >= 8 : (form.password === '' || form.password.length >= 8));
 
@@ -89,8 +97,8 @@ export default function ParentLogin({ student, students }) {
           <button className="btn btn-sm" onClick={() => startEdit(l)}>Manage</button>
         </div>
       ))}
-      {logins && logins.length === 0 && editing !== 'new' && (
-        <button className="btn btn-sm" onClick={startNew}><KeyRound size={12} />Set up parent login</button>
+      {logins && !editing && (
+        <button className="btn btn-sm" onClick={startNew}><KeyRound size={12} />{logins.length ? "Add the other parent's login" : 'Set up parent login'}</button>
       )}
       {editing && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 12, display: 'grid', gap: 8 }}>

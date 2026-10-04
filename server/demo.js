@@ -270,8 +270,8 @@ async function createDemo(ipHash) {
     await bulk(c, 'students',
       ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone',
         'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order'],
-      kids.map(k => [k.id, mid, k.f, k.s, k.born, className[k.c], `${k.p1} ${k.s}`, `07700 9${String(10000 + k.order * 37).slice(-5)}`,
-        `${k.p2} ${k.s}`, '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order]));
+      kids.map(k => [k.id, mid, k.f, k.s, k.born, className[k.c], `${k.p1} ${k.s}`, k.family ? '07700 900500' : `07700 9${String(10000 + k.order * 37).slice(-5)}`,
+        `${k.p2} ${k.s}`, k.family ? '07700 900501' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order]));
 
     // Attendance, daily records and Qur'an progress, day by day.
     const att = [], recs = [], quran = [];
