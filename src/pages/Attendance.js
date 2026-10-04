@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy } from '../lib/store';
+import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -179,7 +179,9 @@ export default function Attendance() {
         {monthWeeks.map(w=>{
           const weekDates = getWeekDates(w);
           return (
-            <div className="day-cal-row" key={w} style={{marginBottom:12}}>
+            // One card per school day (Settings → School days); on phones they sit in one
+            // compact row (att-days).
+            <div className="day-cal-row att-days" key={w} style={{marginBottom:12, gridTemplateColumns:`repeat(${weekDates.length}, minmax(0, 1fr))`}}>
               {weekDates.map(date=>{
                 const status = attData[selected.id]?.[date];
                 const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
@@ -277,7 +279,12 @@ export default function Attendance() {
                   ? <div style={{fontSize:12,background:'var(--amber-light)',color:'var(--amber-text)',borderRadius:'var(--r-md)',padding:'4px 8px',margin:'4px 0 12px'}}>Parent reported: <strong>{r.reason}</strong>{r.note?` — ${r.note}`:''}</div>
                   : <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>;
               })()}
-              {isCurrentYear && (
+              {isCurrentYear && !isSchoolDay(TODAY) && (
+                <div style={{textAlign:'center',fontSize:12.5,color:'var(--text-muted)',background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'10px 8px'}}>
+                  No class today — open {s.forename} to mark another day
+                </div>
+              )}
+              {isCurrentYear && isSchoolDay(TODAY) && (
                 // Only the P / L / A buttons themselves mark; tapping anywhere else on the
                 // card (including the space around them) opens the student.
                 <div className="mark-btn-row" style={{justifyContent:'center'}}>

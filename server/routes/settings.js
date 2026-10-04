@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const { getUser } = require('../auth');
 
-// currency_symbol, logo, icon, fee_frequency and report_period were added after the settings table already existed in production —
+// currency_symbol, logo, icon, fee_frequency, report_period, parent_portal, school_days and fee_auto were added after the settings table already existed in production —
 // self-heal once per cold start, same pattern as ai_summaries.behavior in api/ai-summary.js.
 let columnsReady = false;
 async function ensureColumns() {
@@ -12,6 +12,11 @@ async function ensureColumns() {
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_frequency TEXT NOT NULL DEFAULT 'weekly'`);
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS report_period TEXT NOT NULL DEFAULT 'monthly'`);
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS parent_portal BOOLEAN NOT NULL DEFAULT false`);
+  // Days the madrasah meets, as JS day numbers (0 Sun … 6 Sat); Mon–Thu to begin with.
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS school_days INTEGER[] NOT NULL DEFAULT '{1,2,3,4}'`);
+  // Monthly/termly fees added by themselves at the start of each period; weekly fees
+  // start for a class the first time a week is marked paid.
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_auto BOOLEAN NOT NULL DEFAULT true`);
   columnsReady = true;
 }
 
@@ -34,6 +39,7 @@ async function loadSettings(mid) {
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
             default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
             fee_frequency AS "feeFrequency", report_period AS "reportPeriod", parent_portal AS "parentPortal",
+            school_days AS "schoolDays", fee_auto AS "feeAuto",
             logo IS NOT NULL AS "hasLogo", left(md5(icon), 8) AS "iconVersion"
      FROM settings WHERE madrasah_id = $1`,
     [mid]
@@ -136,6 +142,12 @@ module.exports = async (req, res) => {
       values.push(b.reportPeriod); sets.push(`report_period = $${values.length}`);
     }
     if (b.parentPortal !== undefined) { values.push(!!b.parentPortal); sets.push(`parent_portal = $${values.length}`); }
+    if (b.feeAuto !== undefined) { values.push(!!b.feeAuto); sets.push(`fee_auto = $${values.length}`); }
+    if (b.schoolDays !== undefined) {
+      const days = Array.isArray(b.schoolDays) ? [...new Set(b.schoolDays.map(Number))].filter(d => Number.isInteger(d) && d >= 0 && d <= 6).sort() : [];
+      if (!days.length) { res.status(400).json({ error: 'Choose at least one school day' }); return; }
+      values.push(days); sets.push(`school_days = $${values.length}`);
+    }
     for (const column of ['logo', 'icon']) {
       const v = b[column];
       if (v === undefined) continue;

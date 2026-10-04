@@ -6,6 +6,12 @@ const { requireAuth, isOwner } = require('../auth');
 // outside Next.js, not the [[...params]] optional catch-all, so id-style
 // operations go through a query string instead of a path segment.
 // Each madrasah has its own list of years (the same label can exist in several).
+// "26-27" for any date from 1 Sep 2026 to 31 Aug 2027.
+function yearLabelFor(d) {
+  const start = d.getUTCMonth() >= 8 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
+  return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+}
+
 module.exports = requireAuth(async (req, res) => {
   const mid = req.user.madrasahId;
   // Teachers can read the list of years (for the year switcher), nothing more.
@@ -31,6 +37,15 @@ module.exports = requireAuth(async (req, res) => {
 
   if (!year) {
     if (req.method === 'GET') {
+      // The current school year adds itself from 1 September — nobody has to remember —
+      // written the way this madrasah writes its years ("26-27", or "2026-27").
+      const label = yearLabelFor(new Date());
+      const long = `20${label}`;
+      const { rows: have } = await query('SELECT year FROM academic_years WHERE madrasah_id = $1', [mid]);
+      if (!have.some(r => r.year === label || r.year === long)) {
+        const longStyle = have.length && have.every(r => /^\d{4}-\d{2}$/.test(r.year));
+        await query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2) ON CONFLICT (madrasah_id, year) DO NOTHING', [mid, longStyle ? long : label]);
+      }
       const { rows } = await query('SELECT year FROM academic_years WHERE madrasah_id = $1 ORDER BY year', [mid]);
       res.status(200).json(rows.map(r => r.year));
       return;

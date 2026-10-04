@@ -13,7 +13,50 @@ async function ensurePeriodColumn() {
   // collide with a week record on a Monday the 1st after a frequency switch.
   await query(`ALTER TABLE fees DROP CONSTRAINT IF EXISTS fees_year_student_id_week_starting_key`);
   await query(`CREATE UNIQUE INDEX IF NOT EXISTS fees_year_student_period_start_key ON fees (year, student_id, period, week_starting)`);
+  // Periods someone removed on purpose (e.g. an August with no classes) — for a whole
+  // class or one student — so adding fees automatically never puts them back.
+  await query(`CREATE TABLE IF NOT EXISTS fee_skips (
+    madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+    period      TEXT NOT NULL,
+    start_date  DATE NOT NULL,
+    class       TEXT NOT NULL DEFAULT '',
+    student_id  TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (madrasah_id, period, start_date, class, student_id)
+  )`);
   periodReady = true;
+}
+
+const isoDay = d => d.toISOString().slice(0, 10);
+// "26-27" for a date from 1 Sep 2026 to 31 Aug 2027 (the year a month's fees go under).
+function yearLabelOf(iso) {
+  const [y, m] = iso.split('-').map(Number);
+  const start = m >= 9 ? y : y - 1;
+  return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+}
+function plusDays(iso, n) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return isoDay(d); }
+
+// The month or term running today, for adding fees automatically: { period, start,
+// endExclusive, year } — or null (weekly fees, switched off, or no term today).
+async function currentAutoPeriod(mid) {
+  const { rows } = await query('SELECT fee_frequency, fee_auto FROM settings WHERE madrasah_id = $1', [mid]).catch(() => ({ rows: [] }));
+  const st = rows[0];
+  if (!st || st.fee_auto === false) return null;
+  const today = isoDay(new Date());
+  if (st.fee_frequency === 'monthly') {
+    const start = today.slice(0, 8) + '01';
+    const [y, m] = today.split('-').map(Number);
+    const endExclusive = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    return { period: 'month', start, endExclusive, year: yearLabelOf(start) };
+  }
+  if (st.fee_frequency === 'termly') {
+    const { rows: terms } = await query(
+      'SELECT year, start_date, end_date FROM terms WHERE madrasah_id = $1 AND start_date <= $2 AND end_date >= $2 ORDER BY start_date LIMIT 1', [mid, today]
+    ).catch(() => ({ rows: [] }));
+    const t = terms[0];
+    if (!t) return null;
+    return { period: 'term', start: t.start_date, endExclusive: plusDays(t.end_date, 1), year: t.year };
+  }
+  return null;
 }
 const PERIODS = ['week', 'month', 'term'];
 
@@ -58,12 +101,81 @@ module.exports = requireAuth(async (req, res) => {
     const readingList = !action && !id && req.method === 'GET';
     const markingPaid = !action && id && req.method === 'PATCH'
       && b.status === 'Paid' && Object.keys(b).every(k => k === 'status');
-    if (!readingList && !markingPaid) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    // Both only ever bill their own classes' students (checked below).
+    const autoOrPayWeek = (action === 'auto' || action === 'pay-week') && req.method === 'POST';
+    if (!readingList && !markingPaid && !autoOrPayWeek) { res.status(403).json({ error: "You don't have access to this." }); return; }
     if (markingPaid) {
       const { rows } = await query('SELECT student_id FROM fees WHERE id = $1 AND madrasah_id = $2', [id, mid]);
       if (!rows.length) { res.status(404).json({ error: 'Fee record not found' }); return; }
       if (!scope.studentIds.has(rows[0].student_id)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     }
+  }
+
+  if (action === 'auto') {
+    // Monthly / termly: this month's (or term's) fees for every current student, at each
+    // student's own fee — once, when the period starts. Safe to call any number of
+    // times: existing records and removed periods (fee_skips) are left alone.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const p = await currentAutoPeriod(mid);
+    if (!p) { res.status(200).json({ ok: true, created: 0 }); return; }
+    await query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2) ON CONFLICT (madrasah_id, year) DO NOTHING', [mid, p.year]);
+    const { rows: students } = await query(
+      `SELECT s.id, s.weekly_fee FROM students s
+       WHERE s.madrasah_id = $1 AND s.status = 'Active' AND (s.enroll_date IS NULL OR s.enroll_date < $3)
+         AND NOT EXISTS (SELECT 1 FROM fee_skips k WHERE k.madrasah_id = $1 AND k.period = $2 AND k.start_date = $4
+                         AND (k.student_id = s.id OR (k.student_id = '' AND k.class = s.class)))`,
+      [mid, p.period, p.endExclusive, p.start]
+    );
+    let created = 0;
+    for (const s of students.filter(x => scope.studentIds.has(x.id))) {
+      const { rowCount } = await query(
+        `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,$4,$5,$6,'Pending')
+         ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
+        [mid, p.year, s.id, p.period, p.start, s.weekly_fee]
+      );
+      created += rowCount;
+    }
+    res.status(200).json({ ok: true, created });
+    return;
+  }
+
+  if (action === 'pay-week') {
+    // Weekly: the first time anyone in a class is marked paid for a week, that week
+    // starts for the whole class (everyone else then owes it) and this student is paid.
+    // Weeks nobody pays (holidays) are never charged.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { year, studentId, weekStarting } = req.body || {};
+    if (!year || !studentId || !/^\d{4}-\d{2}-\d{2}$/.test(String(weekStarting || ''))) {
+      res.status(400).json({ error: 'year, studentId and weekStarting are required' }); return;
+    }
+    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const week = mondayOf(weekStarting);
+    const { rows: me } = await query('SELECT class FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
+    if (!me.length) { res.status(404).json({ error: 'Student not found' }); return; }
+    const { rows: classmates } = await query(
+      `SELECT id, weekly_fee FROM students WHERE madrasah_id = $1 AND class = $2 AND status = 'Active'
+         AND (enroll_date IS NULL OR enroll_date < $3)`,
+      [mid, me[0].class, plusDays(week, 7)]
+    );
+    // The student being paid is always included (even if their enrol date is later).
+    const ids = new Set(classmates.map(c => c.id));
+    if (!ids.has(studentId)) {
+      const { rows } = await query('SELECT id, weekly_fee FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
+      classmates.push(...rows);
+    }
+    for (const c of classmates.filter(x => scope.studentIds.has(x.id))) {
+      await query(
+        `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status) VALUES ($1,$2,$3,'week',$4,$5,'Pending')
+         ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
+        [mid, year, c.id, week, c.weekly_fee]
+      );
+    }
+    await query(
+      `UPDATE fees SET status = 'Paid', paid_date = $5 WHERE madrasah_id = $1 AND year = $2 AND student_id = $3 AND period = 'week' AND week_starting = $4`,
+      [mid, year, studentId, week, isoDay(new Date())]
+    );
+    res.status(200).json({ ok: true });
+    return;
   }
 
   if (action === 'add-month') {
@@ -84,6 +196,12 @@ module.exports = requireAuth(async (req, res) => {
       if (!year || !Array.isArray(periods) || !Array.isArray(students) || !periods.length || !students.length) {
         res.status(400).json({ error: 'year, periods[] and students[] are required' });
         return;
+      }
+      // Added back by hand: forget it was ever removed, for these students and their classes.
+      const { rows: cls } = await query('SELECT DISTINCT class FROM students WHERE id = ANY($1) AND madrasah_id = $2', [students.map(s => s.id), mid]);
+      for (const p of periods) {
+        await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = $2 AND start_date = $3 AND (student_id = ANY($4) OR class = ANY($5))`,
+          [mid, period, p.start, students.map(s => s.id), cls.map(c => c.class)]);
       }
       let created = 0;
       for (const p of periods) {
@@ -141,6 +259,11 @@ module.exports = requireAuth(async (req, res) => {
        AND student_id IN (SELECT id FROM students WHERE class = $3 AND madrasah_id = $5)`,
       [year, weeks, className, period, mid]
     );
+    if (period !== 'week') {
+      for (const start of weeks) {
+        await query(`INSERT INTO fee_skips (madrasah_id, period, start_date, class) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [mid, period, start, className]);
+      }
+    }
     res.status(200).json({ ok: true, deleted: rowCount });
     return;
   }
@@ -224,7 +347,12 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   if (req.method === 'DELETE') {
-    await query('DELETE FROM fees WHERE id = $1 AND madrasah_id = $2', [id, mid]);
+    const { rows: gone } = await query('DELETE FROM fees WHERE id = $1 AND madrasah_id = $2 RETURNING student_id, period, week_starting', [id, mid]);
+    // A month / term removed for one student stays removed when fees are added automatically.
+    if (gone[0] && gone[0].period !== 'week') {
+      await query(`INSERT INTO fee_skips (madrasah_id, period, start_date, student_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+        [mid, gone[0].period, gone[0].week_starting, gone[0].student_id]);
+    }
     res.status(200).json({ ok: true });
     return;
   }

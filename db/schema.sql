@@ -73,7 +73,20 @@ CREATE TABLE IF NOT EXISTS settings (
   currency_symbol     TEXT NOT NULL DEFAULT '£',
   logo                TEXT, -- data: URL (PNG/JPEG), downsized in the browser before upload
   icon                TEXT, -- data: URL, 512px square app icon built from the logo
-  parent_portal       BOOLEAN NOT NULL DEFAULT false
+  parent_portal       BOOLEAN NOT NULL DEFAULT false,
+  school_days         INTEGER[] NOT NULL DEFAULT '{1,2,3,4}', -- days classes meet (0 Sun … 6 Sat)
+  fee_auto            BOOLEAN NOT NULL DEFAULT true -- add monthly/termly fees by themselves; weekly start on first payment
+);
+
+-- Fee periods removed on purpose (e.g. an August with no classes), for a whole class
+-- (class set) or one student (student_id set), so automatic fees never re-add them.
+CREATE TABLE IF NOT EXISTS fee_skips (
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  period      TEXT NOT NULL,
+  start_date  DATE NOT NULL,
+  class       TEXT NOT NULL DEFAULT '',
+  student_id  TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (madrasah_id, period, start_date, class, student_id)
 );
 
 CREATE TABLE IF NOT EXISTS attendance (

@@ -4,11 +4,12 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
   updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
-  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy,
+  payWeekFee,
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
-import { money, currencySymbol } from '../lib/branding';
+import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { feePer, feeFrequency } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
@@ -65,6 +66,10 @@ function WeeklyFees() {
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   const [toggling, setToggling] = useState(false);
+  // Weekly fees with "Add fees automatically" on: a week nobody has paid yet is unmarked
+  // for the whole class, and the first "paid" on it starts it for everyone.
+  const autoWeeks = getBranding().feeAuto !== false;
+  const [confirmStart, setConfirmStart] = useState(null); // { studentId, week }
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
@@ -107,6 +112,19 @@ function WeeklyFees() {
     } catch (err) {
       setFees(prev => prev.map(f => f.id===fee.id ? { ...f, status: fee.status, paidDate: fee.paidDate } : f));
       showToast(err.message || 'Could not update this record');
+    }
+    setToggling(false);
+  }
+
+  async function startWeekPaid() {
+    const { studentId, week } = confirmStart;
+    setToggling(true);
+    try {
+      await payWeekFee(year, studentId, week);
+      await refresh();
+      setConfirmStart(null);
+    } catch (err) {
+      showToast(err.message || 'Could not mark this week');
     }
     setToggling(false);
   }
@@ -237,6 +255,30 @@ function WeeklyFees() {
     </div>
   );
 
+  const startStudent = confirmStart && students.find(s=>s.id===confirmStart.studentId);
+  const confirmStartModal = confirmStart&&(
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&!toggling&&setConfirmStart(null)}>
+      <div className="modal" style={{maxWidth:380}}>
+        <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+          <div style={{width:48,height:48,borderRadius:'50%',background:'var(--green-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+            <Check size={22} color="var(--green-text)"/>
+          </div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>
+            Mark week of {formatDayMonthGB(confirmStart.week)} as paid?
+          </div>
+          <div style={{color:'var(--text-muted)',fontSize:12.5}}>
+            {startStudent?`${startStudent.forename} ${startStudent.surname}`:''} — {money(Number(startStudent?.weeklyFee||0))}.
+            <br/>This is the first payment this week, so the week starts for everyone in {startStudent?.class}: the others will show as owing.
+          </div>
+        </div>
+        <div className="modal-footer" style={{justifyContent:'center'}}>
+          <button className="btn" onClick={()=>setConfirmStart(null)} disabled={toggling}>Cancel</button>
+          <button className="btn btn-green" onClick={startWeekPaid} disabled={toggling}><Check size={13}/>{toggling?'Saving…':'Mark paid'}</button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (selected) {
     const monthWeeks = getWeekStartsForMonth(monthAnchor);
     const studentFees = fees.filter(f=>f.studentId===selected.id);
@@ -277,8 +319,11 @@ function WeeklyFees() {
                 <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
                   <div className="day-cal-name">W/C</div>
                   <div className="day-cal-date">{dateLabel}</div>
-                  <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>
-                  <div className="day-cal-label">Not added</div>
+                  {autoWeeks
+                    ? <button className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)'}} title="Tap to mark paid"
+                        onClick={()=>setConfirmStart({studentId:selected.id, week:w})}>·</button>
+                    : <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>}
+                  <div className="day-cal-label">{autoWeeks ? 'Unmarked' : 'Not added'}</div>
                 </div>
               );
             }
@@ -354,6 +399,7 @@ function WeeklyFees() {
           </div>
         )}
         {confirmToggleModal}
+        {confirmStartModal}
         {toast&&<div className="toast">✓ {toast}</div>}
       </Layout>
     );
@@ -395,12 +441,12 @@ function WeeklyFees() {
             setDeleteMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
             setShowDeleteMonth(true);
           }}><Trash2 size={13}/> Delete a month</button>
-          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>{
+          {!autoWeeks && <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>{
             const { min, max } = yearMonthBounds(year);
             const todayYM = isoToday().slice(0,7);
             setAddMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
             setShowAddMonth(true);
-          }}><Calendar size={13}/> Add a month</button>
+          }}><Calendar size={13}/> Add a month</button>}
         </div>}
       </div>
 
@@ -413,7 +459,8 @@ function WeeklyFees() {
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
               <div className="entity-card-sub" style={{marginBottom:14}}>{currencySymbol()}{s.weeklyFee}{feePer()}</div>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}} onClick={e=>e.stopPropagation()}>
+              {/* Only the week buttons themselves stop a tap; the rest of the card opens the student. */}
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
                 <div className="week-pill-row" style={{justifyContent:'center'}}>
                   {schoolMonthWeeks.map(w=>{
                     const f = monthFees.find(fee=>fee.weekStarting===w);
@@ -422,7 +469,9 @@ function WeeklyFees() {
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
                       return (
-                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>
+                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled={!autoWeeks}
+                          title={autoWeeks ? `Week of ${dateLabel} — unmarked (tap to mark paid)` : `Week of ${dateLabel} — not added`}
+                          onClick={e=>{ e.stopPropagation(); if (autoWeeks) setConfirmStart({studentId:s.id, week:w}); }}>
                           <span className="d">{dayNum}</span><span className="dot"></span>
                         </button>
                       );
@@ -431,7 +480,7 @@ function WeeklyFees() {
                     return (
                       <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
                         title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
-                        onClick={()=>canToggle(f)&&setConfirmToggle(f)}>
+                        onClick={e=>{ e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
                         <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>
                     );
@@ -542,6 +591,7 @@ function WeeklyFees() {
       })()}
 
       {confirmToggleModal}
+      {confirmStartModal}
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );

@@ -298,7 +298,16 @@ tbody tr:hover td { background: #f9fafb; }
    4 or 5 depending on the month), which as an inline style always wins over this rule
    regardless of specificity. !important is the one legitimate way to still cap it at 2
    columns on mobile — same fix already used for .student-columns below. */
-@media (max-width: 640px) { .day-cal-row { grid-template-columns: 1fr 1fr !important; } }
+@media (max-width: 640px) { .day-cal-row:not(.att-days) { grid-template-columns: 1fr 1fr !important; } }
+/* Attendance month view on phones: every school day of the week in one compact row. */
+@media (max-width: 640px) {
+  .day-cal-row.att-days { gap: 6px; }
+  .att-days .day-cal-card { padding: 10px 4px; min-width: 0; }
+  .att-days .day-cal-name { font-size: 11px; }
+  .att-days .day-cal-date { font-size: 11px; white-space: nowrap; }
+  .att-days .day-cal-status { width: 34px; height: 34px; font-size: 13px; margin: 8px auto; }
+  .att-days .day-cal-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 .day-cal-card { border-radius: var(--r-md); padding: 16px 14px; text-align: center; box-shadow: var(--shadow-md); }
 .day-cal-name { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .day-cal-date { font-family: var(--font-num); font-size: 11px; color: var(--text-soft); margin-top: 2px; margin-bottom: 14px; }

@@ -16,7 +16,7 @@ export function SettingsProvider({ children }) {
   // through the non-React money() helper rather than this context.
   return (
     <SettingsContext.Provider value={settings}>
-      <React.Fragment key={`${settings.currencySymbol}|${settings.feeFrequency}|${settings.reportPeriod}`}>{children}</React.Fragment>
+      <React.Fragment key={`${settings.currencySymbol}|${settings.feeFrequency}|${settings.reportPeriod}|${settings.schoolDays}|${settings.feeAuto}`}>{children}</React.Fragment>
     </SettingsContext.Provider>
   );
 }

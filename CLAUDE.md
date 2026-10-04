@@ -77,6 +77,15 @@ codebase (one codebase, not a fork).
   `src/lib/feePeriods.js` (`feeFrequency()`, `currentFeePeriod()`, `feeUnit()`/`feePer()`)
   rather than assuming weeks. Weekly keeps the original Fees page; monthly/termly use
   `src/components/PeriodFees.js`.
+- **Automatic fees** (Settings → "Add fees automatically", `settings.fee_auto`, on by
+  default): monthly/termly — the current month's/term's fees are added for every active
+  student when it starts (`/api/fees?action=auto`, run by `ensureAutoFees()` before fees
+  are read); a period removed on purpose is remembered in `fee_skips` (class or student)
+  so it isn't re-added. Weekly — a week stays unmarked until someone is first marked
+  paid for it, which starts it for the whole class (`?action=pay-week`, teachers too).
+  The current **academic year** adds itself from 1 September (`/api/academic-years` GET).
+- **School days** (Settings, `settings.school_days`, JS day numbers, Mon–Thu by default):
+  `getWeekDates()` / `isSchoolDay()` in `src/lib/store.js` — never assume Mon–Thu.
 - Report period (Settings): **monthly** (one report per school month — the original
   system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
   is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`

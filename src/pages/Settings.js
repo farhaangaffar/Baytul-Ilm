@@ -140,6 +140,30 @@ export default function Settings() {
     }
   }
 
+  // School days and automatic fees — saved straight away too.
+  async function changeSchoolDays(day) {
+    const cur = form.schoolDays?.length ? form.schoolDays : [1, 2, 3, 4];
+    const next = cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day].sort();
+    if (!next.length) { showToast('Choose at least one school day'); return; }
+    try {
+      await updateSettings({ schoolDays: next });
+      setForm(f => ({ ...f, schoolDays: next }));
+      setBranding({ schoolDays: next });
+    } catch (err) {
+      showToast(err.message || 'Could not change the school days');
+    }
+  }
+  async function changeFeeAuto(on) {
+    try {
+      await updateSettings({ feeAuto: on });
+      setForm(f => ({ ...f, feeAuto: on }));
+      setBranding({ feeAuto: on });
+      showToast(on ? 'Fees will be added automatically' : 'Fees are now added by hand');
+    } catch (err) {
+      showToast(err.message || 'Could not change this');
+    }
+  }
+
   async function saveSettings() {
     setSaving(true);
     try {
@@ -326,6 +350,34 @@ export default function Settings() {
               onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}/>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
               Used when enrolling new students. Can be changed per student.
+            </span>
+          </div>
+          <div className="form-group">
+            <label>School days</label>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {[[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[0,'Sun']].map(([d,l])=>{
+                const on = (form.schoolDays?.length ? form.schoolDays : [1,2,3,4]).includes(d);
+                return (
+                  <button key={d} type="button" onClick={()=>changeSchoolDays(d)} aria-pressed={on}
+                    style={{flex:'1 1 0',minWidth:40,height:36,borderRadius:8,fontFamily:'var(--font)',fontSize:12.5,fontWeight:600,cursor:'pointer',
+                      border:`1px solid ${on?'var(--ink)':'#dfe3e8'}`,background:on?'var(--ink)':'#fafbfc',color:on?'#fff':'var(--text-muted)'}}>
+                    {l}
+                  </button>
+                );
+              })}
+            </div>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>The days you hold classes — used for the attendance register and weeks. Saved as soon as you tap.</span>
+          </div>
+          <div className="form-group">
+            <label>Add fees automatically</label>
+            <select value={form.feeAuto === false ? 'off' : 'on'} onChange={e=>changeFeeAuto(e.target.value==='on')}>
+              <option value="on">On</option>
+              <option value="off">Off — add them by hand</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+              {(savedFrequency || 'weekly') === 'weekly'
+                ? "Each week starts for a class the first time anyone in it is marked paid; everyone else then shows as owing. Weeks without classes are never charged."
+                : `Each ${FREQUENCIES[savedFrequency].unit}'s fees are added for every student when it starts. Remove one (e.g. a month with no classes) on the Fees page and it won't come back.`}
             </span>
           </div>
           <div className="form-group">

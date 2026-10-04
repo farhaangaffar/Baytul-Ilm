@@ -51,7 +51,7 @@ export default function Dashboard() {
 
   const active = students.filter(s => s.status === 'Active');
 
-  // ── This week's attendance (Mon–Thu, both classes) ──
+  // ── This week's attendance (the school days in Settings, every class) ──
   const dailyCounts = weekDates.map(date => ({
     date,
     P: active.filter(s => attendance[s.id]?.[date] === 'P').length,
@@ -63,7 +63,7 @@ export default function Dashboard() {
   const weekAbsent = dailyCounts.reduce((s, d) => s + d.A, 0);
   const weekMarked = weekPresent + weekLate + weekAbsent;
   const weekAttPct = weekMarked ? Math.round(((weekPresent + weekLate) / weekMarked) * 100) : 0;
-  const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[3])}`;
+  const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[weekDates.length - 1])}`;
   function shiftWeek(dir) {
     const d = new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate() + dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);

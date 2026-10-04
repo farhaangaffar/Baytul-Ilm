@@ -3,6 +3,7 @@
 // instead, so data is shared across devices rather than trapped in one browser.
 
 import { getMadrasahCode } from './madrasahCode';
+import { getBranding } from './branding';
 
 export class AuthError extends Error {}
 export class NetworkError extends Error {}
@@ -240,14 +241,43 @@ export function attendanceCountsForMonth(attendanceForYear, studentId, monthRang
     .map(([, status]) => status);
   return { present: days.filter(d => d === 'P').length, late: days.filter(d => d === 'L').length, absent: days.filter(d => d === 'A').length, total: days.length };
 }
+// The school days (Settings → School days; Mon–Thu to begin with) of the week, Monday
+// first, containing `anchor`.
+export function schoolDays() {
+  const d = getBranding().schoolDays;
+  return Array.isArray(d) && d.length ? d : [1, 2, 3, 4];
+}
+export function isSchoolDay(iso) { return schoolDays().includes(new Date(iso + 'T12:00:00').getDay()); }
 export function getWeekDates(anchor) {
   const d = new Date(anchor + 'T12:00:00'), day = d.getDay();
   const mon = new Date(d); mon.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
-  return [0, 1, 2, 3].map(i => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0]; });
+  const days = schoolDays();
+  return [0, 1, 2, 3, 4, 5, 6]
+    .filter(i => days.includes((i + 1) % 7))
+    .map(i => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0]; });
 }
 
 // ── Fees (keyed by year) ──
-export async function getFees(year) { return apiFetch(`/api/fees?year=${encodeURIComponent(year)}`); }
+// Monthly/termly fees add themselves when a month or term starts (Settings → "Add fees
+// automatically"). Checked before fees are read, at most once an hour per device.
+let autoFeesAt = 0, autoFeesRun = null;
+export function ensureAutoFees() {
+  const b = getBranding();
+  if (b.feeAuto === false || (b.feeFrequency || 'weekly') === 'weekly') return Promise.resolve();
+  if (!autoFeesRun || Date.now() - autoFeesAt > 3600e3) {
+    autoFeesAt = Date.now();
+    autoFeesRun = apiFetch('/api/fees?action=auto', { method: 'POST', body: '{}' }).catch(() => {});
+  }
+  return autoFeesRun;
+}
+export async function getFees(year) {
+  await ensureAutoFees();
+  return apiFetch(`/api/fees?year=${encodeURIComponent(year)}`);
+}
+// Weekly: marks one student paid for a week, starting that week for their whole class.
+export async function payWeekFee(year, studentId, weekStarting) {
+  return apiFetch('/api/fees?action=pay-week', { method: 'POST', body: JSON.stringify({ year, studentId, weekStarting }) });
+}
 export async function addFeeRecord(rec, year) {
   return apiFetch('/api/fees', { method: 'POST', body: JSON.stringify({ ...rec, year }) });
 }
