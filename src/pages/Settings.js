@@ -268,8 +268,9 @@ export default function Settings() {
 
   return (
     <Layout title="Settings" subtitle="Your madrasah, fees, classes and backups">
-      {/* Everything on this page saves by itself — no Save button. */}
-
+      {/* Everything on this page saves by itself — no Save button. On phones, Terms moves
+          below Classes & parents (.settings-stack in index.css). */}
+      <div className="settings-stack">
       {/* Your madrasah */}
       <div className="card">
         <div className="card-title" style={{marginBottom: user?.madrasah?.code ? 4 : 16}}>Your madrasah</div>
@@ -363,7 +364,7 @@ export default function Settings() {
       {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
       {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
       {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
-      {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
+      {showTerms && <div className="settings-terms"><TermsCard years={years} defaultYear={currentYear} /></div>}
 
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>
@@ -403,7 +404,7 @@ export default function Settings() {
       </div>
 
       {/* Backup & restore (not in the demo — its data is made up) */}
-      {!user?.demo && <div className="card" style={{marginTop:16}}>
+      {!user?.demo && <div className="card settings-backup" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:6}}>Backup &amp; restore</div>
         <div className="card-sub" style={{marginBottom:16}}>
           Download one regularly, and always before restoring.
@@ -414,6 +415,7 @@ export default function Settings() {
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
         </div>
       </div>}
+      </div>
 
       {pendingRestore&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>
