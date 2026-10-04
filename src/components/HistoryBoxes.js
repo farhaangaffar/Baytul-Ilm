@@ -15,13 +15,15 @@ export const historyBox = on => ({
 });
 const sub = { fontSize: 10.5, fontWeight: 500, opacity: 0.8, marginTop: 1 };
 
-// A year box: the arrow sits on the left, the year and its count centred.
+// A year box: the arrow sits on the left, level with the year; the year and its count centred.
 export function YearBox({ label, sub: subText, open, onClick }) {
   const Arrow = open ? ChevronUp : ChevronDown;
   return (
     <button type="button" aria-expanded={open} onClick={onClick} style={historyBox(open)}>
-      <Arrow size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-      <span style={{ fontWeight: 700, fontSize: 13 }}>{label}</span>
+      <span style={{ position: 'relative', alignSelf: 'stretch', fontWeight: 700, fontSize: 13 }}>
+        <Arrow size={14} style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)' }} />
+        {label}
+      </span>
       {subText && <span style={sub}>{subText}</span>}
     </button>
   );
