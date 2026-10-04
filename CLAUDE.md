@@ -48,7 +48,8 @@ codebase (one codebase, not a fork).
   add / rename / switch off a madrasah, reset its head's password). `requireAuth(handler)`
   is owner-only by default; pass `{ teacher: true }` only for routes teachers use, and
   scope with `accessScope(req)` / `teacherScope(req)`. Teachers get Attendance, Daily
-  records and Fees for their own classes, and on Fees may only mark a week Paid.
+  records and Fees for their own classes, and on Fees may only tick an added fee paid or
+  untick it — never start/add/remove a week or month, or change an amount.
   `ADMIN_PASSWORD` is only the first-time-setup / platform-owner-recovery key — it never
   signs anyone in once an owner account exists.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
@@ -82,7 +83,7 @@ codebase (one codebase, not a fork).
   student when it starts (`/api/fees?action=auto`, run by `ensureAutoFees()` before fees
   are read); a period removed on purpose is remembered in `fee_skips` (class or student)
   so it isn't re-added. Weekly — a week stays unmarked until someone is first marked
-  paid for it, which starts it for the whole class (`?action=pay-week`, teachers too).
+  paid for it, which starts it for the whole class (`?action=pay-week`, head only).
   Joining/leaving: only active children billed, from their enrol date, not after their
   leave date; a child joining after a week started for their class gets it too (weekly
   fill in `?action=auto`, only for weeks since `settings.fee_auto_since` so older

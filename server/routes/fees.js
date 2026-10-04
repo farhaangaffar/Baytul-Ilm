@@ -90,8 +90,9 @@ function mondayOf(dateStr) {
 // item ops — Vercel's file-based /api routing only reliably supports plain
 // files and single [id] segments outside Next.js, not the [[...params]]
 // optional catch-all, so everything here goes through query strings.
-// Teachers may see their own classes' fees and mark a week as Paid — nothing else
-// (no amounts, no adding/removing weeks, no un-marking). Everything else is owner-only.
+// Teachers may see their own classes' fees and tick an added fee paid or untick it
+// (a mistake) — nothing else: no amounts, no adding/starting/removing weeks or months.
+// Everything else is owner-only.
 // Weekly: make sure everyone who should owe a started week has it — every active
 // classmate enrolled by the week's end and not left before it starts, unless that
 // week was removed for them on purpose (fee_skips). Returns how many were added.
@@ -128,11 +129,13 @@ module.exports = requireAuth(async (req, res) => {
   if (!isOwner(req)) {
     const b = req.body || {};
     const readingList = !action && !id && req.method === 'GET';
+    // Ticking a fee paid, or unticking one ticked by mistake — on fees already added.
     const markingPaid = !action && id && req.method === 'PATCH'
-      && b.status === 'Paid' && Object.keys(b).every(k => k === 'status');
-    // Both only ever bill their own classes' students (checked below).
-    const autoOrPayWeek = (action === 'auto' || action === 'pay-week') && req.method === 'POST';
-    if (!readingList && !markingPaid && !autoOrPayWeek) { res.status(403).json({ error: "You don't have access to this." }); return; }
+      && (b.status === 'Paid' || b.status === 'Pending') && Object.keys(b).every(k => k === 'status');
+    // The automatic check only fills in weeks the head has already started, and only
+    // ever for their own classes' students (checked below). Starting a week is head-only.
+    const autoCheck = action === 'auto' && req.method === 'POST';
+    if (!readingList && !markingPaid && !autoCheck) { res.status(403).json({ error: "You don't have access to this." }); return; }
     if (markingPaid) {
       const { rows } = await query('SELECT student_id FROM fees WHERE id = $1 AND madrasah_id = $2', [id, mid]);
       if (!rows.length) { res.status(404).json({ error: 'Fee record not found' }); return; }

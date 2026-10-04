@@ -40,10 +40,11 @@ export default function Fees() {
 }
 
 function WeeklyFees() {
-  // Teachers can only mark a week as paid — no amounts, no un-marking, no adding
-  // or removing weeks. The server enforces the same rules.
+  // Teachers can tick a week paid or untick it (a mistake) — no amounts, no starting,
+  // adding or removing weeks. The server enforces the same rules.
   const { isOwner } = useAuth();
-  const canToggle = f => isOwner || f.status !== 'Paid';
+  // Anyone can tick an added fee paid or untick it (a mistake); only the head starts weeks.
+  const canToggle = () => true;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
@@ -69,6 +70,7 @@ function WeeklyFees() {
   // Weekly fees with "Add fees automatically" on: a week nobody has paid yet is unmarked
   // for the whole class, and the first "paid" on it starts it for everyone.
   const autoWeeks = getBranding().feeAuto !== false;
+  const canStartWeek = autoWeeks && isOwner;
   const [confirmStart, setConfirmStart] = useState(null); // { studentId, week }
   const [toast, setToast] = useState('');
 
@@ -319,7 +321,7 @@ function WeeklyFees() {
                 <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
                   <div className="day-cal-name">W/C</div>
                   <div className="day-cal-date">{dateLabel}</div>
-                  {autoWeeks
+                  {canStartWeek
                     ? <button className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)'}} title="Tap to mark paid"
                         onClick={()=>setConfirmStart({studentId:selected.id, week:w})}>·</button>
                     : <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>}
@@ -469,9 +471,9 @@ function WeeklyFees() {
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
                       return (
-                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled={!autoWeeks}
-                          title={autoWeeks ? `Week of ${dateLabel} — unmarked (tap to mark paid)` : `Week of ${dateLabel} — not added`}
-                          onClick={e=>{ e.stopPropagation(); if (autoWeeks) setConfirmStart({studentId:s.id, week:w}); }}>
+                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled={!canStartWeek}
+                          title={canStartWeek ? `Week of ${dateLabel} — unmarked (tap to mark paid)` : `Week of ${dateLabel} — not started`}
+                          onClick={e=>{ e.stopPropagation(); if (canStartWeek) setConfirmStart({studentId:s.id, week:w}); }}>
                           <span className="d">{dayNum}</span><span className="dot"></span>
                         </button>
                       );

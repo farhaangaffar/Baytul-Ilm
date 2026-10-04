@@ -21,7 +21,8 @@ export default function PeriodFees({ frequency }) {
   const { isOwner } = useAuth();
   const freq = FREQUENCIES[frequency];
   const unit = freq.unit; // "month" | "term"
-  const canToggle = f => isOwner || f.status !== 'Paid';
+  // Anyone can tick a fee paid or untick it (a mistake); only the head adds or removes them.
+  const canToggle = () => true;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
