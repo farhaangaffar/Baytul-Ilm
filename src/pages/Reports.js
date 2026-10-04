@@ -143,16 +143,17 @@ export default function Reports() {
 
   const preview = selected ? students.find(s => s.id === selected) : null;
 
-  // Saved reports for the open student, by academic year, newest first. Saved reports
+  // Saved reports for the open student, by academic year, oldest to newest left to right
+  // (like Daily records' boxes); the newest year opens first. Saved reports
   // can be monthly ('YYYY-MM') or termly ('term:<id>') — each sorted by its start date.
   const reportsByYear = {};
   studentReports.forEach(r => {
     const p = periodForKey(r.month, terms);
     (reportsByYear[p.yearLabel || '—'] = reportsByYear[p.yearLabel || '—'] || []).push({ ...r, _p: p });
   });
-  const years = Object.keys(reportsByYear).sort().reverse();
-  years.forEach(y => reportsByYear[y].sort((a, b) => b._p.start.localeCompare(a._p.start)));
-  const shownYear = openYear && reportsByYear[openYear] ? openYear : years[0];
+  const years = Object.keys(reportsByYear).sort();
+  years.forEach(y => reportsByYear[y].sort((a, b) => a._p.start.localeCompare(b._p.start)));
+  const shownYear = openYear && reportsByYear[openYear] ? openYear : years[years.length - 1];
 
   // Current children only — a left student's reports are on their card in the Students
   // page's "students who have left" section.
