@@ -83,6 +83,10 @@ codebase (one codebase, not a fork).
   are read); a period removed on purpose is remembered in `fee_skips` (class or student)
   so it isn't re-added. Weekly — a week stays unmarked until someone is first marked
   paid for it, which starts it for the whole class (`?action=pay-week`, teachers too).
+  Joining/leaving: only active children billed, from their enrol date, not after their
+  leave date; a child joining after a week started for their class gets it too (weekly
+  fill in `?action=auto`, only for weeks since `settings.fee_auto_since` so older
+  history is never touched); one child's removed week/month is remembered in `fee_skips`.
   The current **academic year** adds itself from 1 September (`/api/academic-years` GET).
 - **School days** (Settings, `settings.school_days`, JS day numbers, Mon–Thu by default):
   `getWeekDates()` / `isSchoolDay()` in `src/lib/store.js` — never assume Mon–Thu.

@@ -179,8 +179,9 @@ export function hasEnrolledBy(student, todayIso) {
 }
 export async function getStudents() { return apiFetch('/api/students'); }
 export async function getStudent(id) { const list = await getStudents(); return list.find(s => s.id === id); }
-export async function addStudent(student) { return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
-export async function updateStudent(id, data) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+// Joining, leaving or moving class can change who owes what — re-check automatic fees next time.
+export async function addStudent(student) { autoFeesRun = null; return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
+export async function updateStudent(id, data) { autoFeesRun = null; return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteStudent(id) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 // ids is the full new card order for whichever class was just reordered — every
 // other student's position is left alone (see api/students.js for how nulls sort).
@@ -258,12 +259,13 @@ export function getWeekDates(anchor) {
 }
 
 // ── Fees (keyed by year) ──
-// Monthly/termly fees add themselves when a month or term starts (Settings → "Add fees
-// automatically"). Checked before fees are read, at most once an hour per device.
+// Automatic fees (Settings → "Add fees automatically"): monthly/termly fees add themselves
+// when a period starts; weekly, children who joined after a week started for their class
+// get it too. Checked before fees are read, at most once an hour per device.
 let autoFeesAt = 0, autoFeesRun = null;
 export function ensureAutoFees() {
   const b = getBranding();
-  if (b.feeAuto === false || (b.feeFrequency || 'weekly') === 'weekly') return Promise.resolve();
+  if (b.feeAuto === false) return Promise.resolve();
   if (!autoFeesRun || Date.now() - autoFeesAt > 3600e3) {
     autoFeesAt = Date.now();
     autoFeesRun = apiFetch('/api/fees?action=auto', { method: 'POST', body: '{}' }).catch(() => {});
