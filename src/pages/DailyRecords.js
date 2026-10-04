@@ -7,7 +7,7 @@ import { getClasses, getQuranProgress, getStudents, getClassNames, getSettings, 
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, X } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, X, Pencil } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -201,6 +201,9 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   const [openYear, setOpenYear] = useState(null);
   const [openMonth, setOpenMonth] = useState(null);
   const [openDay, setOpenDay] = useState(null); // a day's record shown inside the month card
+  const [dayEditing, setDayEditing] = useState(false); // …and being changed there
+  // Bumped after a day is changed in that card, so the editor above reloads its text.
+  const [editorVersion, setEditorVersion] = useState(0);
   // The date currently loaded in the single "Edit day" card at the top of the page.
   // '' means idle — nothing is being edited, and the card shows a light, inert
   // placeholder rather than a live form. Editing only ever starts one of two ways:
@@ -285,10 +288,21 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
     // than remounting it — no risk of losing focus or clobbering what's being typed.
     // It matters because the "Done" tinted summary reads straight from `records`, so
     // that state has to actually reflect what was just saved.
-    saveDailyRecord(student.id, date, {[field]:value})
+    const done = saveDailyRecord(student.id, date, {[field]:value})
       .then(refresh)
       .catch(err => showToast(err.message || 'Could not save'));
+    lastSave.current = done;
+    return done;
   }, [student.id, refresh]);
+  // The latest save, so leaving the day card's Edit can wait for it before the editor
+  // above reloads that day's text.
+  const lastSave = useRef(Promise.resolve());
+  async function finishCardEdit() {
+    document.activeElement?.blur?.(); // flushes the box being typed in (starts its save)
+    setDayEditing(false);
+    await lastSave.current;
+    setEditorVersion(v => v + 1);
+  }
 
   function getEntry(date) { return records[date]||{comment:'',positive:'',negative:''}; }
 
@@ -462,7 +476,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
                   <CommentBox
-                    key={`${editDate}-comment`}
+                    key={`${editDate}-comment-${editorVersion}`}
                     initialValue={editEntry.comment}
                     onSave={val=>saveField(editDate,'comment',val)}
                     placeholder="General note for this day…"
@@ -472,7 +486,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                   <div className="record-panel record-panel-pos">
                     <div className="record-panel-label">⭐ Positives</div>
                     <StableTextarea
-                      key={`${editDate}-positive`}
+                      key={`${editDate}-positive-${editorVersion}`}
                       initialValue={editEntry.positive}
                       onSave={val=>saveField(editDate,'positive',val)}
                       placeholder="What went well?"
@@ -481,7 +495,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                   <div className="record-panel record-panel-neg">
                     <div className="record-panel-label">⚑ Concerns</div>
                     <StableTextarea
-                      key={`${editDate}-negative`}
+                      key={`${editDate}-negative-${editorVersion}`}
                       initialValue={editEntry.negative}
                       onSave={val=>saveField(editDate,'negative',val)}
                       placeholder="Any concerns?"
@@ -556,14 +570,14 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
             const yr = academicYearOfMonth(openMonth);
             const days = [...(byYear[yr]?.[openMonth]||[])].sort();
             return (
-              <div className="modal-overlay" onClick={e=>{ if (e.target===e.currentTarget) { setOpenMonth(null); setOpenDay(null); } }}>
+              <div className="modal-overlay" onClick={e=>{ if (e.target===e.currentTarget) { finishCardEdit(); setOpenMonth(null); setOpenDay(null); } }}>
                 <div className="modal" style={{maxWidth:480}}>
                   <div className="modal-header">
                     <div>
                       <div className="modal-title">{openDay ? fmtDate(openDay) : monthLabelFor(openMonth)}</div>
                       <div style={{fontSize:12,color:'var(--text-muted)'}}>{student.forename} · {openDay ? monthLabelFor(openMonth) : `${days.length} day${days.length===1?'':'s'} recorded — tap one to read it`}</div>
                     </div>
-                    <button className="btn btn-icon" onClick={()=>{ setOpenMonth(null); setOpenDay(null); }}><X size={16}/></button>
+                    <button className="btn btn-icon" onClick={()=>{ finishCardEdit(); setOpenMonth(null); setOpenDay(null); }}><X size={16}/></button>
                   </div>
                   <div className="modal-body">
                     {openDay ? (()=>{
@@ -574,14 +588,50 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                           <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',color:text?'var(--ink)':'var(--text-soft)'}}>{text||'—'}</div>
                         </div>
                       );
+                      const back = (
+                        <button className="btn" style={{flex:1,justifyContent:'center'}} onClick={()=>{ finishCardEdit(); setOpenDay(null); }}>
+                          <ArrowLeft size={13}/> Back to {new Date(openMonth+'-15T12:00:00').toLocaleDateString('en-GB',{month:'long'})}
+                        </button>
+                      );
+                      // Edit: the same boxes as the day editor, saving as you type.
+                      if (dayEditing) return (
+                        <>
+                          <div className="form-group" style={{marginBottom:10}}>
+                            <label>Daily comment</label>
+                            <CommentBox key={`${openDay}-comment-card`} initialValue={r.comment||''}
+                              onSave={val=>saveField(openDay,'comment',val)} placeholder="General note for this day…"/>
+                          </div>
+                          <div className="record-panels">
+                            <div className="record-panel record-panel-pos">
+                              <div className="record-panel-label">⭐ Positives</div>
+                              <StableTextarea key={`${openDay}-positive-card`} initialValue={r.positive||''}
+                                onSave={val=>saveField(openDay,'positive',val)} placeholder="What went well?"/>
+                            </div>
+                            <div className="record-panel record-panel-neg">
+                              <div className="record-panel-label">⚑ Concerns</div>
+                              <StableTextarea key={`${openDay}-negative-card`} initialValue={r.negative||''}
+                                onSave={val=>saveField(openDay,'negative',val)} placeholder="Any concerns?"/>
+                            </div>
+                          </div>
+                          <div style={{display:'flex',gap:8,marginTop:12}}>
+                            {back}
+                            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>{ finishCardEdit(); }}>
+                              <Check size={13}/> Done
+                            </button>
+                          </div>
+                        </>
+                      );
                       return (
                         <>
                           {part('Daily comment', r.comment, '#f3f4f6', 'var(--text-muted)')}
                           {part('⭐ Positives', r.positive, 'var(--green-light)', 'var(--green-text)')}
                           {part('⚑ Concerns', r.negative, 'var(--red-light)', 'var(--red-text)')}
-                          <button className="btn" style={{width:'100%',justifyContent:'center',marginTop:4}} onClick={()=>setOpenDay(null)}>
-                            <ArrowLeft size={13}/> Back to {new Date(openMonth+'-15T12:00:00').toLocaleDateString('en-GB',{month:'long'})}
-                          </button>
+                          <div style={{display:'flex',gap:8,marginTop:4}}>
+                            {back}
+                            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>setDayEditing(true)}>
+                              <Pencil size={13}/> Edit
+                            </button>
+                          </div>
                         </>
                       );
                     })() : (<>
@@ -591,7 +641,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                         const dt = new Date(date+'T12:00:00');
                         const isToday = date===isoToday();
                         return (
-                          <button key={date} type="button" onClick={()=>setOpenDay(date)}
+                          <button key={date} type="button" onClick={()=>{ setDayEditing(false); setOpenDay(date); }}
                             style={{...histBox(false), minHeight:58, boxShadow:isToday?'0 0 0 2px var(--blue)':'none'}}>
                             <span style={{fontSize:10.5,fontWeight:600,opacity:.75,textTransform:'uppercase'}}>{dt.toLocaleDateString('en-GB',{weekday:'short'})}</span>
                             <span style={{fontWeight:700,fontSize:14}}>{dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
