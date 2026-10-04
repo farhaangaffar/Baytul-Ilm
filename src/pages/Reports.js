@@ -4,6 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { useNavigate } from 'react-router-dom';
 import { getStudents, getClassNames, getAttendance, getFees, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, getTerms } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
+import { shortPeriodLabel } from '../components/HistoryBoxes';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
 import { FileText, Download, X } from 'lucide-react';
@@ -276,7 +277,7 @@ export default function Reports() {
                     {(reportsByYear[shownYear] || []).map(r => (
                       <button key={r.month} type="button" onClick={() => generateAndPreview(preview, r)}
                         style={{ ...box, background: '#fafbfc', ...(activeMonth === r.month ? onBox : null) }}>
-                        <span style={{ fontWeight: 600, fontSize: 12.5 }}>{r._p.kind === 'term' ? r._p.label.replace(/\s*\d{2}-\d{2}$/, '') : new Date(r._p.start + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' })}</span>
+                        <span style={{ fontWeight: 600, fontSize: 12.5 }}>{shortPeriodLabel(r._p)}</span>
                         <span style={boxSub}>{r.behavior || 'Report'}</span>
                       </button>
                     ))}

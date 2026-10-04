@@ -137,6 +137,9 @@ codebase (one codebase, not a fork).
   classes) → one card per child with boxes Ready/Not written · PDF · History; "Not written"
   opens that child's Report tab (`/records?student=<id>`); history and the PDF preview are
   in a pop-up (year boxes → month/term boxes → preview).
+- History anywhere (Records, Previous summaries, a left child's Previous reports) uses
+  `src/components/HistoryBoxes.js`: year boxes oldest → newest (arrow on the left, text
+  centred) → month/term boxes → the chosen one shown in the same card.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache

@@ -9,6 +9,7 @@ import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, X, Pencil } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import HistoryBoxes, { YearBox, shortPeriodLabel } from '../components/HistoryBoxes';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -187,6 +188,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   function pickTab(k){ setTabPick(k); try { localStorage.setItem('records_tab',k); } catch { /* fine */ } }
   // Which previous summary is open (only its title shows otherwise).
   const [openSummary, setOpenSummary] = useState(null);
+  const [summaryYear, setSummaryYear] = useState(null);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
     try { const q = await getQuranProgress(student.id); setQuran(q); onQuranChanged?.(student.id, q); } catch { /* the rest of the page still works */ }
@@ -540,12 +542,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
               {years.map(yr=>{
                 const n = Object.values(byYear[yr]).reduce((t,d)=>t+d.length,0);
                 return (
-                  <button key={yr} type="button" aria-expanded={openYear===yr} onClick={()=>setOpenYear(o=>o===yr?null:yr)} style={histBox(openYear===yr)}>
-                    <span style={{fontWeight:700,fontSize:13,display:'flex',alignItems:'center',gap:3}}>
-                      {openYear===yr?<ChevronUp size={13}/>:<ChevronDown size={13}/>}{yr}
-                    </span>
-                    <span style={boxSub}>{n} day{n===1?'':'s'}</span>
-                  </button>
+                  <YearBox key={yr} label={yr} sub={`${n} day${n===1?'':'s'}`} open={openYear===yr} onClick={()=>setOpenYear(o=>o===yr?null:yr)}/>
                 );
               })}
             </div>
@@ -748,22 +745,29 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
           </div>
           {previousSummaries.length>0&&(
             <div className="card">
-              <div className="card-title" style={{marginBottom:8}}>Previous summaries</div>
-              {/* Just the month/term each was written for — tap one to read it. */}
-              {previousSummaries.map(s=>{
-                const open = openSummary===s.month;
-                return (
-                  <div key={s.month} style={{borderTop:'1px solid var(--border)'}}>
-                    <button type="button" onClick={()=>setOpenSummary(open?null:s.month)} aria-expanded={open}
-                      style={{display:'flex',alignItems:'center',gap:6,width:'100%',background:'none',border:'none',padding:'9px 0',cursor:'pointer',fontFamily:'var(--font)',fontWeight:600,fontSize:13,color:'var(--ink)',textAlign:'left'}}>
-                      {open?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
-                      <span style={{flex:1}}>{periodForKey(s.month, terms).label}</span>
-                      {s.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{s.behavior}</span>}
-                    </button>
-                    {open&&<div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap',padding:'0 0 12px 20px'}}>{s.summary}</div>}
-                  </div>
-                );
-              })}
+              <div className="card-title" style={{marginBottom:10}}>Previous summaries</div>
+              {/* Year boxes → month (or term) boxes → that summary, in this card. */}
+              {(()=>{
+                const withP = previousSummaries.map(s=>({ ...s, _p: periodForKey(s.month, terms) }));
+                const yrs = [...new Set(withP.map(s=>s._p.yearLabel||'—'))].sort();
+                const inYear = withP.filter(s=>(s._p.yearLabel||'—')===summaryYear).sort((a,b)=>a._p.start.localeCompare(b._p.start));
+                const shown = withP.find(s=>s.month===openSummary);
+                return (<>
+                  <HistoryBoxes
+                    years={yrs.map(y=>{ const n=withP.filter(s=>(s._p.yearLabel||'—')===y).length; return { key:y, label:y, sub:`${n} summar${n===1?'y':'ies'}` }; })}
+                    open={summaryYear} onToggle={y=>{ setSummaryYear(o=>o===y?null:y); setOpenSummary(null); }}
+                    items={inYear.map(s=>({ key:s.month, label:shortPeriodLabel(s._p), sub:s.behavior||'' }))}
+                    active={openSummary} onPick={k=>setOpenSummary(o=>o===k?null:k)}/>
+                  {shown&&(
+                    <div style={{marginTop:10,background:'#f9fafb',borderRadius:10,padding:'10px 12px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:8,fontWeight:600,fontSize:13,marginBottom:6}}>
+                        <span>{shown._p.label}</span>{shown.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{shown.behavior}</span>}
+                      </div>
+                      <div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{shown.summary}</div>
+                    </div>
+                  )}
+                </>);
+              })()}
             </div>
           )}
         </>)}
