@@ -179,7 +179,7 @@ export default function PeriodFees({ frequency }) {
           <div className="stat-grid-v2" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
             <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{money(periodTotals.collected)}</div><div className="l">Collected</div></div>
             <div className="stat-card-v2"><div className="n" style={{ color: 'var(--red-text)' }}>{money(periodTotals.outstanding)}</div><div className="l">Outstanding</div></div>
-            <div className="stat-card-v2"><div className="n">{current ? new Set(classFees.filter(f => f.status !== 'Paid' && f.weekStarting >= current.start && f.weekStarting < current.endExclusive).map(f => f.studentId)).size : 0}</div><div className="l">Children owing</div></div>
+            <div className="stat-card-v2"><div className="n">{current ? classFees.filter(f => f.status !== 'Paid' && f.weekStarting >= current.start && f.weekStarting < current.endExclusive).length : 0}</div><div className="l">Unpaid fees</div></div>
             <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
           </div>
 

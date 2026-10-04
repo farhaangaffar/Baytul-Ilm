@@ -378,7 +378,7 @@ function WeeklyFees() {
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
-        <div className="stat-card-v2"><div className="n">{new Set(classMonthFees.filter(f=>f.status!=='Paid').map(f=>f.studentId)).size}</div><div className="l">Children owing</div></div>
+        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid weeks</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
