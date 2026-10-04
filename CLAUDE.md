@@ -133,6 +133,10 @@ codebase (one codebase, not a fork).
   summaries) — each one centred column (`.student-page`), last tab remembered per device.
   Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).
   The owner disliked squashed side-by-side cards: give things room rather than more columns.
+- Reports page: class boxes ("8 of 12 ready" for the current month/term — any number of
+  classes) → one card per child with boxes Ready/Not written · PDF · History; "Not written"
+  opens that child's Report tab (`/records?student=<id>`); history and the PDF preview are
+  in a pop-up (year boxes → month/term boxes → preview).
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache

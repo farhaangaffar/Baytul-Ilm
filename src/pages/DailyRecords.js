@@ -834,6 +834,11 @@ export default function DailyRecords() {
       // Qur'an progress only matters when some class tracks it; never blocks the page.
       if (Object.keys(types).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+      // ?student=<id> (from Reports' "Not written") opens that child straight away.
+      const linked = new URLSearchParams(window.location.search).get('student');
+      const s = linked && studentsData.find(x => x.id === linked);
+      if (linked) window.history.replaceState(window.history.state, '', window.location.pathname);
+      if (s) { setActiveClass(s.class); setSelectedStudent(s); }
     } catch (err) {
       setError(err);
     }
