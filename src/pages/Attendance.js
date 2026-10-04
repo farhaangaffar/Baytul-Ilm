@@ -268,7 +268,8 @@ export default function Attendance() {
           const todayStatus = attData[s.id]?.[TODAY];
           const wc = weekCountsFor(s.id, thisWeekDates);
           return (
-            <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
+            <div className="entity-card" key={s.id} role="button" tabIndex={0} onClick={()=>openStudent(s.id)}
+              onKeyDown={e=>{ if (e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); openStudent(s.id); } }}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
               {(() => {
                 const r = isCurrentYear && reported.find(x => x.studentId === s.id && x.date === TODAY);
@@ -277,10 +278,12 @@ export default function Attendance() {
                   : <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>;
               })()}
               {isCurrentYear && (
-                <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
-                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} title="Present" onClick={()=>mark(s.id,TODAY,'P')}><span className="d">P</span><span className="dot"></span></button>
-                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} title="Late" onClick={()=>mark(s.id,TODAY,'L')}><span className="d">L</span><span className="dot"></span></button>
-                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} title="Absent" onClick={()=>mark(s.id,TODAY,'A')}><span className="d">A</span><span className="dot"></span></button>
+                // Only the P / L / A buttons themselves mark; tapping anywhere else on the
+                // card (including the space around them) opens the student.
+                <div className="mark-btn-row" style={{justifyContent:'center'}}>
+                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} title="Present" onClick={e=>{e.stopPropagation();mark(s.id,TODAY,'P');}}><span className="d">P</span><span className="dot"></span></button>
+                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} title="Late" onClick={e=>{e.stopPropagation();mark(s.id,TODAY,'L');}}><span className="d">L</span><span className="dot"></span></button>
+                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} title="Absent" onClick={e=>{e.stopPropagation();mark(s.id,TODAY,'A');}}><span className="d">A</span><span className="dot"></span></button>
                 </div>
               )}
               <div style={{fontSize:11,color:'var(--text-soft)',marginTop:isCurrentYear?10:0,textAlign:'center'}}>Week of {formatDayMonthGB(thisWeekDates[0])}: {wc.P}P · {wc.L}L · {wc.A}A</div>

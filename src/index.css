@@ -178,7 +178,8 @@ tbody tr:hover td { background: #f9fafb; }
 .entity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 720px) { .entity-grid { grid-template-columns: 1fr; } }
 .entity-card { background: var(--surface); border-radius: var(--r-card); padding: 20px 22px; box-shadow: var(--shadow-md); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; min-width: 0; flex-wrap: wrap; row-gap: 10px; }
-.entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); } }
 .entity-card-name { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; }
 .entity-card-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 2px; }
 /* Classes & Teachers: small outlined cards, side by side as space allows, each with a
@@ -209,7 +210,8 @@ tbody tr:hover td { background: #f9fafb; }
 .student-column-header { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; margin-bottom: 10px; padding: 0 2px; }
 .student-compact-list { display: flex; flex-direction: column; gap: 8px; }
 .student-compact-card { background: var(--surface); border-radius: var(--r-card); padding: 11px 14px; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
-.student-compact-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .student-compact-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); } }
 .student-compact-name { font-size: 13.5px; font-weight: 600; }
 .student-compact-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 /* Students page: one full-width card per class, opened to show its students */
@@ -230,7 +232,8 @@ tbody tr:hover td { background: #f9fafb; }
    coloured dot — the other two options stay a muted grey dot, same as an unmarked week
    on Fees. */
 .mark-btn { flex: 1 1 0; max-width: 90px; min-width: 46px; height: 46px; border-radius: 13px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 14px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
-.mark-btn:hover { transform: translateY(-2px); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .mark-btn:hover { transform: translateY(-2px); } }
 .mark-btn .dot { width: 9px; height: 9px; border-radius: 50%; background: #d1d5db; }
 .mark-btn.on-p .dot { background: var(--green); }
 .mark-btn.on-l .dot { background: var(--amber); }
@@ -243,7 +246,8 @@ tbody tr:hover td { background: #f9fafb; }
 }
 
 .mark-btn-sm { width: 25px; height: 25px; border-radius: 50%; border: 2px solid #e7eaf0; background: #fff; font-family: var(--font-num); font-weight: 600; font-size: 10px; color: var(--text-soft); cursor: pointer; transition: all 0.12s; }
-.mark-btn-sm:hover:not(:disabled) { transform: scale(1.12); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .mark-btn-sm:hover:not(:disabled) { transform: scale(1.12); } }
 .mark-btn-sm:disabled { cursor: default; }
 .mark-btn-sm.is-current { box-shadow: 0 0 0 2px var(--blue); }
 
@@ -265,7 +269,8 @@ tbody tr:hover td { background: #f9fafb; }
    sides in proportion to however few weeks that month had, worst on the wide desktop
    2-column layout. */
 .week-pill { flex: 1 1 0; max-width: 90px; min-width: 46px; height: 46px; border-radius: 13px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
-.week-pill:hover:not(:disabled) { transform: translateY(-2px); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .week-pill:hover:not(:disabled) { transform: translateY(-2px); } }
 .week-pill:disabled { cursor: default; }
 .week-pill .d { font-size: 14px; }
 .week-pill .dot { width: 9px; height: 9px; border-radius: 50%; }
