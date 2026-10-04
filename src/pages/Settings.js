@@ -361,7 +361,7 @@ export default function Settings() {
                 return (
                   <button key={d} type="button" onClick={()=>changeSchoolDays(d)} aria-pressed={on}
                     style={{flex:'1 1 0',minWidth:40,height:36,borderRadius:8,fontFamily:'var(--font)',fontSize:12.5,fontWeight:600,cursor:'pointer',
-                      border:`1px solid ${on?'var(--ink)':'#dfe3e8'}`,background:on?'var(--ink)':'#fafbfc',color:on?'#fff':'var(--text-muted)'}}>
+                      border:`1px solid ${on?'var(--green)':'#dfe3e8'}`,background:on?'var(--green-light)':'#fafbfc',color:on?'var(--green-text)':'var(--text-muted)'}}>
                     {l}
                   </button>
                 );
