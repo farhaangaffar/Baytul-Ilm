@@ -29,6 +29,13 @@ async function ensurePeriodColumn() {
     week_starting DATE NOT NULL,
     PRIMARY KEY (madrasah_id, week_starting)
   )`);
+  // Monthly fees: months the head switched off (Settings → Fee months); every other month is charged.
+  await query(`CREATE TABLE IF NOT EXISTS fee_months_off (
+    madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+    year         TEXT NOT NULL,
+    month_start  DATE NOT NULL,
+    PRIMARY KEY (madrasah_id, month_start)
+  )`);
   // The Monday automatic fees first ran — weeks before it are never filled in, so history
   // from before the feature is left exactly as it was.
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_auto_since DATE`);
@@ -195,6 +202,10 @@ module.exports = requireAuth(async (req, res) => {
     }
     const p = await currentAutoPeriod(mid);
     if (!p) { res.status(200).json({ ok: true, created: 0 }); return; }
+    if (p.period === 'month') {
+      const { rows: monthOff } = await query('SELECT 1 FROM fee_months_off WHERE madrasah_id = $1 AND month_start = $2', [mid, p.start]);
+      if (monthOff.length) { res.status(200).json({ ok: true, created: 0 }); return; }
+    }
     await query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2) ON CONFLICT (madrasah_id, year) DO NOTHING', [mid, p.year]);
     const { rows: students } = await query(
       `SELECT s.id, s.weekly_fee FROM students s
@@ -214,6 +225,40 @@ module.exports = requireAuth(async (req, res) => {
       created += rowCount;
     }
     res.status(200).json({ ok: true, created });
+    return;
+  }
+
+  if (action === 'fee-months') {
+    // Settings → Fee months (monthly fees, head only). GET ?year= → { off: ['YYYY-MM-01'],
+    // charged: {'YYYY-MM-01': n} }. POST { months: ['YYYY-MM-01'], on } switches months on or
+    // off. Off: never charged, and fees not yet paid for it are removed (payments stay).
+    // On: this month (if it's the one running) is charged straight away.
+    if (req.method === 'GET') {
+      // By dates (1 Sep – 31 Aug), so "26-27" and "2026-27" style year labels both work.
+      const label = String(req.query.year || '');
+      const startY = /^\d{4}-/.test(label) ? Number(label.slice(0, 4)) : 2000 + Number(label.slice(0, 2));
+      if (!startY) { res.status(400).json({ error: 'year is required' }); return; }
+      const from = `${startY}-09-01`, to = `${startY + 1}-09-01`;
+      const { rows: off } = await query('SELECT month_start FROM fee_months_off WHERE madrasah_id = $1 AND month_start >= $2 AND month_start < $3 ORDER BY 1', [mid, from, to]);
+      const { rows: charged } = await query(
+        `SELECT week_starting, count(*)::int AS n FROM fees WHERE madrasah_id = $1 AND week_starting >= $2 AND week_starting < $3 AND period = 'month' GROUP BY 1`, [mid, from, to]);
+      res.status(200).json({ off: off.map(r => r.month_start), charged: Object.fromEntries(charged.map(r => [r.week_starting, r.n])) });
+      return;
+    }
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { months, on } = req.body || {};
+    const list = Array.isArray(months) ? [...new Set(months.map(String).filter(m => /^\d{4}-\d{2}-01$/.test(m)))] : [];
+    if (!list.length || typeof on !== 'boolean') { res.status(400).json({ error: 'months[] and on are required' }); return; }
+    let removed = 0;
+    for (const m of list) {
+      if (on) await query('DELETE FROM fee_months_off WHERE madrasah_id = $1 AND month_start = $2', [mid, m]);
+      else {
+        await query('INSERT INTO fee_months_off (madrasah_id, year, month_start) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [mid, yearLabelOf(m), m]);
+        const { rowCount } = await query(`DELETE FROM fees WHERE madrasah_id = $1 AND period = 'month' AND week_starting = $2 AND status <> 'Paid'`, [mid, m]);
+        removed += rowCount;
+      }
+    }
+    res.status(200).json({ ok: true, removed });
     return;
   }
 

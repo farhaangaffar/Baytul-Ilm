@@ -287,6 +287,12 @@ export async function getFees(year) {
 export async function addStudentWeek(studentId, weekStarting, paid, wholeClass = false) {
   return apiFetch('/api/fees?action=add-week', { method: 'POST', body: JSON.stringify({ studentId, weekStarting, paid: !!paid, wholeClass }) });
 }
+// Settings → Fee months (monthly fees): which months are switched off, and how many fees each has.
+export async function getFeeMonths(year) { return apiFetch(`/api/fees?action=fee-months&year=${encodeURIComponent(year)}`); }
+export async function setFeeMonths(months, on) {
+  autoFeesRun = null;
+  return apiFetch('/api/fees?action=fee-months', { method: 'POST', body: JSON.stringify({ months, on }) });
+}
 export async function getFeeWeeks(year) { return apiFetch(`/api/fees?action=fee-weeks&year=${encodeURIComponent(year)}`); }
 export async function setFeeWeeks(weeks, on) {
   autoFeesRun = null;

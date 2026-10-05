@@ -6,7 +6,7 @@ import {
   markFeePaid, markFeeUnpaid, updateFeeAmount, addFeePeriods, deleteFeePeriods, hasEnrolledBy,
 } from '../lib/store';
 import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer } from '../lib/feePeriods';
-import { money } from '../lib/branding';
+import { money, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Check, X, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -185,7 +185,8 @@ export default function PeriodFees({ frequency }) {
 
           <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
             <div className="text-muted text-sm">Tap a {unit} to mark it paid · tap a student for their full year</div>
-            {isOwner && (
+            {/* Monthly fees added automatically: Settings → Fee months chooses the months instead. */}
+            {isOwner && !(unit === 'month' && getBranding().feeAuto !== false) && (
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" onClick={() => setPeriodModal({ mode: 'remove', key: current?.key ?? periods[0]?.key })}><Trash2 size={13} /> Remove a {unit}</button>
                 <button className="btn btn-primary" style={{ background: 'var(--blue)' }} onClick={() => setPeriodModal({ mode: 'add', key: current?.key ?? periods[0]?.key })}><Plus size={13} /> Add a {unit}</button>

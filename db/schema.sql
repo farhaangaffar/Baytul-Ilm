@@ -100,6 +100,14 @@ CREATE TABLE IF NOT EXISTS fee_weeks_off (
   PRIMARY KEY (madrasah_id, week_starting)
 );
 
+-- Monthly fees: months the head switched off (Settings → Fee months); every other month is charged.
+CREATE TABLE IF NOT EXISTS fee_months_off (
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  year         TEXT NOT NULL,
+  month_start  DATE NOT NULL,
+  PRIMARY KEY (madrasah_id, month_start)
+);
+
 CREATE TABLE IF NOT EXISTS attendance (
   id          BIGSERIAL PRIMARY KEY,
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),

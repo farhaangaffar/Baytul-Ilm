@@ -74,7 +74,7 @@ codebase (one codebase, not a fork).
   (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
-- Settings page: three cards (Your madrasah · Fees [+ Fee weeks] · Classes & parents [+ Terms])
+- Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
 - School-specific details (name, Arabic name, currency, logo/app icon) come from
@@ -93,7 +93,9 @@ codebase (one codebase, not a fork).
   default): monthly/termly — the current month's/term's fees are added for every active
   student when it starts (`/api/fees?action=auto`, run by `ensureAutoFees()` before fees
   are read); a period removed on purpose is remembered in `fee_skips` (class or student)
-  so it isn't re-added. Weekly — **Settings → Fee weeks** (`FeeWeeksCard`, head only):
+  so it isn't re-added. Monthly: **Settings → Fee months** (`FeeMonthsCard`, `fee_months_off`)
+  switches whole months off (unpaid fees removed); with it, the Fees page has no Add/Remove a
+  month buttons, and the weekly page has no Delete a month (Fee weeks does that). Weekly — **Settings → Fee weeks** (`FeeWeeksCard`, head only):
   every week is on unless switched off (`fee_weeks_off`); on-weeks are charged to every
   child when their school month starts — a whole month can be paid ahead (`?action=auto`, only weeks since
   `settings.fee_auto_since`, so older history is never touched); switching a week off
