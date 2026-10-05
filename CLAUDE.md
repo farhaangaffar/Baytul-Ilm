@@ -45,7 +45,9 @@ codebase (one codebase, not a fork).
   people sign in with the madrasah's **code** (remembered per device,
   `src/lib/madrasahCode.js`) + login + password. One owner is the **platform owner**
   (`platform_admin`) with the Madaaris page (`server/routes/madaaris.js`: counts only,
-  add / rename / switch off a madrasah, reset its head's password). `requireAuth(handler)`
+  add / rename / switch off a madrasah, reset its head's password; plus an AI credit card —
+  this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
+  demo link to copy or share). The dashboard has no Ask AI any more. `requireAuth(handler)`
   is owner-only by default; pass `{ teacher: true }` only for routes teachers use, and
   scope with `accessScope(req)` / `teacherScope(req)`. Teachers get Attendance, Daily
   records and Fees for their own classes, and on Fees may only tick an added fee paid or
