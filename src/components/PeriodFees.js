@@ -3,7 +3,7 @@ import Layout from './Layout';
 import { LoadingState, ErrorState } from './DataState';
 import {
   getFees, getStudents, getClassNames, getAcademicYears, currentSchoolYear, getTerms,
-  markFeePaid, markFeeUnpaid, updateFeeAmount, addFeePeriods, deleteFeePeriods, hasEnrolledBy,
+  markFeePaid, markFeeUnpaid, updateFeeAmount, addFeePeriods, deleteFeePeriods, hasEnrolledBy, addStudentPeriod,
 } from '../lib/store';
 import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer } from '../lib/feePeriods';
 import { money, getBranding } from '../lib/branding';
@@ -23,6 +23,10 @@ export default function PeriodFees({ frequency }) {
   const unit = freq.unit; // "month" | "term"
   // Anyone can tick a fee paid or untick it (a mistake); only the head adds or removes them.
   const canToggle = () => true;
+  // Automatic fees: the head adds a month/term for one child (paying ahead, or put back) by
+  // tapping their grey box — the Add/Remove a month/term buttons are only for manual fees.
+  const auto = getBranding().feeAuto !== false;
+  const [addOne, setAddOne] = useState(null); // { studentId, p }
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -103,6 +107,17 @@ export default function PeriodFees({ frequency }) {
     setEditCell(null);
   }
 
+  async function confirmAddOne(paid, wholeClass = false) {
+    setBusy(true);
+    try {
+      const r = await addStudentPeriod(addOne.studentId, freq.period, addOne.p.start, paid, wholeClass);
+      await refresh();
+      setAddOne(null);
+      showToast(wholeClass ? `${addOne.p.label} added for ${r.added} child${r.added === 1 ? '' : 'ren'}` : paid ? `${addOne.p.label} added and marked paid` : `${addOne.p.label} added`);
+    } catch (err) { showToast(err.message || `Could not add this ${unit}`); }
+    setBusy(false);
+  }
+
   async function runPeriodAction() {
     const p = periods.find(x => String(x.key) === String(periodModal.key));
     if (!p) return;
@@ -127,7 +142,9 @@ export default function PeriodFees({ frequency }) {
     const isCurrent = current && p.start === current.start;
     if (!f) {
       return (
-        <button key={p.key} className={`week-pill not-added ${isCurrent ? 'is-current' : ''}`} disabled title={`${p.label} — not added`}>
+        <button key={p.key} className={`week-pill not-added ${isCurrent ? 'is-current' : ''}`} disabled={!(isOwner && auto)}
+          title={`${p.label} — not added${isOwner && auto ? ' (tap to add for this child)' : ''}`}
+          onClick={e => { e.stopPropagation(); if (isOwner && auto) setAddOne({ studentId: s.id, p }); }}>
           <span className="d">{p.short}</span><span className="dot"></span>
         </button>
       );
@@ -185,8 +202,8 @@ export default function PeriodFees({ frequency }) {
 
           <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
             <div className="text-muted text-sm">Tap a {unit} to mark it paid · tap a student for their full year</div>
-            {/* Monthly fees added automatically: Settings → Fee months chooses the months instead. */}
-            {isOwner && !(unit === 'month' && getBranding().feeAuto !== false) && (
+            {/* Fees added automatically: Settings → Fee months / Terms choose the periods; one child's is added from their grey box. */}
+            {isOwner && !auto && (
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" onClick={() => setPeriodModal({ mode: 'remove', key: current?.key ?? periods[0]?.key })}><Trash2 size={13} /> Remove a {unit}</button>
                 <button className="btn btn-primary" style={{ background: 'var(--blue)' }} onClick={() => setPeriodModal({ mode: 'add', key: current?.key ?? periods[0]?.key })}><Plus size={13} /> Add a {unit}</button>
@@ -280,6 +297,34 @@ export default function PeriodFees({ frequency }) {
           </div>
         </div>
       )}
+
+      {/* Add one month or term for one child (or everyone in the class missing it) */}
+      {addOne && (() => {
+        const st = students.find(x => x.id === addOne.studentId);
+        const missing = st ? classStudents.filter(x => !feeFor(x.id, addOne.p)).length : 0;
+        return (
+          <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && setAddOne(null)}>
+            <div className="modal" style={{ maxWidth: 380 }}>
+              <div className="modal-body" style={{ textAlign: 'center', paddingTop: 28 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Add {addOne.p.label}?</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>
+                  For {st ? `${st.forename} ${st.surname}` : 'this child'} — {money(Number(st?.weeklyFee || 0))}{missing > 1 ? `, or for everyone in ${st.class} who doesn't have it yet.` : '. Nobody else is charged.'}
+                </div>
+              </div>
+              <div className="modal-footer" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button className="btn" onClick={() => setAddOne(null)} disabled={busy}>Cancel</button>
+                <button className="btn" onClick={() => confirmAddOne(false)} disabled={busy}>Add as owed</button>
+                <button className="btn btn-green" onClick={() => confirmAddOne(true)} disabled={busy}><Check size={13} />{busy ? 'Saving…' : 'Add & mark paid'}</button>
+                {missing > 1 && (
+                  <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => confirmAddOne(false, true)} disabled={busy}>
+                    Add as owed for all {missing} in {st.class}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Add / remove a month or term for the whole class */}
       {periodModal && (

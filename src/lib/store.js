@@ -320,6 +320,10 @@ export function studentFeesFrom(feesForYear, studentId) {
   return feesForYear.filter(f => f.studentId === studentId).sort((a, b) => b.weekStarting.localeCompare(a.weekStarting));
 }
 // Monthly/termly billing: one fee record per period ({ start, endExclusive }) per student.
+// Head only: one month or term for one child (owed or paid), or with wholeClass for everyone in that child's class missing it.
+export async function addStudentPeriod(studentId, period, start, paid, wholeClass = false) {
+  return apiFetch('/api/fees?action=add-period', { method: 'POST', body: JSON.stringify({ studentId, period, start, paid: !!paid, wholeClass }) });
+}
 export async function addFeePeriods(year, period, periods, students) {
   return apiFetch('/api/fees?action=add-month', { method: 'POST', body: JSON.stringify({ year, period, periods, students }) });
 }

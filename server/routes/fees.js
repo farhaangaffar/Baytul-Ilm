@@ -296,6 +296,59 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  if (action === 'add-period') {
+    // Head only: one month or term for one child — e.g. a parent paying ahead, or one removed
+    // by mistake — owed or paid. { studentId, period: 'month'|'term', start, paid }. With
+    // wholeClass: true, it goes back on (owed) for everyone in that child's class who's
+    // missing it; children removed from it one by one stay removed.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { studentId, period, start, paid, wholeClass } = req.body || {};
+    if (!studentId || !['month', 'term'].includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(String(start || ''))) {
+      res.status(400).json({ error: 'studentId, period and start are required' }); return;
+    }
+    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    let endExclusive, year;
+    if (period === 'month') {
+      if (!start.endsWith('-01')) { res.status(400).json({ error: 'A month starts on the 1st' }); return; }
+      const { rows: off } = await query('SELECT 1 FROM fee_months_off WHERE madrasah_id = $1 AND month_start = $2', [mid, start]);
+      if (off.length) { res.status(400).json({ error: 'That month is switched off in Settings → Fee months.' }); return; }
+      const [y, m] = start.split('-').map(Number);
+      endExclusive = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      year = yearLabelOf(start);
+    } else {
+      const { rows: t } = await query('SELECT year, end_date FROM terms WHERE madrasah_id = $1 AND start_date = $2 LIMIT 1', [mid, start]);
+      if (!t.length) { res.status(400).json({ error: 'No term starts on that date — check Settings → Terms.' }); return; }
+      endExclusive = plusDays(t[0].end_date, 1);
+      year = t[0].year;
+    }
+    await query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2) ON CONFLICT (madrasah_id, year) DO NOTHING', [mid, year]);
+    if (wholeClass) {
+      const { rows: [{ class: cls }] } = await query('SELECT class FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
+      await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = $2 AND start_date = $3 AND class = $4 AND student_id = ''`, [mid, period, start, cls]);
+      const { rowCount } = await query(
+        `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status)
+         SELECT $1, $2, s.id, $3, $4, s.weekly_fee, 'Pending' FROM students s
+         WHERE s.madrasah_id = $1 AND s.class = $5 AND s.status = 'Active' AND s.id = ANY($7)
+           AND (s.enroll_date IS NULL OR s.enroll_date < $6) AND (s.leave_date IS NULL OR s.leave_date >= $4)
+           AND NOT EXISTS (SELECT 1 FROM fee_skips k WHERE k.madrasah_id = $1 AND k.period = $3 AND k.start_date = $4 AND k.student_id = s.id)
+         ON CONFLICT (year, student_id, period, week_starting) DO NOTHING`,
+        [mid, year, period, start, cls, endExclusive, [...scope.studentIds]]
+      );
+      res.status(200).json({ ok: true, added: rowCount });
+      return;
+    }
+    const { rows: st } = await query('SELECT weekly_fee FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
+    if (!st.length) { res.status(404).json({ error: 'Student not found' }); return; }
+    await query(
+      `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status, paid_date) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (year, student_id, period, week_starting) DO UPDATE SET status = EXCLUDED.status, paid_date = EXCLUDED.paid_date`,
+      [mid, year, studentId, period, start, st[0].weekly_fee, paid ? 'Paid' : 'Pending', paid ? ukToday() : null]
+    );
+    await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = $2 AND start_date = $3 AND student_id = $4`, [mid, period, start, studentId]);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
   if (action === 'add-week') {
     // Head only (teachers never reach here): one child, one week — e.g. a parent paying
     // ahead, or a week removed for them by mistake. Only weeks switched on in

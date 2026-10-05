@@ -94,8 +94,10 @@ codebase (one codebase, not a fork).
   student when it starts (`/api/fees?action=auto`, run by `ensureAutoFees()` before fees
   are read); a period removed on purpose is remembered in `fee_skips` (class or student)
   so it isn't re-added. Monthly: **Settings → Fee months** (`FeeMonthsCard`, `fee_months_off`)
-  switches whole months off (unpaid fees removed); with it, the Fees page has no Add/Remove a
-  month buttons, and the weekly page has no Delete a month (Fee weeks does that). Weekly — **Settings → Fee weeks** (`FeeWeeksCard`, head only):
+  switches whole months off (unpaid fees removed). With automatic fees the monthly/termly Fees
+  page has no Add/Remove buttons — the head taps a child's grey box to add that month/term for
+  them (owed or paid) or for everyone in the class missing it (`?action=add-period`) — and the
+  weekly page has no Delete a month (Fee weeks does that). Weekly — **Settings → Fee weeks** (`FeeWeeksCard`, head only):
   every week is on unless switched off (`fee_weeks_off`); on-weeks are charged to every
   child when their school month starts — a whole month can be paid ahead (`?action=auto`, only weeks since
   `settings.fee_auto_since`, so older history is never touched); switching a week off
