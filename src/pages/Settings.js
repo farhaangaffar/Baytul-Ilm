@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, addAcademicYear, removeAcademicYear, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
 import TermsCard from '../components/TermsCard';
+import FeeWeeksCard from '../components/FeeWeeksCard';
 import { FREQUENCIES } from '../lib/feePeriods';
-import { Save, Plus, Trash2, X, Download, Upload, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Download, Upload, Check, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
+import { applySettings } from '../lib/SettingsContext';
 import { useAuth } from '../lib/AuthContext';
 
 const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
@@ -53,12 +55,11 @@ export default function Settings() {
   const [savedReportPeriod, setSavedReportPeriod] = useState('monthly');
   const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
-  const [newYear, setNewYear] = useState('');
-  const [yearError, setYearError] = useState('');
   const [toast, setToast] = useState('');
-  const [confirmDel, setConfirmDel] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
-  const [saving, setSaving] = useState(false);
+  // Everything saves by itself; a small "Saved" tick shows next to what just changed.
+  const [savedKey, setSavedKey] = useState('');
+  const savedTimer = useRef(null);
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const fileInputRef = useRef(null);
@@ -89,6 +90,27 @@ export default function Settings() {
   useEffect(() => { load(); }, [load]);
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
+  function markSaved(key) {
+    setSavedKey(key); clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedKey(''), 2000);
+  }
+  // A field label with the "Saved" tick beside it.
+  const Label = ({ k, children }) => (
+    <label style={{display:'flex',alignItems:'center',gap:6}}>
+      {children}
+      {savedKey===k && <span style={{color:'var(--green-text)',fontWeight:600,textTransform:'none',letterSpacing:0,display:'inline-flex',alignItems:'center',gap:2}}><Check size={11}/>Saved</span>}
+    </label>
+  );
+  // Name, Arabic name, currency and default fee: saved when you leave the box.
+  async function saveField(key, patch) {
+    try {
+      await updateSettings(patch);
+      if ('schoolName' in patch || 'schoolNameArabic' in patch) applySettings(patch); else setBranding(patch);
+      markSaved(key);
+    } catch (err) {
+      showToast(err.message || 'Could not save');
+    }
+  }
 
   // The fee frequency saves straight away (after a confirm) instead of waiting for
   // "Save changes" — it changes how the Fees page works, and it was easy to pick it,
@@ -105,7 +127,7 @@ export default function Settings() {
       setForm(f => ({ ...f, feeFrequency: next }));
       setSavedFrequency(next);
       setBranding({ feeFrequency: next });
-      showToast(`Fees are now charged ${FREQUENCIES[next].adjective.toLowerCase()}`);
+      markSaved('frequency');
     } catch (err) {
       showToast(err.message || 'Could not change the fee frequency');
     }
@@ -123,22 +145,45 @@ export default function Settings() {
       setForm(f => ({ ...f, reportPeriod: next }));
       setSavedReportPeriod(next);
       setBranding({ reportPeriod: next });
-      showToast(`Reports are now ${next}`);
+      markSaved('reports');
     } catch (err) {
       showToast(err.message || 'Could not change the report period');
     }
   }
 
-  async function saveSettings() {
-    setSaving(true);
+  // Saved straight away, like the fee and report choices.
+  async function changeParentPortal(on) {
     try {
-      await updateSettings(form);
-      setBranding(form);
-      showToast('Settings saved');
-      setTimeout(()=>window.location.reload(),600);
+      await updateSettings({ parentPortal: on });
+      setForm(f => ({ ...f, parentPortal: on }));
+      markSaved('portal');
     } catch (err) {
-      showToast(err.message || 'Could not save settings');
-      setSaving(false);
+      showToast(err.message || 'Could not change the parent portal');
+    }
+  }
+
+  // School days and automatic fees — saved straight away too.
+  async function changeSchoolDays(day) {
+    const cur = form.schoolDays?.length ? form.schoolDays : [1, 2, 3, 4];
+    const next = cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day].sort();
+    if (!next.length) { showToast('Choose at least one school day'); return; }
+    try {
+      await updateSettings({ schoolDays: next });
+      setForm(f => ({ ...f, schoolDays: next }));
+      setBranding({ schoolDays: next });
+      markSaved('days');
+    } catch (err) {
+      showToast(err.message || 'Could not change the school days');
+    }
+  }
+  async function changeFeeAuto(on) {
+    try {
+      await updateSettings({ feeAuto: on });
+      setForm(f => ({ ...f, feeAuto: on }));
+      setBranding({ feeAuto: on });
+      markSaved('auto');
+    } catch (err) {
+      showToast(err.message || 'Could not change this');
     }
   }
 
@@ -151,7 +196,7 @@ export default function Settings() {
       await updateSettings(await logoImages(file));
       setForm(f => ({ ...f, hasLogo: true }));
       setLogoVersion(v => v + 1);
-      showToast('Logo saved');
+      markSaved('logo');
     } catch (err) {
       showToast(err.message || 'Could not save logo');
     }
@@ -163,41 +208,11 @@ export default function Settings() {
     try {
       await updateSettings({ logo: null, icon: null });
       setForm(f => ({ ...f, hasLogo: false }));
-      showToast('Logo removed');
+      markSaved('logo');
     } catch (err) {
       showToast(err.message || 'Could not remove logo');
     }
     setLogoBusy(false);
-  }
-
-  async function addYear() {
-    const y = newYear.trim();
-    // accept formats: 2026-27 or 26-27
-    const match = y.match(/^(\d{2,4})-(\d{2})$/);
-    if (!match) { setYearError('Format must be e.g. 2026-27 or 26-27'); return; }
-    const short = match[1].length===4 ? match[1].slice(2)+'-'+match[2] : y;
-    if (years.includes(short)) { setYearError('That year already exists'); return; }
-    try {
-      await addAcademicYear(short);
-      setYears(await getAcademicYears());
-      setNewYear('');
-      setYearError('');
-      showToast(`${short} added`);
-    } catch (err) {
-      setYearError(err.message || 'Could not add year');
-    }
-  }
-
-  async function doDelete(y) {
-    if (years.length<=1) { showToast('You must have at least one academic year'); return; }
-    try {
-      await removeAcademicYear(y);
-      setYears(await getAcademicYears());
-      setConfirmDel(null);
-      showToast(`${y} removed`);
-    } catch (err) {
-      showToast(err.message || 'Could not remove year');
-    }
   }
 
   async function handleExport() {
@@ -252,78 +267,35 @@ export default function Settings() {
   const showTerms = years.length > 0 && (savedFrequency === 'termly' || savedReportPeriod === 'termly');
 
   return (
-    <Layout title="Settings" subtitle="School details, academic years and defaults">
-      {/* School details — full width, fields in three columns (two on narrower screens) */}
+    <Layout title="Settings" subtitle="Your madrasah, fees, classes and backups">
+      {/* Everything on this page saves by itself — no Save button. */}
+
+      {/* Your madrasah */}
       <div className="card">
-        <div className="card-title" style={{marginBottom: user?.madrasah?.code ? 4 : 18}}>School details</div>
+        <div className="card-title" style={{marginBottom: user?.madrasah?.code ? 4 : 16}}>Your madrasah</div>
         {user?.madrasah?.code && (
-          <div className="card-sub" style={{marginBottom:18}}>
-            Sign-in code <strong style={{color:'var(--ink)'}}>{user.madrasah.code}</strong> — staff type this the first time they sign in on a device.
+          <div className="card-sub" style={{marginBottom:16}}>
+            Sign-in code <strong style={{color:'var(--ink)'}}>{user.madrasah.code}</strong> — staff type this the first time on a device.
           </div>
         )}
         <div className="form-grid school-grid">
           <div className="form-group">
-            <label>Madrasah name (English)</label>
-            <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}/>
+            <Label k="name">Name (English)</Label>
+            <input value={form.schoolName} onChange={e=>setForm({...form,schoolName:e.target.value})}
+              onBlur={()=>form.schoolName.trim() && saveField('name', { schoolName: form.schoolName.trim() })}/>
           </div>
           <div className="form-group">
-            <label>Madrasah name (Arabic)</label>
-            <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}/>
+            <Label k="arabic">Name (Arabic)</Label>
+            <input value={form.schoolNameArabic} onChange={e=>setForm({...form,schoolNameArabic:e.target.value})} dir="rtl" style={{fontFamily:"'Amiri',serif",fontSize:16}}
+              onBlur={()=>saveField('arabic', { schoolNameArabic: form.schoolNameArabic })}/>
           </div>
           <div className="form-group">
-            <label>Currency symbol</label>
-            <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
-              onChange={e=>setForm({...form,currencySymbol:e.target.value==='other'?'':e.target.value})}>
-              {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
-              <option value="other">Other…</option>
-            </select>
-            {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
-              <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
-                onChange={e=>setForm({...form,currencySymbol:e.target.value})}
-                style={{marginTop:6}}/>
-            )}
-            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-              Shown on fees, stats and PDF reports.
-            </span>
-          </div>
-          <div className="form-group">
-            <label>Fees are charged</label>
-            <select value={savedFrequency || 'weekly'} onChange={e=>changeFrequency(e.target.value)}>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly (calendar month)</option>
-              <option value="termly">Termly (your term dates)</option>
-            </select>
-            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Saved as soon as you change it.</span>
-            {(savedFrequency || 'weekly') === 'weekly' && (
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Weeks are grouped into school months, each starting on its first Monday.</span>
-            )}
-            {savedFrequency === 'termly' && (
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates in the Terms section.</span>
-            )}
-          </div>
-          <div className="form-group">
-            <label>Reports are made</label>
-            <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
-              <option value="monthly">Monthly</option>
-              <option value="termly">Termly (your term dates)</option>
-            </select>
-            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One AI summary and behaviour rating per {savedReportPeriod === 'termly' ? 'term' : 'month'} for each student. Saved as soon as you change it.</span>
-          </div>
-          <div className="form-group">
-            <label>Default fee per {FREQUENCIES[savedFrequency || 'weekly'].unit} ({form.currencySymbol || '£'})</label>
-            <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
-              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}/>
-            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-              Used when enrolling new students. Can be changed per student.
-            </span>
-          </div>
-          <div className="form-group" style={{gridColumn:'1 / -1'}}>
-            <label>Logo</label>
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-              <div style={{width:64,height:64,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden'}}>
+            <Label k="logo">Logo</Label>
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <div style={{width:44,height:44,borderRadius:'var(--r-md)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',overflow:'hidden',flexShrink:0}}>
                 {form.hasLogo
                   ? <img src={`/api/settings?logo&v=${logoVersion}`} alt="School logo" style={{maxWidth:'100%',maxHeight:'100%'}}/>
-                  : <ImageIcon size={22} style={{color:'var(--text-soft)'}}/>}
+                  : <ImageIcon size={18} style={{color:'var(--text-soft)'}}/>}
               </div>
               <button type="button" className="btn btn-sm" onClick={()=>logoInputRef.current?.click()} disabled={logoBusy}>
                 <Upload size={13}/>{form.hasLogo ? 'Change' : 'Upload'}
@@ -335,96 +307,114 @@ export default function Settings() {
               )}
               <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoSelect} style={{display:'none'}}/>
             </div>
-            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
-              Printed next to the madrasah name on PDF reports, and used as the app's icon. Saved straight away.
-            </span>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>On reports and as the app icon.</span>
           </div>
         </div>
-        <div style={{marginTop:20}}>
-          <button className="btn btn-primary" onClick={saveSettings} disabled={saving}><Save size={14}/>{saving?'Saving…':'Save changes'}</button>
+      </div>
+
+      {/* Fees */}
+      <div className="card" style={{marginTop:16}}>
+        <div className="card-title" style={{marginBottom:16}}>Fees</div>
+        <div className="form-grid fees-grid">
+          <div className="form-group">
+            <Label k="frequency">Fees are charged</Label>
+            <select value={(savedFrequency || 'weekly')} onChange={e=>changeFrequency(e.target.value)}>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="termly">Termly</option>
+            </select>
+            {savedFrequency === 'termly' && <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates under Terms.</span>}
+          </div>
+          <div className="form-group">
+            <Label k="currency">Currency</Label>
+            <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
+              onChange={e=>{ const v = e.target.value==='other' ? '' : e.target.value; setForm({...form,currencySymbol:v}); if (v) saveField('currency', { currencySymbol: v }); }}>
+              {CURRENCY_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
+              <option value="other">Other…</option>
+            </select>
+            {!CURRENCY_OPTIONS.includes(form.currencySymbol) && (
+              <input value={form.currencySymbol||''} maxLength={4} placeholder="e.g. Rs"
+                onChange={e=>setForm({...form,currencySymbol:e.target.value})}
+                onBlur={()=>form.currencySymbol && saveField('currency', { currencySymbol: form.currencySymbol })}
+                style={{marginTop:6}}/>
+            )}
+          </div>
+          <div className="form-group">
+            <Label k="fee">Default fee per {FREQUENCIES[(savedFrequency || 'weekly')].unit}</Label>
+            <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
+              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
+              onBlur={()=>saveField('fee', { defaultWeeklyFee: Number(form.defaultWeeklyFee) || 0 })}/>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>For new students — each child's fee can be changed.</span>
+          </div>
+          <div className="form-group">
+            <Label k="auto">Add fees automatically</Label>
+            <select value={form.feeAuto === false ? 'off' : 'on'} onChange={e=>changeFeeAuto(e.target.value==='on')}>
+              <option value="on">On</option>
+              <option value="off">Off — add them by hand</option>
+            </select>
+            {form.feeAuto !== false && (
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>
+                {(savedFrequency || 'weekly') === 'weekly' ? 'Choose the weeks under Fee weeks.' : `Each ${FREQUENCIES[savedFrequency].unit}'s fees are added when it starts.`}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
+      {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
+
+      {/* Classes & parents */}
+      <div className="card" style={{marginTop:16}}>
+        <div className="card-title" style={{marginBottom:16}}>Classes &amp; parents</div>
+        <div className="form-grid school-grid">
+          <div className="form-group">
+            <Label k="days">School days</Label>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {[[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[0,'Sun']].map(([d,l])=>{
+                const on = (form.schoolDays?.length ? form.schoolDays : [1,2,3,4]).includes(d);
+                return (
+                  <button key={d} type="button" onClick={()=>changeSchoolDays(d)} aria-pressed={on}
+                    style={{flex:'1 1 0',minWidth:40,height:36,borderRadius:8,fontFamily:'var(--font)',fontSize:12.5,fontWeight:600,cursor:'pointer',
+                      border:`1px solid ${on?'var(--green)':'#dfe3e8'}`,background:on?'var(--green-light)':'#fafbfc',color:on?'var(--green-text)':'var(--text-muted)'}}>
+                    {l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="form-group">
+            <Label k="reports">Reports are made</Label>
+            <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
+              <option value="monthly">Monthly</option>
+              <option value="termly">Termly</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <Label k="portal">Parent portal</Label>
+            <select value={form.parentPortal ? 'on' : 'off'} onChange={e=>changeParentPortal(e.target.value==='on')}>
+              <option value="off">Off</option>
+              <option value="on">On — parents can sign in</option>
+            </select>
+            {form.parentPortal && <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Set up each family's login from a student's profile.</span>}
+          </div>
         </div>
       </div>
 
       {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
       {showTerms && <TermsCard years={years} defaultYear={currentYear} />}
 
-      {/* Academic years — rarely changed, so a slim full-width strip */}
-      <div className="card" style={{marginTop:16}}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
-          <div style={{flex:'1 1 280px',minWidth:0}}>
-            <div className="card-title" style={{marginBottom:4}}>Academic years</div>
-            <div className="card-sub" style={{marginBottom:12}}>
-              Attendance and fee data is stored separately per year. New years appear in the switcher on Attendance and Fees.
-            </div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-              {years.map(y=>(
-                <div key={y} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 4px 4px 12px',borderRadius:999,background:'#f9fafb',border:'1px solid var(--border)'}}>
-                  <span style={{fontWeight:600,fontSize:13}}>{y}</span>
-                  <button
-                    className="btn btn-icon btn-sm"
-                    style={{color:'var(--red)',padding:4}}
-                    onClick={()=>years.length>1?setConfirmDel(y):showToast('Must have at least one year')}
-                    title={`Remove ${y}`}
-                  >
-                    <Trash2 size={12}/>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{flex:'0 1 300px',minWidth:0}}>
-            <div className="flex items-center gap-2">
-              <input
-                value={newYear}
-                onChange={e=>{ setNewYear(e.target.value); setYearError(''); }}
-                placeholder="e.g. 2026-27"
-                onKeyDown={e=>e.key==='Enter'&&addYear()}
-                aria-label="New academic year"
-                style={{flex:1,minWidth:0,padding:'9px 14px',border:'none',outline:'none',background:'#f9fafb',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
-              />
-              <button className="btn btn-teal" onClick={addYear}><Plus size={13}/>Add year</button>
-            </div>
-            {yearError&&<div style={{fontSize:12,color:'var(--red)',marginTop:6}}>{yearError}</div>}
-            <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6}}>
-              Format: <strong>2026-27</strong> or <strong>26-27</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Backup & restore */}
-      <div className="card" style={{marginTop:16}}>
+      {/* Backup & restore (not in the demo — its data is made up) */}
+      {!user?.demo && <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:6}}>Backup &amp; restore</div>
         <div className="card-sub" style={{marginBottom:16}}>
-          Download a backup regularly as a safety net, and especially before restoring or migrating data.
+          Download one regularly, and always before restoring.
         </div>
         <div className="flex items-center gap-2" style={{flexWrap:'wrap'}}>
           <button className="btn btn-primary" onClick={handleExport} disabled={exporting}><Download size={14}/>{exporting?'Preparing…':'Download backup'}</button>
           <button className="btn" onClick={()=>fileInputRef.current?.click()}><Upload size={14}/>Restore from backup</button>
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
         </div>
-      </div>
-
-      {/* Delete year confirm */}
-      {confirmDel&&(
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDel(null)}>
-          <div className="modal" style={{maxWidth:400}}>
-            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
-              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
-                <Trash2 size={24} color="var(--red)"/>
-              </div>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove {confirmDel}?</div>
-              <div style={{color:'var(--text-muted)',fontSize:13}}>
-                The attendance and fee data for {confirmDel} will remain in storage but the year will no longer appear in the switcher.
-              </div>
-            </div>
-            <div className="modal-footer" style={{justifyContent:'center'}}>
-              <button className="btn" onClick={()=>setConfirmDel(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={()=>doDelete(confirmDel)}><Trash2 size={13}/>Remove</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>}
 
       {pendingRestore&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>

@@ -7,8 +7,9 @@ import { getClasses, getQuranProgress, getStudents, getClassNames, getSettings, 
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, X, Pencil } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import HistoryBoxes, { YearBox, shortPeriodLabel } from '../components/HistoryBoxes';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -22,13 +23,26 @@ function monthLabelFor(ym) {
 
 // Stable textarea that doesn't lose focus on mobile
 // Key: do NOT re-render the textarea on every keystroke — use uncontrolled + ref-based save
+// Saves what's been typed if the box disappears (switching tab) before its debounce
+// or blur has fired.
+function useFlushOnUnmount(ref, timer, onSave) {
+  const save = useRef(onSave);
+  save.current = onSave;
+  useEffect(() => {
+    const el = ref.current;
+    return () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; if (el) save.current(el.value); } };
+  }, [ref, timer]);
+}
+
 function StableTextarea({ initialValue, onSave, placeholder, style }) {
   const ref = useRef(null);
   const timer = useRef(null);
+  useFlushOnUnmount(ref, timer, onSave);
 
   const handleChange = () => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      timer.current = null;
       if (ref.current) onSave(ref.current.value);
     }, 400);
   };
@@ -37,7 +51,7 @@ function StableTextarea({ initialValue, onSave, placeholder, style }) {
   // "Add day") can fire before the debounce timer does, and the edit is
   // never saved before this field's data gets refreshed from the server.
   const handleBlur = () => {
-    clearTimeout(timer.current);
+    clearTimeout(timer.current); timer.current = null;
     if (ref.current) onSave(ref.current.value);
   };
 
@@ -61,13 +75,14 @@ function StableTextarea({ initialValue, onSave, placeholder, style }) {
 function CommentBox({ initialValue, onSave, placeholder }) {
   const ref = useRef(null);
   const timer = useRef(null);
+  useFlushOnUnmount(ref, timer, onSave);
   const handleChange = () => {
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => { if(ref.current) onSave(ref.current.value); }, 400);
+    timer.current = setTimeout(() => { timer.current = null; if(ref.current) onSave(ref.current.value); }, 400);
   };
   // Flush immediately when focus leaves — see StableTextarea for why.
   const handleBlur = () => {
-    clearTimeout(timer.current);
+    clearTimeout(timer.current); timer.current = null;
     if (ref.current) onSave(ref.current.value);
   };
   return (
@@ -88,13 +103,13 @@ function CommentBox({ initialValue, onSave, placeholder }) {
   );
 }
 
-// "Sabaq: Al-Mulk 1–15" / "Reading: Ya-Sin 40" / "Lesson 12" — where a student is up to.
+// "Hifdh Jadeed: Al-Mulk 1–15" / "Naazhirah: Ya-Sin 40" / "Qaa'idah: Lesson 12" — where a student is up to.
 function quranUpTo(type, data) {
   const kind = { hifz: 'sabaq', nazira: 'reading', qaida: 'lesson' }[type];
   const last = (data?.entries || []).filter(e => e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!kind || !last) return '';
-  if (kind === 'lesson') return `Qaida: ${last.lesson}`;
-  return kind === 'sabaq' ? `Sabaq: ${rangeLabel(last)}` : `Reading: ${upToLabel(last)}`;
+  if (kind === 'lesson') return `Qaa'idah: ${last.lesson}`;
+  return kind === 'sabaq' ? `Hifdh Jadeed: ${rangeLabel(last)}` : `Naazhirah: ${upToLabel(last)}`;
 }
 
 function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, classTypes, quranAll }) {
@@ -154,51 +169,49 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
   );
 }
 
-// Records are grouped Academic year > Month > Day so a student's history doesn't just
-// pile up as one ever-growing flat list — this expands the given date's own key plus its
-// containing month and academic-year keys, so opening/adding a day also opens the section
-// it lives in, rather than expanding invisibly inside a still-collapsed month/year.
-//
-// The "month" a date belongs to follows the same school-month rule as Fees/Attendance/
-// Reports (a month runs from its first Monday to the day before the next month's first
-// Monday) via getCurrentSchoolMonth — NOT the date's own literal calendar month. A date
-// early in a calendar month (before that month's own first Monday) belongs to the
-// PREVIOUS school month, and a date early in the next calendar month (before that
-// month's first Monday) still belongs to THIS one — e.g. 2 Oct 2026 groups under
-// "September 2026" here, since October's own school month doesn't start until 5 Oct.
-function keysFor(date) {
-  const monthKey = getCurrentSchoolMonth(date).start.slice(0,7);
-  return [date, monthKey, academicYearOfMonth(monthKey)];
-}
 
-function StudentRecords({ student, settings, classType, onBack, onRecordsChanged }) {
+function StudentRecords({ student, settings, classType, initialQuran, onQuranChanged, onBack, onRecordsChanged }) {
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
   const { isOwner } = useAuth();
   // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
   // Their level is their own if set, else their class's.
   const hasQuran = !!classType;
-  const [quran, setQuran] = useState(null);
-  const quranType = effectiveQuranType(classType, quran?.quranType);
+  // Starts from what the student list already loaded, so the page opens with the right
+  // level and cards straight away (no flash of the class default), then refreshes.
+  const [quran, setQuran] = useState(initialQuran || null);
+  const quranType = quran ? effectiveQuranType(classType, quran.quranType) : null;
+  // Which tab is showing — remembered between students (and visits) on this device.
+  const tabs = [hasQuran&&['quran',"Qur'an"],['day','Daily record'],isOwner&&['report','Report']].filter(Boolean);
+  const [tabPick, setTabPick] = useState(()=>{ try { return localStorage.getItem('records_tab')||''; } catch { return ''; } });
+  const tab = tabs.some(([k])=>k===tabPick) ? tabPick : tabs[0][0];
+  function pickTab(k){ setTabPick(k); try { localStorage.setItem('records_tab',k); } catch { /* fine */ } }
   // Which previous summary is open (only its title shows otherwise).
   const [openSummary, setOpenSummary] = useState(null);
+  const [summaryYear, setSummaryYear] = useState(null);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
-    try { setQuran(await getQuranProgress(student.id)); } catch { /* the rest of the page still works */ }
-  }, [hasQuran, student.id]);
+    try { const q = await getQuranProgress(student.id); setQuran(q); onQuranChanged?.(student.id, q); } catch { /* the rest of the page still works */ }
+  }, [hasQuran, student.id, onQuranChanged]);
   useEffect(() => { refreshQuran(); }, [refreshQuran]);
   const [records, setRecords] = useState({});
   const [loadingRecords, setLoadingRecords] = useState(true);
   // Only the month/year grouping keys collapse — there's no per-day accordion any
   // more (see editDate below), so today's own date key never needs to be in here.
-  const [expanded, setExpanded] = useState(() => Object.fromEntries(keysFor(isoToday()).slice(1).map(k=>[k,true])));
+  // History: which academic year's months are showing, and which month's days are open
+  // (in a pop-up card). Only the years show to begin with.
+  const [openYear, setOpenYear] = useState(null);
+  const [openMonth, setOpenMonth] = useState(null);
+  const [openDay, setOpenDay] = useState(null); // a day's record shown inside the month card
+  const [dayEditing, setDayEditing] = useState(false); // …and being changed there
+  // Bumped after a day is changed in that card, so the editor above reloads its text.
+  const [editorVersion, setEditorVersion] = useState(0);
   // The date currently loaded in the single "Edit day" card at the top of the page.
   // '' means idle — nothing is being edited, and the card shows a light, inert
   // placeholder rather than a live form. Editing only ever starts one of two ways:
   // picking a date here for a brand new day, or clicking an existing row below —
   // never by the editor just staying open on whatever was last touched.
   const [editDate, setEditDate] = useState('');
-  const editorRef = useRef(null);
   // On first load, default straight into today only if today doesn't already have
   // a record — if it's already been added (this visit or an earlier one), that's
   // something you'd now open via its row below, same as any other day, rather than
@@ -220,7 +233,9 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
     getTerms().then(setTerms).catch(() => {}).finally(() => setTermsLoaded(true));
   }, [termly]);
   const period = currentReportPeriod(terms);
-  const inPeriod = d => !period ? false : (period.kind === 'month' ? d.startsWith(period.key) : d >= period.start && d < period.endExclusive);
+  // A school month runs from its first Monday to the next month's (so 2 Oct can still be
+  // September's), and a term between its dates — both carry start / endExclusive.
+  const inPeriod = d => !!period && d >= period.start && d < period.endExclusive;
   const unitWord = termly ? 'term' : 'month';
   const termlyNoTerms = termly && termsLoaded && !period;
   const [aiSummary, setAiSummary] = useState('');
@@ -275,26 +290,30 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
     // than remounting it — no risk of losing focus or clobbering what's being typed.
     // It matters because the "Done" tinted summary reads straight from `records`, so
     // that state has to actually reflect what was just saved.
-    saveDailyRecord(student.id, date, {[field]:value})
+    const done = saveDailyRecord(student.id, date, {[field]:value})
       .then(refresh)
       .catch(err => showToast(err.message || 'Could not save'));
+    lastSave.current = done;
+    return done;
   }, [student.id, refresh]);
+  // The latest save, so leaving the day card's Edit can wait for it before the editor
+  // above reloads that day's text.
+  const lastSave = useRef(Promise.resolve());
+  async function finishCardEdit() {
+    document.activeElement?.blur?.(); // flushes the box being typed in (starts its save)
+    setDayEditing(false);
+    await lastSave.current;
+    setEditorVersion(v => v + 1);
+  }
 
   function getEntry(date) { return records[date]||{comment:'',positive:'',negative:''}; }
 
-  // Loads a day into the editor card and scrolls it into view — the list itself
-  // never grows an inline form, editing always happens in the one fixed card above.
-  function selectDay(date) {
-    setEditDate(date);
-    editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 
   async function addDay() {
     if (!editDate || records[editDate]) return;
     try {
       await saveDailyRecord(student.id, editDate, {comment:'',positive:'',negative:''});
       await refresh();
-      setExpanded(e=>({...e, ...Object.fromEntries(keysFor(editDate).slice(1).map(k=>[k,true]))}));
       showToast(`Entry added for ${fmtDate(editDate)}`);
       // Refresh the "N records" count on the student list right away, on the actual
       // action that changes it — not only when the user happens to navigate back to
@@ -346,7 +365,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt, studentId: student.id })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'API error');
@@ -390,7 +409,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
   const editIsToday = editDate!==''&&editDate===isoToday();
 
   // Academic year > month, each newest-first; days stay oldest-first within a month.
-  // Month here is the school month (see keysFor above), not the date's calendar month.
+  // Month here is the school month (from its first Monday), not the date's calendar month.
   const byYear = {};
   dates.forEach(d => {
     const monthKey = getCurrentSchoolMonth(d).start.slice(0,7);
@@ -400,30 +419,18 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
   });
   const years = Object.keys(byYear).sort().reverse();
 
-  // Plain, scannable list row — no card border/shadow, no inline editing. Each row is
-  // its own soft, rounded chip so days stay visually separated without the per-row
-  // card chrome the redesign removed; alternating shades (zebra-style, like a
-  // spreadsheet) do the separating instead of a divider line. Clicking a row just
-  // loads that day into the editor card above; the list itself never grows a form.
-  function DayRow({date, index}) {
-    const isToday = date===isoToday();
-    const isActive = date===editDate;
-    return (
-      <div onClick={()=>selectDay(date)} style={{
-        display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,cursor:'pointer',
-        padding:'10px 14px',borderRadius:'var(--r-md)',marginBottom:4,
-        background:isActive?'var(--teal-faint)':(index%2===0?'#f8fafc':'#eef1f5'),
-      }}>
-        <div style={{fontWeight:600,fontSize:13}}>{fmtDate(date)}</div>
-        {isToday&&<span className="badge badge-teal" style={{flexShrink:0}}>Today</span>}
-      </div>
-    );
-  }
+  // History boxes — the same box style as the rest of the app.
+  const histBox = (on) => ({
+    border: `1px solid ${on ? 'var(--ink)' : '#dfe3e8'}`, background: on ? 'var(--ink)' : '#f3f4f6', color: on ? '#fff' : 'var(--ink)',
+    borderRadius: 8, padding: '7px 4px', minHeight: 46, cursor: 'pointer', fontFamily: 'var(--font)', textAlign: 'center',
+    display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: 0,
+  });
+  const boxSub = { fontSize: 10.5, fontWeight: 500, opacity: 0.8, marginTop: 1 };
 
   if (loadingRecords) return <LoadingState />;
 
   return (
-    <div>
+    <div className="student-page">
       <div className="flex items-center gap-3" style={{marginBottom:20}}>
         <button className="btn btn-sm" onClick={onBack}><ArrowLeft size={14}/> All students</button>
         <div>
@@ -432,15 +439,26 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
         </div>
       </div>
 
-      <div className="grid-2" style={{alignItems:'flex-start'}}>
-        <div>
-          {hasQuran && <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran}
- />}
+      {/* One thing at a time: Qur'an | Daily record | Report (heads only), each a
+          single roomy column. */}
+      {tabs.length>1&&(
+        <div className="student-tabs" role="tablist">
+          {tabs.map(([k,label])=>(
+            <button key={k} type="button" role="tab" aria-selected={tab===k} className={tab===k?'active':''} onClick={()=>pickTab(k)}>{label}</button>
+          ))}
+        </div>
+      )}
+      <div className="student-tab">
+        {tab==='quran'&&(<>
+          <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran} />
+          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior canEdit />}
+        </>)}
+        {tab==='day'&&(<>
           {/* The one, fixed-position editor — every day, new or existing, is added and
               edited here rather than inline in the list below, so the list can stay a
-              plain, calm, scannable history. Clicking any row in it (DayRow) just loads
+              plain, calm, scannable history. Tapping a day in it (Records → month) just loads
               that date into this same card. */}
-          <div className="card mb-4" ref={editorRef}>
+          <div className="card">
             <div className="flex items-center gap-2" style={{marginBottom:12}}>
               <div className="card-title" style={{marginBottom:0,flex:1}}>{editExists?'Edit day':'Add day'}</div>
               {editIsToday&&<span className="badge badge-teal">Today</span>}
@@ -460,7 +478,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
                   <CommentBox
-                    key={`${editDate}-comment`}
+                    key={`${editDate}-comment-${editorVersion}`}
                     initialValue={editEntry.comment}
                     onSave={val=>saveField(editDate,'comment',val)}
                     placeholder="General note for this day…"
@@ -470,7 +488,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
                   <div className="record-panel record-panel-pos">
                     <div className="record-panel-label">⭐ Positives</div>
                     <StableTextarea
-                      key={`${editDate}-positive`}
+                      key={`${editDate}-positive-${editorVersion}`}
                       initialValue={editEntry.positive}
                       onSave={val=>saveField(editDate,'positive',val)}
                       placeholder="What went well?"
@@ -479,7 +497,7 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
                   <div className="record-panel record-panel-neg">
                     <div className="record-panel-label">⚑ Concerns</div>
                     <StableTextarea
-                      key={`${editDate}-negative`}
+                      key={`${editDate}-negative-${editorVersion}`}
                       initialValue={editEntry.negative}
                       onSave={val=>saveField(editDate,'negative',val)}
                       placeholder="Any concerns?"
@@ -513,47 +531,150 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
               </div>
             )}
           </div>
-
-          {/* One unified card holds the whole history — year and month are just bold
-              section dividers inside it, and every day is a plain list row, so the
-              column stays calm even once lots of records have piled up. */}
+          {/* History: academic years as boxes → tap one for its months → tap a month for a
+              card of its days → tap a day to read that day's record in the same card. */}
           <div className="card">
+            <div className="card-title" style={{marginBottom:10}}>Records</div>
             {dates.length===0&&(
-              <div style={{textAlign:'center',padding:'20px 0',color:'var(--text-muted)',fontSize:13}}>No records yet. Use the form above to add one.</div>
+              <div style={{textAlign:'center',padding:'12px 0',color:'var(--text-muted)',fontSize:13}}>No records yet. Use the form above to add one.</div>
             )}
-            {years.map((yr,yi)=>{
-              const yearOpen = !!expanded[yr];
-              const months = Object.keys(byYear[yr]).sort().reverse();
-              return (
-                <div key={yr} style={{marginTop:yi===0?0:8}}>
-                  <div onClick={()=>setExpanded(e=>({...e,[yr]:!e[yr]}))}
-                    style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'8px 4px',fontWeight:700,fontSize:13}}>
-                    {yearOpen?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
-                    Academic year {yr}
-                  </div>
-                  {yearOpen&&months.map(monthKey=>{
-                    const monthOpen = !!expanded[monthKey];
-                    return (
-                      <div key={monthKey} style={{marginLeft:18}}>
-                        <div onClick={()=>setExpanded(e=>({...e,[monthKey]:!e[monthKey]}))}
-                          style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',padding:'6px 4px',fontWeight:600,fontSize:12,color:'var(--text-muted)'}}>
-                          {monthOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
-                          {monthLabelFor(monthKey)}
-                        </div>
-                        {monthOpen&&byYear[yr][monthKey].map((date,i)=><DayRow key={date} date={date} index={i}/>)}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(110px, 1fr))',gap:6}}>
+              {years.map(yr=>{
+                const n = Object.values(byYear[yr]).reduce((t,d)=>t+d.length,0);
+                return (
+                  <YearBox key={yr} label={yr} sub={`${n} day${n===1?'':'s'}`} open={openYear===yr} onClick={()=>setOpenYear(o=>o===yr?null:yr)}/>
+                );
+              })}
+            </div>
+            {openYear&&byYear[openYear]&&(
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:6,marginTop:8,paddingTop:8,borderTop:'1px dashed #d5dae0'}}>
+                {Object.keys(byYear[openYear]).sort().map(monthKey=>{
+                  const n = byYear[openYear][monthKey].length;
+                  const d = new Date(monthKey+'-15T12:00:00');
+                  return (
+                    <button key={monthKey} type="button" onClick={()=>{ setOpenDay(null); setOpenMonth(monthKey); }} style={{...histBox(false),background:'#fafbfc',minHeight:42}}>
+                      <span style={{fontWeight:600,fontSize:12.5}}>{d.toLocaleDateString('en-GB',{month:'short'})}</span>
+                      <span style={boxSub}>{n} day{n===1?'':'s'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
 
-        <div style={{position:'sticky',top:24}}>
-          {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior
-            canEdit />}
-          {isOwner && (<>
+          {/* A month's days as boxes; tap one to read its record here. */}
+          {openMonth&&(()=>{
+            const yr = academicYearOfMonth(openMonth);
+            const days = [...(byYear[yr]?.[openMonth]||[])].sort();
+            return (
+              <div className="modal-overlay" onClick={e=>{ if (e.target===e.currentTarget) { finishCardEdit(); setOpenMonth(null); setOpenDay(null); } }}>
+                <div className="modal" style={{maxWidth:480}}>
+                  <div className="modal-header">
+                    <div>
+                      <div className="modal-title">{openDay ? fmtDate(openDay) : monthLabelFor(openMonth)}</div>
+                      <div style={{fontSize:12,color:'var(--text-muted)'}}>{student.forename} · {openDay ? monthLabelFor(openMonth) : `${days.length} day${days.length===1?'':'s'} recorded — tap one to read it`}</div>
+                    </div>
+                    <button className="btn btn-icon" onClick={()=>{ finishCardEdit(); setOpenMonth(null); setOpenDay(null); }}><X size={16}/></button>
+                  </div>
+                  <div className="modal-body">
+                    {openDay ? (()=>{
+                      const r = records[openDay]||{};
+                      const part = (label, text, bg, color) => (
+                        <div style={{background:bg,borderRadius:8,padding:'10px 12px',marginBottom:8}}>
+                          <div style={{fontSize:10.5,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',color,marginBottom:4}}>{label}</div>
+                          <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',color:text?'var(--ink)':'var(--text-soft)'}}>{text||'—'}</div>
+                        </div>
+                      );
+                      const back = (
+                        <button className="btn" style={{flex:1,justifyContent:'center'}} onClick={()=>{ finishCardEdit(); setOpenDay(null); }}>
+                          <ArrowLeft size={13}/> Back to {new Date(openMonth+'-15T12:00:00').toLocaleDateString('en-GB',{month:'long'})}
+                        </button>
+                      );
+                      // Edit: the same boxes as the day editor, saving as you type.
+                      if (dayEditing) return (
+                        <>
+                          <div className="form-group" style={{marginBottom:10}}>
+                            <label>Daily comment</label>
+                            <CommentBox key={`${openDay}-comment-card`} initialValue={r.comment||''}
+                              onSave={val=>saveField(openDay,'comment',val)} placeholder="General note for this day…"/>
+                          </div>
+                          <div className="record-panels">
+                            <div className="record-panel record-panel-pos">
+                              <div className="record-panel-label">⭐ Positives</div>
+                              <StableTextarea key={`${openDay}-positive-card`} initialValue={r.positive||''}
+                                onSave={val=>saveField(openDay,'positive',val)} placeholder="What went well?"/>
+                            </div>
+                            <div className="record-panel record-panel-neg">
+                              <div className="record-panel-label">⚑ Concerns</div>
+                              <StableTextarea key={`${openDay}-negative-card`} initialValue={r.negative||''}
+                                onSave={val=>saveField(openDay,'negative',val)} placeholder="Any concerns?"/>
+                            </div>
+                          </div>
+                          <div style={{display:'flex',gap:8,marginTop:12}}>
+                            {back}
+                            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>{ finishCardEdit(); }}>
+                              <Check size={13}/> Done
+                            </button>
+                          </div>
+                        </>
+                      );
+                      return (
+                        <>
+                          {part('Daily comment', r.comment, '#f3f4f6', 'var(--text-muted)')}
+                          {part('⭐ Positives', r.positive, 'var(--green-light)', 'var(--green-text)')}
+                          {part('⚑ Concerns', r.negative, 'var(--red-light)', 'var(--red-text)')}
+                          <div style={{display:'flex',gap:8,marginTop:4}}>
+                            {back}
+                            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>setDayEditing(true)}>
+                              <Pencil size={13}/> Edit
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })() : (<>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(76px, 1fr))',gap:6}}>
+                      {days.map(date=>{
+                        const r = records[date]||{};
+                        const dt = new Date(date+'T12:00:00');
+                        const isToday = date===isoToday();
+                        return (
+                          <button key={date} type="button" onClick={()=>{ setDayEditing(false); setOpenDay(date); }}
+                            style={{...histBox(false), minHeight:58, boxShadow:isToday?'0 0 0 2px var(--blue)':'none'}}>
+                            <span style={{fontSize:10.5,fontWeight:600,opacity:.75,textTransform:'uppercase'}}>{dt.toLocaleDateString('en-GB',{weekday:'short'})}</span>
+                            <span style={{fontWeight:700,fontSize:14}}>{dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                            <span style={{display:'flex',gap:3,marginTop:3,height:6}}>
+                              {r.comment&&<span title="Comment" style={{width:6,height:6,borderRadius:'50%',background:'var(--text-soft)'}}/>}
+                              {r.positive&&<span title="Positives" style={{width:6,height:6,borderRadius:'50%',background:'var(--green)'}}/>}
+                              {r.negative&&<span title="Concerns" style={{width:6,height:6,borderRadius:'50%',background:'var(--red)'}}/>}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{display:'flex',gap:12,marginTop:12,fontSize:11.5,color:'var(--text-muted)',flexWrap:'wrap'}}>
+                      <span><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'var(--text-soft)',marginRight:4}}/>Comment</span>
+                      <span><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'var(--green)',marginRight:4}}/>Positives</span>
+                      <span><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'var(--red)',marginRight:4}}/>Concerns</span>
+                    </div>
+                    </>)}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          <div className="card">
+            <div className="card-title" style={{marginBottom:12}}>This {unitWord}</div>
+            {(()=>{
+              const md=Object.keys(records).filter(inPeriod);
+              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
+                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
+                  <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </>)}
+        {tab==='report'&&(<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
             <div className="card-sub" style={{marginBottom:14}}>
@@ -623,38 +744,33 @@ function StudentRecords({ student, settings, classType, onBack, onRecordsChanged
             </>)}
           </div>
           {previousSummaries.length>0&&(
-            <div className="card" style={{marginTop:14}}>
-              <div className="card-title" style={{marginBottom:8}}>Previous summaries</div>
-              {/* Just the month/term each was written for — tap one to read it. */}
-              {previousSummaries.map(s=>{
-                const open = openSummary===s.month;
-                return (
-                  <div key={s.month} style={{borderTop:'1px solid var(--border)'}}>
-                    <button type="button" onClick={()=>setOpenSummary(open?null:s.month)} aria-expanded={open}
-                      style={{display:'flex',alignItems:'center',gap:6,width:'100%',background:'none',border:'none',padding:'9px 0',cursor:'pointer',fontFamily:'var(--font)',fontWeight:600,fontSize:13,color:'var(--ink)',textAlign:'left'}}>
-                      {open?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
-                      <span style={{flex:1}}>{periodForKey(s.month, terms).label}</span>
-                      {s.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{s.behavior}</span>}
-                    </button>
-                    {open&&<div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap',padding:'0 0 12px 20px'}}>{s.summary}</div>}
-                  </div>
-                );
-              })}
+            <div className="card">
+              <div className="card-title" style={{marginBottom:10}}>Previous summaries</div>
+              {/* Year boxes → month (or term) boxes → that summary, in this card. */}
+              {(()=>{
+                const withP = previousSummaries.map(s=>({ ...s, _p: periodForKey(s.month, terms) }));
+                const yrs = [...new Set(withP.map(s=>s._p.yearLabel||'—'))].sort();
+                const inYear = withP.filter(s=>(s._p.yearLabel||'—')===summaryYear).sort((a,b)=>a._p.start.localeCompare(b._p.start));
+                const shown = withP.find(s=>s.month===openSummary);
+                return (<>
+                  <HistoryBoxes
+                    years={yrs.map(y=>{ const n=withP.filter(s=>(s._p.yearLabel||'—')===y).length; return { key:y, label:y, sub:`${n} summar${n===1?'y':'ies'}` }; })}
+                    open={summaryYear} onToggle={y=>{ setSummaryYear(o=>o===y?null:y); setOpenSummary(null); }}
+                    items={inYear.map(s=>({ key:s.month, label:shortPeriodLabel(s._p), sub:s.behavior||'' }))}
+                    active={openSummary} onPick={k=>setOpenSummary(o=>o===k?null:k)}/>
+                  {shown&&(
+                    <div style={{marginTop:10,background:'#f9fafb',borderRadius:10,padding:'10px 12px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:8,fontWeight:600,fontSize:13,marginBottom:6}}>
+                        <span>{shown._p.label}</span>{shown.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{shown.behavior}</span>}
+                      </div>
+                      <div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{shown.summary}</div>
+                    </div>
+                  )}
+                </>);
+              })()}
             </div>
           )}
-          </>)}
-          <div className="card" style={{marginTop:isOwner?14:0}}>
-            <div className="card-title" style={{marginBottom:12}}>This {unitWord}</div>
-            {(()=>{
-              const md=Object.keys(records).filter(inPeriod);
-              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
-                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                  <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>
-                </div>
-              ));
-            })()}
-          </div>
-        </div>
+        </>)}
       </div>
 
       {confirmDel&&(
@@ -686,7 +802,10 @@ export default function DailyRecords() {
   const [attendance, setAttendance] = useState({});
   const [allRecords, setAllRecords] = useState({});
   const [classTypes, setClassTypes] = useState({}); // class name → 'hifz' | 'nazira' | 'qaida'
-  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz }
+  const [quranAll, setQuranAll] = useState({});     // studentId → { entries, priorJuz, quranType }
+  const [quranAllLoaded, setQuranAllLoaded] = useState(false);
+  // Keeps the list's copy current after changes made on a student's page.
+  const updateQuranFor = useCallback((id, q) => setQuranAll(prev => ({ ...prev, [id]: q })), []);
   const [activeClass, setActiveClass] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   // Opening a student's records used to leave the list scrolled back to the top on
@@ -717,8 +836,13 @@ export default function DailyRecords() {
       setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
       setAttendance(attendanceData); setAllRecords(recordsData); setClassTypes(types);
       // Qur'an progress only matters when some class tracks it; never blocks the page.
-      if (Object.keys(types).length) getQuranProgress().then(setQuranAll).catch(() => {});
+      if (Object.keys(types).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+      // ?student=<id> (from Reports' "Not written") opens that child straight away.
+      const linked = new URLSearchParams(window.location.search).get('student');
+      const s = linked && studentsData.find(x => x.id === linked);
+      if (linked) window.history.replaceState(window.history.state, '', window.location.pathname);
+      if (s) { setActiveClass(s.class); setSelectedStudent(s); }
     } catch (err) {
       setError(err);
     }
@@ -734,7 +858,7 @@ export default function DailyRecords() {
   // — relying on the close path alone missed some route back to the list.
   const refreshCounts = useCallback(() => {
     getDailyRecords().then(setAllRecords).catch(() => {/* stale counts are a minor cosmetic issue, not worth surfacing an error for */});
-    if (Object.keys(classTypes).length) getQuranProgress().then(setQuranAll).catch(() => {});
+    if (Object.keys(classTypes).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
   }, [classTypes]);
   const closeStudent = useBackToClose(!!selectedStudent, () => {
     setSelectedStudent(null);
@@ -747,7 +871,9 @@ export default function DailyRecords() {
   return (
     <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
       {selectedStudent
-        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]} onBack={closeStudent} onRecordsChanged={refreshCounts}/>
+        ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]}
+          initialQuran={quranAll[selectedStudent.id] || (quranAllLoaded ? { entries: [], priorJuz: [], quranType: null } : null)} onQuranChanged={updateQuranFor}
+          onBack={closeStudent} onRecordsChanged={refreshCounts}/>
         :<StudentList students={students} activeClass={activeClass} classNames={classNames} setActiveClass={setActiveClass} onSelect={openStudent} attendance={attendance} allRecords={allRecords} classTypes={classTypes} quranAll={quranAll}/>
       }
     </Layout>

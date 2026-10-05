@@ -51,7 +51,7 @@ export default function Dashboard() {
 
   const active = students.filter(s => s.status === 'Active');
 
-  // ── This week's attendance (Mon–Thu, both classes) ──
+  // ── This week's attendance (the school days in Settings, every class) ──
   const dailyCounts = weekDates.map(date => ({
     date,
     P: active.filter(s => attendance[s.id]?.[date] === 'P').length,
@@ -63,7 +63,7 @@ export default function Dashboard() {
   const weekAbsent = dailyCounts.reduce((s, d) => s + d.A, 0);
   const weekMarked = weekPresent + weekLate + weekAbsent;
   const weekAttPct = weekMarked ? Math.round(((weekPresent + weekLate) / weekMarked) * 100) : 0;
-  const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[3])}`;
+  const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[weekDates.length - 1])}`;
   function shiftWeek(dir) {
     const d = new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate() + dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);
@@ -145,7 +145,7 @@ export default function Dashboard() {
       <div className="ring-row">
         <div className="card ring-card">
           <div className="card-title">Attendance — this week</div>
-          <div className="card-sub">Present or late, both classes</div>
+          <div className="card-sub">Present or late, all classes</div>
           <div className="ring-wrap">
             <div className="ring" style={{background:`conic-gradient(var(--green) 0% ${weekAttPct}%, var(--red) ${weekAttPct}% 100%)`}}/>
             <div className="ring-inner"><div className="n">{weekAttPct}%</div><div className="l">Present/Late</div></div>
@@ -175,7 +175,7 @@ export default function Dashboard() {
         <div className="card-header" style={{marginBottom:16}}>
           <div>
             <div className="card-title">Daily attendance</div>
-            <div className="card-sub" style={{marginBottom:0}}>Present / late / absent per day, both classes</div>
+            <div className="card-sub" style={{marginBottom:0}}>Present / late / absent per day, all classes</div>
           </div>
           <div className="nav-arrow-row">
             <button className="nav-arrow-btn" onClick={()=>shiftWeek(-1)}>‹</button>

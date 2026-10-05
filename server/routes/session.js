@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
     authenticated: true, setupRequired,
     user: {
       login: user.login, role: user.role, teacherId: user.teacherId, classId: user.classId, classNames,
-      platformAdmin: user.platformAdmin, madrasah: { code: m.code, name: m.name },
+      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name },
     },
   });
 };

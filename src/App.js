@@ -11,6 +11,7 @@ import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import Madaaris        from './pages/Madaaris';
+import ParentPortal    from './pages/ParentPortal';
 import { getSession } from './lib/store';
 import { setMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
@@ -45,7 +46,7 @@ export default function App() {
 
   // Devices that were already signed in also learn which madrasah they belong to, so
   // the sign-in screen and installed app are that madrasah's from now on.
-  const madrasahCode = session?.authenticated ? session.user.madrasah?.code : '';
+  const madrasahCode = session?.authenticated && !session.user.demo ? session.user.madrasah?.code : '';
   useEffect(() => { if (madrasahCode) setMadrasahCode(madrasahCode); }, [madrasahCode]);
   useEffect(() => {
     if (!currentUserKey) return;
@@ -80,6 +81,15 @@ export default function App() {
   }
 
   const isOwner = session.user.role === 'owner';
+
+  // Parents: their own children only, on one page of their own — none of the staff pages.
+  if (session.user.role === 'parent') {
+    return (
+      <AuthProvider value={{ user: session.user }}>
+        <SettingsProvider><ParentPortal /></SettingsProvider>
+      </AuthProvider>
+    );
+  }
 
   return (
     <AuthProvider value={{ user: session.user }}>

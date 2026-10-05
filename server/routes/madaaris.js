@@ -38,7 +38,7 @@ module.exports = requireAuth(async (req, res) => {
         (SELECT count(*) FROM classes c WHERE c.madrasah_id = m.id) AS classes,
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id AND a.created_at >= date_trunc('month', now())) AS "aiThisMonth",
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id) AS "aiTotal"
-      FROM madaaris m ORDER BY m.id`);
+      FROM madaaris m WHERE m.demo_until IS NULL ORDER BY m.id`);
     res.status(200).json(rows.map(r => ({
       ...r, id: String(r.id), students: Number(r.students), teachers: Number(r.teachers), classes: Number(r.classes),
       aiThisMonth: Number(r.aiThisMonth), aiTotal: Number(r.aiTotal), isYours: r.id === req.user.madrasahId,

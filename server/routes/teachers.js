@@ -82,3 +82,6 @@ module.exports = requireAuth(async (req, res) => {
 
   res.status(405).json({ error: 'Method not allowed' });
 });
+
+// Used by the demo (server/demo.js) to make sure its tables exist before filling them.
+module.exports.ensure = ensureSortOrderColumn;

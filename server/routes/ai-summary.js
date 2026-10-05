@@ -1,5 +1,6 @@
 const { query } = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, accessScope } = require('../auth');
+const { demoSummary, genderOf, rng } = require('../demo');
 
 // Spell dates out in full (e.g. "10 October 2022") for anything handed to the model —
 // a bare "2022-10-10" is unambiguous to us, but the model has been observed misreading
@@ -46,6 +47,10 @@ module.exports = requireAuth(async (req, res) => {
     // not tied to one student/month like the rest of this file. Aggregates are computed
     // here in SQL/JS so the numbers Claude reports back are exact, not model arithmetic.
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    if (req.user.demo) {
+      res.status(200).json({ answer: "Ask AI is switched off in the demo. In your own madrasah it answers questions like this from your real fees and attendance — for example who is behind on fees, or which class has the best attendance this month." });
+      return;
+    }
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) { res.status(500).json({ error: 'Server is not configured (no ANTHROPIC_API_KEY set)' }); return; }
     const { question, year } = req.body || {};
@@ -244,6 +249,19 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'POST') {
     // Generate a fresh summary via Claude. Doesn't persist — the frontend
     // saves it separately (PUT, "Add to report") once the teacher is happy with it.
+    if (req.user.demo) {
+      // The demo shows a ready-made summary rather than asking the AI (server/demo.js).
+      const studentId = (req.body || {}).studentId;
+      if (!studentId || !(await accessScope(req)).studentIds.has(studentId)) { res.status(400).json({ error: 'studentId is required' }); return; }
+      const { rows: [s] } = await query(
+        `SELECT s.forename, c.quran_type, q.quran_type AS own FROM students s
+         LEFT JOIN classes c ON c.name = s.class AND c.madrasah_id = s.madrasah_id
+         LEFT JOIN quran_students q ON q.student_id = s.id
+         WHERE s.id = $1 AND s.madrasah_id = $2`, [studentId, mid]);
+      const type = ['hifz', 'nazira', 'qaida'].includes(s.own) ? s.own : ['hifz', 'nazira', 'qaida'].includes(s.quran_type) ? s.quran_type : 'qaida';
+      res.status(200).json({ summary: demoSummary({ f: s.forename, g: genderOf(s.forename) }, type, rng(Date.now())) });
+      return;
+    }
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) { res.status(500).json({ error: 'Server is not configured (no ANTHROPIC_API_KEY set)' }); return; }
     const { prompt } = req.body || {};
@@ -278,3 +296,6 @@ module.exports = requireAuth(async (req, res) => {
 
   res.status(405).json({ error: 'Method not allowed' });
 });
+
+// Used by the demo (server/demo.js) to make sure its tables exist before filling them.
+module.exports.ensure = ensureTable;
