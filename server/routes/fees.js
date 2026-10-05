@@ -36,6 +36,10 @@ async function ensurePeriodColumn() {
 }
 
 const isoDay = d => d.toISOString().slice(0, 10);
+// Today's date where the madaaris are (UK) — the server's own clock is UTC, which is still
+// the day before for the first hour of a British summer day (a month starting at midnight
+// on its first Monday would otherwise start an hour late).
+const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
 // "26-27" for a date from 1 Sep 2026 to 31 Aug 2027 (the year a month's fees go under).
 function yearLabelOf(iso) {
   const [y, m] = iso.split('-').map(Number);
@@ -50,7 +54,7 @@ async function currentAutoPeriod(mid) {
   const { rows } = await query('SELECT fee_frequency, fee_auto FROM settings WHERE madrasah_id = $1', [mid]).catch(() => ({ rows: [] }));
   const st = rows[0];
   if (!st || st.fee_auto === false) return null;
-  const today = isoDay(new Date());
+  const today = ukToday();
   if (st.fee_frequency === 'monthly') {
     const start = today.slice(0, 8) + '01';
     const [y, m] = today.split('-').map(Number);
@@ -111,7 +115,7 @@ function firstMondayOf(y, m) { // m: 1–12
 // Monday — so all of this month's fee weeks are due at once (parents often pay a
 // whole month in advance).
 function currentSchoolMonthEnd() {
-  const today = isoDay(new Date());
+  const today = ukToday();
   const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
   const next = (yy, mm) => (mm === 12 ? [yy + 1, 1] : [yy, mm + 1]);
   const [ny, nm] = today >= firstMondayOf(y, m) ? next(y, m) : [y, m];
@@ -176,7 +180,7 @@ module.exports = requireAuth(async (req, res) => {
       // (history is never changed).
       let since = cfg[0].fee_auto_since;
       if (!since) {
-        since = mondayOf(isoDay(new Date()));
+        since = mondayOf(ukToday());
         await query('UPDATE settings SET fee_auto_since = $2 WHERE madrasah_id = $1', [mid, since]);
       }
       const { rows: off } = await query('SELECT week_starting FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting >= $2', [mid, since]);
@@ -250,7 +254,9 @@ module.exports = requireAuth(async (req, res) => {
   if (action === 'add-week') {
     // Head only (teachers never reach here): one child, one week — e.g. a parent paying
     // ahead, or a week removed for them by mistake. Only weeks switched on in
-    // Settings → Fee weeks. { studentId, weekStarting, paid }.
+    // Settings → Fee weeks. { studentId, weekStarting, paid }. With wholeClass: true, the
+    // week goes back on for everyone in that child's class (owed) — e.g. it was removed for
+    // the whole class by mistake; children removed from it one by one stay removed.
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
     const { studentId, weekStarting, paid } = req.body || {};
     if (!studentId || !/^\d{4}-\d{2}-\d{2}$/.test(String(weekStarting || ''))) { res.status(400).json({ error: 'studentId and weekStarting are required' }); return; }
@@ -262,10 +268,18 @@ module.exports = requireAuth(async (req, res) => {
     if (!st.length) { res.status(404).json({ error: 'Student not found' }); return; }
     const year = yearOfWeek(week);
     await query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2) ON CONFLICT (madrasah_id, year) DO NOTHING', [mid, year]);
+    if (req.body.wholeClass) {
+      const { rows: [{ class: cls }] } = await query('SELECT class FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
+      await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = $2 AND class = $3 AND student_id = ''`, [mid, week, cls]);
+      const { rows: inClass } = await query('SELECT id FROM students WHERE madrasah_id = $1 AND class = $2', [mid, cls]);
+      const added = await fillWeek(mid, week, inClass.map(r => r.id).filter(i => scope.studentIds.has(i)));
+      res.status(200).json({ ok: true, added });
+      return;
+    }
     await query(
       `INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status, paid_date) VALUES ($1,$2,$3,'week',$4,$5,$6,$7)
        ON CONFLICT (year, student_id, period, week_starting) DO UPDATE SET status = EXCLUDED.status, paid_date = EXCLUDED.paid_date`,
-      [mid, year, studentId, week, st[0].weekly_fee, paid ? 'Paid' : 'Pending', paid ? isoDay(new Date()) : null]
+      [mid, year, studentId, week, st[0].weekly_fee, paid ? 'Paid' : 'Pending', paid ? ukToday() : null]
     );
     // Added back by hand for this child — no longer counts as removed for them.
     await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = $2 AND student_id = $3`, [mid, week, studentId]);
