@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
 import { getBranding, setBranding } from '../lib/branding';
 import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
-import { LogIn, KeyRound, UserPlus } from 'lucide-react';
+import { LogIn, KeyRound, UserPlus, PlayCircle } from 'lucide-react';
+import { DemoChooser } from '../components/Demo';
 
 // Three screens share this card:
 //  - sign in (madrasah code + username or email + password)
@@ -13,8 +14,12 @@ import { LogIn, KeyRound, UserPlus } from 'lucide-react';
 // Many madaaris share this site, so a device remembers the code of the madrasah it
 // signs in to (src/lib/madrasahCode.js): the code is typed once, and the screen then
 // shows that madrasah's name.
+// A fourth screen, "Try the demo" (also opened by a link ending ?demo), offers a made-up
+// madrasah to look around as its head, a teacher or a parent (components/Demo.js).
+const demoLink = () => { try { return new URLSearchParams(window.location.search).has('demo'); } catch { return false; } };
+
 export default function Login({ setupRequired, notice, onSuccess }) {
-  const [mode, setMode] = useState('signin'); // 'signin' | 'setup' | 'recover'
+  const [mode, setMode] = useState(() => (!setupRequired && demoLink() ? 'demo' : 'signin')); // 'signin' | 'setup' | 'recover' | 'demo'
   const [code, setCode] = useState(getMadrasahCode());
   const [editingCode, setEditingCode] = useState(!getMadrasahCode());
   const [loginName, setLoginName] = useState('');
@@ -96,9 +101,22 @@ export default function Login({ setupRequired, notice, onSuccess }) {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
-      <div className="card" style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-        {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
+      <div className="card" style={{ width: '100%', maxWidth: mode === 'demo' ? 440 : 360, textAlign: 'center' }}>
+        {mode !== 'demo' && <>
+          {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
+        </>}
+
+        {mode === 'demo' && (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Try the demo</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
+              A made-up madrasah, just for you. Change anything — it's deleted after a day. Who would you like to be?
+            </div>
+            <DemoChooser />
+            <button type="button" onClick={() => switchMode('signin')} style={{ ...linkBtn, marginTop: 14 }}>Back to sign in</button>
+          </>
+        )}
 
         {mode === 'signin' && (
           <form onSubmit={submitSignIn}>
@@ -134,6 +152,13 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             )}
             {!setupRequired && (
               <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 6 }}>Everyone else: ask the madrasah office to reset your password.</div>
+            )}
+            {/* Only on a device that isn't any madrasah's yet, so a madrasah's own people
+                don't see it; the ?demo link works anywhere. */}
+            {!setupRequired && !getMadrasahCode() && (
+              <button type="button" className="btn" onClick={() => switchMode('demo')} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>
+                <PlayCircle size={14} />Try the demo
+              </button>
             )}
           </form>
         )}

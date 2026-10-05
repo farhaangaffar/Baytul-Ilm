@@ -66,6 +66,10 @@ export async function recoverOwner(recoveryKey, password) {
 export async function changePassword(currentPassword, newPassword) {
   return apiFetch('/api/login?action=change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
 }
+// The demo (server/routes/demo.js): role is 'head', 'teacher' or 'parent'.
+export async function startDemo(role) {
+  return apiFetch('/api/demo', { method: 'POST', body: JSON.stringify({ role }) });
+}
 export async function logout() {
   return apiFetch('/api/logout', { method: 'POST' });
 }

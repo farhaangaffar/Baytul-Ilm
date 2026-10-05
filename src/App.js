@@ -46,7 +46,7 @@ export default function App() {
 
   // Devices that were already signed in also learn which madrasah they belong to, so
   // the sign-in screen and installed app are that madrasah's from now on.
-  const madrasahCode = session?.authenticated ? session.user.madrasah?.code : '';
+  const madrasahCode = session?.authenticated && !session.user.demo ? session.user.madrasah?.code : '';
   useEffect(() => { if (madrasahCode) setMadrasahCode(madrasahCode); }, [madrasahCode]);
   useEffect(() => {
     if (!currentUserKey) return;

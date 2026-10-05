@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS madaaris (
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,      -- typed on the sign-in screen, e.g. 'baytul-ilm'
   active      BOOLEAN NOT NULL DEFAULT true,
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
+  created_at  TIMESTAMP NOT NULL DEFAULT now(),
+  demo_until  TIMESTAMP,                  -- set for demo madaaris (server/demo.js), which delete themselves then
+  demo_ip     TEXT                        -- hashed address that started a demo, only to limit how many
 );
 
 CREATE TABLE IF NOT EXISTS teachers (

@@ -36,6 +36,9 @@ async function ensureUsersTable() {
     )
   `);
   await query('CREATE UNIQUE INDEX IF NOT EXISTS users_madrasah_login_key ON users (madrasah_id, login)');
+  // Demo madaaris (server/demo.js) delete themselves at demo_until; real ones have NULL.
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS demo_until TIMESTAMP');
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS demo_ip TEXT');
   usersReady = true;
 }
 
@@ -139,7 +142,7 @@ function clearSessionCookie(res) {
 
 // The signed-in user, or null. Sessions from before accounts existed carry no uid
 // and are simply treated as signed out, as is anyone whose madrasah has been switched
-// off by the platform owner.
+// off by the platform owner, or whose demo madrasah (demo: true, server/demo.js) has run out.
 async function getUser(req) {
   const payload = verify(parseCookies(req.headers.cookie)[COOKIE_NAME]);
   if (!payload || !payload.uid) return null;
@@ -147,16 +150,18 @@ async function getUser(req) {
   const { rows } = await query(
     `SELECT u.id, u.login, u.role, u.teacher_id AS "teacherId", u.class_id AS "classId",
             u.active, u.session_version, u.platform_admin AS "platformAdmin",
-            u.madrasah_id AS "madrasahId", m.active AS "madrasahActive"
+            u.madrasah_id AS "madrasahId", m.active AS "madrasahActive",
+            m.demo_until IS NOT NULL AS demo, m.demo_until < now() AS "demoOver"
      FROM users u JOIN madaaris m ON m.id = u.madrasah_id WHERE u.id = $1`,
     [payload.uid]
   );
   const u = rows[0];
   if (!u || !u.active || u.session_version !== payload.sv) return null;
   if (!u.madrasahActive && !u.platformAdmin) return null;
+  if (u.demoOver) return null; // a demo past its time is gone
   return {
     id: String(u.id), login: u.login, role: u.role, teacherId: u.teacherId, classId: u.classId,
-    madrasahId: u.madrasahId, platformAdmin: !!u.platformAdmin,
+    madrasahId: u.madrasahId, platformAdmin: !!u.platformAdmin, demo: !!u.demo,
   };
 }
 

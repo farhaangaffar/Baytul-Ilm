@@ -42,6 +42,8 @@ module.exports = requireAuth(async (req, res) => {
   await ensureParentTables();
   const mid = req.user.madrasahId;
   const id = req.query.id;
+  // A demo's logins are made up; nobody can add, change or remove them there.
+  if (req.user.demo && req.method !== 'GET') { res.status(403).json({ error: "Logins can't be added or changed in the demo." }); return; }
 
   if (!id) {
     if (req.method === 'GET') {
