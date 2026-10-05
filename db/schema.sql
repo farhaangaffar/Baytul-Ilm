@@ -198,8 +198,8 @@ CREATE TABLE IF NOT EXISTS quran_progress (
   kind         TEXT NOT NULL CHECK (kind IN ('sabaq','sabqi','manzil','reading','lesson')),
   from_surah   INTEGER, from_ayah INTEGER, to_surah INTEGER, to_ayah INTEGER,
   lesson       TEXT NOT NULL DEFAULT '',
-  grade        TEXT CHECK (grade IN ('good','weak','repeat')),
-  note         TEXT NOT NULL DEFAULT '',
+  grade        TEXT CONSTRAINT quran_progress_grade_check CHECK (grade IN ('good','okay','weak','repeat')),
+  note         TEXT NOT NULL DEFAULT '',   -- lesson notes (teachers and the AI report; not parents)
   unit         TEXT NOT NULL DEFAULT 'ayah',  -- 'ayah' or 'quarter' (recorded in juz quarters)
   updated_at   TIMESTAMP NOT NULL DEFAULT now()
 );

@@ -6,7 +6,8 @@ const { requireAuth, accessScope } = require('../auth');
 //   hifz:   sabaq (new lesson), sabqi (recent revision), manzil (older revision)
 //   nazira: reading      qaida: lesson
 // Positions are surah + ayah (Hafs numbering); a qaida lesson is free text (lesson or
-// page). Each entry gets a grade — good / weak / repeat — and an optional note.
+// page). Each entry gets a grade — good / okay / weak / repeat — and lesson notes (the
+// teacher's words on how it went; the AI report's main source, never shown to parents).
 // quran_students.prior_juz holds the juz a student had already memorised before
 // records started here, so their progress bar starts in the right place.
 // Teachers reach their own classes' students only; everything is limited to the
@@ -24,7 +25,7 @@ async function ensureTables() {
       kind         TEXT NOT NULL CHECK (kind IN ('sabaq','sabqi','manzil','reading','lesson')),
       from_surah   INTEGER, from_ayah INTEGER, to_surah INTEGER, to_ayah INTEGER,
       lesson       TEXT NOT NULL DEFAULT '',
-      grade        TEXT CHECK (grade IN ('good','weak','repeat')),
+      grade        TEXT CHECK (grade IN ('good','okay','weak','repeat')),
       note         TEXT NOT NULL DEFAULT '',
       updated_at   TIMESTAMP NOT NULL DEFAULT now()
     )
@@ -37,6 +38,13 @@ async function ensureTables() {
   // How the teacher recorded it: by surah/ayah, or in juz quarters (the positions
   // still hold the quarters' first and last ayahs, so progress maths is the same).
   await query(`ALTER TABLE quran_progress ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'ayah'`);
+  // "Okay" sits between good and weak (added later — only widens what's allowed).
+  await query(`DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'quran_progress_grade_check' AND pg_get_constraintdef(oid) LIKE '%okay%') THEN
+      ALTER TABLE quran_progress DROP CONSTRAINT IF EXISTS quran_progress_grade_check;
+      ALTER TABLE quran_progress ADD CONSTRAINT quran_progress_grade_check CHECK (grade IN ('good','okay','weak','repeat'));
+    END IF;
+  END $$`);
   await query(`
     CREATE TABLE IF NOT EXISTS quran_students (
       student_id   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
@@ -51,7 +59,7 @@ async function ensureTables() {
 }
 
 const KINDS = ['sabaq', 'sabqi', 'manzil', 'reading', 'lesson'];
-const GRADES = ['good', 'weak', 'repeat'];
+const GRADES = ['good', 'okay', 'weak', 'repeat'];
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const int = v => (Number.isInteger(Number(v)) ? Number(v) : NaN);
 // Loose range check — the browser picks from the real surah list; this just keeps junk out.

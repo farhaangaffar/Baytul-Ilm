@@ -121,14 +121,16 @@ codebase (one codebase, not a fork).
   `QURAN_TYPES` in `src/lib/quran.js`). Hifdh Jadeed is never recorded in quarters;
   Muraaja'ah Qareebah's "To" offers "Until new lesson" (the ayah before the latest Hifdh
   Jadeed). Hifz is recorded by **surah and ayah**
-  (sabaq / sabqi / manzil, graded good / weak / repeat) — or, per entry, in **juz
+  (sabaq / sabqi / manzil, graded good / okay / weak / repeat, with **lesson notes** — the
+  teacher's words, the AI report's main source, never shown to parents) — or, per entry, in **juz
   quarters** (`unit = 'quarter'`; the from/to positions are still stored as the
   quarters' first and last ayahs, so all progress maths is the same).
   `src/lib/quran.js` holds the surah, juz and juz-quarter data and the progress maths
   (an ayah's position 0–6235). The AI report
-  summary is given exact Qur'an figures (`quranFactsForReport`).
+  summary is given exact Qur'an figures and the lesson notes (`quranFactsForReport`), then the
+  behaviour records.
 - Daily records (a student's page) is in **tabs** — Qur'an (Input progress, Progress) |
-  Daily record (the day editor; Records — academic-year boxes → month boxes → a card of
+  Behaviour (the day editor — comment, positives, concerns; Behaviour records — academic-year boxes → month boxes → a card of
   day boxes → that day's record in the same card; This month) | Report (owners: summary, previous
   summaries) — each one centred column (`.student-page`), last tab remembered per device.
   Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).

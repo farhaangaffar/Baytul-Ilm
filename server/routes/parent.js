@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       reports: sums.rows.map(r => ({ month: r.month, summary: r.summary, behavior: r.behavior, updatedAt: r.updated_at })),
       terms: terms.rows.map(t => ({ id: String(t.id), year: t.year, name: t.name, startDate: t.start_date, endDate: t.end_date })),
       quran: {
-        entries: quran.rows.map(r => ({ id: String(r.id), date: r.date, kind: r.kind, fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah, lesson: r.lesson, grade: r.grade, note: r.note, unit: r.unit || 'ayah' })),
+        entries: quran.rows.map(r => ({ id: String(r.id), date: r.date, kind: r.kind, fromSurah: r.from_surah, fromAyah: r.from_ayah, toSurah: r.to_surah, toAyah: r.to_ayah, lesson: r.lesson, grade: r.grade, unit: r.unit || 'ayah' })),
         priorJuz: prior.rows[0]?.prior_juz || [],
       },
       absences: absences.rows,

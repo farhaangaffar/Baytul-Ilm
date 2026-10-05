@@ -91,7 +91,7 @@ function toQuarters(f) {
   return { fromSurah: s.surah, fromAyah: s.ayah, toSurah: t.surah, toAyah: t.ayah };
 }
 
-// Good / Weak / Repeat as boxes — plain until chosen, then filled in their colour.
+// Good / Okay / Weak / Repeat as boxes — plain until chosen, then filled in their colour.
 function GradeButtons({ value, onChange }) {
   return GRADES.map(g => {
     const on = value === g.key;
@@ -174,11 +174,18 @@ function EntryFields({ kind, f, set, children, untilNew }) {
           )}
         </>
       )}
-      <input value={f.note || ''} onChange={e => set({ note: e.target.value })} placeholder="Note (optional)" style={boxInput} />
-      <div style={children ? grid4 : { ...grid4, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-        <GradeButtons value={f.grade} onChange={g => set({ grade: g })} />
-        {children}
+      {/* Lesson notes: the teacher's own words on how it went — the main thing the AI
+          report draws on, alongside the behaviour records. */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Lesson notes</div>
+        <textarea value={f.note || ''} onChange={e => set({ note: e.target.value })} rows={3}
+          placeholder="How did it go? Mistakes, tajweed, what to practise…"
+          style={{ ...boxInput, height: 'auto', minHeight: 76, padding: '8px 10px', lineHeight: 1.45, resize: 'vertical', fontFamily: 'var(--font)' }} />
       </div>
+      <div style={grid4}>
+        <GradeButtons value={f.grade} onChange={g => set({ grade: g })} />
+      </div>
+      {children}
     </div>
   );
 }
@@ -242,7 +249,7 @@ function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
             </>
           )}
           <EntryFields kind={kind} f={f} set={set} untilNew={untilNew}>
-            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
+            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ ...BOX, width: '100%', justifyContent: 'center', padding: 0 }}>{saving ? 'Saving…' : 'Save'}</button>
           </EntryFields>
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
         </div>
@@ -386,7 +393,7 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
   );
 }
 
-const GRADE_TONES = { good: 'green', weak: 'amber', repeat: 'red' };
+const GRADE_TONES = { good: 'green', okay: 'blue', weak: 'amber', repeat: 'red' };
 
 // Newest first: by day, then by when it was recorded.
 const newestFirst = (a, b) => b.date.localeCompare(a.date) || Number(b.id || 0) - Number(a.id || 0);
@@ -508,8 +515,12 @@ export function quranFactsForReport(type, data, period) {
   const graded = k => {
     const list = inPeriod.filter(e => e.kind === k);
     const count = g => list.filter(e => e.grade === g).length;
-    return list.length ? `${list.length} ${KIND_LABELS[k].name} (${KIND_LABELS[k].hint}) sessions (${count('good')} good, ${count('weak')} weak, ${count('repeat')} to repeat)` : '';
+    return list.length ? `${list.length} ${KIND_LABELS[k].name} (${KIND_LABELS[k].hint}) sessions (${count('good')} good, ${count('okay')} okay, ${count('weak')} weak, ${count('repeat')} to repeat)` : '';
   };
+  // The teacher's lesson notes in the period, oldest first — the main source for the summary.
+  const notes = inPeriod.filter(e => (e.note || '').trim()).sort((a, b) => a.date.localeCompare(b.date))
+    .map(e => `- ${e.date} (${KIND_LABELS[e.kind]?.name || e.kind}${e.grade ? `, ${e.grade}` : ''}): ${e.note.trim()}`);
+  const withNotes = facts => (notes.length ? `${facts}\n\nLesson notes from the teacher:\n${notes.join('\n')}` : facts);
   if (type === 'hifz') {
     const p = hifzProgress(entries, data.priorJuz || []);
     const learned = ayahsMemorisedBetween(entries, data.priorJuz || [], period.start, period.endExclusive);
@@ -519,11 +530,11 @@ export function quranFactsForReport(type, data, period) {
       p.latest ? `Latest Hifdh Jadeed (new lesson): ${rangeLabel(p.latest)} (Juz ${juzOf(p.latest.toSurah, p.latest.toAyah)}).` : '',
       ['sabaq', 'sabqi', 'manzil'].map(graded).filter(Boolean).join('; '),
     ].filter(Boolean);
-    return `Hifdh (Qur'an memorisation — use these Arabic names for the parts, as given): ${parts.join(' ')}`;
+    return withNotes(`Hifdh (Qur'an memorisation — use these Arabic names for the parts, as given): ${parts.join(' ')}`);
   }
   const kind = type === 'nazira' ? 'reading' : 'lesson';
   const last = entries.filter(e => e.kind === kind && e.date < period.endExclusive).sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (!last) return '';
+  if (!last) return withNotes('').trim();
   const where = kind === 'lesson' ? `Qaa'idah: up to ${last.lesson}.` : `Naazhirah (Qur'an reading): up to ${upToLabel(last)} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
-  return `${where} ${graded(kind)}`.trim();
+  return withNotes(`${where} ${graded(kind)}`.trim());
 }

@@ -164,6 +164,24 @@ const COMMENTS = {
   ],
 };
 
+const LESSON_NOTES = {
+  hifz: {
+    good: ['Very fluent, no mistakes.', 'Strong — tajweed on the madd letters much better.', 'Knew it well, confident throughout.'],
+    okay: ['A couple of small slips, self-corrected.', 'Mostly fine, hesitated near the end.', 'Needs to slow down slightly.'],
+    weak: ['Several mistakes in the second half — revise at home.', 'Mixing up similar ayaat; went over them together.', 'Not well prepared today.'],
+  },
+  nazira: {
+    good: ['Smooth reading, good makharij.', 'Lovely clear recitation.', 'Read fluently at a steady pace.'],
+    okay: ['A few long vowels cut short.', 'Fine overall; watch the ghunnah.', 'Read well but rushed a little.'],
+    weak: ['Struggled with heavy letters today.', 'Lots of stopping — needs more practice at home.', 'Lost place a few times.'],
+  },
+  qaida: {
+    good: ['Recognised every letter on the page.', 'Joined the letters with no help.', 'Ready for the next lesson.'],
+    okay: ['Getting there — a few letters still mixed up.', 'Needed a little help with the harakaat.', 'Good effort; practise once more.'],
+    weak: ['Finding this page hard — stay on it.', 'Confusing ba, ta and tha.', 'Distracted today.'],
+  },
+};
+
 // A finished report summary (the kind the AI writes from a child's records), made up.
 function demoSummary(st, type, r) {
   const he = st.g === 'm' ? 'He' : 'She', his = st.g === 'm' ? 'his' : 'her', him = st.g === 'm' ? 'him' : 'her';
@@ -295,31 +313,35 @@ async function createDemo(ipHash) {
           const [comment, positive, negative] = r.pick(COMMENTS[type]);
           recs.push([mid, k.id, d, comment, positive, negative]);
         }
-        const grade = () => { const g = r(); return g < 0.75 ? 'good' : g < 0.93 ? 'weak' : 'repeat'; };
+        const grade = () => { const g = r(); return g < 0.6 ? 'good' : g < 0.82 ? 'okay' : g < 0.94 ? 'weak' : 'repeat'; };
+        // Lesson notes on some entries, in the teacher's words, matched to the grade.
+        const note = (g, kind) => (g === 'repeat' ? 'Repeat tomorrow.' : r.chance(0.4) ? r.pick(LESSON_NOTES[kind][g]) : '');
         if (type === 'hifz') {
           const last = sabaqs[sabaqs.length - 1];
           const from = last && last.grade === 'repeat' ? last.from : p;
           const to = Math.min(from + k.pace - 1 + Math.floor(r() * 2), 6235);
           const g = grade();
-          quran.push([mid, k.id, d, 'sabaq', ...at(from), ...at(to), '', g, g === 'repeat' ? 'Repeat tomorrow.' : '']);
+          quran.push([mid, k.id, d, 'sabaq', ...at(from), ...at(to), '', g, note(g, 'hifz')]);
           // Muraaja'ah Qareebah: the last few days' lessons, up to today's.
           if (sabaqs.length) {
             const back = sabaqs[Math.max(0, sabaqs.length - 5)].from;
-            if (back < from) quran.push([mid, k.id, d, 'sabqi', ...at(back), ...at(from - 1), '', grade(), '']);
+            if (back < from) { const gs = grade(); quran.push([mid, k.id, d, 'sabqi', ...at(back), ...at(from - 1), '', gs, note(gs, 'hifz')]); }
           }
           if (manzil.length && r.chance(0.8)) {
             const [s1, s2] = manzil[manzilAt++ % manzil.length];
-            quran.push([mid, k.id, d, 'manzil', s1, 1, s2, AYAHS[s2 - 1], '', grade(), '']);
+            const gm = grade();
+            quran.push([mid, k.id, d, 'manzil', s1, 1, s2, AYAHS[s2 - 1], '', gm, note(gm, 'hifz')]);
           }
           sabaqs.push({ from, grade: g });
           if (g !== 'repeat') p = to + 1;
         } else if (type === 'nazira') {
           const to = Math.min(p + k.pace - 1 + Math.floor(r() * 5), 6235);
-          quran.push([mid, k.id, d, 'reading', ...at(p), ...at(to), '', grade(), '']);
+          const gr = grade();
+          quran.push([mid, k.id, d, 'reading', ...at(p), ...at(to), '', gr, note(gr, 'nazira')]);
           p = to + 1;
         } else {
           const g = grade();
-          quran.push([mid, k.id, d, 'lesson', null, null, null, null, `Lesson ${p} — page ${p * 2 + 3}`, g, '']);
+          quran.push([mid, k.id, d, 'lesson', null, null, null, null, `Lesson ${p} — page ${p * 2 + 3}`, g, note(g, 'qaida')]);
           if (++lessonDays >= k.pace && g === 'good') { p++; lessonDays = 0; }
         }
       }
