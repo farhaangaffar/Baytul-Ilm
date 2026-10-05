@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, X, Send } from 'lucide-react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, askAi, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
+import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
 import { feeFrequency, currentFeePeriod, FREQUENCIES } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 
@@ -20,11 +19,6 @@ export default function Dashboard() {
   const [fees, setFees] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [terms, setTerms] = useState([]);
-  const [showAsk, setShowAsk] = useState(false);
-  const [askQuestion, setAskQuestion] = useState('');
-  const [asking, setAsking] = useState(false);
-  const [askError, setAskError] = useState(null);
-  const [askHistory, setAskHistory] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -69,25 +63,6 @@ export default function Dashboard() {
     setWeekAnchor(d.toISOString().split('T')[0]);
   }
 
-  async function handleAsk(e) {
-    e.preventDefault();
-    const q = askQuestion.trim();
-    if (!q || asking) return;
-    setAsking(true); setAskError(null);
-    try {
-      const answer = await askAi(q, year);
-      setAskHistory(h => [...h, { question: q, answer }]);
-      setAskQuestion('');
-    } catch (err) {
-      setAskError(err);
-    }
-    setAsking(false);
-  }
-
-  function closeAsk() {
-    setShowAsk(false); setAskQuestion(''); setAskError(null); setAskHistory([]);
-  }
-
   // ── This period's fees: the school month (weekly), calendar month (monthly) or
   // current term (termly), per Settings → fee frequency ──
   const frequency = feeFrequency();
@@ -113,9 +88,6 @@ export default function Dashboard() {
             <div className="hero-greeting">Assalamu Alaikum</div>
             <div className="hero-sub">{dateStr} · {schoolMonth.label}</div>
           </div>
-          <button className="btn btn-primary" style={{background:'var(--blue)',flexShrink:0}} onClick={()=>setShowAsk(true)}>
-            <Sparkles size={15}/> Ask AI
-          </button>
         </div>
       </div>
 
@@ -209,48 +181,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {showAsk && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeAsk()}>
-          <div className="modal" style={{maxWidth:520}}>
-            <div className="modal-header">
-              <div className="modal-title"><Sparkles size={16} style={{verticalAlign:'-3px',marginRight:6}}/>Ask AI</div>
-              <button className="btn btn-icon" onClick={closeAsk}><X size={16}/></button>
-            </div>
-            <div className="modal-body">
-              <div className="card-sub" style={{marginBottom:14}}>
-                Ask about fees or attendance across the school, e.g. "What's the total fees collected so far this year?" or "What's Ahmed's attendance like this year?"
-              </div>
-
-              {askHistory.length > 0 && (
-                <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:16,maxHeight:320,overflowY:'auto'}}>
-                  {askHistory.map((h, i) => (
-                    <div key={i}>
-                      <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{h.question}</div>
-                      <div style={{fontSize:13,color:'var(--text)',whiteSpace:'pre-wrap',background:'#f9fafb',borderRadius:'var(--r-md)',padding:'10px 12px'}}>{h.answer}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {askError && <div style={{color:'var(--red)',fontSize:12.5,marginBottom:10}}>{askError.message || 'Something went wrong — please try again.'}</div>}
-
-              <form onSubmit={handleAsk} style={{display:'flex',gap:8}}>
-                <input
-                  autoFocus
-                  value={askQuestion}
-                  onChange={e=>setAskQuestion(e.target.value)}
-                  placeholder="Ask a question…"
-                  disabled={asking}
-                  style={{flex:1,padding:'10px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}
-                />
-                <button type="submit" className="btn btn-primary" style={{background:'var(--blue)'}} disabled={asking || !askQuestion.trim()}>
-                  {asking ? '…' : <Send size={15}/>}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   );
 }

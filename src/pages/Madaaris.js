@@ -2,12 +2,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getMadaaris, createMadrasah, updateMadrasah, formatDateGB } from '../lib/store';
-import { Plus, X, Save, Pencil, KeyRound, Power } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
 // login, rename it or change its sign-in code, reset the head's password, or switch
 // it off (its logins stop working; its data is kept) and back on.
+
+// Where the AI credit is topped up (Anthropic's billing page — the balance is shown there;
+// Anthropic offers no way for an app to read it).
+const AI_BILLING_URL = 'https://console.anthropic.com/settings/billing';
+// A rough guide only: one report summary is a few thousand words in and a paragraph out.
+const PENCE_PER_AI_REQUEST = 1;
 
 function suggestCode(name) {
   return String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
@@ -33,7 +39,17 @@ export default function Madaaris() {
   if (loading) return <Layout title="Madaaris"><LoadingState /></Layout>;
   if (error) return <Layout title="Madaaris"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const totals = list.reduce((t, m) => ({ students: t.students + m.students, ai: t.ai + m.aiThisMonth }), { students: 0, ai: 0 });
+  const totals = list.reduce((t, m) => ({ students: t.students + m.students, ai: t.ai + m.aiThisMonth, aiAll: t.aiAll + m.aiTotal }), { students: 0, ai: 0, aiAll: 0 });
+  const pounds = n => `£${((n * PENCE_PER_AI_REQUEST) / 100).toFixed(2)}`;
+  const demoLink = `${window.location.origin}/?demo`;
+  async function copyDemo() {
+    try { await navigator.clipboard.writeText(demoLink); showToast('Demo link copied'); }
+    catch { window.prompt('Copy the demo link:', demoLink); }
+  }
+  async function shareDemo() {
+    try { await navigator.share({ title: 'Madrasah app demo', text: 'Have a look around the demo:', url: demoLink }); }
+    catch { /* closed, or sharing not available */ }
+  }
   const signInLink = code => `${window.location.origin}/?m=${encodeURIComponent(code)}`;
 
   return (
@@ -43,6 +59,30 @@ export default function Madaaris() {
         <div className="stat-card-v2"><div className="n">{list.filter(m => m.active).length}</div><div className="l">Switched on</div></div>
         <div className="stat-card-v2"><div className="n">{totals.students}</div><div className="l">Active students, all madaaris</div></div>
         <div className="stat-card-v2"><div className="n">{totals.ai}</div><div className="l">AI requests this month</div></div>
+      </div>
+
+      {/* Just for the platform owner: AI credit and the demo link to send out. */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card-title" style={{ marginBottom: 4 }}><Sparkles size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />AI credit</div>
+        <div className="card-sub" style={{ marginBottom: 12 }}>Your balance is on Anthropic's billing page — top up there.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+          <div className="info-box"><strong>{totals.ai} · ≈ {pounds(totals.ai)}</strong><span className="info-box-label">AI requests this month</span></div>
+          <div className="info-box"><strong>{totals.aiAll} · ≈ {pounds(totals.aiAll)}</strong><span className="info-box-label">All time</span></div>
+        </div>
+        <a className="btn btn-primary" href={AI_BILLING_URL} target="_blank" rel="noopener noreferrer" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+          <ExternalLink size={14} /> Check balance & top up
+        </a>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Costs are a rough guide (about {PENCE_PER_AI_REQUEST}p per summary).</div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo link</div>
+        <div className="card-sub" style={{ marginBottom: 10 }}>Send this to anyone who wants to try the app — they get their own made-up madrasah.</div>
+        <div style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '9px 12px', fontSize: 13, wordBreak: 'break-all', marginBottom: 10 }}>{demoLink}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={copyDemo}><Copy size={14} /> Copy</button>
+          {typeof navigator !== 'undefined' && navigator.share && <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={shareDemo}><Share2 size={14} /> Share</button>}
+        </div>
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
