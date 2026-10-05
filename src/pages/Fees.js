@@ -100,13 +100,13 @@ function WeeklyFees() {
     if (!isOwner || !autoWeeks || !year) return;
     getFeeWeeks(year).then(r => setOffWeeks(new Set(r.off))).catch(() => {});
   }, [isOwner, autoWeeks, year]);
-  async function confirmAddWeek(paid) {
+  async function confirmAddWeek(paid, wholeClass = false) {
     setToggling(true);
     try {
-      await addStudentWeek(addWeek.studentId, addWeek.week, paid);
+      const r = await addStudentWeek(addWeek.studentId, addWeek.week, paid, wholeClass);
       await refresh();
       setAddWeek(null);
-      showToast(paid ? 'Week added and marked paid' : 'Week added');
+      showToast(wholeClass ? `Week added for ${r.added} child${r.added===1?'':'ren'}` : paid ? 'Week added and marked paid' : 'Week added');
     } catch (err) { showToast(err.message || 'Could not add this week'); }
     setToggling(false);
   }
@@ -260,19 +260,28 @@ function WeeklyFees() {
   );
 
   const addWeekStudent = addWeek && students.find(s=>s.id===addWeek.studentId);
+  // Others in the same class who don't have this week either (e.g. it was removed for the
+  // whole class by mistake) — offer to put it back for all of them at once.
+  const missingInClass = addWeek && addWeekStudent ? students.filter(s=>s.class===addWeekStudent.class && s.status==='Active'
+    && !fees.some(f=>f.studentId===s.id && f.period==='week' && f.weekStarting===addWeek.week)).length : 0;
   const addWeekModal = addWeek&&(
     <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&!toggling&&setAddWeek(null)}>
       <div className="modal" style={{maxWidth:380}}>
         <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
           <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>Add week of {formatDayMonthGB(addWeek.week)}?</div>
           <div style={{color:'var(--text-muted)',fontSize:12.5}}>
-            Just for {addWeekStudent?`${addWeekStudent.forename} ${addWeekStudent.surname}`:'this child'} — {money(Number(addWeekStudent?.weeklyFee||0))}. Nobody else is charged.
+            For {addWeekStudent?`${addWeekStudent.forename} ${addWeekStudent.surname}`:'this child'} — {money(Number(addWeekStudent?.weeklyFee||0))}{missingInClass>1?`, or for everyone in ${addWeekStudent.class} who doesn't have it yet.`:'. Nobody else is charged.'}
           </div>
         </div>
         <div className="modal-footer" style={{justifyContent:'center',flexWrap:'wrap'}}>
           <button className="btn" onClick={()=>setAddWeek(null)} disabled={toggling}>Cancel</button>
           <button className="btn" onClick={()=>confirmAddWeek(false)} disabled={toggling}>Add as owed</button>
           <button className="btn btn-green" onClick={()=>confirmAddWeek(true)} disabled={toggling}><Check size={13}/>{toggling?'Saving…':'Add & mark paid'}</button>
+          {missingInClass>1&&(
+            <button className="btn btn-primary" style={{width:'100%',justifyContent:'center'}} onClick={()=>confirmAddWeek(false,true)} disabled={toggling}>
+              Add as owed for all {missingInClass} in {addWeekStudent.class}
+            </button>
+          )}
         </div>
       </div>
     </div>

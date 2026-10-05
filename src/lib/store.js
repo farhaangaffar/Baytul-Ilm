@@ -283,8 +283,9 @@ export async function getFees(year) {
 // Settings → Fee weeks (weekly fees): which weeks are switched off, and how many fees each
 // week has. setFeeWeeks switches weeks on/off (off removes fees not yet paid).
 // Head only: adds one week for one child (owed, or paid), if it's switched on in Fee weeks.
-export async function addStudentWeek(studentId, weekStarting, paid) {
-  return apiFetch('/api/fees?action=add-week', { method: 'POST', body: JSON.stringify({ studentId, weekStarting, paid: !!paid }) });
+// wholeClass: the week goes back on (owed) for everyone in that child's class.
+export async function addStudentWeek(studentId, weekStarting, paid, wholeClass = false) {
+  return apiFetch('/api/fees?action=add-week', { method: 'POST', body: JSON.stringify({ studentId, weekStarting, paid: !!paid, wholeClass }) });
 }
 export async function getFeeWeeks(year) { return apiFetch(`/api/fees?action=fee-weeks&year=${encodeURIComponent(year)}`); }
 export async function setFeeWeeks(weeks, on) {

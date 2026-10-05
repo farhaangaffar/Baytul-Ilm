@@ -99,7 +99,7 @@ codebase (one codebase, not a fork).
   `settings.fee_auto_since`, so older history is never touched); switching a week off
   removes its unpaid fees (payments stay). Removing a week for a class or child on the
   Fees page is remembered in `fee_skips`. The head can add one week for one child (`?action=add-week`,
-  owed or paid — e.g. paying ahead) on any week switched on in Fee weeks. Joining/leaving: only active children billed,
+  owed or paid — e.g. paying ahead) on any week switched on in Fee weeks; the same pop-up can put the week back as owed for everyone in that class who's missing it (`wholeClass`, lifts the class's `fee_skips`). The server takes "today" as the UK date (`ukToday()`). Joining/leaving: only active children billed,
   from their enrol date (whole period — the head edits the amount if needed), never
   after their leave date. Teachers only tick/untick fees that exist.
   The current **academic year** adds itself from 1 September (`/api/academic-years` GET).
