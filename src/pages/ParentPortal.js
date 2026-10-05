@@ -6,6 +6,7 @@ import { money } from '../lib/branding';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import InstallBanner from '../components/InstallBanner';
 import { DemoBar, leaveDemo } from '../components/Demo';
 import { useAuth } from '../lib/AuthContext';
 import BoxRow from '../components/BoxRow';
@@ -283,6 +284,7 @@ export default function ParentPortal() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page)' }}>
       <DemoBar user={user} />
+      <InstallBanner />
       <div style={{ background: 'var(--ink)', color: '#fff', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {settings.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 20, lineHeight: 1.2 }}>{settings.schoolNameArabic}</div>}

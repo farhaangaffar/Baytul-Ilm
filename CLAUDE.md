@@ -150,6 +150,11 @@ codebase (one codebase, not a fork).
   centred) → month/term boxes → the chosen one shown in the same card.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
+- **Install as an app:** on phones not running the installed app, a slim "Get the app on your
+  home screen" bar (`src/components/InstallBanner.js`, staff and parents; hidden 30 days on ✕).
+  Android/Chrome installs straight away; iPhone shows the Share → Add to Home Screen steps
+  (`InstallSteps.js`). The manifest's `start_url` carries `?m=<code>`, so the installed app
+  knows its madrasah.
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache
   `/api/` or anything that can change under the same URL (that's how a stale app icon
   once got stuck on devices); bump the cache name if caching rules change.
