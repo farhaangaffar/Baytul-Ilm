@@ -6,6 +6,8 @@ import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
 import { useAuth } from '../lib/AuthContext';
 import ChangePasswordModal from './ChangePasswordModal';
+import InstallBanner from './InstallBanner';
+import InstallSteps from './InstallSteps';
 import { DemoBar, leaveDemo } from './Demo';
 
 const navItems = [
@@ -99,6 +101,7 @@ export default function Layout({ children, title, subtitle }) {
       </aside>
       <div className="main-content">
         <DemoBar user={user} />
+        <InstallBanner />
         <div className="mobile-topbar">
           <div className="mobile-topbar-brand">
             <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
@@ -141,6 +144,7 @@ export default function Layout({ children, title, subtitle }) {
         </div>
         <div className="page-body">{children}</div>
         {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+        <InstallSteps steps={installPrompt.steps} onClose={installPrompt.closeSteps} />
       </div>
     </div>
   );

@@ -87,7 +87,9 @@ function manifest(s, code) {
     id: '/',
     name,
     short_name: name.length > 12 ? name.replace(/\s*madrasah?$/i, '').slice(0, 12) || name.slice(0, 12) : name,
-    start_url: '/',
+    // Opens on this madrasah's sign-in (an installed iPhone app doesn't share Safari's
+    // storage, so it wouldn't otherwise know the madrasah code).
+    start_url: code ? `/?m=${encodeURIComponent(code)}` : '/',
     scope: '/',
     display: 'standalone',
     background_color: '#ffffff',

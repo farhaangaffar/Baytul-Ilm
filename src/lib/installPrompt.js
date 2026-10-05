@@ -28,13 +28,27 @@ function isIOS() {
 
 function isAndroid() { return /Android/.test(window.navigator.userAgent); }
 
+// The browser's own install steps, shown in a pop-up (components/InstallSteps.js) when
+// there's no install event to replay — always the case on iPhone and iPad.
 const MANUAL_STEPS = {
-  ios: 'To install this app on your iPhone or iPad:\n\n1. Tap the Share button (the square with an arrow) in Safari\n2. Choose "Add to Home Screen"\n3. Tap "Add"',
-  android: 'To install this app:\n\n1. Tap Chrome\'s menu (⋮) at the top right\n2. Choose "Install app" or "Add to Home screen"\n\nIf it\'s already on your home screen, open it from there instead.',
-  desktop: 'To install this app:\n\nClick the install icon at the right of the address bar, or open the browser menu (⋮) and choose "Install" (Chrome: Cast, save and share → Install page as app).\n\nIf it\'s already installed, open it from your Start menu or desktop instead.',
+  ios: { title: 'Add to your Home Screen', steps: [
+    'Tap the Share button — the square with an arrow, at the bottom of Safari (or top right on iPad).',
+    'Scroll down and tap "Add to Home Screen".',
+    'Tap "Add". The app now opens from its own icon, like any other app.',
+  ], note: 'Use Safari for this. In another browser, open this page in Safari first.' },
+  android: { title: 'Install the app', steps: [
+    'Tap Chrome\'s menu (⋮) at the top right.',
+    'Choose "Install app" or "Add to Home screen".',
+  ], note: 'If it\'s already on your home screen, open it from there.' },
+  desktop: { title: 'Install the app', steps: [
+    'Click the install icon at the right of the address bar,',
+    'or open the browser menu (⋮) and choose "Install" (Chrome: Cast, save and share → Install page as app).',
+  ], note: 'If it\'s already installed, open it from your Start menu or desktop.' },
 };
+let steps = null; // the steps pop-up currently open, if any
 
-// → { available, install } — `available` is false only when opened as the installed app.
+// → { available, install, steps, closeSteps } — `available` is false only when opened as the
+// installed app; `steps` is the manual-install pop-up to show (null when closed).
 export function useInstallPrompt() {
   const [, rerender] = useState(0);
   useEffect(() => {
@@ -53,8 +67,10 @@ export function useInstallPrompt() {
       await e.prompt();
       return;
     }
-    window.alert(isIOS() ? MANUAL_STEPS.ios : isAndroid() ? MANUAL_STEPS.android : MANUAL_STEPS.desktop);
+    steps = isIOS() ? MANUAL_STEPS.ios : isAndroid() ? MANUAL_STEPS.android : MANUAL_STEPS.desktop;
+    notify();
   }
+  function closeSteps() { steps = null; notify(); }
 
-  return { available, install };
+  return { available, install, steps, closeSteps };
 }
