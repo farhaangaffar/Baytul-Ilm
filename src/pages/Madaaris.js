@@ -61,30 +61,6 @@ export default function Madaaris() {
         <div className="stat-card-v2"><div className="n">{totals.ai}</div><div className="l">AI requests this month</div></div>
       </div>
 
-      {/* Just for the platform owner: AI credit and the demo link to send out. */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div className="card-title" style={{ marginBottom: 4 }}><Sparkles size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />AI credit</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>Your balance is on Anthropic's billing page — top up there.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
-          <div className="info-box"><strong>{totals.ai} · ≈ {pounds(totals.ai)}</strong><span className="info-box-label">AI requests this month</span></div>
-          <div className="info-box"><strong>{totals.aiAll} · ≈ {pounds(totals.aiAll)}</strong><span className="info-box-label">All time</span></div>
-        </div>
-        <a className="btn btn-primary" href={AI_BILLING_URL} target="_blank" rel="noopener noreferrer" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
-          <ExternalLink size={14} /> Check balance & top up
-        </a>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Costs are a rough guide (about {PENCE_PER_AI_REQUEST}p per summary).</div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo link</div>
-        <div className="card-sub" style={{ marginBottom: 10 }}>Send this to anyone who wants to try the app — they get their own made-up madrasah.</div>
-        <div style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '9px 12px', fontSize: 13, wordBreak: 'break-all', marginBottom: 10 }}>{demoLink}</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={copyDemo}><Copy size={14} /> Copy</button>
-          {typeof navigator !== 'undefined' && navigator.share && <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={shareDemo}><Share2 size={14} /> Share</button>}
-        </div>
-      </div>
-
       <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div className="text-muted text-sm">You only see counts here — each madrasah's students, fees and reports stay private to them.</div>
         <button className="btn btn-primary" onClick={() => setModal({ kind: 'add' })}><Plus size={14} /> Add madrasah</button>
@@ -125,6 +101,31 @@ export default function Madaaris() {
           </div>
         </div>
       ))}
+
+      {/* Just for the platform owner: AI credit and the demo link to send out. */}
+      <div className="card" style={{ marginTop: 16, marginBottom: 12 }}>
+        <div className="card-title" style={{ marginBottom: 4 }}><Sparkles size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />AI credit</div>
+        <div className="card-sub" style={{ marginBottom: 12 }}>Your balance is on Anthropic's billing page — top up there.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+          <div className="info-box"><strong>{totals.ai} · ≈ {pounds(totals.ai)}</strong><span className="info-box-label">AI requests this month</span></div>
+          <div className="info-box"><strong>{totals.aiAll} · ≈ {pounds(totals.aiAll)}</strong><span className="info-box-label">All time</span></div>
+        </div>
+        <a className="btn btn-primary" href={AI_BILLING_URL} target="_blank" rel="noopener noreferrer" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+          <ExternalLink size={14} /> Check balance & top up
+        </a>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Costs are a rough guide (about {PENCE_PER_AI_REQUEST}p per summary).</div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo link</div>
+        <div className="card-sub" style={{ marginBottom: 10 }}>Send this to anyone who wants to try the app — they get their own made-up madrasah.</div>
+        <div style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '9px 12px', fontSize: 13, wordBreak: 'break-all', marginBottom: 10 }}>{demoLink}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={copyDemo}><Copy size={14} /> Copy</button>
+          {typeof navigator !== 'undefined' && navigator.share && <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={shareDemo}><Share2 size={14} /> Share</button>}
+        </div>
+      </div>
+
 
       {modal?.kind === 'add' && (
         <AddModal onClose={() => setModal(null)} onCreated={async details => { setModal(null); setCreated(details); await load(); }} />
