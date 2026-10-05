@@ -5,11 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1a3c5e" />
     <title>Madrasah Management System</title>
-    <!-- Served by api/settings so the installed app is named after this deployment's school -->
+    <!-- Served by api/settings so the installed app is named after the madrasah -->
     <link rel="manifest" href="/api/settings?manifest" />
-    <!-- The school's uploaded logo as a square icon, or the built-in one if none (see api/settings) -->
+    <!-- The madrasah's uploaded logo as a square icon, or the built-in one if none (see api/settings) -->
     <link rel="icon" type="image/png" href="/api/settings?icon" />
     <link rel="apple-touch-icon" href="/api/settings?icon" />
+    <script>
+      // Many madaaris share this site: this device remembers which one it signs in to
+      // (src/lib/madrasahCode.js), so the install name and icons are that madrasah's.
+      try {
+        var code = localStorage.getItem('madrasah_code');
+        if (code) {
+          var m = '&m=' + encodeURIComponent(code);
+          document.querySelectorAll('link[rel=manifest], link[rel=icon], link[rel=apple-touch-icon]').forEach(function (l) { l.href = l.getAttribute('href') + m; });
+        }
+      } catch (e) {}
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

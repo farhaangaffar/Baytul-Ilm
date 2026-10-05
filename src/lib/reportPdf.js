@@ -396,7 +396,8 @@ export function downloadPdfBytes(bytes, filename) {
 // for a student no longer on the active roster) — the month's own attendance/fee
 // data has to be fetched for whichever year that month actually belongs to,
 // which callers are responsible for (this just builds the PDF from it).
-export async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth, period }) {
+// teacherName can be passed in by callers that can't look up classes (the parent portal).
+export async function buildReportBytes(student, attendance, fees, { summary, behavior, reportDate, dataMonth, period, teacherName: knownTeacher }) {
   // `period` (from reportPeriods.js) is a school month or a term; older callers pass
   // just the month key. Attendance and fees cover that whole period.
   const p = period || periodForKey(dataMonth);
@@ -404,6 +405,6 @@ export async function buildReportBytes(student, attendance, fees, { summary, beh
   const periodFees = feesForReport(fees, student.id, p);
   const billed = periodFees.reduce((s, f) => s + Number(f.amount), 0);
   const collected = periodFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
-  const teacherName = await classTeacherName(student.class);
+  const teacherName = knownTeacher ?? await classTeacherName(student.class);
   return generateReportPdfBytes({ student, counts, feeTotals: { billed, collected }, monthLabel: p.label, aiSummary: summary, behavior, reportDate, teacherName });
 }

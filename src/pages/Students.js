@@ -7,9 +7,11 @@ import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
+import ParentLogin from '../components/ParentLogin';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer } from '../lib/feePeriods';
+import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
 
 const WAITING_LIST = 'Waiting list';
 
@@ -53,6 +55,8 @@ export default function Students() {
   // fetched on demand rather than for everyone in the left section, since it's only
   // needed once you've actually opened someone's card.
   const [selectedReports, setSelectedReports] = useState([]);
+  const [reportYear, setReportYear] = useState(null);   // open year in a left child's Previous reports
+  const [reportPick, setReportPick] = useState(null);   // the report chosen there
   const [reportTerms, setReportTerms] = useState([]); // term dates, for any termly reports in that list
   const [downloadingReport, setDownloadingReport] = useState(null);
 
@@ -86,6 +90,7 @@ export default function Students() {
   // (which no longer lists them) — fetched fresh whenever a different left student
   // is opened, and cleared for anyone still active (they have none to show here).
   useEffect(() => {
+    setReportYear(null); setReportPick(null);
     if (!selected || selected.status!=='Inactive') { setSelectedReports([]); return; }
     let cancelled = false;
     getAiSummaries(selected.id).then(async r => {
@@ -311,6 +316,11 @@ export default function Students() {
         {search && !classNames.some(c=>students.some(s=>s.class===c && s.status!=='Inactive' && `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()))) && (
           <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>No students match your search.</div>
         )}
+        {classNames.length===0 && (
+          <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>
+            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them.
+          </div>
+        )}
 
         {leftStudents.length>0&&(
           <div className="card" style={{marginTop:20}}>
@@ -422,23 +432,27 @@ export default function Students() {
                     {selectedReports.length===0?(
                       <div className="text-muted text-sm">No reports were saved for {selected.forename}.</div>
                     ):(()=>{
+                      // Year boxes (oldest to newest) → month or term boxes → that report.
                       const byYear = {};
                       selectedReports.forEach(r => { const p=periodForKey(r.month, reportTerms); const yr=p.yearLabel||'—'; (byYear[yr]=byYear[yr]||[]).push({...r,_p:p}); });
-                      const years = Object.keys(byYear).sort().reverse();
-                      years.forEach(y => byYear[y].sort((a,b)=>b._p.start.localeCompare(a._p.start)));
-                      return years.map(yr=>(
-                        <div key={yr} style={{marginBottom:10}}>
-                          <div style={{fontWeight:600,fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Academic year {yr}</div>
-                          {byYear[yr].map(r=>(
-                            <div key={r.month} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:'var(--r-md)',background:'#f9fafb',marginBottom:4,fontSize:13}}>
-                              <span>{r._p.label}</span>
-                              <button className="btn btn-sm" onClick={()=>downloadReport(selected,r)} disabled={downloadingReport===r.month}>
-                                {downloadingReport===r.month?'…':<><Download size={12}/>Download</>}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ));
+                      const years = Object.keys(byYear).sort();
+                      years.forEach(y => byYear[y].sort((a,b)=>a._p.start.localeCompare(b._p.start)));
+                      const shown = reportYear && (byYear[reportYear]||[]).find(r=>r.month===reportPick);
+                      return (<>
+                        <HistoryBoxes
+                          years={years.map(y=>({ key:y, label:y, sub:`${byYear[y].length} report${byYear[y].length===1?'':'s'}` }))}
+                          open={reportYear} onToggle={y=>{ setReportYear(o=>o===y?null:y); setReportPick(null); }}
+                          items={(byYear[reportYear]||[]).map(r=>({ key:r.month, label:shortPeriodLabel(r._p), sub:r.behavior||'Report' }))}
+                          active={reportPick} onPick={k=>setReportPick(o=>o===k?null:k)}/>
+                        {shown&&(
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,padding:'8px 12px',borderRadius:'var(--r-md)',background:'#f9fafb',fontSize:13}}>
+                            <span style={{fontWeight:600}}>{shown._p.label}</span>
+                            <button className="btn btn-sm" onClick={()=>downloadReport(selected,shown)} disabled={downloadingReport===shown.month}>
+                              {downloadingReport===shown.month?'…':<><Download size={12}/>Download</>}
+                            </button>
+                          </div>
+                        )}
+                      </>);
                     })()}
                   </div>
                 </>
@@ -458,6 +472,7 @@ export default function Students() {
                   </div>
                 )}
               </div>
+              <ParentLogin student={selected} students={students} />
               {selected.notes&&<div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>
             <div className="modal-footer">

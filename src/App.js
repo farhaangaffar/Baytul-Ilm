@@ -10,7 +10,10 @@ import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
-import { getSession, setSessionRole } from './lib/store';
+import Madaaris        from './pages/Madaaris';
+import ParentPortal    from './pages/ParentPortal';
+import { getSession } from './lib/store';
+import { setMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
 import { AuthProvider } from './lib/AuthContext';
 
@@ -39,7 +42,12 @@ export default function App() {
   // (or out) in another tab, this tab would otherwise keep showing the old person's
   // screens while the server answers as the new one. Re-check when the tab comes
   // back into view or a request is refused, and reload if the person has changed.
-  const currentUserKey = session?.authenticated ? `${session.user.email}|${session.user.role}` : '';
+  const currentUserKey = session?.authenticated ? `${session.user.madrasah?.code}|${session.user.login}|${session.user.role}` : '';
+
+  // Devices that were already signed in also learn which madrasah they belong to, so
+  // the sign-in screen and installed app are that madrasah's from now on.
+  const madrasahCode = session?.authenticated && !session.user.demo ? session.user.madrasah?.code : '';
+  useEffect(() => { if (madrasahCode) setMadrasahCode(madrasahCode); }, [madrasahCode]);
   useEffect(() => {
     if (!currentUserKey) return;
     let checking = false;
@@ -48,7 +56,7 @@ export default function App() {
       checking = true;
       try {
         const s = await getSession();
-        const key = s.authenticated ? `${s.user.email}|${s.user.role}` : '';
+        const key = s.authenticated ? `${s.user.madrasah?.code}|${s.user.login}|${s.user.role}` : '';
         if (key !== currentUserKey) window.location.reload();
       } catch { /* offline etc. — try again next time */ }
       checking = false;
@@ -73,7 +81,15 @@ export default function App() {
   }
 
   const isOwner = session.user.role === 'owner';
-  setSessionRole(session.user.role);
+
+  // Parents: their own children only, on one page of their own — none of the staff pages.
+  if (session.user.role === 'parent') {
+    return (
+      <AuthProvider value={{ user: session.user }}>
+        <SettingsProvider><ParentPortal /></SettingsProvider>
+      </AuthProvider>
+    );
+  }
 
   return (
     <AuthProvider value={{ user: session.user }}>
@@ -90,6 +106,7 @@ export default function App() {
               <Route path="/reports"    element={<Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />
+              {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}
             </Routes>
           ) : (
             // Teachers: their own classes' attendance, daily records and fees only.

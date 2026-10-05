@@ -7,11 +7,11 @@ const TIMES = ['8:00 AM', '10:00 AM', '12:00 PM', '2:00 PM', '4:00 PM'];
 
 const schedule = [
   [
-    { subject: 'Hifz — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
-    { subject: 'Hifz — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
-    { subject: 'Hifz — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
-    { subject: 'Hifz — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
-    { subject: 'Hifz — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
+    { subject: 'Hifdh — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
+    { subject: 'Hifdh — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
+    { subject: 'Hifdh — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
+    { subject: 'Hifdh — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
+    { subject: 'Hifdh — Group A', teacher: 'Ustadh Ibrahim', cls: 'tt-quran' },
   ],
   [
     { subject: 'Arabic Language', teacher: 'Ustadha Maryam', cls: 'tt-arabic' },
@@ -31,7 +31,7 @@ const schedule = [
     { subject: 'Islamic Studies', teacher: 'Ustadh Bilal', cls: 'tt-islamic' },
     { subject: 'Islamic Studies', teacher: 'Ustadh Bilal', cls: 'tt-islamic' },
     { subject: 'Islamic Studies', teacher: 'Ustadh Bilal', cls: 'tt-islamic' },
-    { subject: 'Nazra — Group B', teacher: 'Ustadha Maryam', cls: 'tt-quran' },
+    { subject: 'Naazhirah — Group B', teacher: 'Ustadha Maryam', cls: 'tt-quran' },
     { subject: 'Islamic Studies', teacher: 'Ustadh Bilal', cls: 'tt-islamic' },
   ],
   [
@@ -69,7 +69,7 @@ export default function Timetable() {
           </div>
         </div>
         <div className="legend">
-          {[['tt-quran','Quran / Hifz / Nazra'],['tt-arabic','Arabic language'],['tt-islamic','Islamic studies'],['tt-fiqh','Fiqh'],['tt-tajweed','Tajweed']].map(([cls, label]) => (
+          {[['tt-quran',"Qur'an / Hifdh / Naazhirah"],['tt-arabic','Arabic language'],['tt-islamic','Islamic studies'],['tt-fiqh','Fiqh'],['tt-tajweed','Tajweed']].map(([cls, label]) => (
             <div key={cls} className="legend-item">
               <div className={`legend-dot ${cls}`} />
               {label}
@@ -80,8 +80,8 @@ export default function Timetable() {
 
       <div className="grid-2" style={{ marginTop: 16 }}>
         {[
-          { name: 'Ustadh Ibrahim', subjects: ['Hifz Group A', 'Hifz Group B'], sessions: 10 },
-          { name: 'Ustadha Maryam', subjects: ['Arabic Language', 'Nazra Group B', 'Tajweed'], sessions: 9 },
+          { name: 'Ustadh Ibrahim', subjects: ['Hifdh Group A', 'Hifdh Group B'], sessions: 10 },
+          { name: 'Ustadha Maryam', subjects: ['Arabic Language', 'Naazhirah Group B', 'Tajweed'], sessions: 9 },
           { name: 'Ustadh Bilal', subjects: ['Islamic Studies', 'Fiqh'], sessions: 8 },
         ].map(t => (
           <div key={t.name} className="card" style={{ marginBottom: 0 }}>

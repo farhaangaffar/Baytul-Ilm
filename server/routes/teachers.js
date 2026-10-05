@@ -15,6 +15,7 @@ async function ensureSortOrderColumn() {
 // Single flat file, dispatching on ?id= for item ops — see students.js for why.
 module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
+  const mid = req.user.madrasahId;
   await ensureSortOrderColumn();
 
   if (req.query.action === 'reorder') {
@@ -24,7 +25,7 @@ module.exports = requireAuth(async (req, res) => {
     const { ids } = req.body || {};
     if (!Array.isArray(ids) || !ids.length) { res.status(400).json({ error: 'ids[] is required' }); return; }
     for (let i = 0; i < ids.length; i++) {
-      await query('UPDATE teachers SET sort_order = $1 WHERE id = $2', [i, ids[i]]);
+      await query('UPDATE teachers SET sort_order = $1 WHERE id = $2 AND madrasah_id = $3', [i, ids[i], mid]);
     }
     res.status(200).json({ ok: true });
     return;
@@ -32,7 +33,7 @@ module.exports = requireAuth(async (req, res) => {
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query('SELECT id, name, phone, email, subjects FROM teachers ORDER BY sort_order NULLS LAST, name');
+      const { rows } = await query('SELECT id, name, phone, email, subjects FROM teachers WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, name', [mid]);
       res.status(200).json(rows);
       return;
     }
@@ -42,8 +43,8 @@ module.exports = requireAuth(async (req, res) => {
       if (!b.name) { res.status(400).json({ error: 'name is required' }); return; }
       const newId = b.id || 'T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const { rows } = await query(
-        'INSERT INTO teachers (id, name, phone, email, subjects) VALUES ($1,$2,$3,$4,$5) RETURNING id, name, phone, email, subjects',
-        [newId, b.name, b.phone || '', b.email || '', JSON.stringify(b.subjects || [])]
+        'INSERT INTO teachers (id, madrasah_id, name, phone, email, subjects) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name, phone, email, subjects',
+        [newId, mid, b.name, b.phone || '', b.email || '', JSON.stringify(b.subjects || [])]
       );
       res.status(201).json(rows[0]);
       return;
@@ -65,19 +66,22 @@ module.exports = requireAuth(async (req, res) => {
       sets.push(`${col} = $${values.length}`);
     });
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
-    values.push(id);
-    const { rows } = await query(`UPDATE teachers SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id`, values);
+    values.push(id, mid);
+    const { rows } = await query(`UPDATE teachers SET ${sets.join(', ')} WHERE id = $${values.length - 1} AND madrasah_id = $${values.length} RETURNING id`, values);
     if (!rows.length) { res.status(404).json({ error: 'Teacher not found' }); return; }
     res.status(200).json({ ok: true });
     return;
   }
 
   if (req.method === 'DELETE') {
-    await query('DELETE FROM teachers WHERE id = $1', [id]);
-    await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1', [id]);
+    const { rowCount } = await query('DELETE FROM teachers WHERE id = $1 AND madrasah_id = $2', [id, mid]);
+    if (rowCount) await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1 AND madrasah_id = $2', [id, mid]);
     res.status(200).json({ ok: true });
     return;
   }
 
   res.status(405).json({ error: 'Method not allowed' });
 });
+
+// Used by the demo (server/demo.js) to make sure its tables exist before filling them.
+module.exports.ensure = ensureSortOrderColumn;

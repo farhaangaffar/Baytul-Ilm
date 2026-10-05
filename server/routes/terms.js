@@ -11,6 +11,7 @@ async function ensureTable() {
   await query(`
     CREATE TABLE IF NOT EXISTS terms (
       id          BIGSERIAL PRIMARY KEY,
+      madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
       year        TEXT NOT NULL,
       name        TEXT NOT NULL,
       start_date  DATE NOT NULL,
@@ -38,14 +39,15 @@ function validate(b, partial) {
 module.exports = requireAuth(async (req, res) => {
   await ensureTable();
   const id = req.query.id;
+  const mid = req.user.madrasahId;
   if (!isOwner(req) && (req.method !== 'GET' || id)) { res.status(403).json({ error: "You don't have access to this." }); return; }
 
   if (!id) {
     if (req.method === 'GET') {
       const { year } = req.query;
       const { rows } = year
-        ? await query('SELECT * FROM terms WHERE year = $1 ORDER BY start_date', [year])
-        : await query('SELECT * FROM terms ORDER BY start_date');
+        ? await query('SELECT * FROM terms WHERE year = $1 AND madrasah_id = $2 ORDER BY start_date', [year, mid])
+        : await query('SELECT * FROM terms WHERE madrasah_id = $1 ORDER BY start_date', [mid]);
       res.status(200).json(rows.map(toClient));
       return;
     }
@@ -55,8 +57,8 @@ module.exports = requireAuth(async (req, res) => {
       const problem = validate(b, false);
       if (problem) { res.status(400).json({ error: problem }); return; }
       const { rows } = await query(
-        'INSERT INTO terms (year, name, start_date, end_date) VALUES ($1,$2,$3,$4) RETURNING *',
-        [b.year, String(b.name).trim(), b.startDate, b.endDate]
+        'INSERT INTO terms (madrasah_id, year, name, start_date, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+        [mid, b.year, String(b.name).trim(), b.startDate, b.endDate]
       );
       res.status(201).json(toClient(rows[0]));
       return;
@@ -67,7 +69,7 @@ module.exports = requireAuth(async (req, res) => {
 
   if (req.method === 'PATCH') {
     const b = req.body || {};
-    const { rows: found } = await query('SELECT * FROM terms WHERE id = $1', [id]);
+    const { rows: found } = await query('SELECT * FROM terms WHERE id = $1 AND madrasah_id = $2', [id, mid]);
     if (!found.length) { res.status(404).json({ error: 'Term not found' }); return; }
     const merged = {
       name: b.name ?? found[0].name,
@@ -77,18 +79,21 @@ module.exports = requireAuth(async (req, res) => {
     const problem = validate(merged, false);
     if (problem) { res.status(400).json({ error: problem }); return; }
     const { rows } = await query(
-      'UPDATE terms SET name = $1, start_date = $2, end_date = $3 WHERE id = $4 RETURNING *',
-      [String(merged.name).trim(), merged.startDate, merged.endDate, id]
+      'UPDATE terms SET name = $1, start_date = $2, end_date = $3 WHERE id = $4 AND madrasah_id = $5 RETURNING *',
+      [String(merged.name).trim(), merged.startDate, merged.endDate, id, mid]
     );
     res.status(200).json(toClient(rows[0]));
     return;
   }
 
   if (req.method === 'DELETE') {
-    await query('DELETE FROM terms WHERE id = $1', [id]);
+    await query('DELETE FROM terms WHERE id = $1 AND madrasah_id = $2', [id, mid]);
     res.status(200).json({ ok: true });
     return;
   }
 
   res.status(405).json({ error: 'Method not allowed' });
 }, { teacher: true });
+
+// Used by the demo (server/demo.js) to make sure its tables exist before filling them.
+module.exports.ensure = ensureTable;

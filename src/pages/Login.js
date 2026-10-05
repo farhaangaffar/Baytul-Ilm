@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
 import { getBranding, setBranding } from '../lib/branding';
-import { LogIn, KeyRound, UserPlus } from 'lucide-react';
+import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
+import { LogIn, KeyRound, UserPlus, PlayCircle } from 'lucide-react';
+import { DemoChooser } from '../components/Demo';
 
 // Three screens share this card:
-//  - sign in (email address + password)
-//  - first-time setup: the school's old shared password, once, to create the owner
-//    (super admin) account — shown when the server says no owner exists yet
-//  - recovery: the recovery key (that same school password) to reset a forgotten
-//    owner password
+//  - sign in (madrasah code + username or email + password)
+//  - first-time setup: the old shared password, once, to create the very first owner
+//    account — shown when the server says no owner exists yet
+//  - recovery: the recovery key (that same password) to reset a forgotten platform-owner
+//    password
+// Many madaaris share this site, so a device remembers the code of the madrasah it
+// signs in to (src/lib/madrasahCode.js): the code is typed once, and the screen then
+// shows that madrasah's name.
+// A fourth screen, "Try the demo" (also opened by a link ending ?demo), offers a made-up
+// madrasah to look around as its head, a teacher or a parent (components/Demo.js).
+const demoLink = () => { try { return new URLSearchParams(window.location.search).has('demo'); } catch { return false; } };
+
 export default function Login({ setupRequired, notice, onSuccess }) {
-  const [mode, setMode] = useState('signin'); // 'signin' | 'setup' | 'recover'
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState(() => (!setupRequired && demoLink() ? 'demo' : 'signin')); // 'signin' | 'setup' | 'recover' | 'demo'
+  const [code, setCode] = useState(getMadrasahCode());
+  const [editingCode, setEditingCode] = useState(!getMadrasahCode());
+  const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -20,10 +31,12 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [branding, setBrandingState] = useState(getBranding());
 
-  // The school's name is public (api/settings serves it before sign-in), so the
-  // login screen shows whichever madrasah this deployment belongs to.
+  // A madrasah's name is public (api/settings serves it before sign-in, by code), so the
+  // login screen shows the madrasah this device belongs to — or a neutral name.
   useEffect(() => {
-    getSettings().then(s => { setBranding({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic }); setBrandingState(getBranding()); }).catch(() => {});
+    getSettings().then(s => {
+      if (s.schoolName) { setBranding({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic }); setBrandingState(getBranding()); }
+    }).catch(() => {});
   }, []);
 
   function switchMode(next) {
@@ -38,11 +51,16 @@ export default function Login({ setupRequired, notice, onSuccess }) {
     setLoading(false);
   }
 
+  // Remember which madrasah this device signs in to.
+  function remember(result) {
+    if (result?.madrasah?.code) setMadrasahCode(result.madrasah.code);
+  }
+
   function submitSignIn(e) {
     e.preventDefault();
     if (!password) return;
     run(async () => {
-      const result = await login(email, password);
+      const result = await login(code.trim().toLowerCase(), loginName, password);
       if (result.setupRequired) {
         // The school password was right, but there's no owner account yet.
         setRecoveryKey(password);
@@ -50,6 +68,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
         switchMode('setup');
         return;
       }
+      remember(result);
       onSuccess();
     });
   }
@@ -58,8 +77,8 @@ export default function Login({ setupRequired, notice, onSuccess }) {
     e.preventDefault();
     if (newPassword !== confirm) { setError("The two passwords don't match."); return; }
     run(async () => {
-      if (mode === 'setup') await setupOwner(recoveryKey, email, newPassword);
-      else await recoverOwner(recoveryKey, newPassword);
+      const result = mode === 'setup' ? await setupOwner(recoveryKey, loginName, newPassword) : await recoverOwner(recoveryKey, newPassword);
+      remember(result);
       onSuccess();
     });
   }
@@ -77,11 +96,27 @@ export default function Login({ setupRequired, notice, onSuccess }) {
     </button>
   );
 
+  const usernameProps = { autoCapitalize: 'none', autoCorrect: 'off', autoComplete: 'username', spellCheck: false };
+  const linkBtn = { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
-      <div className="card" style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-        {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
+      <div className="card" style={{ width: '100%', maxWidth: mode === 'demo' ? 440 : 360, textAlign: 'center' }}>
+        {mode !== 'demo' && <>
+          {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
+        </>}
+
+        {mode === 'demo' && (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Try the demo</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
+              A made-up madrasah, just for you. Change anything — it's deleted after a day. Who would you like to be?
+            </div>
+            <DemoChooser />
+            <button type="button" onClick={() => switchMode('signin')} style={{ ...linkBtn, marginTop: 14 }}>Back to sign in</button>
+          </>
+        )}
 
         {mode === 'signin' && (
           <form onSubmit={submitSignIn}>
@@ -90,18 +125,40 @@ export default function Login({ setupRequired, notice, onSuccess }) {
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, textAlign: 'left' }}>
                 <strong>First time with individual logins?</strong> Enter the school password to set up your own account.
               </div>
-            ) : field('Email address', email, setEmail, { type: 'email', inputMode: 'email', autoFocus: true, autoCapitalize: 'none', autoCorrect: 'off', autoComplete: 'username', spellCheck: false })}
+            ) : (
+              <>
+                {editingCode ? (
+                  <div className="form-group" style={{ textAlign: 'left', marginBottom: 14 }}>
+                    <label>Madrasah code</label>
+                    <input value={code} onChange={e => { setCode(e.target.value); setError(''); }} placeholder="e.g. al-noor" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+                    <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>From your madrasah office. This device remembers it after you sign in.</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, textAlign: 'left' }}>
+                    Madrasah code: <strong>{code}</strong>{' '}
+                    <button type="button" style={{ ...linkBtn, fontSize: 12, textDecoration: 'underline', padding: 0 }} onClick={() => setEditingCode(true)}>change</button>
+                  </div>
+                )}
+                {field('Username or email', loginName, setLoginName, { ...usernameProps, autoFocus: !editingCode })}
+              </>
+            )}
             {field(setupRequired ? 'School password' : 'Password', password, setPassword, { type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
-            {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && !email))}
+            {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && (!loginName || !code.trim())))}
             {!setupRequired && (
-              <button type="button" onClick={() => switchMode('recover')}
-                style={{ marginTop: 14, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' }}>
-                Forgot the owner password?
+              <button type="button" onClick={() => switchMode('recover')} style={{ ...linkBtn, marginTop: 14 }}>
+                Forgot the platform owner password?
               </button>
             )}
             {!setupRequired && (
-              <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 6 }}>Teachers: ask the madrasah office to reset your password.</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 6 }}>Everyone else: ask the madrasah office to reset your password.</div>
+            )}
+            {/* Only on a device that isn't any madrasah's yet, so a madrasah's own people
+                don't see it; the ?demo link works anywhere. */}
+            {!setupRequired && !getMadrasahCode() && (
+              <button type="button" className="btn" onClick={() => switchMode('demo')} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>
+                <PlayCircle size={14} />Try the demo
+              </button>
             )}
           </form>
         )}
@@ -112,17 +169,17 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, textAlign: 'left' }}>
               This is your own super-admin login from now on. The school password won't sign anyone in after this — keep it as your recovery key.
             </div>
-            {field('Your email address', email, setEmail, { type: 'email', inputMode: 'email', autoFocus: true, autoCapitalize: 'none', autoCorrect: 'off', autoComplete: 'username', spellCheck: false })}
+            {field('Your email address or a username', loginName, setLoginName, { ...usernameProps, autoFocus: true })}
             {field('Choose a password (8+ characters)', newPassword, setNewPassword, { type: 'password', autoComplete: 'new-password' })}
             {field('Type the password again', confirm, setConfirm, { type: 'password', autoComplete: 'new-password' })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
-            {submitBtn(<UserPlus size={14} />, 'Create account', 'Creating…', !email || !newPassword || !confirm)}
+            {submitBtn(<UserPlus size={14} />, 'Create account', 'Creating…', !loginName || !newPassword || !confirm)}
           </form>
         )}
 
         {mode === 'recover' && (
           <form onSubmit={submitNewPassword}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 6 }}>Reset the owner password</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 6 }}>Reset the platform owner password</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, textAlign: 'left' }}>
               Enter the recovery key (the school password kept in Vercel) and choose a new password.
             </div>
@@ -131,8 +188,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             {field('Type it again', confirm, setConfirm, { type: 'password', autoComplete: 'new-password' })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
             {submitBtn(<KeyRound size={14} />, 'Reset password', 'Resetting…', !recoveryKey || !newPassword || !confirm)}
-            <button type="button" onClick={() => switchMode('signin')}
-              style={{ marginTop: 14, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' }}>
+            <button type="button" onClick={() => switchMode('signin')} style={{ ...linkBtn, marginTop: 14 }}>
               Back to sign in
             </button>
           </form>

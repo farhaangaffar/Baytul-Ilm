@@ -1,11 +1,12 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2 } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
 import { useAuth } from '../lib/AuthContext';
 import ChangePasswordModal from './ChangePasswordModal';
+import { DemoBar, leaveDemo } from './Demo';
 
 const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
@@ -17,6 +18,8 @@ const navItems = [
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
+  // Only the platform owner (the person who runs this service for every madrasah).
+  { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
 ];
 
 // Layout remounts fresh on every navigation (each page renders its own <Layout>), so the
@@ -31,10 +34,12 @@ export default function Layout({ children, title, subtitle }) {
   const { pathname } = useLocation();
   const settings = useSettings();
   const installPrompt = useInstallPrompt();
-  const { user, isOwner } = useAuth();
+  const { user, isOwner, isPlatformAdmin } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   // Teachers only get their three pages (and no section headings).
-  const visibleNav = isOwner ? navItems : navItems.filter(i => i.teacher).map(i => ({ ...i, section: undefined }));
+  const visibleNav = isOwner
+    ? navItems.filter(i => !i.platform || isPlatformAdmin)
+    : navItems.filter(i => i.teacher).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 
@@ -52,6 +57,7 @@ export default function Layout({ children, title, subtitle }) {
   }, [pathname]);
 
   async function handleLogout() {
+    if (user?.demo) { leaveDemo(); return; }
     await logout().catch(() => {});
     window.location.reload();
   }
@@ -82,14 +88,17 @@ export default function Layout({ children, title, subtitle }) {
             <Download size={16}/><span>Install app</span>
           </button>
         )}
-        <button className="nav-link" onClick={() => setChangingPassword(true)}>
-          <KeyRound size={16}/><span>Change password</span>
-        </button>
-        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.email}` : undefined}>
+        {!user?.demo && (
+          <button className="nav-link" onClick={() => setChangingPassword(true)}>
+            <KeyRound size={16}/><span>Change password</span>
+          </button>
+        )}
+        <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.login}` : undefined}>
           <LogOut size={16}/><span>Log out</span>
         </button>
       </aside>
       <div className="main-content">
+        <DemoBar user={user} />
         <div className="mobile-topbar">
           <div className="mobile-topbar-brand">
             <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
@@ -101,9 +110,11 @@ export default function Layout({ children, title, subtitle }) {
                 <Download size={18}/>
               </button>
             )}
-            <button className="mobile-topbar-logout" onClick={() => setChangingPassword(true)} aria-label="Change password" title="Change password">
-              <KeyRound size={18}/>
-            </button>
+            {!user?.demo && (
+              <button className="mobile-topbar-logout" onClick={() => setChangingPassword(true)} aria-label="Change password" title="Change password">
+                <KeyRound size={18}/>
+              </button>
+            )}
             <button className="mobile-topbar-logout" onClick={handleLogout} aria-label="Log out">
               <LogOut size={18}/>
             </button>

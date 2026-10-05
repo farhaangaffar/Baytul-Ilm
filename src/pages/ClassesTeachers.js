@@ -9,6 +9,8 @@ import {
 } from '../lib/store';
 import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, GripVertical } from 'lucide-react';
 import ReorderableGrid from '../components/ReorderableGrid';
+import { useAuth } from '../lib/AuthContext';
+import { CLASS_QURAN_OPTIONS } from '../lib/quran';
 
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,9 @@ export default function ClassesTeachers() {
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [logins, setLogins] = useState([]);
-  const [loginModal, setLoginModal] = useState(null); // the teacher whose login is being set up / managed
+  // The login being set up / managed: { kind: 'teacher' | 'class', item } — a teacher's
+  // own login, or one shared login for a whole class.
+  const [loginModal, setLoginModal] = useState(null);
 
   const [classModal, setClassModal] = useState(null);
   const [teacherModal, setTeacherModal] = useState(null);
@@ -133,39 +137,30 @@ export default function ClassesTeachers() {
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
               No classes yet — click "Add class" to create one.
             </div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Class name</th>
-                    <th>Teacher</th>
-                    <th>Students</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map(c => (
-                    <tr key={c.id}>
-                      <td style={{ fontWeight: 500 }}>{c.name}</td>
-                      <td className="text-muted text-sm">{teacherName(c.teacherId)}</td>
-                      <td className="text-muted text-sm">{studentCountForClass(c.name)} enrolled</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button className="btn btn-icon btn-sm" onClick={() => setClassModal({ ...c })}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className="btn btn-icon btn-sm" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          ) : (<>
+            {/* One small card per class — name and Qur'an level on top, then teacher /
+                students / class login as three boxes; side by side on wider screens. */}
+            <div className="box-card-grid">
+              {classes.map(c => (
+                <div key={c.id} className="box-card">
+                  <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {c.name}
+                      {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal">{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]}</span>}
+                    </div>
+                    <button className="btn btn-icon btn-sm" title="Edit class" onClick={() => setClassModal({ ...c })}><Pencil size={13} /></button>
+                    <button className="btn btn-icon btn-sm" title="Delete class" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}><Trash2 size={13} /></button>
+                  </div>
+                  <div className="box-row-3">
+                    <InfoBox value={teacherName(c.teacherId)} label="Teacher" />
+                    <InfoBox value={studentCountForClass(c.name)} label="Students" />
+                    <LoginBox login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
+                      title="One shared login for this class — whoever teaches it that day can sign in" />
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </>)}
         </div>
       )}
 
@@ -191,7 +186,7 @@ export default function ClassesTeachers() {
             <ReorderableGrid
               items={teachers}
               getId={t => t.id}
-              className="entity-grid"
+              className="box-card-grid"
               onReordered={async ids => {
                 setTeachers(prev => ids.map(id => prev.find(t => t.id === id)).filter(Boolean));
                 try { await reorderTeachers(ids); }
@@ -201,24 +196,19 @@ export default function ClassesTeachers() {
                 const login = logins.find(l => l.teacherId === t.id);
                 const theirClasses = classes.filter(c => c.teacherId === t.id).map(c => c.name);
                 const subjects = (t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean);
-                const row = (label, content) => (
-                  <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 8, alignItems: 'baseline', padding: '7px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
-                    <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{content}</div>
-                  </div>
-                );
+                const contact = [t.phone, t.email].filter(Boolean).join(' · ');
                 return (
-                  <div key={t.id} className={`entity-card ${isDragging ? 'is-dragging' : ''}`} style={{ cursor: 'default' }} {...cardAttrs}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+                  <div key={t.id} className={`box-card ${isDragging ? 'is-dragging' : ''}`} {...cardAttrs}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
                       {teachers.length > 1 && (
-                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 0 0 -8px' }}><GripVertical size={15} /></div>
+                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 -4px 0 -6px' }}><GripVertical size={15} /></div>
                       )}
-                      <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>
+                      <div className="avatar" style={{ width: 30, height: 30, fontSize: 11, flexShrink: 0 }}>
                         {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="entity-card-name">{t.name}</div>
-                        <div className="entity-card-sub">{theirClasses.length ? theirClasses.join(', ') : 'No class assigned'}</div>
+                        <div style={{ fontWeight: 600, fontSize: 14.5 }}>{t.name}</div>
+                        {contact && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>{contact}</div>}
                       </div>
                       <button className="btn btn-icon btn-sm" title="Edit teacher" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
                         <Pencil size={13} />
@@ -227,19 +217,11 @@ export default function ClassesTeachers() {
                         <Trash2 size={13} />
                       </button>
                     </div>
-                    {row('Subjects', subjects.length
-                      ? <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{subjects.map(s => <span key={s} className="badge badge-gray" style={{ whiteSpace: 'nowrap' }}>{s}</span>)}</div>
-                      : <span className="text-muted">—</span>)}
-                    {row('Contact', (t.phone || t.email)
-                      ? <>{t.phone && <div>{t.phone}</div>}{t.email && <div className="text-muted">{t.email}</div>}</>
-                      : <span className="text-muted">—</span>)}
-                    {row('Login', (
-                      <button className="btn btn-sm" onClick={() => setLoginModal(t)} title={login ? 'Manage this login' : 'Give this teacher a login'} style={{ maxWidth: '100%' }}>
-                        <KeyRound size={12} style={{ flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.email : 'Set up login'}</span>
-                        {login && !login.active && <span className="badge badge-gray" style={{ marginLeft: 4 }}>Off</span>}
-                      </button>
-                    ))}
+                    <div className="box-row-3">
+                      <InfoBox value={theirClasses.length ? theirClasses.join(', ') : '—'} label={theirClasses.length === 1 ? 'Class' : 'Classes'} />
+                      <InfoBox value={subjects.length ? subjects.join(', ') : '—'} label="Subjects" />
+                      <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
+                    </div>
                   </div>
                 );
               }}
@@ -248,12 +230,13 @@ export default function ClassesTeachers() {
         </div>
       )}
 
-      {/* Teacher login modal */}
+      {/* Teacher or class login modal */}
       {loginModal && (
         <LoginModal
-          teacher={loginModal}
-          login={logins.find(l => l.teacherId === loginModal.id) || null}
-          classNames={classes.filter(c => c.teacherId === loginModal.id).map(c => c.name)}
+          kind={loginModal.kind}
+          item={loginModal.item}
+          login={logins.find(l => loginModal.kind === 'class' ? l.classId === loginModal.item.id : l.teacherId === loginModal.item.id) || null}
+          classNames={loginModal.kind === 'class' ? [loginModal.item.name] : classes.filter(c => c.teacherId === loginModal.item.id).map(c => c.name)}
           onClose={() => setLoginModal(null)}
           onChanged={async msg => { setLogins(await getUsers()); showToast(msg); }}
         />
@@ -336,6 +319,16 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
                 {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
+            <div className="form-group">
+              <label>Qur'an</label>
+              <select value={form.quranType || ''} onChange={e => setForm({ ...form, quranType: e.target.value })}>
+                <option value="">— Not tracked —</option>
+                {Object.entries(CLASS_QURAN_OPTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              </select>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                Hifdh tracks Hifdh Jadeed (new lesson), Muraaja'ah Qareebah (recent revision) and Muraaja'ah (older revision); Naazhirah where they read to; Qaa'idah the lesson. Choose Mixed if the class has all three — each student's level is then set on Daily records (and can be changed for any student as they move up).
+              </span>
+            </div>
           </div>
         </div>
         <div className="modal-footer">
@@ -398,10 +391,42 @@ function TeacherModal({ initial, onClose, onSave }) {
   );
 }
 
-// A teacher's login: the owner sets their email address and a password and passes them
-// on. The teacher then sees only the classes assigned to them on this page.
-function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
-  const [email, setEmail] = useState(login?.email || teacher.email || '');
+// One grey box on a class or teacher card: a value with its label underneath.
+function InfoBox({ value, label }) {
+  return (
+    <div className="info-box">
+      <div style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{value}</div>
+      <div className="info-box-label">{label}</div>
+    </div>
+  );
+}
+
+// The box on a teacher or class card that opens its login.
+function LoginBox({ login, onClick, title }) {
+  return (
+    <button type="button" className="info-box info-box-button" onClick={onClick} title={title}>
+      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 0, maxWidth: '100%' }}>
+        <KeyRound size={12} style={{ flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login ? login.login : 'Set up'}</span>
+      </div>
+      <div className="info-box-label">{login && !login.active ? 'Login off' : 'Login'}</div>
+    </button>
+  );
+}
+
+// "Class 3B" → "class3b": a suggested username for a shared class login.
+function suggestUsername(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+// A login, set up by the owner: either a teacher's own (covering the classes assigned
+// to them) or one shared login for a whole class, so whoever is teaching it that day
+// can sign in. The owner sets a username (or email address) and a password and passes
+// them on, with the madrasah's code for the first sign-in on each device.
+function LoginModal({ kind, item, login, classNames, onClose, onChanged }) {
+  const { user } = useAuth();
+  const madrasahCode = user?.madrasah?.code;
+  const [loginName, setLoginName] = useState(login?.login || (kind === 'class' ? suggestUsername(item.name) : (item.email || '')));
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -414,39 +439,47 @@ function LoginModal({ teacher, login, classNames, onClose, onChanged }) {
   }
 
   function save() {
-    if (!login) return run(() => createUser(teacher.id, email, password), `Login created for ${teacher.name}`);
+    if (!login) {
+      const owner = kind === 'class' ? { classId: item.id } : { teacherId: item.id };
+      return run(() => createUser({ ...owner, login: loginName, password }), `Login created for ${item.name}`);
+    }
     const changes = {};
-    if (email.trim().toLowerCase() !== login.email) changes.email = email;
+    if (loginName.trim().toLowerCase() !== login.login) changes.login = loginName;
     if (password) changes.password = password;
     if (!Object.keys(changes).length) { onClose(); return; }
     return run(() => updateUser(login.id, changes), 'Login updated');
   }
 
-  const canSave = login ? (email && (password === '' || password.length >= 8)) : (email && password.length >= 8);
+  const canSave = login ? (loginName && (password === '' || password.length >= 8)) : (loginName && password.length >= 8);
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
       <div className="modal" style={{ maxWidth: 400 }}>
         <div className="modal-header">
-          <div className="modal-title">{login ? 'Login' : 'Set up login'} — {teacher.name}</div>
+          <div className="modal-title">{login ? 'Login' : 'Set up login'} — {item.name}</div>
           <button className="btn btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>
-            {classNames.length
-              ? <>They'll see Attendance, Daily records and Fees for <strong>{classNames.join(', ')}</strong> only, and can mark fees as paid but not change amounts.</>
-              : <>They don't have a class yet — assign one on the Classes tab, or they'll see no students.</>}
+            {kind === 'class'
+              ? <>One login for <strong>{item.name}</strong>, shared by whoever is teaching it — handy when a teacher is off. It sees Attendance, Daily records and Fees for this class only, and can mark fees as paid but not change amounts.</>
+              : classNames.length
+                ? <>They'll see Attendance, Daily records and Fees for <strong>{classNames.join(', ')}</strong> only, and can mark fees as paid but not change amounts.</>
+                : <>They don't have a class yet — assign one on the Classes tab, or they'll see no students.</>}
           </div>
           <div className="form-group" style={{ marginBottom: 12 }}>
-            <label>Email address</label>
-            <input type="email" inputMode="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="e.g. ahmed@gmail.com" />
+            <label>Username or email address</label>
+            <input value={loginName} onChange={e => { setLoginName(e.target.value); setError(''); }} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={kind === 'class' ? 'e.g. class1' : 'e.g. ahmed or ahmed@gmail.com'} />
           </div>
           <div className="form-group" style={{ marginBottom: 6 }}>
             <label>{login ? 'New password (leave blank to keep the current one)' : 'Password (8+ characters)'}</label>
             <input type="text" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>
-            {login ? 'Setting a new password signs them out on every device.' : "Pass these on to the teacher — they can change the password themselves once signed in."}
+            {login ? 'Setting a new password signs them out on every device.' : (kind === 'class'
+              ? 'Pass these on to the teachers who cover this class.'
+              : 'Pass these on to the teacher — they can change the password themselves once signed in.')}
+            {madrasahCode && <> On a new device they'll also need the madrasah code <strong style={{ color: 'var(--ink)' }}>{madrasahCode}</strong>.</>}
           </div>
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
 
