@@ -206,6 +206,9 @@ function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
   const label = KIND_LABELS[kind];
   const next = blank(f.fromSurah) ? carryOnFrom(kind, date, entries) : null;
   const untilNew = untilNewLesson(kind, date, entries);
+  // Qaa'idah: the child's last lesson, to start from (the teacher changes the number if they've moved on).
+  const lastLesson = kind === 'lesson' && !f.lesson?.trim()
+    ? entries.filter(e => e.kind === 'lesson' && e.date <= date && e.lesson).sort(newestFirst)[0]?.lesson : null;
 
   function carryOn() {
     if (f.unit === 'quarter') {
@@ -237,6 +240,12 @@ function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
           <button className="btn btn-icon" onClick={onClose} disabled={saving}><X size={16} /></button>
         </div>
         <div className="modal-body">
+          {lastLesson && (
+            <button type="button" className="btn" onClick={() => set({ lesson: lastLesson })}
+              style={{ width: '100%', height: 36, borderRadius: 999, justifyContent: 'center', fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
+              Same as last time: {lastLesson}
+            </button>
+          )}
           {(label.quarters || next) && (
             <>
               {label.quarters && <UnitToggle f={f} set={set} />}
