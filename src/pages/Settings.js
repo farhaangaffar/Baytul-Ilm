@@ -4,6 +4,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
 import TermsCard from '../components/TermsCard';
 import FeeWeeksCard from '../components/FeeWeeksCard';
+import FeeMonthsCard from '../components/FeeMonthsCard';
 import { FREQUENCIES } from '../lib/feePeriods';
 import { Trash2, Download, Upload, Check, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
@@ -362,6 +363,8 @@ export default function Settings() {
       </div>
       {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
       {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
+      {/* Fee months — monthly fees added automatically: which months are charged */}
+      {years.length > 0 && savedFrequency === 'monthly' && form.feeAuto !== false && <FeeMonthsCard years={years} defaultYear={currentYear} />}
 
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>

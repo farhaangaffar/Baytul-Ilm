@@ -451,12 +451,13 @@ function WeeklyFees() {
           {isCurrentYear ? 'Click a student’s card to view their full month' : `Browsing ${year} — showing ${referenceMonthLabel}. Click a student’s card to view their full month.`}
         </div>
         {isOwner && <div style={{display:'flex',gap:8}}>
-          <button className="btn" onClick={()=>{
+          {/* With automatic weeks, Settings → Fee weeks switches whole weeks/months off instead. */}
+          {!autoWeeks && <button className="btn" onClick={()=>{
             const { min, max } = yearMonthBounds(year);
             const todayYM = isoToday().slice(0,7);
             setDeleteMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
             setShowDeleteMonth(true);
-          }}><Trash2 size={13}/> Delete a month</button>
+          }}><Trash2 size={13}/> Delete a month</button>}
           {!autoWeeks && <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>{
             const { min, max } = yearMonthBounds(year);
             const todayYM = isoToday().slice(0,7);

@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo.
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'attendance', 'terms', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'attendance', 'terms', 'students', 'classes', 'teachers',
   'academic_years', 'settings',
 ];
 
