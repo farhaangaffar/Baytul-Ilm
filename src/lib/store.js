@@ -3,6 +3,7 @@
 // instead, so data is shared across devices rather than trapped in one browser.
 
 import { getMadrasahCode } from './madrasahCode';
+import { getBranding } from './branding';
 
 export class AuthError extends Error {}
 export class NetworkError extends Error {}
@@ -65,6 +66,10 @@ export async function recoverOwner(recoveryKey, password) {
 export async function changePassword(currentPassword, newPassword) {
   return apiFetch('/api/login?action=change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
 }
+// The demo (server/routes/demo.js): role is 'head', 'teacher' or 'parent'.
+export async function startDemo(role) {
+  return apiFetch('/api/demo', { method: 'POST', body: JSON.stringify({ role }) });
+}
 export async function logout() {
   return apiFetch('/api/logout', { method: 'POST' });
 }
@@ -83,6 +88,15 @@ export async function createUser(data) {
 }
 export async function updateUser(id, data) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+
+// ── Parent portal (parent logins only) — see server/routes/parent.js ──
+export async function getParentHome() { return apiFetch('/api/parent'); }
+export async function getParentChild(studentId) { return apiFetch(`/api/parent?studentId=${encodeURIComponent(studentId)}`); }
+export async function reportAbsence(data) { return apiFetch('/api/parent?action=absence', { method: 'POST', body: JSON.stringify(data) }); }
+
+// ── Absences parents have reported (staff) — see server/routes/absences.js ──
+export async function getReportedAbsences(from) { return apiFetch(`/api/absences${from ? `?from=${from}` : ''}`); }
+export async function markAbsenceSeen(id) { return apiFetch(`/api/absences?id=${encodeURIComponent(id)}`, { method: 'PATCH' }); }
 
 // ── Madaaris (platform owner only) ──
 export async function getMadaaris() { return apiFetch('/api/madaaris'); }
@@ -169,8 +183,9 @@ export function hasEnrolledBy(student, todayIso) {
 }
 export async function getStudents() { return apiFetch('/api/students'); }
 export async function getStudent(id) { const list = await getStudents(); return list.find(s => s.id === id); }
-export async function addStudent(student) { return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
-export async function updateStudent(id, data) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+// Joining, leaving or moving class can change who owes what — re-check automatic fees next time.
+export async function addStudent(student) { autoFeesRun = null; return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
+export async function updateStudent(id, data) { autoFeesRun = null; return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteStudent(id) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 // ids is the full new card order for whichever class was just reordered — every
 // other student's position is left alone (see api/students.js for how nulls sort).
@@ -231,14 +246,52 @@ export function attendanceCountsForMonth(attendanceForYear, studentId, monthRang
     .map(([, status]) => status);
   return { present: days.filter(d => d === 'P').length, late: days.filter(d => d === 'L').length, absent: days.filter(d => d === 'A').length, total: days.length };
 }
+// The school days (Settings → School days; Mon–Thu to begin with) of the week, Monday
+// first, containing `anchor`.
+export function schoolDays() {
+  const d = getBranding().schoolDays;
+  return Array.isArray(d) && d.length ? d : [1, 2, 3, 4];
+}
+export function isSchoolDay(iso) { return schoolDays().includes(new Date(iso + 'T12:00:00').getDay()); }
 export function getWeekDates(anchor) {
   const d = new Date(anchor + 'T12:00:00'), day = d.getDay();
   const mon = new Date(d); mon.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
-  return [0, 1, 2, 3].map(i => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0]; });
+  const days = schoolDays();
+  return [0, 1, 2, 3, 4, 5, 6]
+    .filter(i => days.includes((i + 1) % 7))
+    .map(i => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0]; });
 }
 
 // ── Fees (keyed by year) ──
-export async function getFees(year) { return apiFetch(`/api/fees?year=${encodeURIComponent(year)}`); }
+// Automatic fees (Settings → "Add fees automatically"): monthly/termly fees add themselves
+// when a period starts; weekly, children who joined after a week started for their class
+// get it too. Checked before fees are read, at most once an hour per device.
+let autoFeesAt = 0, autoFeesRun = null;
+export function ensureAutoFees() {
+  const b = getBranding();
+  if (b.feeAuto === false) return Promise.resolve();
+  if (!autoFeesRun || Date.now() - autoFeesAt > 3600e3) {
+    autoFeesAt = Date.now();
+    autoFeesRun = apiFetch('/api/fees?action=auto', { method: 'POST', body: '{}' }).catch(() => {});
+  }
+  return autoFeesRun;
+}
+export async function getFees(year) {
+  await ensureAutoFees();
+  return apiFetch(`/api/fees?year=${encodeURIComponent(year)}`);
+}
+// Settings → Fee weeks (weekly fees): which weeks are switched off, and how many fees each
+// week has. setFeeWeeks switches weeks on/off (off removes fees not yet paid).
+// Head only: adds one week for one child (owed, or paid), if it's switched on in Fee weeks.
+// wholeClass: the week goes back on (owed) for everyone in that child's class.
+export async function addStudentWeek(studentId, weekStarting, paid, wholeClass = false) {
+  return apiFetch('/api/fees?action=add-week', { method: 'POST', body: JSON.stringify({ studentId, weekStarting, paid: !!paid, wholeClass }) });
+}
+export async function getFeeWeeks(year) { return apiFetch(`/api/fees?action=fee-weeks&year=${encodeURIComponent(year)}`); }
+export async function setFeeWeeks(weeks, on) {
+  autoFeesRun = null;
+  return apiFetch('/api/fees?action=fee-weeks', { method: 'POST', body: JSON.stringify({ weeks, on }) });
+}
 export async function addFeeRecord(rec, year) {
   return apiFetch('/api/fees', { method: 'POST', body: JSON.stringify({ ...rec, year }) });
 }
@@ -307,6 +360,28 @@ export async function getClass(id) { const list = await getClasses(); return lis
 export async function addClass(cls) { return apiFetch('/api/classes', { method: 'POST', body: JSON.stringify(cls) }); }
 export async function updateClass(id, data) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteClass(id) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+// ── Qur'an progress (hifz / nazira / qaida) — see server/routes/quran.js ──
+// One student → { entries, priorJuz }; everyone visible → { studentId: { entries, priorJuz } }
+export async function getQuranProgress(studentId) {
+  return apiFetch(`/api/quran${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`);
+}
+// entry: { studentId, date, kind, fromSurah, fromAyah, toSurah, toAyah, lesson, grade, note, unit }
+// A new entry each time (a day can have several); pass `id` to change an existing one.
+export async function addQuranEntry(entry) { return apiFetch('/api/quran', { method: 'POST', body: JSON.stringify(entry) }); }
+export async function updateQuranEntry(id, entry) {
+  return apiFetch(`/api/quran?id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(entry) });
+}
+export async function deleteQuranEntry(studentId, id) {
+  return apiFetch(`/api/quran?id=${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ studentId }) });
+}
+// A student's own Qur'an level ('hifz' | 'nazira' | 'qaida'), or null to follow their class.
+export async function saveStudentQuranType(studentId, quranType) {
+  return apiFetch('/api/quran?action=type', { method: 'PUT', body: JSON.stringify({ studentId, quranType }) });
+}
+export async function savePriorJuz(studentId, priorJuz) {
+  return apiFetch('/api/quran?action=prior', { method: 'PUT', body: JSON.stringify({ studentId, priorJuz }) });
+}
+
 export async function getClassNames() {
   // A new madrasah starts with no classes (they're added on Classes & Teachers).
   return (await getClasses()).map(c => c.name);
@@ -371,13 +446,15 @@ export async function exportAllData() {
   // Saved AI monthly summaries (the text behind each student's PDF report) live in
   // their own table, one fetch per student — not covered by anything else above.
   const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
+  // Qur'an progress: { studentId: { entries, priorJuz } }.
+  const quran = await getQuranProgress();
   // The logo and app icon are served separately from the rest of settings — fold
   // them back in as data: URLs so a restore (which PATCHes settings as-is) brings them back too.
   if (settings.hasLogo) settings.logo = await fetchImageDataUrl('logo').catch(() => undefined);
   if (settings.hasIcon) settings.icon = await fetchImageDataUrl('icon').catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
-    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries },
+    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran },
   };
 }
 async function fetchImageDataUrl(which) {
@@ -436,7 +513,7 @@ export async function importAllData(payload) {
     return;
   }
 
-  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries } = data;
+  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran } = data;
 
   for (const y of years || []) await addAcademicYear(y);
   for (const c of classes || []) await addClass(c).catch(() => {});
@@ -459,5 +536,10 @@ export async function importAllData(payload) {
   // Older backups (taken before this field existed) simply won't have it — nothing to restore.
   for (const a of aiSummaries || []) {
     await saveAiSummary(a.studentId, a.month, { summary: a.summary, instructions: a.instructions, behavior: a.behavior });
+  }
+  for (const [studentId, q] of Object.entries(quran || {})) {
+    if (q.priorJuz?.length) await savePriorJuz(studentId, q.priorJuz);
+    if (q.quranType) await saveStudentQuranType(studentId, q.quranType);
+    for (const { id, ...e } of q.entries || []) await addQuranEntry({ ...e, studentId });
   }
 }

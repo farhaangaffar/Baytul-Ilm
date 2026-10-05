@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS madaaris (
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,      -- typed on the sign-in screen, e.g. 'baytul-ilm'
   active      BOOLEAN NOT NULL DEFAULT true,
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
+  created_at  TIMESTAMP NOT NULL DEFAULT now(),
+  demo_until  TIMESTAMP,                  -- set for demo madaaris (server/demo.js), which delete themselves then
+  demo_ip     TEXT                        -- hashed address that started a demo, only to limit how many
 );
 
 CREATE TABLE IF NOT EXISTS teachers (
@@ -30,7 +32,8 @@ CREATE TABLE IF NOT EXISTS classes (
   id          TEXT PRIMARY KEY,
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
   name        TEXT NOT NULL,
-  teacher_id  TEXT REFERENCES teachers(id) ON DELETE SET NULL
+  teacher_id  TEXT REFERENCES teachers(id) ON DELETE SET NULL,
+  quran_type  TEXT  -- 'hifz' | 'nazira' | 'qaida' | 'mixed' (set per student), or NULL: not tracked
 );
 CREATE INDEX IF NOT EXISTS idx_classes_madrasah ON classes (madrasah_id);
 
@@ -71,7 +74,30 @@ CREATE TABLE IF NOT EXISTS settings (
   report_period       TEXT NOT NULL DEFAULT 'monthly', -- 'monthly' | 'termly' (Reports / AI summaries)
   currency_symbol     TEXT NOT NULL DEFAULT '£',
   logo                TEXT, -- data: URL (PNG/JPEG), downsized in the browser before upload
-  icon                TEXT  -- data: URL, 512px square app icon built from the logo
+  icon                TEXT, -- data: URL, 512px square app icon built from the logo
+  parent_portal       BOOLEAN NOT NULL DEFAULT false,
+  school_days         INTEGER[] NOT NULL DEFAULT '{1,2,3,4}', -- days classes meet (0 Sun … 6 Sat)
+  fee_auto            BOOLEAN NOT NULL DEFAULT true, -- add fees by themselves (monthly/termly periods; weekly fee weeks)
+  fee_auto_since      DATE -- Monday automatic weekly fees began; earlier weeks are never filled in
+);
+
+-- Fee periods removed on purpose (e.g. an August with no classes), for a whole class
+-- (class set) or one student (student_id set), so automatic fees never re-add them.
+CREATE TABLE IF NOT EXISTS fee_skips (
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  period      TEXT NOT NULL,
+  start_date  DATE NOT NULL,
+  class       TEXT NOT NULL DEFAULT '',
+  student_id  TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (madrasah_id, period, start_date, class, student_id)
+);
+
+-- Weekly fees: weeks the head switched off (Settings → Fee weeks); every other week is charged.
+CREATE TABLE IF NOT EXISTS fee_weeks_off (
+  madrasah_id   INTEGER NOT NULL REFERENCES madaaris(id),
+  year          TEXT NOT NULL,
+  week_starting DATE NOT NULL,
+  PRIMARY KEY (madrasah_id, week_starting)
 );
 
 CREATE TABLE IF NOT EXISTS attendance (
@@ -140,7 +166,7 @@ CREATE TABLE IF NOT EXISTS users (
   madrasah_id      INTEGER NOT NULL REFERENCES madaaris(id),
   login            TEXT NOT NULL,
   password_hash    TEXT NOT NULL,
-  role             TEXT NOT NULL CHECK (role IN ('owner','teacher')),
+  role             TEXT NOT NULL CONSTRAINT users_role_check CHECK (role IN ('owner','teacher','parent')),
   teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
   class_id         TEXT UNIQUE REFERENCES classes(id) ON DELETE CASCADE,
   platform_admin   BOOLEAN NOT NULL DEFAULT false,
@@ -161,6 +187,53 @@ CREATE TABLE IF NOT EXISTS terms (
   CHECK (end_date >= start_date)
 );
 CREATE INDEX IF NOT EXISTS idx_terms_madrasah ON terms (madrasah_id);
+
+-- Qur'an progress, recorded on Daily records (server/routes/quran.js): one row per entry
+-- (a day can have several) — hifz sabaq / sabqi / manzil, nazira reading, qaida lesson.
+CREATE TABLE IF NOT EXISTS quran_progress (
+  id           BIGSERIAL PRIMARY KEY,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date         DATE NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('sabaq','sabqi','manzil','reading','lesson')),
+  from_surah   INTEGER, from_ayah INTEGER, to_surah INTEGER, to_ayah INTEGER,
+  lesson       TEXT NOT NULL DEFAULT '',
+  grade        TEXT CHECK (grade IN ('good','weak','repeat')),
+  note         TEXT NOT NULL DEFAULT '',
+  unit         TEXT NOT NULL DEFAULT 'ayah',  -- 'ayah' or 'quarter' (recorded in juz quarters)
+  updated_at   TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_quran_progress_madrasah ON quran_progress (madrasah_id);
+CREATE INDEX IF NOT EXISTS idx_quran_progress_student_date ON quran_progress (student_id, date);
+
+-- Juz a student had already memorised before records started here.
+CREATE TABLE IF NOT EXISTS quran_students (
+  student_id   TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  prior_juz    INTEGER[] NOT NULL DEFAULT '{}',
+  quran_type   TEXT  -- the student's own level; NULL = same as their class
+);
+
+-- Parent portal: which children each family login covers, and absences parents report.
+CREATE TABLE IF NOT EXISTS parent_students (
+  user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  PRIMARY KEY (user_id, student_id)
+);
+CREATE TABLE IF NOT EXISTS absence_reports (
+  id           BIGSERIAL PRIMARY KEY,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  date         DATE NOT NULL,
+  reason       TEXT NOT NULL,
+  note         TEXT NOT NULL DEFAULT '',
+  reported_by  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  seen         BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE (student_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_absence_reports_madrasah_date ON absence_reports (madrasah_id, date);
 
 -- AI requests per madrasah, counted on the platform owner's Madaaris page.
 CREATE TABLE IF NOT EXISTS ai_usage (

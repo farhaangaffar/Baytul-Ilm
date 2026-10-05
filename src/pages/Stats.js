@@ -151,7 +151,7 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
         <div className="card-header" style={{ marginBottom: 16 }}>
           <div>
             <div className="card-title">Attendance trend</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>Present / late / absent by month, both classes</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>Present / late / absent by month, all classes</div>
           </div>
         </div>
         <div className="axis-chart-scroll">

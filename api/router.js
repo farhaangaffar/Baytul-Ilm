@@ -7,14 +7,18 @@
 const { query } = require('../server/db');
 
 const routes = {
+  absences: require('../server/routes/absences'),
   'academic-years': require('../server/routes/academic-years'),
   'ai-summary': require('../server/routes/ai-summary'),
   attendance: require('../server/routes/attendance'),
   classes: require('../server/routes/classes'),
   'daily-records': require('../server/routes/daily-records'),
+  demo: require('../server/routes/demo'),
   fees: require('../server/routes/fees'),
   login: require('../server/routes/login'),
   madaaris: require('../server/routes/madaaris'),
+  parent: require('../server/routes/parent'),
+  quran: require('../server/routes/quran'),
   logout: require('../server/routes/logout'),
   session: require('../server/routes/session'),
   settings: require('../server/routes/settings'),

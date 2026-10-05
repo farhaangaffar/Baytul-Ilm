@@ -3,12 +3,12 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
-  updateFeeAmount, deleteWeekFees, getMondayOf, getWeekStartsForMonth, getClassNames,
-  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy
+  updateFeeAmount, deleteWeekFees, deleteFeeRecord, getFeeWeeks, addStudentWeek, getMondayOf, getWeekStartsForMonth, getClassNames,
+  getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy,
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
-import { money, currencySymbol } from '../lib/branding';
+import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { feePer, feeFrequency } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
@@ -39,10 +39,11 @@ export default function Fees() {
 }
 
 function WeeklyFees() {
-  // Teachers can only mark a week as paid — no amounts, no un-marking, no adding
-  // or removing weeks. The server enforces the same rules.
+  // Teachers can tick a week paid or untick it (a mistake) — no amounts, no starting,
+  // adding or removing weeks. The server enforces the same rules.
   const { isOwner } = useAuth();
-  const canToggle = f => isOwner || f.status !== 'Paid';
+  // Anyone can tick an added fee paid or untick it (a mistake); only the head starts weeks.
+  const canToggle = () => true;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
@@ -65,6 +66,14 @@ function WeeklyFees() {
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   const [toggling, setToggling] = useState(false);
+  // With "Add fees automatically" on, weeks are charged by themselves (Settings → Fee
+  // weeks); a week not charged (switched off, or not here yet) shows as unmarked.
+  const autoWeeks = getBranding().feeAuto !== false;
+  // Head only: weeks switched off in Settings → Fee weeks (can't be added for a child),
+  // and the week being added for one child (pop-up).
+  const [offWeeks, setOffWeeks] = useState(new Set());
+  const [addWeek, setAddWeek] = useState(null); // { studentId, week }
+  const canAddWeek = w => isOwner && autoWeeks && !offWeeks.has(w);
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
@@ -86,6 +95,21 @@ function WeeklyFees() {
   const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
 
   async function refresh(y2) { setFees(await getFees(y2||year)); }
+  // Which weeks are switched off, for the year on screen (head only).
+  useEffect(() => {
+    if (!isOwner || !autoWeeks || !year) return;
+    getFeeWeeks(year).then(r => setOffWeeks(new Set(r.off))).catch(() => {});
+  }, [isOwner, autoWeeks, year]);
+  async function confirmAddWeek(paid, wholeClass = false) {
+    setToggling(true);
+    try {
+      const r = await addStudentWeek(addWeek.studentId, addWeek.week, paid, wholeClass);
+      await refresh();
+      setAddWeek(null);
+      showToast(wholeClass ? `Week added for ${r.added} child${r.added===1?'':'ren'}` : paid ? 'Week added and marked paid' : 'Week added');
+    } catch (err) { showToast(err.message || 'Could not add this week'); }
+    setToggling(false);
+  }
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
 
   async function switchYear(y) {
@@ -178,7 +202,7 @@ function WeeklyFees() {
     const newYear = academicYearOfMonth(newMonth);
     if (newYear === year) { setMonthAnchor(newMonth); return; }
     if (!years.includes(newYear)) {
-      showToast(`No ${newYear} academic year yet — add it in Settings to browse further.`);
+      showToast(`No ${newYear} academic year yet — it starts on 1 September.`);
       return;
     }
     setYear(newYear);
@@ -196,8 +220,6 @@ function WeeklyFees() {
   // via their card in the Students page's "students who have left" section instead.
   const classStudents = students.filter(s=>s.class===activeClass && s.status==='Active' && hasEnrolledBy(s, isoToday()));
   const classFees = fees.filter(f=>classStudents.some(s=>s.id===f.studentId));
-  const totalPaid = classFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const totalOwed = classFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonth = getCurrentSchoolMonth(referenceDate);
   const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
   const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
@@ -232,6 +254,34 @@ function WeeklyFees() {
           <button className={willBePaid?'btn btn-green':'btn btn-danger'} onClick={confirmTogglePaid} disabled={toggling}>
             {willBePaid?<Check size={13}/>:<X size={13}/>}{toggling?'Saving…':(willBePaid?'Mark paid':'Mark unpaid')}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const addWeekStudent = addWeek && students.find(s=>s.id===addWeek.studentId);
+  // Others in the same class who don't have this week either (e.g. it was removed for the
+  // whole class by mistake) — offer to put it back for all of them at once.
+  const missingInClass = addWeek && addWeekStudent ? students.filter(s=>s.class===addWeekStudent.class && s.status==='Active'
+    && !fees.some(f=>f.studentId===s.id && f.period==='week' && f.weekStarting===addWeek.week)).length : 0;
+  const addWeekModal = addWeek&&(
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&!toggling&&setAddWeek(null)}>
+      <div className="modal" style={{maxWidth:380}}>
+        <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>Add week of {formatDayMonthGB(addWeek.week)}?</div>
+          <div style={{color:'var(--text-muted)',fontSize:12.5}}>
+            For {addWeekStudent?`${addWeekStudent.forename} ${addWeekStudent.surname}`:'this child'} — {money(Number(addWeekStudent?.weeklyFee||0))}{missingInClass>1?`, or for everyone in ${addWeekStudent.class} who doesn't have it yet.`:'. Nobody else is charged.'}
+          </div>
+        </div>
+        <div className="modal-footer" style={{justifyContent:'center',flexWrap:'wrap'}}>
+          <button className="btn" onClick={()=>setAddWeek(null)} disabled={toggling}>Cancel</button>
+          <button className="btn" onClick={()=>confirmAddWeek(false)} disabled={toggling}>Add as owed</button>
+          <button className="btn btn-green" onClick={()=>confirmAddWeek(true)} disabled={toggling}><Check size={13}/>{toggling?'Saving…':'Add & mark paid'}</button>
+          {missingInClass>1&&(
+            <button className="btn btn-primary" style={{width:'100%',justifyContent:'center'}} onClick={()=>confirmAddWeek(false,true)} disabled={toggling}>
+              Add as owed for all {missingInClass} in {addWeekStudent.class}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -277,8 +327,11 @@ function WeeklyFees() {
                 <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
                   <div className="day-cal-name">W/C</div>
                   <div className="day-cal-date">{dateLabel}</div>
-                  <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>
-                  <div className="day-cal-label">Not added</div>
+                  {canAddWeek(w)
+                    ? <button className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)'}} title="Add this week for this child"
+                        onClick={()=>setAddWeek({studentId:selected.id, week:w})}>+</button>
+                    : <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>}
+                  <div className="day-cal-label">{offWeeks.has(w) ? 'Week off' : autoWeeks ? 'Not charged' : 'Not added'}</div>
                 </div>
               );
             }
@@ -288,7 +341,7 @@ function WeeklyFees() {
               <div className="day-cal-card" key={w} style={{background:bg, position:'relative'}}>
                 {isOwner && <button
                   onClick={()=>setConfirmDeleteWeek(w)}
-                  title={`Remove week of ${dateLabel} for all of ${selected.class} (e.g. holidays)`}
+                  title={`Remove week of ${dateLabel} — for ${selected.forename} or the whole class`}
                   style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--text-soft)',padding:2,lineHeight:0}}>
                   <Trash2 size={12}/>
                 </button>}
@@ -331,14 +384,26 @@ function WeeklyFees() {
             <div className="modal" style={{maxWidth:400}}>
               <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
                 <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
-                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove this week?</div>
+                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove week of {formatDayMonthGB(confirmDeleteWeek)}?</div>
                 <div style={{color:'var(--text-muted)',fontSize:13}}>
-                  Week of {formatDayMonthGB(confirmDeleteWeek)} will be removed for every student in {selected.class}.
-                  <br/><span style={{fontSize:12}}>Useful for holiday weeks. This cannot be undone.</span>
+                  Just for {selected.forename}, or for everyone in {selected.class}?
+                  <br/><span style={{fontSize:12}}>Whole class: useful for a holiday week. It isn't charged again either way. This cannot be undone.</span>
                 </div>
               </div>
-              <div className="modal-footer" style={{justifyContent:'center'}}>
+              <div className="modal-footer" style={{justifyContent:'center',flexWrap:'wrap'}}>
                 <button className="btn" onClick={()=>setConfirmDeleteWeek(null)}>Cancel</button>
+                {/* Just this child: removes their one fee (remembered, so it isn't added back). */}
+                <button className="btn btn-danger" style={{background:'#fff',color:'var(--red)',border:'1px solid var(--red)'}} onClick={async ()=>{
+                  try {
+                    const mine = lookup[confirmDeleteWeek];
+                    if (mine) await deleteFeeRecord(mine.id, year);
+                    await refresh();
+                    setConfirmDeleteWeek(null);
+                    showToast(`Week removed for ${selected.forename}`);
+                  } catch (err) {
+                    showToast(err.message || 'Could not remove week');
+                  }
+                }}><Trash2 size={13}/>Just {selected.forename}</button>
                 <button className="btn btn-danger" onClick={async ()=>{
                   try {
                     await deleteWeekFees(confirmDeleteWeek, year, selected.class);
@@ -348,12 +413,13 @@ function WeeklyFees() {
                   } catch (err) {
                     showToast(err.message || 'Could not remove week');
                   }
-                }}><Trash2 size={13}/>Remove week</button>
+                }}><Trash2 size={13}/>Everyone in {selected.class}</button>
               </div>
             </div>
           </div>
         )}
         {confirmToggleModal}
+        {addWeekModal}
         {toast&&<div className="toast">✓ {toast}</div>}
       </Layout>
     );
@@ -371,17 +437,13 @@ function WeeklyFees() {
         ))}
       </div>
 
-      <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(totalPaid)}</div><div className="l">Collected — {activeClass} ({year})</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(totalOwed)}</div><div className="l">Outstanding ({year})</div></div>
-        <div className="stat-card-v2"><div className="n">{classFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid records</div></div>
-        <div className="stat-card-v2"><div className="n">{classStudents.filter(s=>s.status==='Active').length}</div><div className="l">Active students</div></div>
-      </div>
-
-      <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'-4px 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>This month — {referenceMonthLabel}</div>
+      {/* This month only, for this class (the year's totals are on Stats). */}
+      <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'0 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>{activeClass} · this month — {referenceMonthLabel}</div>
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected this month</div></div>
-        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding this month</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
+        <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid weeks</div></div>
+        <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
@@ -395,12 +457,12 @@ function WeeklyFees() {
             setDeleteMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
             setShowDeleteMonth(true);
           }}><Trash2 size={13}/> Delete a month</button>
-          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>{
+          {!autoWeeks && <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>{
             const { min, max } = yearMonthBounds(year);
             const todayYM = isoToday().slice(0,7);
             setAddMonthVal(todayYM>=min && todayYM<=max ? todayYM : min);
             setShowAddMonth(true);
-          }}><Calendar size={13}/> Add a month</button>
+          }}><Calendar size={13}/> Add a month</button>}
         </div>}
       </div>
 
@@ -413,7 +475,8 @@ function WeeklyFees() {
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
               <div className="entity-card-sub" style={{marginBottom:14}}>{currencySymbol()}{s.weeklyFee}{feePer()}</div>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}} onClick={e=>e.stopPropagation()}>
+              {/* Only the week buttons themselves stop a tap; the rest of the card opens the student. */}
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
                 <div className="week-pill-row" style={{justifyContent:'center'}}>
                   {schoolMonthWeeks.map(w=>{
                     const f = monthFees.find(fee=>fee.weekStarting===w);
@@ -422,7 +485,9 @@ function WeeklyFees() {
                     const isCurrent = w===thisWeekMonday;
                     if (!f) {
                       return (
-                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled title={`Week of ${dateLabel} — not added`}>
+                        <button key={w} className={`week-pill not-added ${isCurrent?'is-current':''}`} disabled={!canAddWeek(w)}
+                          title={`Week of ${dateLabel} — ${offWeeks.has(w) ? 'switched off in Settings' : autoWeeks ? 'not charged' : 'not added'}${canAddWeek(w) ? ' (tap to add for this child)' : ''}`}
+                          onClick={e=>{ e.stopPropagation(); if (canAddWeek(w)) setAddWeek({studentId:s.id, week:w}); }}>
                           <span className="d">{dayNum}</span><span className="dot"></span>
                         </button>
                       );
@@ -431,7 +496,7 @@ function WeeklyFees() {
                     return (
                       <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
                         title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
-                        onClick={()=>canToggle(f)&&setConfirmToggle(f)}>
+                        onClick={e=>{ e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
                         <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>
                     );
@@ -542,6 +607,7 @@ function WeeklyFees() {
       })()}
 
       {confirmToggleModal}
+        {addWeekModal}
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );

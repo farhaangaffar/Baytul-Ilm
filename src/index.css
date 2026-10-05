@@ -178,9 +178,20 @@ tbody tr:hover td { background: #f9fafb; }
 .entity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 720px) { .entity-grid { grid-template-columns: 1fr; } }
 .entity-card { background: var(--surface); border-radius: var(--r-card); padding: 20px 22px; box-shadow: var(--shadow-md); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; min-width: 0; flex-wrap: wrap; row-gap: 10px; }
-.entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); } }
 .entity-card-name { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; }
 .entity-card-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 2px; }
+/* Classes & Teachers: small outlined cards, side by side as space allows, each with a
+   row of three boxes (InfoBox / LoginBox). */
+.box-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.box-card { border: 1px solid #dfe3e8; border-radius: 12px; padding: 10px; background: var(--surface); min-width: 0; }
+.box-card.is-dragging { opacity: 0.45; }
+.box-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.info-box { background: #f3f4f6; border-radius: 8px; padding: 6px; min-height: 46px; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 12.5px; line-height: 1.25; color: var(--ink); }
+.info-box-label { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+.info-box-button { border: 1px solid #dfe3e8; background: #fff; cursor: pointer; font-family: var(--font); }
+.info-box-button:hover { border-color: #c5ccd5; }
 .entity-card.is-dragging, .card.is-dragging { opacity: 0.45; box-shadow: var(--shadow-sm); transform: scale(0.98); }
 .drag-handle { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin: -4px -4px -4px 0; border-radius: 8px; color: var(--text-soft); flex-shrink: 0; touch-action: none; }
 .drag-handle:hover { background: #f3f4f6; color: var(--text-muted); }
@@ -199,7 +210,8 @@ tbody tr:hover td { background: #f9fafb; }
 .student-column-header { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; margin-bottom: 10px; padding: 0 2px; }
 .student-compact-list { display: flex; flex-direction: column; gap: 8px; }
 .student-compact-card { background: var(--surface); border-radius: var(--r-card); padding: 11px 14px; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
-.student-compact-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .student-compact-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); } }
 .student-compact-name { font-size: 13.5px; font-weight: 600; }
 .student-compact-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 /* Students page: one full-width card per class, opened to show its students */
@@ -220,7 +232,8 @@ tbody tr:hover td { background: #f9fafb; }
    coloured dot — the other two options stay a muted grey dot, same as an unmarked week
    on Fees. */
 .mark-btn { flex: 1 1 0; max-width: 90px; min-width: 46px; height: 46px; border-radius: 13px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 14px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
-.mark-btn:hover { transform: translateY(-2px); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .mark-btn:hover { transform: translateY(-2px); } }
 .mark-btn .dot { width: 9px; height: 9px; border-radius: 50%; background: #d1d5db; }
 .mark-btn.on-p .dot { background: var(--green); }
 .mark-btn.on-l .dot { background: var(--amber); }
@@ -233,7 +246,8 @@ tbody tr:hover td { background: #f9fafb; }
 }
 
 .mark-btn-sm { width: 25px; height: 25px; border-radius: 50%; border: 2px solid #e7eaf0; background: #fff; font-family: var(--font-num); font-weight: 600; font-size: 10px; color: var(--text-soft); cursor: pointer; transition: all 0.12s; }
-.mark-btn-sm:hover:not(:disabled) { transform: scale(1.12); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .mark-btn-sm:hover:not(:disabled) { transform: scale(1.12); } }
 .mark-btn-sm:disabled { cursor: default; }
 .mark-btn-sm.is-current { box-shadow: 0 0 0 2px var(--blue); }
 
@@ -255,7 +269,8 @@ tbody tr:hover td { background: #f9fafb; }
    sides in proportion to however few weeks that month had, worst on the wide desktop
    2-column layout. */
 .week-pill { flex: 1 1 0; max-width: 90px; min-width: 46px; height: 46px; border-radius: 13px; border: none; background: #f3f4f6; font-family: var(--font-num); font-weight: 700; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; line-height: 1; cursor: pointer; transition: transform 0.12s; }
-.week-pill:hover:not(:disabled) { transform: translateY(-2px); }
+/* Only with a mouse: on iPhones a hover effect makes the first tap just "hover". */
+@media (hover: hover) { .week-pill:hover:not(:disabled) { transform: translateY(-2px); } }
 .week-pill:disabled { cursor: default; }
 .week-pill .d { font-size: 14px; }
 .week-pill .dot { width: 9px; height: 9px; border-radius: 50%; }
@@ -283,7 +298,16 @@ tbody tr:hover td { background: #f9fafb; }
    4 or 5 depending on the month), which as an inline style always wins over this rule
    regardless of specificity. !important is the one legitimate way to still cap it at 2
    columns on mobile — same fix already used for .student-columns below. */
-@media (max-width: 640px) { .day-cal-row { grid-template-columns: 1fr 1fr !important; } }
+@media (max-width: 640px) { .day-cal-row:not(.att-days) { grid-template-columns: 1fr 1fr !important; } }
+/* Attendance month view on phones: every school day of the week in one compact row. */
+@media (max-width: 640px) {
+  .day-cal-row.att-days { gap: 6px; }
+  .att-days .day-cal-card { padding: 10px 4px; min-width: 0; }
+  .att-days .day-cal-name { font-size: 11px; }
+  .att-days .day-cal-date { font-size: 11px; white-space: nowrap; }
+  .att-days .day-cal-status { width: 34px; height: 34px; font-size: 13px; margin: 8px auto; }
+  .att-days .day-cal-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 .day-cal-card { border-radius: var(--r-md); padding: 16px 14px; text-align: center; box-shadow: var(--shadow-md); }
 .day-cal-name { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .day-cal-date { font-family: var(--font-num); font-size: 11px; color: var(--text-soft); margin-top: 2px; margin-bottom: 14px; }
@@ -341,6 +365,10 @@ tbody tr:hover td { background: #f9fafb; }
 .school-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .school-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .school-grid { grid-template-columns: minmax(0, 1fr); } }
+/* Settings → Fees: four short fields — four across, two, then one on phones */
+.fees-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .fees-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .fees-grid { grid-template-columns: minmax(0, 1fr); } }
 /* Same height for every box (the Arabic name's font would otherwise make its box taller) */
 .school-grid input:not([type="file"]), .school-grid select { height: 38px; box-sizing: border-box; }
 .form-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -422,6 +450,20 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
    column's content off-screen on narrower-but-not-mobile viewports (e.g. an
    unfolded Z Fold). min-width:0 lets tracks actually shrink to fit. */
 .grid-2 > * { min-width: 0; }
+/* Daily records, a student's page: tabs (Qur'an | Daily record | Report), each one
+   roomy column. */
+.student-page { max-width: 860px; margin: 0 auto; }
+.student-tabs { display: flex; gap: 4px; background: #e9ecf0; border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.student-tabs button { flex: 1; min-width: 0; white-space: nowrap; border: none; border-radius: 999px; padding: 9px 8px; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--text-muted); background: transparent; cursor: pointer; }
+.student-tabs button.active { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+.student-tab { display: flex; flex-direction: column; gap: 16px; }
+.student-tab > .card { margin: 0 !important; }
+/* Input progress: one button-row per part (name, + Add). */
+.entry-rows { display: flex; flex-direction: column; gap: 6px; }
+.entry-row-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); }
+.entry-row { display: block; width: 100%; background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font); text-align: left; min-height: 46px; }
+/* Shown only on phones / only on wider screens (the 768px breakpoint below). */
+.only-narrow { display: none; }
 
 /* Reports page — the "select a student" / "student header + history" panels
    unified into one card split down the middle, rather than two separate
@@ -480,6 +522,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
   .metrics-grid { grid-template-columns: repeat(2,1fr); }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .only-narrow { display: block; }
+  .only-wide { display: none; }
   .record-panels { grid-template-columns: 1fr; }
   .modal-overlay { padding: 10px; align-items: flex-end; backdrop-filter: none; }
   .modal { max-height: 95vh; max-height: 95dvh; border-radius: 20px 20px 0 0; }

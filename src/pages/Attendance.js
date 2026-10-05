@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy } from '../lib/store';
+import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -25,6 +25,7 @@ export default function Attendance() {
   const [currentYear, setCurrentYear] = useState('');
   const [attData, setAttData] = useState({});
   const [lateTimes, setLateTimes] = useState({}); // { studentId: { date: 'HH:MM' } }
+  const [reported, setReported] = useState([]);   // absences parents have reported, today onwards
   const [selectedId, setSelectedId] = useState(null);
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [toast, setToast] = useState('');
@@ -39,6 +40,8 @@ export default function Attendance() {
       ]);
       setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData); setYear(y); setCurrentYear(y); setAttData(attendanceData); setLateTimes(lateTimesData);
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
+      // A bonus, not needed to take the register — never blocks the page.
+      getReportedAbsences().then(setReported).catch(() => {});
     } catch (err) {
       setError(err);
     }
@@ -80,6 +83,9 @@ export default function Attendance() {
     setLateTimes(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: time } }));
     try {
       await setAttendance(studentId, date, next, year, time);
+      // Marking the day settles any absence the parent reported for it — they see "Seen".
+      const r = reported.find(x => x.studentId === studentId && x.date === date && !x.seen);
+      if (r && next) markAbsenceSeen(r.id).then(() => setReported(prev => prev.map(x => x.id === r.id ? { ...x, seen: true } : x))).catch(() => {});
     } catch (err) {
       setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: cur } }));
       setLateTimes(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: curTime } }));
@@ -111,7 +117,7 @@ export default function Attendance() {
     const newYear = academicYearOfMonth(newMonth);
     if (newYear === year) { setMonthAnchor(newMonth); return; }
     if (!years.includes(newYear)) {
-      showToast(`No ${newYear} academic year yet — add it in Settings to browse further.`);
+      showToast(`No ${newYear} academic year yet — it starts on 1 September.`);
       return;
     }
     setYear(newYear);
@@ -173,7 +179,9 @@ export default function Attendance() {
         {monthWeeks.map(w=>{
           const weekDates = getWeekDates(w);
           return (
-            <div className="day-cal-row" key={w} style={{marginBottom:12}}>
+            // One card per school day (Settings → School days); on phones they sit in one
+            // compact row (att-days).
+            <div className="day-cal-row att-days" key={w} style={{marginBottom:12, gridTemplateColumns:`repeat(${weekDates.length}, minmax(0, 1fr))`}}>
               {weekDates.map(date=>{
                 const status = attData[selected.id]?.[date];
                 const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
@@ -241,19 +249,48 @@ export default function Attendance() {
         ))}
       </div>
 
+      {/* Absences parents have reported for the coming days, for this class. */}
+      {(() => {
+        const ids = new Set(classStudents.map(s => s.id));
+        const upcoming = reported.filter(r => ids.has(r.studentId) && r.date > TODAY);
+        if (!isCurrentYear || !upcoming.length) return null;
+        return (
+          <div className="card" style={{marginBottom:14,padding:'12px 16px',fontSize:12.5}}>
+            <div style={{fontWeight:600,marginBottom:6}}>Absences parents have told us about</div>
+            {upcoming.map(r => {
+              const st = classStudents.find(s => s.id === r.studentId);
+              return <div key={r.id} className="text-muted">{formatDayMonthGB(r.date)} · <strong style={{color:'var(--ink)'}}>{st.forename} {st.surname}</strong> · {r.reason}{r.note ? ` — ${r.note}` : ''}</div>;
+            })}
+          </div>
+        );
+      })()}
+
       <div className="entity-grid">
         {classStudents.map(s=>{
           const todayStatus = attData[s.id]?.[TODAY];
           const wc = weekCountsFor(s.id, thisWeekDates);
           return (
-            <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
+            <div className="entity-card" key={s.id} role="button" tabIndex={0} onClick={()=>openStudent(s.id)}
+              onKeyDown={e=>{ if (e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); openStudent(s.id); } }}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
-              <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>
-              {isCurrentYear && (
-                <div className="mark-btn-row" style={{justifyContent:'center'}} onClick={e=>e.stopPropagation()}>
-                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} title="Present" onClick={()=>mark(s.id,TODAY,'P')}><span className="d">P</span><span className="dot"></span></button>
-                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} title="Late" onClick={()=>mark(s.id,TODAY,'L')}><span className="d">L</span><span className="dot"></span></button>
-                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} title="Absent" onClick={()=>mark(s.id,TODAY,'A')}><span className="d">A</span><span className="dot"></span></button>
+              {(() => {
+                const r = isCurrentYear && reported.find(x => x.studentId === s.id && x.date === TODAY);
+                return r
+                  ? <div style={{fontSize:12,background:'var(--amber-light)',color:'var(--amber-text)',borderRadius:'var(--r-md)',padding:'4px 8px',margin:'4px 0 12px'}}>Parent reported: <strong>{r.reason}</strong>{r.note?` — ${r.note}`:''}</div>
+                  : <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>;
+              })()}
+              {isCurrentYear && !isSchoolDay(TODAY) && (
+                <div style={{textAlign:'center',fontSize:12.5,color:'var(--text-muted)',background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'10px 8px'}}>
+                  No class today — open {s.forename} to mark another day
+                </div>
+              )}
+              {isCurrentYear && isSchoolDay(TODAY) && (
+                // Only the P / L / A buttons themselves mark; tapping anywhere else on the
+                // card (including the space around them) opens the student.
+                <div className="mark-btn-row" style={{justifyContent:'center'}}>
+                  <button className={`mark-btn ${todayStatus==='P'?'on-p':''}`} title="Present" onClick={e=>{e.stopPropagation();mark(s.id,TODAY,'P');}}><span className="d">P</span><span className="dot"></span></button>
+                  <button className={`mark-btn ${todayStatus==='L'?'on-l':''}`} title="Late" onClick={e=>{e.stopPropagation();mark(s.id,TODAY,'L');}}><span className="d">L</span><span className="dot"></span></button>
+                  <button className={`mark-btn ${todayStatus==='A'?'on-a':''}`} title="Absent" onClick={e=>{e.stopPropagation();mark(s.id,TODAY,'A');}}><span className="d">A</span><span className="dot"></span></button>
                 </div>
               )}
               <div style={{fontSize:11,color:'var(--text-soft)',marginTop:isCurrentYear?10:0,textAlign:'center'}}>Week of {formatDayMonthGB(thisWeekDates[0])}: {wc.P}P · {wc.L}L · {wc.A}A</div>
