@@ -4,13 +4,14 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 // One line of equal boxes — a day's attendance, a fee, a Qur'an entry. Label boxes
 // (grey) name the line; choice boxes stay plain unless they apply, when they fill in
 // their tone. A header box (with a chevron) heads a month that opens.
-//   cells: [{ text, sub?, label?, header?, open?, action? (a dark button-like box), tone?: 'green'|'amber'|'red', wrap?: true | 'words' }]
+//   cells: [{ text, sub?, label?, header?, open?, action? (a dark button-like box), tone?: 'green'|'blue'|'amber'|'red', wrap?: true | 'words' }]
 //   columns: CSS grid columns (default four equal ones; null = set by `className` in CSS);
 //   fill: take the parent's height. A cell's own className is put on its box.
 const TONES = {
   green: ['var(--green-light)', 'var(--green)', 'var(--green-text)'],
   amber: ['var(--amber-light)', 'var(--amber)', 'var(--amber-text)'],
   red: ['var(--red-light)', 'var(--red)', 'var(--red-text)'],
+  blue: ['var(--teal-light)', 'var(--teal-mid)', 'var(--teal-dark)'],
 };
 
 export default function BoxRow({ cells, columns = 'repeat(4, minmax(0, 1fr))', fill = false, className }) {

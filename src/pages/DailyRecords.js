@@ -182,7 +182,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   const [quran, setQuran] = useState(initialQuran || null);
   const quranType = quran ? effectiveQuranType(classType, quran.quranType) : null;
   // Which tab is showing — remembered between students (and visits) on this device.
-  const tabs = [hasQuran&&['quran',"Qur'an"],['day','Daily record'],isOwner&&['report','Report']].filter(Boolean);
+  const tabs = [hasQuran&&['quran',"Qur'an"],['day','Behaviour'],isOwner&&['report','Report']].filter(Boolean);
   const [tabPick, setTabPick] = useState(()=>{ try { return localStorage.getItem('records_tab')||''; } catch { return ''; } });
   const tab = tabs.some(([k])=>k===tabPick) ? tabPick : tabs[0][0];
   function pickTab(k){ setTabPick(k); try { localStorage.setItem('records_tab',k); } catch { /* fine */ } }
@@ -347,7 +347,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
       const freshRecords = await getStudentRecords(student.id);
       const monthDates=Object.keys(freshRecords).filter(inPeriod).sort((a,b)=>b.localeCompare(a));
       if (!monthDates.length && !hasQuran) {
-        setAiSummary(`No records found for this ${unitWord}. Add some daily entries first.`);
+        setAiSummary(`No records found for this ${unitWord}. Add some lesson notes or behaviour records first.`);
         setAiLoading(false);
         return;
       }
@@ -361,7 +361,8 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
       const counts = termly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
       // Qur'an progress for the period, as exact figures the summary can quote.
       const quranFacts = quranType ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
-      const prompt=`You are a helpful Madrasah assistant. Below are the daily records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\n${quranFacts}` : ''}\n\n${entries}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Cover: overall attitude and behaviour, ${quranFacts ? "their Qur'an progress (quote the figures above accurately), " : ''}key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      // Lesson notes (in quranFacts) are the main source; behaviour records come second.
+      const prompt=`You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'an progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'an progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -439,7 +440,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
         </div>
       </div>
 
-      {/* One thing at a time: Qur'an | Daily record | Report (heads only), each a
+      {/* One thing at a time: Qur'an | Behaviour | Report (heads only), each a
           single roomy column. */}
       {tabs.length>1&&(
         <div className="student-tabs" role="tablist">
@@ -534,7 +535,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
           {/* History: academic years as boxes → tap one for its months → tap a month for a
               card of its days → tap a day to read that day's record in the same card. */}
           <div className="card">
-            <div className="card-title" style={{marginBottom:10}}>Records</div>
+            <div className="card-title" style={{marginBottom:10}}>Behaviour records</div>
             {dates.length===0&&(
               <div style={{textAlign:'center',padding:'12px 0',color:'var(--text-muted)',fontSize:13}}>No records yet. Use the form above to add one.</div>
             )}
@@ -738,7 +739,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
             {!aiSummary&&!aiLoading&&(
               <div style={{textAlign:'center',padding:'16px 0',color:'var(--text-muted)',fontSize:13}}>
                 <Sparkles size={24} style={{opacity:.2,marginBottom:8,display:'block',margin:'0 auto 8px'}}/>
-                Add daily records then click above to generate a summary for {student.forename}.
+                Add lesson notes or behaviour records, then click above to write a summary for {student.forename}.
               </div>
             )}
             </>)}
@@ -869,7 +870,7 @@ export default function DailyRecords() {
   if (error) return <Layout title="Daily records"><ErrorState error={error} onRetry={load} /></Layout>;
 
   return (
-    <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?'Daily comments, positives & concerns':'Select a student to view or add records'}>
+    <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?"Qur'an, behaviour and reports":'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]}
           initialQuran={quranAll[selectedStudent.id] || (quranAllLoaded ? { entries: [], priorJuz: [], quranType: null } : null)} onQuranChanged={updateQuranFor}

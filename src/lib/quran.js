@@ -233,6 +233,7 @@ export const KIND_LABELS = {
 
 export const GRADES = [
   { key: 'good', label: 'Good', color: 'var(--green)', bg: 'var(--green-light)', text: 'var(--green-text)' },
+  { key: 'okay', label: 'Okay', color: 'var(--teal-mid)', bg: 'var(--teal-light)', text: 'var(--teal-dark)' },
   { key: 'weak', label: 'Weak', color: 'var(--amber)', bg: 'var(--amber-light)', text: 'var(--amber-text)' },
   { key: 'repeat', label: 'Repeat', color: 'var(--red)', bg: 'var(--red-light)', text: 'var(--red-text)' },
 ];
