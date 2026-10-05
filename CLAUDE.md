@@ -118,7 +118,7 @@ codebase (one codebase, not a fork).
   wording — use them everywhere, never the stored keys): levels hifz/nazira/qaida show as
   **Hifdh / Naazhirah / Qaa'idah**; kinds sabaq/sabqi/manzil/reading/lesson show as **Hifdh
   Jadeed / Muraaja'ah Qareebah / Muraaja'ah / Naazhirah / Qaa'idah** (`KIND_LABELS`,
-  `QURAN_TYPES` in `src/lib/quran.js`). Hifdh Jadeed is never recorded in quarters;
+  `QURAN_TYPES` in `src/lib/quran.js`). Hifdh Jadeed is never recorded in quarters; Qaa'idah offers "Same as last time" (the child's last lesson text);
   Muraaja'ah Qareebah's "To" offers "Until new lesson" (the ayah before the latest Hifdh
   Jadeed). Hifz is recorded by **surah and ayah**
   (sabaq / sabqi / manzil, graded good / okay / weak / repeat, with **lesson notes** — the
