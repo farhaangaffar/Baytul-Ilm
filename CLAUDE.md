@@ -111,8 +111,11 @@ codebase (one codebase, not a fork).
   The current **academic year** adds itself from 1 September (`/api/academic-years` GET).
 - **School days** (Settings, `settings.school_days`, JS day numbers, Mon–Thu by default):
   `getWeekDates()` / `isSchoolDay()` in `src/lib/store.js` — never assume Mon–Thu.
-  **Days off** (Settings card `DaysOffCard`, `days_off`, `/api/days-off` — head edits, teachers
-  read): closed dates like Eid; Attendance shows "Closed today — <name>" and greys the day.
+  **Days off & extra days** (Settings card `DaysOffCard`, `days_off` with `kind` 'off'/'extra',
+  `/api/days-off` — head edits, teachers read; closed days can be added/removed as a From–To range,
+  one row per date, shown grouped): closed dates like Eid — Attendance shows "Closed today — <name>"
+  and greys the day; extra dates (a Ramadhaan Saturday) count as school days in `isSchoolDay()` /
+  `getWeekDates()` once `getSpecialDays()` has loaded them.
 - Report period (Settings): **monthly** (one report per school month — the original
   system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
   is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`

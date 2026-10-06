@@ -1,11 +1,13 @@
 const { query } = require('../db');
 const { requireAuth, isOwner } = require('../auth');
 
-// Days the madrasah is closed (Eid, a snow day, a teacher training day…), set by the head in
-// Settings → Days off. Attendance shows them as closed instead of asking for a register.
-//   GET                      → [{ date, name }] (head and teachers)
-//   POST { date, name }      → add or rename one (head only)
-//   DELETE ?date=YYYY-MM-DD  → remove one (head only)
+// Days the madrasah is closed (Eid, a snow day, a teacher training day…) — kind 'off' — and
+// extra days it opens outside its normal school days (a Saturday in Ramadhaan) — kind
+// 'extra' — set by the head in Settings → Days off & extra days. Attendance shows closed days
+// as closed, and asks for a register on extra days.
+//   GET                          → [{ date, name, kind }] (head and teachers)
+//   POST { date, to?, name, kind } → add or change one, or every day date..to (closed only, head only)
+//   DELETE ?date=YYYY-MM-DD[&to=…]   → remove one, or every day in a range (head only)
 let ready = false;
 async function ensureTable() {
   if (ready) return;
@@ -15,32 +17,47 @@ async function ensureTable() {
     name         TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (madrasah_id, date)
   )`);
+  await query(`ALTER TABLE days_off ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'off'`);
   ready = true;
 }
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+// Every date from `from` to `to` (inclusive), at most 92 days; [from] when there's no valid `to`.
+function datesBetween(from, to) {
+  if (!ISO.test(String(to || '')) || to <= from) return [from];
+  const out = [];
+  for (let d = new Date(from + 'T12:00:00Z'); out.length < 92; d.setUTCDate(d.getUTCDate() + 1)) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > to) break;
+    out.push(iso);
+  }
+  return out;
+}
 
 module.exports = requireAuth(async (req, res) => {
   await ensureTable();
   const mid = req.user.madrasahId;
   if (req.method === 'GET') {
-    const { rows } = await query('SELECT date, name FROM days_off WHERE madrasah_id = $1 ORDER BY date', [mid]);
+    const { rows } = await query('SELECT date, name, kind FROM days_off WHERE madrasah_id = $1 ORDER BY date', [mid]);
     res.status(200).json(rows);
     return;
   }
   if (!isOwner(req)) { res.status(403).json({ error: "You don't have access to this." }); return; }
   if (req.method === 'POST') {
     const { date, name } = req.body || {};
+    const kind = req.body?.kind === 'extra' ? 'extra' : 'off';
     if (!ISO.test(String(date || ''))) { res.status(400).json({ error: 'Choose a date' }); return; }
-    const label = String(name || '').trim().slice(0, 60) || 'Closed';
-    await query(`INSERT INTO days_off (madrasah_id, date, name) VALUES ($1, $2, $3)
-                 ON CONFLICT (madrasah_id, date) DO UPDATE SET name = EXCLUDED.name`, [mid, date, label]);
-    res.status(200).json({ ok: true, date, name: label });
+    const label = String(name || '').trim().slice(0, 60) || (kind === 'extra' ? 'Extra day' : 'Closed');
+    const dates = kind === 'off' ? datesBetween(date, req.body?.to) : [date];
+    await query(`INSERT INTO days_off (madrasah_id, date, name, kind)
+                 SELECT $1, d::date, $3, $4 FROM unnest($2::text[]) AS d
+                 ON CONFLICT (madrasah_id, date) DO UPDATE SET name = EXCLUDED.name, kind = EXCLUDED.kind`, [mid, dates, label, kind]);
+    res.status(200).json({ ok: true, date, dates, name: label, kind });
     return;
   }
   if (req.method === 'DELETE') {
     const date = String(req.query.date || '');
     if (!ISO.test(date)) { res.status(400).json({ error: 'date is required' }); return; }
-    await query('DELETE FROM days_off WHERE madrasah_id = $1 AND date = $2', [mid, date]);
+    await query('DELETE FROM days_off WHERE madrasah_id = $1 AND date = ANY($2::date[])', [mid, datesBetween(date, String(req.query.to || ''))]);
     res.status(200).json({ ok: true });
     return;
   }

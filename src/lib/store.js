@@ -248,25 +248,33 @@ export function attendanceCountsForMonth(attendanceForYear, studentId, monthRang
 }
 // The school days (Settings → School days; Mon–Thu to begin with) of the week, Monday
 // first, containing `anchor`.
-// Days off (Settings → Days off): { 'YYYY-MM-DD': name } for days the madrasah is closed.
-export async function getDaysOff() {
+// Days off & extra days (Settings): { off: { date: name }, extra: { date: name } } — days the
+// madrasah is closed, and days it opens outside its normal school days. Extra days are also
+// kept here so isSchoolDay() / getWeekDates() include them once loaded.
+let extraDays = {};
+export async function getSpecialDays() {
   const rows = await apiFetch('/api/days-off');
-  return Object.fromEntries(rows.map(r => [r.date, r.name]));
+  const out = { off: {}, extra: {} };
+  rows.forEach(r => { out[r.kind === 'extra' ? 'extra' : 'off'][r.date] = r.name; });
+  extraDays = out.extra;
+  return out;
 }
-export async function addDayOff(date, name) { return apiFetch('/api/days-off', { method: 'POST', body: JSON.stringify({ date, name }) }); }
-export async function removeDayOff(date) { return apiFetch(`/api/days-off?date=${encodeURIComponent(date)}`, { method: 'DELETE' }); }
+export async function addSpecialDay(date, name, kind, to) { return apiFetch('/api/days-off', { method: 'POST', body: JSON.stringify({ date, to, name, kind }) }); }
+export async function removeDayOff(date, to) { return apiFetch(`/api/days-off?date=${encodeURIComponent(date)}${to ? `&to=${encodeURIComponent(to)}` : ''}`, { method: 'DELETE' }); }
 export function schoolDays() {
   const d = getBranding().schoolDays;
   return Array.isArray(d) && d.length ? d : [1, 2, 3, 4];
 }
-export function isSchoolDay(iso) { return schoolDays().includes(new Date(iso + 'T12:00:00').getDay()); }
+export function isSchoolDay(iso) { return !!extraDays[iso] || schoolDays().includes(new Date(iso + 'T12:00:00').getDay()); }
 export function getWeekDates(anchor) {
   const d = new Date(anchor + 'T12:00:00'), day = d.getDay();
   const mon = new Date(d); mon.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
   const days = schoolDays();
+  // The week's school days, plus any extra days (Settings) that fall in it.
   return [0, 1, 2, 3, 4, 5, 6]
-    .filter(i => days.includes((i + 1) % 7))
-    .map(i => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0]; });
+    .map(i => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return { i, iso: dt.toISOString().split('T')[0] }; })
+    .filter(({ i, iso }) => days.includes((i + 1) % 7) || extraDays[iso])
+    .map(({ iso }) => iso);
 }
 
 // ── Fees (keyed by year) ──
