@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarCheck } from 'lucide-react';
 import { getFeeMonths, setFeeMonths } from '../lib/store';
 
@@ -22,6 +22,10 @@ export default function FeeMonthsCard({ years, defaultYear }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [confirmOff, setConfirmOff] = useState(null); // a charged month waiting for "remove unpaid fees?"
+  // Saves run one after another; the card refreshes once they've all finished (no flicker).
+  const queue = useRef(Promise.resolve());
+  const pending = useRef(0);
 
   const load = useCallback(async (quiet = false) => {
     if (!year) return;
@@ -37,19 +41,21 @@ export default function FeeMonthsCard({ years, defaultYear }) {
   const thisMonth = new Date().toISOString().slice(0, 7) + '-01';
   const onCount = months.filter(m => !off.has(m)).length;
 
-  async function toggle(m) {
+  function toggle(m, confirmed = false) {
     const on = off.has(m);
-    if (!on && charged[m] && !window.confirm(
-      `${monthName(m)} has already been charged.\n\nSwitch it off and remove fees not yet paid, for everyone? Payments already made stay recorded.`)) return;
-    const before = off;
-    setOff(prev => { const next = new Set(prev); on ? next.delete(m) : next.add(m); return next; });
-    setBusy(true); setError(''); setNote('');
-    try {
-      const r = await setFeeMonths([m], on);
-      await load(true);
-      if (r.removed) setNote(`${r.removed} unpaid fee${r.removed === 1 ? '' : 's'} removed`);
-    } catch (err) { setOff(before); setError(err.message || 'Could not change the fee months'); }
-    setBusy(false);
+    if (!on && !confirmed && charged[m]) { setConfirmOff(m); return; }
+    const flip = (set, toOn) => { const next = new Set(set); toOn ? next.delete(m) : next.add(m); return next; };
+    setOff(prev => flip(prev, on));
+    setError(''); setNote(''); setBusy(true);
+    pending.current += 1;
+    queue.current = queue.current.then(async () => {
+      try {
+        const r = await setFeeMonths([m], on);
+        if (r.removed) setNote(`${r.removed} unpaid fee${r.removed === 1 ? '' : 's'} removed`);
+      } catch (err) { setOff(prev => flip(prev, !on)); setError(err.message || 'Could not change the fee months'); }
+      pending.current -= 1;
+      if (pending.current === 0) { await load(true); setBusy(false); }
+    });
   }
 
   const inputStyle = { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontFamily: 'var(--font)', fontSize: 13 };
@@ -85,6 +91,20 @@ export default function FeeMonthsCard({ years, defaultYear }) {
       )}
       <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10 }}>A dot means that month has already been charged.</div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>{error}</div>}
+      {confirmOff && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setConfirmOff(null)}>
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-body" style={{ textAlign: 'center', paddingTop: 28 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>{monthName(confirmOff)} has already been charged</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>Switching it off removes fees not yet paid, for everyone. Payments already made stay recorded.</div>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setConfirmOff(null)}>Keep it on</button>
+              <button className="btn btn-danger" onClick={() => { const m = confirmOff; setConfirmOff(null); toggle(m, true); }}>Switch off</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
