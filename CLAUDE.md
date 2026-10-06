@@ -76,7 +76,7 @@ codebase (one codebase, not a fork).
   (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
-- Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Terms])
+- Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Days off, Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
 - School-specific details (name, Arabic name, currency, logo/app icon) come from
@@ -111,6 +111,8 @@ codebase (one codebase, not a fork).
   The current **academic year** adds itself from 1 September (`/api/academic-years` GET).
 - **School days** (Settings, `settings.school_days`, JS day numbers, Mon–Thu by default):
   `getWeekDates()` / `isSchoolDay()` in `src/lib/store.js` — never assume Mon–Thu.
+  **Days off** (Settings card `DaysOffCard`, `days_off`, `/api/days-off` — head edits, teachers
+  read): closed dates like Eid; Attendance shows "Closed today — <name>" and greys the day.
 - Report period (Settings): **monthly** (one report per school month — the original
   system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
   is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`
