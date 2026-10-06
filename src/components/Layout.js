@@ -8,6 +8,7 @@ import { useAuth } from '../lib/AuthContext';
 import ChangePasswordModal from './ChangePasswordModal';
 import InstallBanner from './InstallBanner';
 import InstallSteps from './InstallSteps';
+import { usePageHelp, PageHelpButton } from './PageHelp';
 import { DemoBar, leaveDemo } from './Demo';
 
 const navItems = [
@@ -38,6 +39,7 @@ export default function Layout({ children, title, subtitle }) {
   const installPrompt = useInstallPrompt();
   const { user, isOwner, isPlatformAdmin } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
+  const pageHelp = usePageHelp(pathname, user?.role);
   // Teachers only get their three pages (and no section headings).
   const visibleNav = isOwner
     ? navItems.filter(i => !i.platform || isPlatformAdmin)
@@ -141,8 +143,17 @@ export default function Layout({ children, title, subtitle }) {
             <div className="topbar-title">{title}</div>
             {subtitle && <div className="topbar-sub">{subtitle}</div>}
           </div>
+          {pageHelp.help && <PageHelpButton onClick={pageHelp.show} />}
         </div>
-        <div className="page-body">{children}</div>
+        <div className="page-body">
+          {pageHelp.help && (
+            <div className="only-narrow" style={{ textAlign: 'right', marginBottom: 10 }}>
+              <PageHelpButton onClick={pageHelp.show} />
+            </div>
+          )}
+          {children}
+        </div>
+        <InstallSteps steps={pageHelp.open ? pageHelp.help : null} onClose={pageHelp.close} />
         {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
         <InstallSteps steps={installPrompt.steps} onClose={installPrompt.closeSteps} />
       </div>
