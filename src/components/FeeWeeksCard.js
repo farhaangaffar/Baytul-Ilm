@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarCheck } from 'lucide-react';
 import { getFeeWeeks, setFeeWeeks, getWeekStartsForMonth, getMondayOf } from '../lib/store';
 
@@ -23,6 +23,11 @@ export default function FeeWeeksCard({ years, defaultYear }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [confirmOff, setConfirmOff] = useState(null); // weeks waiting for "remove unpaid fees?"
+  // Saves run one after another in the background; the card only refreshes from the server
+  // once they've all finished, so quick taps never flick back (like the Attendance buttons).
+  const queue = useRef(Promise.resolve());
+  const pending = useRef(0);
 
   // quiet: refresh after a change without blanking the card ("Loading…").
   const load = useCallback(async (quiet = false) => {
@@ -40,25 +45,26 @@ export default function FeeWeeksCard({ years, defaultYear }) {
   const thisWeek = getMondayOf(new Date().toISOString().slice(0, 10));
   const onCount = allWeeks.filter(w => !off.has(w)).length;
 
-  async function apply(weeks, on) {
+  function apply(weeks, on, confirmed = false) {
     if (!weeks.length) return;
-    if (!on) {
-      const paidOrOwed = weeks.filter(w => charged[w]).length;
-      if (paidOrOwed && !window.confirm(
-        `${paidOrOwed === 1 ? 'This week has' : `${paidOrOwed} of these weeks have`} already been charged.\n\n`
-        + 'Switch off and remove fees not yet paid, for everyone? Payments already made stay recorded.')) return;
-    }
-    // Show the change straight away; save in the background, then refresh quietly.
-    const before = off;
-    setOff(prev => { const next = new Set(prev); weeks.forEach(w => (on ? next.delete(w) : next.add(w))); return next; });
-    setBusy(true); setError(''); setNote('');
-    try {
-      const r = await setFeeWeeks(weeks, on);
-      await load(true);
-      if (r.removed) setNote(`${r.removed} unpaid fee${r.removed === 1 ? '' : 's'} removed`);
-      else if (r.added) setNote(`${r.added} fee${r.added === 1 ? '' : 's'} charged`);
-    } catch (err) { setOff(before); setError(err.message || 'Could not change the fee weeks'); }
-    setBusy(false);
+    if (!on && !confirmed && weeks.some(w => charged[w])) { setConfirmOff(weeks); return; }
+    // Show the change straight away; save in the background.
+    const flip = (set, toOn) => { const next = new Set(set); weeks.forEach(w => (toOn ? next.delete(w) : next.add(w))); return next; };
+    setOff(prev => flip(prev, on));
+    setError(''); setNote(''); setBusy(true);
+    pending.current += 1;
+    queue.current = queue.current.then(async () => {
+      try {
+        const r = await setFeeWeeks(weeks, on);
+        if (r.removed) setNote(`${r.removed} unpaid fee${r.removed === 1 ? '' : 's'} removed`);
+        else if (r.added) setNote(`${r.added} fee${r.added === 1 ? '' : 's'} charged`);
+      } catch (err) {
+        setOff(prev => flip(prev, !on)); // put just these weeks back
+        setError(err.message || 'Could not change the fee weeks');
+      }
+      pending.current -= 1;
+      if (pending.current === 0) { await load(true); setBusy(false); }
+    });
   }
 
   const inputStyle = { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontFamily: 'var(--font)', fontSize: 13 };
@@ -108,6 +114,22 @@ export default function FeeWeeksCard({ years, defaultYear }) {
         Each box is the Monday a week starts; a dot means it's already been charged.
       </div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>{error}</div>}
+      {confirmOff && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setConfirmOff(null)}>
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-body" style={{ textAlign: 'center', paddingTop: 28 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
+                {confirmOff.length === 1 ? 'This week has already been charged' : 'Some of these weeks have already been charged'}
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>Switching off removes fees not yet paid, for everyone. Payments already made stay recorded.</div>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setConfirmOff(null)}>Keep it on</button>
+              <button className="btn btn-danger" onClick={() => { const w = confirmOff; setConfirmOff(null); apply(w, false, true); }}>Switch off</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
