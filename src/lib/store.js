@@ -260,7 +260,7 @@ export async function getSpecialDays() {
   return out;
 }
 export async function addSpecialDay(date, name, kind, to) { return apiFetch('/api/days-off', { method: 'POST', body: JSON.stringify({ date, to, name, kind }) }); }
-export async function removeDayOff(date, to) { return apiFetch(`/api/days-off?date=${encodeURIComponent(date)}${to ? `&to=${encodeURIComponent(to)}` : ''}`, { method: 'DELETE' }); }
+export async function removeDayOff(date, to, kind) { return apiFetch(`/api/days-off?date=${encodeURIComponent(date)}${to ? `&to=${encodeURIComponent(to)}` : ''}${kind ? `&kind=${kind}` : ''}`, { method: 'DELETE' }); }
 export function schoolDays() {
   const d = getBranding().schoolDays;
   return Array.isArray(d) && d.length ? d : [1, 2, 3, 4];

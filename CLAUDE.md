@@ -112,8 +112,8 @@ codebase (one codebase, not a fork).
 - **School days** (Settings, `settings.school_days`, JS day numbers, Mon–Thu by default):
   `getWeekDates()` / `isSchoolDay()` in `src/lib/store.js` — never assume Mon–Thu.
   **Days off & extra days** (Settings card `DaysOffCard`, `days_off` with `kind` 'off'/'extra',
-  `/api/days-off` — head edits, teachers read; closed days can be added/removed as a From–To range,
-  one row per date, shown grouped): closed dates like Eid — Attendance shows "Closed today — <name>"
+  `/api/days-off` — head edits, teachers read; both kinds can be added/removed as a From–To range —
+  closed: every day; open: only days that aren't usual school days — one row per date, shown grouped): closed dates like Eid — Attendance shows "Closed today — <name>"
   and greys the day; extra dates (a Ramadhaan Saturday) count as school days in `isSchoolDay()` /
   `getWeekDates()` once `getSpecialDays()` has loaded them.
 - Report period (Settings): **monthly** (one report per school month — the original
