@@ -248,6 +248,13 @@ export function attendanceCountsForMonth(attendanceForYear, studentId, monthRang
 }
 // The school days (Settings → School days; Mon–Thu to begin with) of the week, Monday
 // first, containing `anchor`.
+// Days off (Settings → Days off): { 'YYYY-MM-DD': name } for days the madrasah is closed.
+export async function getDaysOff() {
+  const rows = await apiFetch('/api/days-off');
+  return Object.fromEntries(rows.map(r => [r.date, r.name]));
+}
+export async function addDayOff(date, name) { return apiFetch('/api/days-off', { method: 'POST', body: JSON.stringify({ date, name }) }); }
+export async function removeDayOff(date) { return apiFetch(`/api/days-off?date=${encodeURIComponent(date)}`, { method: 'DELETE' }); }
 export function schoolDays() {
   const d = getBranding().schoolDays;
   return Array.isArray(d) && d.length ? d : [1, 2, 3, 4];

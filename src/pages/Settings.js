@@ -5,6 +5,7 @@ import { getSettings, updateSettings, getAcademicYears, exportAllData, importAll
 import TermsCard from '../components/TermsCard';
 import FeeWeeksCard from '../components/FeeWeeksCard';
 import FeeMonthsCard from '../components/FeeMonthsCard';
+import DaysOffCard from '../components/DaysOffCard';
 import { FREQUENCIES } from '../lib/feePeriods';
 import { Trash2, Download, Upload, Check, Image as ImageIcon } from 'lucide-react';
 import { setBranding } from '../lib/branding';
@@ -402,6 +403,9 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Days off — closed days (Eid etc.); Attendance shows them as closed */}
+      <DaysOffCard />
 
       {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
       {showTerms && <TermsCard years={years} defaultYear={currentYear} />}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay } from '../lib/store';
+import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay, getDaysOff } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -30,6 +30,7 @@ export default function Attendance() {
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [toast, setToast] = useState('');
   const TODAY = isoToday();
+  const [daysOff, setDaysOff] = useState({}); // date → name (Settings → Days off)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -42,6 +43,7 @@ export default function Attendance() {
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
       // A bonus, not needed to take the register — never blocks the page.
       getReportedAbsences().then(setReported).catch(() => {});
+      getDaysOff().then(setDaysOff).catch(() => {});
     } catch (err) {
       setError(err);
     }
@@ -184,22 +186,23 @@ export default function Attendance() {
             <div className="day-cal-row att-days" key={w} style={{marginBottom:12, gridTemplateColumns:`repeat(${weekDates.length}, minmax(0, 1fr))`}}>
               {weekDates.map(date=>{
                 const status = attData[selected.id]?.[date];
+                const closed = daysOff[date] && !status; // a day off (marked days still show their mark)
                 const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
                 const dayDate = formatDayMonthGB(date);
                 const bg = status==='P'?'var(--green-light)':status==='L'?'var(--amber-light)':status==='A'?'var(--red-light)':'#f3f4f6';
                 const dotBg = status==='P'?'var(--green)':status==='L'?'var(--amber)':status==='A'?'var(--red)':'#e5e7eb';
                 return (
-                  <div className="day-cal-card" key={date} style={{background:bg}}>
+                  <div className="day-cal-card" key={date} style={{background:bg, opacity: closed ? 0.6 : 1}}>
                     <div className="day-cal-name">{dayName}</div>
                     <div className="day-cal-date">{dayDate}</div>
-                    <button className="day-cal-status" style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)'}}
+                    <button className="day-cal-status" disabled={closed} style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)', cursor: closed ? 'default' : undefined}}
                       onClick={()=>{
                         const cycle=['P','L','A',null];
                         saveMark(selected.id, date, cycle[(cycle.indexOf(status||null)+1)%cycle.length]);
                       }}>
                       {status||'·'}
                     </button>
-                    <div className="day-cal-label">{status==='L' && lateTimes[selected.id]?.[date] ? lateTimes[selected.id][date] : status?STATUS_LABELS[status]:'Not marked'}</div>
+                    <div className="day-cal-label">{closed ? daysOff[date] : status==='L' && lateTimes[selected.id]?.[date] ? lateTimes[selected.id][date] : status?STATUS_LABELS[status]:'Not marked'}</div>
                   </div>
                 );
               })}
@@ -279,12 +282,12 @@ export default function Attendance() {
                   ? <div style={{fontSize:12,background:'var(--amber-light)',color:'var(--amber-text)',borderRadius:'var(--r-md)',padding:'4px 8px',margin:'4px 0 12px'}}>Parent reported: <strong>{r.reason}</strong>{r.note?` — ${r.note}`:''}</div>
                   : <div className="entity-card-sub" style={{marginBottom:14}}>{s.class}</div>;
               })()}
-              {isCurrentYear && !isSchoolDay(TODAY) && (
+              {isCurrentYear && (!isSchoolDay(TODAY) || daysOff[TODAY]) && (
                 <div style={{textAlign:'center',fontSize:12.5,color:'var(--text-muted)',background:'#f3f4f6',borderRadius:'var(--r-md)',padding:'10px 8px'}}>
-                  No class today — open {s.forename} to mark another day
+                  {daysOff[TODAY] ? <>Closed today — {daysOff[TODAY]}</> : <>No class today — open {s.forename} to mark another day</>}
                 </div>
               )}
-              {isCurrentYear && isSchoolDay(TODAY) && (
+              {isCurrentYear && isSchoolDay(TODAY) && !daysOff[TODAY] && (
                 // Only the P / L / A buttons themselves mark; tapping anywhere else on the
                 // card (including the space around them) opens the student.
                 <div className="mark-btn-row" style={{justifyContent:'center'}}>

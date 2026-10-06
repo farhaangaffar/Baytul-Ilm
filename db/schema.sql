@@ -108,6 +108,14 @@ CREATE TABLE IF NOT EXISTS fee_months_off (
   PRIMARY KEY (madrasah_id, month_start)
 );
 
+-- Days the madrasah is closed (Settings → Days off); Attendance shows them as closed.
+CREATE TABLE IF NOT EXISTS days_off (
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  date         DATE NOT NULL,
+  name         TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (madrasah_id, date)
+);
+
 CREATE TABLE IF NOT EXISTS attendance (
   id          BIGSERIAL PRIMARY KEY,
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),

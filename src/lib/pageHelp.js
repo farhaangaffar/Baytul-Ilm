@@ -63,6 +63,7 @@ const HEAD = {
     'Your madrasah: its name, logo and sign-in code.',
     'Fees: how often you charge, how much, and which weeks or months.',
     'Classes & parents: school days, reports and the parent portal.',
+    'Days off: add the days you\'re closed (like Eid) — attendance shows them as closed.',
     'Download a backup now and then.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
