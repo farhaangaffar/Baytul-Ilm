@@ -63,7 +63,7 @@ const HEAD = {
     'Your madrasah: its name, logo and sign-in code.',
     'Fees: how often you charge, how much, and which weeks or months.',
     'Classes & parents: school days, reports and the parent portal.',
-    'Days off & extra days: add days you\'re closed (one day, or From–To for a holiday), or open extra (like a Ramadhaan Saturday).',
+    'Days off & extra days: add days you\'re closed (like Eid) or open extra (like Ramadhaan weekends) — one day, or From–To for several.',
     'Download a backup now and then.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [

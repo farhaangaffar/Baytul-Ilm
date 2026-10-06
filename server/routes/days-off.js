@@ -6,8 +6,10 @@ const { requireAuth, isOwner } = require('../auth');
 // 'extra' — set by the head in Settings → Days off & extra days. Attendance shows closed days
 // as closed, and asks for a register on extra days.
 //   GET                          → [{ date, name, kind }] (head and teachers)
-//   POST { date, to?, name, kind } → add or change one, or every day date..to (closed only, head only)
-//   DELETE ?date=YYYY-MM-DD[&to=…]   → remove one, or every day in a range (head only)
+//   POST { date, to?, name, kind } → add or change one, or a range date..to (head only) — a
+//                                    closed range is every day; an open range only the days that
+//                                    aren't already school days (e.g. the weekends of Ramadhaan)
+//   DELETE ?date=YYYY-MM-DD[&to=…][&kind=…] → remove one, or that kind's days in a range (head only)
 let ready = false;
 async function ensureTable() {
   if (ready) return;
@@ -47,7 +49,13 @@ module.exports = requireAuth(async (req, res) => {
     const kind = req.body?.kind === 'extra' ? 'extra' : 'off';
     if (!ISO.test(String(date || ''))) { res.status(400).json({ error: 'Choose a date' }); return; }
     const label = String(name || '').trim().slice(0, 60) || (kind === 'extra' ? 'Extra day' : 'Closed');
-    const dates = kind === 'off' ? datesBetween(date, req.body?.to) : [date];
+    let dates = datesBetween(date, req.body?.to);
+    if (kind === 'extra' && dates.length > 1) {
+      const { rows } = await query('SELECT school_days FROM settings WHERE madrasah_id = $1', [mid]);
+      const usual = rows[0]?.school_days || [1, 2, 3, 4];
+      dates = dates.filter(d => !usual.includes(new Date(d + 'T12:00:00Z').getUTCDay()));
+      if (!dates.length) { res.status(400).json({ error: 'Those are already school days' }); return; }
+    }
     await query(`INSERT INTO days_off (madrasah_id, date, name, kind)
                  SELECT $1, d::date, $3, $4 FROM unnest($2::text[]) AS d
                  ON CONFLICT (madrasah_id, date) DO UPDATE SET name = EXCLUDED.name, kind = EXCLUDED.kind`, [mid, dates, label, kind]);
@@ -57,7 +65,9 @@ module.exports = requireAuth(async (req, res) => {
   if (req.method === 'DELETE') {
     const date = String(req.query.date || '');
     if (!ISO.test(date)) { res.status(400).json({ error: 'date is required' }); return; }
-    await query('DELETE FROM days_off WHERE madrasah_id = $1 AND date = ANY($2::date[])', [mid, datesBetween(date, String(req.query.to || ''))]);
+    const kind = ['off', 'extra'].includes(req.query.kind) ? req.query.kind : null;
+    await query('DELETE FROM days_off WHERE madrasah_id = $1 AND date = ANY($2::date[]) AND ($3::text IS NULL OR kind = $3)',
+      [mid, datesBetween(date, String(req.query.to || '')), kind]);
     res.status(200).json({ ok: true });
     return;
   }
