@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay, getDaysOff } from '../lib/store';
+import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay, getSpecialDays } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 
@@ -43,7 +43,8 @@ export default function Attendance() {
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
       // A bonus, not needed to take the register — never blocks the page.
       getReportedAbsences().then(setReported).catch(() => {});
-      getDaysOff().then(setDaysOff).catch(() => {});
+      // Closed days and extra days; extra days also join the week/month views once loaded.
+      getSpecialDays().then(d => setDaysOff(d.off)).catch(() => {});
     } catch (err) {
       setError(err);
     }

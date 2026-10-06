@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS days_off (
   madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
   date         DATE NOT NULL,
   name         TEXT NOT NULL DEFAULT '',
+  kind         TEXT NOT NULL DEFAULT 'off',   -- 'off' (closed) or 'extra' (open on a usual day off)
   PRIMARY KEY (madrasah_id, date)
 );
 
