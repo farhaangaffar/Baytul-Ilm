@@ -7,6 +7,8 @@ import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import InstallBanner from '../components/InstallBanner';
+import InstallSteps from '../components/InstallSteps';
+import { usePageHelp, PageHelpButton } from '../components/PageHelp';
 import { DemoBar, leaveDemo } from '../components/Demo';
 import { useAuth } from '../lib/AuthContext';
 import BoxRow from '../components/BoxRow';
@@ -267,6 +269,7 @@ function ChildView({ child, reasons }) {
 export default function ParentPortal() {
   const settings = useSettings();
   const { user } = useAuth();
+  const pageHelp = usePageHelp('/', 'parent');
   const [home, setHome] = useState(null);
   const [error, setError] = useState('');
   const [active, setActive] = useState('');
@@ -295,6 +298,7 @@ export default function ParentPortal() {
       </div>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 16 }}>
         {error && <div className="card" style={{ fontSize: 13.5 }}>{error}</div>}
+        <div style={{ textAlign: 'right', marginBottom: 10 }}><PageHelpButton onClick={pageHelp.show} /></div>
         {home && home.children.length === 0 && <div className="card" style={{ fontSize: 13.5 }}>No children are linked to this login yet — please contact the madrasah office.</div>}
         {home && home.children.length > 1 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -314,6 +318,7 @@ export default function ParentPortal() {
         )}
       </div>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+      <InstallSteps steps={pageHelp.open ? pageHelp.help : null} onClose={pageHelp.close} />
     </div>
   );
 }
