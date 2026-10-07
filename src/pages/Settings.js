@@ -3,7 +3,8 @@ import { LegalLinks } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents } from '../lib/store';
-import { studentsCsv, downloadText } from '../lib/studentSheet';
+import { studentsRows } from '../lib/studentSheet';
+import { xlsxBlob, downloadBlob } from '../lib/xlsx';
 import TermsCard from '../components/TermsCard';
 import FeeWeeksCard from '../components/FeeWeeksCard';
 import FeeMonthsCard from '../components/FeeMonthsCard';
@@ -245,7 +246,7 @@ export default function Settings() {
       const list = await getStudents();
       const order = { Active: 0, 'Waiting list': 1, Inactive: 2 };
       list.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || a.class.localeCompare(b.class) || a.forename.localeCompare(b.forename));
-      downloadText(studentsCsv(list), `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-students-${new Date().toISOString().slice(0,10)}.csv`);
+      downloadBlob(xlsxBlob(studentsRows(list), 'Students'), `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-students-${new Date().toISOString().slice(0,10)}.xlsx`);
       showToast('Spreadsheet downloaded');
     } catch (err) {
       showToast(err.message || 'Could not make the spreadsheet');

@@ -1,6 +1,6 @@
-// Students ⇄ spreadsheets: the download on Settings → Backup and the "Import from a
-// spreadsheet" pop-up on the Students page use the same columns, so a downloaded sheet
-// can be filled in and imported back.
+// Students ⇄ spreadsheets: the Excel download on Settings → Backup and the "Add students
+// from a spreadsheet" pop-up on the Students page use the same columns, so a downloaded
+// sheet can be filled in and imported back.
 import { formatDateGB } from './store';
 
 export const SHEET_COLUMNS = [
@@ -10,37 +10,25 @@ export const SHEET_COLUMNS = [
   ['weeklyFee', 'Fee'], ['enrollDate', 'Enrolled'], ['leaveDate', 'Left'], ['status', 'Status'], ['notes', 'Notes'],
 ];
 
-const csvCell = v => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const gb = d => { try { return d ? formatDateGB(d) : ''; } catch { return d || ''; } };
 const STATUS = { Active: 'Active', Inactive: 'Left', 'Waiting list': 'Waiting list' };
 const PHONES = ['parent1Phone', 'parent2Phone'];
 
-// Excel drops a phone number's leading 0 (it reads 07700 900111 as the number 7700900111).
-// On the way out, phone cells are written ="07700 900111" so Excel keeps them as text; on the
-// way in, a UK number that has lost its 0 gets it back.
-const excelText = v => (v ? `="${v}"` : '');
+// Excel drops a phone number's leading 0 when it's typed or pasted as a number (07700 900111
+// becomes 7700900111). A UK number that has lost its 0 gets it back on import.
 export function fixPhone(v) {
   const s = String(v || '').trim();
   const digits = s.replace(/[\s-]/g, '');
-  if (/^[1-9]\d{9}$/.test(digits)) return '0' + s;            // 7700900111 → 07700900111
-  if (/^44[1-9]\d{9}$/.test(digits)) return '0' + digits.slice(2); // 447700900111 → 07700900111
+  if (/^[1-9]\d{9}$/.test(digits)) return '0' + s;                   // 7700900111 → 07700900111
+  if (/^44[1-9]\d{9}$/.test(digits)) return '0' + digits.slice(2);   // 447700900111 → 07700900111
   return s;
 }
 
-// → CSV text (with a byte-order mark so Excel shows Arabic names properly).
-export function studentsCsv(students) {
-  const rows = students.map(s => SHEET_COLUMNS.map(([k]) =>
-    k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? gb(s[k]) : k === 'status' ? (STATUS[s.status] || s.status)
-      : PHONES.includes(k) ? excelText(s[k]) : s[k]));
-  return '﻿' + [SHEET_COLUMNS.map(c => c[1]), ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
-}
-
-export function downloadText(text, filename, type = 'text/csv') {
-  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+// → rows for the students spreadsheet (lib/xlsx.js): headings, then one row per student.
+// Every cell is text, so phone numbers keep their 0.
+export function studentsRows(students) {
+  return [SHEET_COLUMNS.map(c => c[1]), ...students.map(s => SHEET_COLUMNS.map(([k]) =>
+    k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? gb(s[k]) : k === 'status' ? (STATUS[s.status] || s.status) : (s[k] ?? '')))];
 }
 
 // Text pasted from Excel / Google Sheets (tab-separated) or a .csv file → rows of cells.
@@ -62,7 +50,7 @@ function splitRows(text) {
     } else cell += c;
   }
   row.push(cell); rows.push(row);
-  // ="…" is how a downloaded sheet keeps phone numbers as text in Excel.
+  // ="…" is how older .csv downloads kept phone numbers as text in Excel.
   return rows.map(r => r.map(c => c.trim().replace(/^="(.*)"$/, '$1'))).filter(r => r.some(Boolean));
 }
 

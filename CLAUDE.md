@@ -89,9 +89,12 @@ codebase (one codebase, not a fork).
   who handles it changes (a new table of personal data, a new outside service), update the
   privacy policy too.
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
-  (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets
-  or a .csv, matches headings, and can add the sheet's new class names as classes; Settings →
-  Backup → "Students spreadsheet" downloads every student in the same columns.
+  (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
+  an .xlsx or a .csv, matches headings, puts back phone numbers' lost leading 0 (`fixPhone`), and
+  can add the sheet's new class names as classes; Settings → Backup → "Students spreadsheet"
+  downloads every student, same columns, as a real .xlsx (all cells text). `src/lib/xlsx.js`
+  writes/reads .xlsx with no library — don't go back to .csv downloads (Excel strips 0s and
+  some apps show the byte-order mark as junk).
 - Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Days off, Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
