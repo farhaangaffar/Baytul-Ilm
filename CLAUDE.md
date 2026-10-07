@@ -4,8 +4,9 @@
 
 This app is live — Baytul 'Ilm Madrasah runs on it every day — and is being turned
 into a product other madaaris can use, called **Suhuf** (صُحُف) at **https://suhuf.uk**
-(`APP_NAME` / `APP_URL` in `src/lib/branding.js`; www.suhuf.uk redirects there from
-`public/index.html`; the old baytul-ilm-two.vercel.app address still works). Baytul 'Ilm is the first customer of the same
+(`APP_NAME` / `APP_URL` in `src/lib/branding.js`; which of suhuf.uk / www.suhuf.uk redirects
+to the other is set in Vercel's Domains settings — never add a redirect in the app too, that made
+a redirect loop once; the old baytul-ilm-two.vercel.app address still works). Baytul 'Ilm is the first customer of the same
 codebase (one codebase, not a fork).
 
 - `main` is production: Vercel deploys it to the live site automatically. Never push
