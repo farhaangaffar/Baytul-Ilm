@@ -3,7 +3,9 @@
 ## Working agreement with the owner
 
 This app is live — Baytul 'Ilm Madrasah runs on it every day — and is being turned
-into a product other madaaris can use. Baytul 'Ilm is the first customer of the same
+into a product other madaaris can use, called **Suhuf** (صُحُف) at **https://suhuf.uk**
+(`APP_NAME` / `APP_URL` in `src/lib/branding.js`; www.suhuf.uk redirects there from
+`public/index.html`; the old baytul-ilm-two.vercel.app address still works). Baytul 'Ilm is the first customer of the same
 codebase (one codebase, not a fork).
 
 - `main` is production: Vercel deploys it to the live site automatically. Never push
@@ -95,7 +97,7 @@ codebase (one codebase, not a fork).
 - School-specific details (name, Arabic name, currency, logo/app icon) come from
   Settings (one row per madrasah) — never hardcode a school's name, currency symbol or
   teacher. Before sign-in, `/api/settings?m=<code>` serves that madrasah's name/logo/
-  manifest; with no code, a neutral one. Use
+  manifest; with no code, Suhuf's own (`isNeutralBranding()`). Use
   `money()` / `currencySymbol()` from `src/lib/branding.js` for amounts.
 - Fee frequency (Settings): **weekly** (the original system — weeks grouped into school
   months from each month's first Monday), **monthly** (calendar months, 1st to end) or

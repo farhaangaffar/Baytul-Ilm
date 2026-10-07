@@ -73,7 +73,7 @@ async function sendImage(res, column, mid) {
 // app's home-screen label and icon are theirs (the page points at it with ?m=<code>).
 // Served from here as an action on the settings route rather than a route of its own.
 function manifest(s, code) {
-  const name = s.schoolName || 'Madrasah';
+  const name = s.schoolName || 'Suhuf'; // the app's own name when no madrasah is chosen
   // An uploaded icon is one 512px PNG with the logo inside the maskable safe zone,
   // so it serves every size/purpose; ?v changes with its content so installed
   // apps notice a new logo.

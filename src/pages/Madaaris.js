@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getMadaaris, createMadrasah, updateMadrasah, formatDateGB, getDbUsage } from '../lib/store';
+import { APP_NAME, APP_URL } from '../lib/branding';
 import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
@@ -55,16 +56,16 @@ export default function Madaaris() {
 
   const totals = list.reduce((t, m) => ({ students: t.students + m.students, ai: t.ai + m.aiThisMonth, aiAll: t.aiAll + m.aiTotal }), { students: 0, ai: 0, aiAll: 0 });
   const pounds = n => `£${((n * PENCE_PER_AI_REQUEST) / 100).toFixed(2)}`;
-  const demoLink = `${window.location.origin}/?demo`;
+  const demoLink = `${APP_URL}/?demo`;
   async function copyDemo() {
     try { await navigator.clipboard.writeText(demoLink); showToast('Demo link copied'); }
     catch { window.prompt('Copy the demo link:', demoLink); }
   }
   async function shareDemo() {
-    try { await navigator.share({ title: 'Madrasah app demo', text: 'Have a look around the demo:', url: demoLink }); }
+    try { await navigator.share({ title: `${APP_NAME} demo`, text: `Have a look around ${APP_NAME}, the madrasah app:`, url: demoLink }); }
     catch { /* closed, or sharing not available */ }
   }
-  const signInLink = code => `${window.location.origin}/?m=${encodeURIComponent(code)}`;
+  const signInLink = code => `${APP_URL}/?m=${encodeURIComponent(code)}`;
 
   return (
     <Layout title="Madaaris" subtitle="Every madrasah using the app">

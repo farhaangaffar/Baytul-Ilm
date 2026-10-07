@@ -13,7 +13,7 @@ export const PROVIDER = {
 
 export const PRIVACY = [
   ['Who we are', [
-    `This app is run by ${PROVIDER.name}. Each madrasah that uses it decides what goes into it and is responsible for the information about its own children, parents and staff — in data-protection terms, the madrasah is the "controller" and we are its "processor". If you're a parent, your madrasah is the first place to ask about your information; you can also write to us at ${PROVIDER.email}.`,
+    `Suhuf (suhuf.uk) is a madrasah management app run by ${PROVIDER.name}. Each madrasah that uses it decides what goes into it and is responsible for the information about its own children, parents and staff — in data-protection terms, the madrasah is the "controller" and we are its "processor". If you're a parent, your madrasah is the first place to ask about your information; you can also write to us at ${PROVIDER.email}.`,
   ]],
   ['What we keep', [
     'About children: name, date of birth, class, attendance, fees, Qur\'an progress (lessons, grades and the teacher\'s lesson notes), behaviour records and the reports written about them.',
@@ -25,7 +25,7 @@ export const PRIVACY = [
     'Only to run the madrasah\'s records: registers, fees, Qur\'an progress, behaviour and reports, and the parent portal. We don\'t sell information, show adverts or use it for marketing.',
   ]],
   ['Who else handles it', [
-    'Vercel (the web hosting) and Neon (the database) store and serve the app. They may keep data in the UK, the EU or the US, under the legal safeguards UK law requires for that.',
+    'Vercel (the web hosting) and Neon (the database) store and serve Suhuf. They may keep data in the UK, the EU or the US, under the legal safeguards UK law requires for that.',
     'When the head asks the app to write a report, that child\'s records for the period are sent to Anthropic (the AI company behind Claude) to draft it. Under Anthropic\'s business terms this data is not used to train its AI.',
     'We don\'t pass information to anyone else unless the law requires it.',
   ]],
@@ -48,14 +48,14 @@ export const PRIVACY = [
 
 export const TERMS = [
   ['The agreement', [
-    `These terms are between ${PROVIDER.name} ("we") and the madrasah using this app. The head agrees to them on the madrasah's behalf when they first sign in.`,
+    `These terms are between ${PROVIDER.name} ("we") and the madrasah using Suhuf (suhuf.uk). The head agrees to them on the madrasah's behalf when they first sign in.`,
   ]],
   ['Cost', [
-    'The app is free for the madrasah\'s first 6 months. After that there is a monthly fee, agreed with you beforehand and paid by standing order. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',
+    'Suhuf is free for the madrasah\'s first 6 months. After that there is a monthly fee, agreed with you beforehand and paid by standing order. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',
   ]],
   ['Your side', [
     'Keep your logins private and give staff and parents only the access they need.',
-    'Tell parents that their children\'s records are kept in this app (you can point them to the privacy policy), and only add information you have a proper reason to keep.',
+    'Tell parents that their children\'s records are kept in Suhuf (you can point them to the privacy policy), and only add information you have a proper reason to keep.',
     'Use the app for running your madrasah only, and don\'t try to reach another madrasah\'s information.',
   ]],
   ['Our side', [

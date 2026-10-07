@@ -4,7 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1a3c5e" />
-    <title>Madrasah Management System</title>
+    <title>Suhuf</title>
+    <script>
+      // www.suhuf.uk → suhuf.uk, so everyone uses one address (each address remembers
+      // sign-ins and the madrasah code separately).
+      if (location.hostname === 'www.suhuf.uk') location.replace('https://suhuf.uk' + location.pathname + location.search + location.hash);
+    </script>
     <!-- Served by api/settings so the installed app is named after the madrasah -->
     <link rel="manifest" href="/api/settings?manifest" />
     <!-- The madrasah's uploaded logo as a square icon, or the built-in one if none (see api/settings) -->
