@@ -13,11 +13,25 @@ export const SHEET_COLUMNS = [
 const csvCell = v => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const gb = d => { try { return d ? formatDateGB(d) : ''; } catch { return d || ''; } };
 const STATUS = { Active: 'Active', Inactive: 'Left', 'Waiting list': 'Waiting list' };
+const PHONES = ['parent1Phone', 'parent2Phone'];
+
+// Excel drops a phone number's leading 0 (it reads 07700 900111 as the number 7700900111).
+// On the way out, phone cells are written ="07700 900111" so Excel keeps them as text; on the
+// way in, a UK number that has lost its 0 gets it back.
+const excelText = v => (v ? `="${v}"` : '');
+export function fixPhone(v) {
+  const s = String(v || '').trim();
+  const digits = s.replace(/[\s-]/g, '');
+  if (/^[1-9]\d{9}$/.test(digits)) return '0' + s;            // 7700900111 → 07700900111
+  if (/^44[1-9]\d{9}$/.test(digits)) return '0' + digits.slice(2); // 447700900111 → 07700900111
+  return s;
+}
 
 // → CSV text (with a byte-order mark so Excel shows Arabic names properly).
 export function studentsCsv(students) {
   const rows = students.map(s => SHEET_COLUMNS.map(([k]) =>
-    k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? gb(s[k]) : k === 'status' ? (STATUS[s.status] || s.status) : s[k]));
+    k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? gb(s[k]) : k === 'status' ? (STATUS[s.status] || s.status)
+      : PHONES.includes(k) ? excelText(s[k]) : s[k]));
   return '﻿' + [SHEET_COLUMNS.map(c => c[1]), ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
 }
 
@@ -48,7 +62,8 @@ function splitRows(text) {
     } else cell += c;
   }
   row.push(cell); rows.push(row);
-  return rows.map(r => r.map(c => c.trim())).filter(r => r.some(Boolean));
+  // ="…" is how a downloaded sheet keeps phone numbers as text in Excel.
+  return rows.map(r => r.map(c => c.trim().replace(/^="(.*)"$/, '$1'))).filter(r => r.some(Boolean));
 }
 
 // Heading words → field. Checked in order, so "parent 2 phone" wins over "phone".
@@ -109,6 +124,7 @@ export function parseSheet(text) {
       o.forename = parts.join(' ');
     }
     delete o.fullName;
+    PHONES.forEach(k => { if (o[k]) o[k] = fixPhone(o[k]); });
     return o;
   });
   return { rows, headed };
