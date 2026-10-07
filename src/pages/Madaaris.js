@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, formatDateGB } from '../lib/store';
-import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle } from 'lucide-react';
+import { getMadaaris, createMadrasah, updateMadrasah, formatDateGB, getDbUsage } from '../lib/store';
+import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -14,6 +14,8 @@ import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, S
 const AI_BILLING_URL = 'https://console.anthropic.com/settings/billing';
 // A rough guide only: one report summary is a few thousand words in and a paragraph out.
 const PENCE_PER_AI_REQUEST = 1;
+// The free database plan's space (Neon Free: 0.5 GB per project).
+const DB_LIMIT_BYTES = 512 * 1024 * 1024;
 
 // The free months: "Free until …", "Free ends in 12 days" (last 30 days), then "Paying from …".
 function freeBadge(freeUntil) {
@@ -36,6 +38,8 @@ export default function Madaaris() {
   const [modal, setModal] = useState(null); // { kind: 'add' } | { kind: 'edit'|'password'|'power', m }
   const [created, setCreated] = useState(null); // details to hand over after adding one
   const [toast, setToast] = useState('');
+  const [dbBytes, setDbBytes] = useState(null);
+  useEffect(() => { getDbUsage().then(u => setDbBytes(u.dbBytes)).catch(() => {}); }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -126,6 +130,20 @@ export default function Madaaris() {
         </a>
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Costs are a rough guide (about {PENCE_PER_AI_REQUEST}p per summary).</div>
       </div>
+
+      {dbBytes != null && (() => {
+        const pct = Math.min(100, Math.round((dbBytes / DB_LIMIT_BYTES) * 100));
+        const tone = pct >= 80 ? 'var(--red)' : pct >= 60 ? 'var(--amber)' : 'var(--green)';
+        return (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="card-title" style={{ marginBottom: 4 }}><Database size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Database space</div>
+            <div className="card-sub" style={{ marginBottom: 10 }}>{Math.round(dbBytes / 1048576)} MB of 512 MB on the free plan ({pct}%).{pct >= 80 ? ' Time to move to a paid plan.' : ''}</div>
+            <div style={{ height: 8, borderRadius: 99, background: '#eef0f3', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.max(pct, 2)}%`, height: '100%', background: tone }} />
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo link</div>

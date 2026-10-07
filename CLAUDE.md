@@ -45,7 +45,7 @@ codebase (one codebase, not a fork).
   people sign in with the madrasah's **code** (remembered per device,
   `src/lib/madrasahCode.js`) + login + password. One owner is the **platform owner**
   (`platform_admin`) with the Madaaris page (`server/routes/madaaris.js`: counts only,
-  add / rename / switch off a madrasah, reset its head's password; plus an AI credit card —
+  add / rename / switch off a madrasah, reset its head's password; plus an AI credit card, a database-space bar (`?action=usage`, Neon free = 0.5 GB) —
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
   demo link to copy or share). Each madrasah is free for 6 months (`madaaris.free_until`, set
   when added, editable there; older rows count 6 months from `created_at`) — payment is by

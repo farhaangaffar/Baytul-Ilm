@@ -99,6 +99,7 @@ export async function getReportedAbsences(from) { return apiFetch(`/api/absences
 export async function markAbsenceSeen(id) { return apiFetch(`/api/absences?id=${encodeURIComponent(id)}`, { method: 'PATCH' }); }
 
 // ── Madaaris (platform owner only) ──
+export async function getDbUsage() { return apiFetch('/api/madaaris?action=usage'); }
 export async function getMadaaris() { return apiFetch('/api/madaaris'); }
 // data: { name, code, headLogin, headPassword }
 export async function createMadrasah(data) { return apiFetch('/api/madaaris', { method: 'POST', body: JSON.stringify(data) }); }

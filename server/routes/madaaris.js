@@ -40,6 +40,13 @@ module.exports = requireAuth(async (req, res) => {
   const id = req.query.id;
   await ensureColumns();
 
+  // How much of the database is used (the free Neon plan allows 0.5 GB).
+  if (req.query.action === 'usage') {
+    const { rows: [u] } = await query('SELECT pg_database_size(current_database()) AS bytes');
+    res.status(200).json({ dbBytes: Number(u.bytes) });
+    return;
+  }
+
   if (!id && req.method === 'GET') {
     const { rows } = await query(`
       SELECT m.id, m.name, m.code, m.active, m.created_at AS "createdAt",
