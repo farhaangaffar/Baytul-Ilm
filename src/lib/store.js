@@ -99,6 +99,7 @@ export async function getReportedAbsences(from) { return apiFetch(`/api/absences
 export async function markAbsenceSeen(id) { return apiFetch(`/api/absences?id=${encodeURIComponent(id)}`, { method: 'PATCH' }); }
 
 // ── Madaaris (platform owner only) ──
+export async function getDbUsage() { return apiFetch('/api/madaaris?action=usage'); }
 export async function getMadaaris() { return apiFetch('/api/madaaris'); }
 // data: { name, code, headLogin, headPassword }
 export async function createMadrasah(data) { return apiFetch('/api/madaaris', { method: 'POST', body: JSON.stringify(data) }); }
@@ -185,6 +186,7 @@ export async function getStudents() { return apiFetch('/api/students'); }
 export async function getStudent(id) { const list = await getStudents(); return list.find(s => s.id === id); }
 // Joining, leaving or moving class can change who owes what — re-check automatic fees next time.
 export async function addStudent(student) { autoFeesRun = null; return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
+export async function importStudents(students, newClasses) { autoFeesRun = null; return apiFetch('/api/students?action=import', { method: 'POST', body: JSON.stringify({ students, newClasses }) }); }
 export async function updateStudent(id, data) { autoFeesRun = null; return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteStudent(id) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 // ids is the full new card order for whichever class was just reordered — every

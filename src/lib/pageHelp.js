@@ -26,7 +26,7 @@ const HEAD = {
   '/students': { title: 'Students', steps: [
     'Children are grouped by class — tap a class to open it.',
     'Tap a child to see their details, attendance and fees. Tap Edit to change them.',
-    'Add a new child with the + button.',
+    'Add a new child with Enroll, or a whole spreadsheet of children with Import.',
     'Set up a parent login from the child\'s card (switch the parent portal on in Settings first).',
     'Children who have left are kept at the bottom.',
   ] },
@@ -64,12 +64,13 @@ const HEAD = {
     'Fees: how often you charge, how much, and which weeks or months.',
     'Classes & parents: school days, reports and the parent portal.',
     'Days off & extra days: add days you\'re closed (like Eid) or open extra (like Ramadhaan weekends) — one day, or From–To for several.',
-    'Download a backup now and then.',
+    'Download a backup now and then. "Students spreadsheet" gives you every child and their parents\' details.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
     'Add a madrasah with its head\'s login, then send them their code.',
-    'Your AI credit and the demo link are at the bottom.',
+    'Each madrasah is free for 6 months — the badge shows when that ends. Change the date with Edit.',
+    'Your AI credit, database space and the demo link are at the bottom.',
   ] },
 };
 

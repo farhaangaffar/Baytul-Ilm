@@ -73,6 +73,55 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  // Many students at once, from a spreadsheet (Students → Import). Body:
+  // { students: [{ forename, surname, class, dob, parent1Name, …, weeklyFee, enrollDate, status }],
+  //   newClasses: ['Class name', …] } — classes to create first (names the sheet used that
+  // the madrasah doesn't have yet). Each student's class must then exist, or be the waiting list.
+  if (action === 'import') {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const list = Array.isArray(req.body?.students) ? req.body.students : [];
+    if (!list.length) { res.status(400).json({ error: 'No students to add' }); return; }
+    if (list.length > 1000) { res.status(400).json({ error: 'Up to 1000 students at a time' }); return; }
+    const str = (v, n = 120) => String(v ?? '').trim().slice(0, n);
+    const iso = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? v : null);
+    const newClasses = [...new Set((Array.isArray(req.body?.newClasses) ? req.body.newClasses : []).map(c => str(c, 60)).filter(Boolean))];
+    const { rows: have } = await query('SELECT name FROM classes WHERE madrasah_id = $1', [mid]);
+    const known = new Set(have.map(r => r.name));
+    for (const name of newClasses) {
+      if (known.has(name) || name === 'Waiting list') continue;
+      await query('INSERT INTO classes (id, madrasah_id, name) VALUES ($1, $2, $3)',
+        ['C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), mid, name]);
+      known.add(name);
+    }
+    const rows = [];
+    for (const [i, b] of list.entries()) {
+      const forename = str(b.forename), surname = str(b.surname), cls = str(b.class, 60);
+      if (!forename || !surname) { res.status(400).json({ error: `Row ${i + 1}: a forename and surname are needed` }); return; }
+      if (cls !== 'Waiting list' && !known.has(cls)) { res.status(400).json({ error: `Row ${i + 1}: class "${cls}" not found` }); return; }
+      const fee = Number(b.weeklyFee);
+      const status = cls === 'Waiting list' ? 'Waiting list' : (b.status === 'Inactive' ? 'Inactive' : 'Active');
+      rows.push({
+        id: 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + i.toString(36),
+        forename, surname, class: cls, dob: iso(b.dob),
+        parent1_name: str(b.parent1Name), parent1_phone: str(b.parent1Phone, 40),
+        parent2_name: str(b.parent2Name), parent2_phone: str(b.parent2Phone, 40),
+        weekly_fee: Number.isFinite(fee) && fee >= 0 ? fee : 15,
+        enroll_date: status === 'Waiting list' ? null : iso(b.enrollDate),
+        leave_date: status === 'Inactive' ? iso(b.leaveDate) : null,
+        status, notes: str(b.notes, 1000),
+      });
+    }
+    await query(
+      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes)
+       SELECT r.id, $1, r.forename, r.surname, r.dob, r.class, r.parent1_name, r.parent1_phone, r.parent2_name, r.parent2_phone, r.weekly_fee, r.enroll_date, r.leave_date, r.status, r.notes
+       FROM json_to_recordset($2::json) AS r(id text, forename text, surname text, dob date, class text, parent1_name text, parent1_phone text,
+            parent2_name text, parent2_phone text, weekly_fee numeric, enroll_date date, leave_date date, status text, notes text)`,
+      [mid, JSON.stringify(rows)]
+    );
+    res.status(200).json({ ok: true, added: rows.length, classesAdded: newClasses.filter(n => n !== 'Waiting list').length });
+    return;
+  }
+
   // All-time summary for a set of students (attendance P/L/A, fees paid/owed, daily
   // record count) — spans every academic year, not just the currently-loaded one, so
   // it's computed here rather than reusing the per-year getAttendance/getFees calls.

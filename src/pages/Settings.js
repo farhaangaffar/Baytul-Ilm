@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents } from '../lib/store';
+import { studentsCsv, downloadText } from '../lib/studentSheet';
 import TermsCard from '../components/TermsCard';
 import FeeWeeksCard from '../components/FeeWeeksCard';
 import FeeMonthsCard from '../components/FeeMonthsCard';
 import DaysOffCard from '../components/DaysOffCard';
 import { FREQUENCIES } from '../lib/feePeriods';
-import { Trash2, Download, Upload, Check, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Download, Upload, Check, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
 import { setBranding } from '../lib/branding';
 import { applySettings } from '../lib/SettingsContext';
 import { useAuth } from '../lib/AuthContext';
@@ -237,6 +238,20 @@ export default function Settings() {
     setExporting(false);
   }
 
+  async function downloadStudents() {
+    setExporting(true);
+    try {
+      const list = await getStudents();
+      const order = { Active: 0, 'Waiting list': 1, Inactive: 2 };
+      list.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || a.class.localeCompare(b.class) || a.forename.localeCompare(b.forename));
+      downloadText(studentsCsv(list), `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-students-${new Date().toISOString().slice(0,10)}.csv`);
+      showToast('Spreadsheet downloaded');
+    } catch (err) {
+      showToast(err.message || 'Could not make the spreadsheet');
+    }
+    setExporting(false);
+  }
+
   function handleFileSelect(e) {
     const file = e.target.files[0];
     e.target.value = '';
@@ -414,10 +429,11 @@ export default function Settings() {
       {!user?.demo && <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:6}}>Backup &amp; restore</div>
         <div className="card-sub" style={{marginBottom:16}}>
-          Download one regularly, and always before restoring.
+          Download one regularly, and always before restoring. The spreadsheet lists every student and their parents' details.
         </div>
         <div className="flex items-center gap-2" style={{flexWrap:'wrap'}}>
           <button className="btn btn-primary" onClick={handleExport} disabled={exporting}><Download size={14}/>{exporting?'Preparing…':'Download backup'}</button>
+          <button className="btn" onClick={downloadStudents} disabled={exporting}><FileSpreadsheet size={14}/>Students spreadsheet</button>
           <button className="btn" onClick={()=>fileInputRef.current?.click()}><Upload size={14}/>Restore from backup</button>
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
         </div>

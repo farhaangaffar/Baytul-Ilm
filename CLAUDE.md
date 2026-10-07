@@ -45,9 +45,11 @@ codebase (one codebase, not a fork).
   people sign in with the madrasah's **code** (remembered per device,
   `src/lib/madrasahCode.js`) + login + password. One owner is the **platform owner**
   (`platform_admin`) with the Madaaris page (`server/routes/madaaris.js`: counts only,
-  add / rename / switch off a madrasah, reset its head's password; plus an AI credit card —
+  add / rename / switch off a madrasah, reset its head's password; plus an AI credit card, a database-space bar (`?action=usage`, Neon free = 0.5 GB) —
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
-  demo link to copy or share). The dashboard has no Ask AI any more. `requireAuth(handler)`
+  demo link to copy or share). Each madrasah is free for 6 months (`madaaris.free_until`, set
+  when added, editable there; older rows count 6 months from `created_at`) — payment is by
+  standing order, outside the app. The dashboard has no Ask AI any more. `requireAuth(handler)`
   is owner-only by default; pass `{ teacher: true }` only for routes teachers use, and
   scope with `accessScope(req)` / `teacherScope(req)`. Teachers get Attendance, Daily
   records and Fees for their own classes, and on Fees may only tick an added fee paid or
@@ -76,6 +78,10 @@ codebase (one codebase, not a fork).
   (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
+- **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
+  (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets
+  or a .csv, matches headings, and can add the sheet's new class names as classes; Settings →
+  Backup → "Students spreadsheet" downloads every student in the same columns.
 - Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Days off, Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
