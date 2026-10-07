@@ -5,10 +5,10 @@
 export const TERMS_VERSION = '2026-10';
 export const LEGAL_UPDATED = 'October 2026';
 
-// Who runs the service — fill in before going live.
+// Who runs the service (a sole trader for now — change to the company if one is set up).
 export const PROVIDER = {
-  name: 'PROVIDER NAME',          // the person or business madaaris deal with
-  email: 'PROVIDER EMAIL',        // where heads and parents can write
+  name: 'Farhaan Gaffar, trading as Suhuf', // the person or business madaaris deal with
+  email: 'hello@suhuf.uk',                  // where heads and parents can write (forwarded by Cloudflare)
 };
 
 export const PRIVACY = [
@@ -73,5 +73,6 @@ export const TERMS = [
   ]],
   ['Changes and law', [
     'If these terms change in a way that matters, you\'ll be asked to agree again when you next sign in. These terms are under the law of England and Wales.',
+    `Questions about these terms or your information: ${PROVIDER.email}.`,
   ]],
 ];
