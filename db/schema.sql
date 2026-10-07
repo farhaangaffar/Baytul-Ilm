@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS madaaris (
   active      BOOLEAN NOT NULL DEFAULT true,
   created_at  TIMESTAMP NOT NULL DEFAULT now(),
   demo_until  TIMESTAMP,                  -- set for demo madaaris (server/demo.js), which delete themselves then
-  demo_ip     TEXT                        -- hashed address that started a demo, only to limit how many
+  demo_ip     TEXT,                       -- hashed address that started a demo, only to limit how many
+  free_until  DATE                        -- end of its free months (6 from joining); NULL = 6 months from created_at
 );
 
 CREATE TABLE IF NOT EXISTS teachers (

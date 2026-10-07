@@ -20,6 +20,16 @@ function currentYearLabel() {
   return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
 }
 
+// Each madrasah is free for its first 6 months (free_until); the platform owner can change
+// the date. Older rows without one count 6 months from when they were added.
+let ready = false;
+async function ensureColumns() {
+  if (ready) return;
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS free_until DATE');
+  ready = true;
+}
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 async function codeTaken(code, exceptId) {
   const { rows } = await query('SELECT id FROM madaaris WHERE lower(code) = $1 AND id <> $2', [code, exceptId || 0]);
   return rows.length > 0;
@@ -28,10 +38,12 @@ async function codeTaken(code, exceptId) {
 module.exports = requireAuth(async (req, res) => {
   if (!req.user.platformAdmin) { res.status(403).json({ error: "You don't have access to this." }); return; }
   const id = req.query.id;
+  await ensureColumns();
 
   if (!id && req.method === 'GET') {
     const { rows } = await query(`
       SELECT m.id, m.name, m.code, m.active, m.created_at AS "createdAt",
+        to_char(COALESCE(m.free_until, (m.created_at + interval '6 months')::date), 'YYYY-MM-DD') AS "freeUntil",
         (SELECT string_agg(u.login, ', ' ORDER BY u.id) FROM users u WHERE u.madrasah_id = m.id AND u.role = 'owner') AS "headLogin",
         (SELECT count(*) FROM students s WHERE s.madrasah_id = m.id AND s.status = 'Active') AS students,
         (SELECT count(*) FROM teachers t WHERE t.madrasah_id = m.id) AS teachers,
@@ -58,7 +70,8 @@ module.exports = requireAuth(async (req, res) => {
     if (problem) { res.status(400).json({ error: problem }); return; }
     if (await codeTaken(code)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
     const created = await transaction(async c => {
-      const { rows: [m] } = await c.query('INSERT INTO madaaris (name, code) VALUES ($1, $2) RETURNING id', [name, code]);
+      const { rows: [m] } = await c.query(
+        `INSERT INTO madaaris (name, code, free_until) VALUES ($1, $2, (now() AT TIME ZONE 'Europe/London' + interval '6 months')::date) RETURNING id`, [name, code]);
       // Name given explicitly (older databases default these columns to the first madrasah's).
       await c.query(`INSERT INTO settings (id, madrasah_id, school_name, school_name_arabic) VALUES ($1, $1, $2, '')`, [m.id, name]);
       await c.query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2)', [m.id, currentYearLabel()]);
@@ -92,6 +105,10 @@ module.exports = requireAuth(async (req, res) => {
       if (!CODE_RE.test(code)) { res.status(400).json({ error: CODE_PROBLEM }); return; }
       if (await codeTaken(code, id)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
       values.push(code); sets.push(`code = $${values.length}`);
+    }
+    if (b.freeUntil !== undefined) {
+      if (!ISO.test(String(b.freeUntil))) { res.status(400).json({ error: 'Choose a date.' }); return; }
+      values.push(b.freeUntil); sets.push(`free_until = $${values.length}`);
     }
     if (b.active !== undefined) {
       if (isOwn && !b.active) { res.status(400).json({ error: "You can't switch off your own madrasah." }); return; }

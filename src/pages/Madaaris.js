@@ -15,6 +15,16 @@ const AI_BILLING_URL = 'https://console.anthropic.com/settings/billing';
 // A rough guide only: one report summary is a few thousand words in and a paragraph out.
 const PENCE_PER_AI_REQUEST = 1;
 
+// The free months: "Free until …", "Free ends in 12 days" (last 30 days), then "Paying from …".
+function freeBadge(freeUntil) {
+  if (!freeUntil) return null;
+  const days = Math.ceil((new Date(freeUntil + 'T12:00:00') - new Date()) / 864e5);
+  const date = formatDateGB(freeUntil);
+  if (days < 0) return { cls: 'badge-green', text: `Paying from ${date}` };
+  if (days <= 30) return { cls: 'badge-amber', text: days === 0 ? 'Free ends today' : `Free ends in ${days} day${days === 1 ? '' : 's'} (${date})` };
+  return { cls: 'badge-gray', text: `Free until ${date}` };
+}
+
 function suggestCode(name) {
   return String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
 }
@@ -74,6 +84,7 @@ export default function Madaaris() {
                 <span style={{ fontWeight: 700, fontSize: 15 }}>{m.name}</span>
                 {m.isYours && <span className="badge badge-teal">Yours</span>}
                 <span className={`badge ${m.active ? 'badge-green' : 'badge-gray'}`}>{m.active ? 'On' : 'Switched off'}</span>
+                {!m.isYours && freeBadge(m.freeUntil) && <span className={`badge ${freeBadge(m.freeUntil).cls}`}>{freeBadge(m.freeUntil).text}</span>}
               </div>
               <div className="text-muted text-sm" style={{ marginTop: 4 }}>
                 Code <strong style={{ color: 'var(--ink)' }}>{m.code}</strong>
@@ -237,7 +248,7 @@ function AddModal({ onClose, onCreated }) {
         <label>Starting password (8+ characters)</label>
         <input type="text" value={f.headPassword} onChange={e => set('headPassword', e.target.value)} {...noAuto} />
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added.</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for 6 months.</div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );
@@ -246,10 +257,12 @@ function AddModal({ onClose, onCreated }) {
 function EditModal({ m, onClose, onSaved }) {
   const [name, setName] = useState(m.name);
   const [code, setCode] = useState(m.code);
+  const [freeUntil, setFreeUntil] = useState(m.freeUntil || '');
   const { busy, error, setError, submit } = useSubmit();
   const changes = {};
   if (name.trim() !== m.name) changes.name = name;
   if (code.trim().toLowerCase() !== m.code) changes.code = code;
+  if (freeUntil && freeUntil !== m.freeUntil) changes.freeUntil = freeUntil;
   return (
     <ModalShell title={`Edit ${m.name}`} onClose={onClose} busy={busy} footer={<>
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
@@ -267,6 +280,13 @@ function EditModal({ m, onClose, onSaved }) {
         <input value={code} onChange={e => { setCode(e.target.value); setError(''); }} {...noAuto} />
       </div>
       {changes.code && <div style={{ fontSize: 11.5, color: 'var(--amber-text)' }}>Devices that remember the old code will need the new one typed in once.</div>}
+      {!m.isYours && (
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label>Free until</label>
+          <input type="date" value={freeUntil} onChange={e => { setFreeUntil(e.target.value); setError(''); }} />
+          <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>6 months from joining — change it to give them longer.</span>
+        </div>
+      )}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );

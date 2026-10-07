@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
+import ImportStudents from '../components/ImportStudents';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms } from '../lib/store';
 import { periodForKey, isTermKey } from '../lib/reportPeriods';
@@ -8,7 +9,7 @@ import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
 import ParentLogin from '../components/ParentLogin';
-import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download, FileSpreadsheet } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
@@ -27,6 +28,7 @@ export default function Students() {
   const [attendance, setAttendance] = useState({});
 
   const [showEnroll, setShowEnroll] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [view, setView] = useState('roster');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
@@ -235,6 +237,7 @@ export default function Students() {
           <button className={`btn ${view==='waiting'?'btn-primary':''}`} style={view==='waiting'?{background:'var(--blue)'}:undefined} onClick={()=>setView('waiting')}>
             <Clock size={14}/> Waiting list{waitingStudents.length>0?` (${waitingStudents.length})`:''}
           </button>
+          <button className="btn" onClick={()=>setShowImport(true)}><FileSpreadsheet size={14}/> Import</button>
           <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
         </div>
       </div>
@@ -318,7 +321,7 @@ export default function Students() {
         )}
         {classNames.length===0 && (
           <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>
-            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them.
+            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them, or tap Import to add a whole spreadsheet (its classes can be added too).
           </div>
         )}
 
@@ -582,6 +585,8 @@ export default function Students() {
       )}
 
       {toast&&<div className="toast">✓ {toast}</div>}
+      {showImport&&<ImportStudents classNames={classNames} students={students} onClose={()=>setShowImport(false)}
+        onDone={msg=>{ setShowImport(false); showToast(msg); silentRefresh(); }}/>}
       {showEnroll&&<EnrollmentForm onClose={()=>setShowEnroll(false)} onSaved={silentRefresh}/>}
     </Layout>
   );
