@@ -1,7 +1,6 @@
 // Students ⇄ spreadsheets: the Excel download on Settings → Backup and the "Add students
 // from a spreadsheet" pop-up on the Students page use the same columns, so a downloaded
 // sheet can be filled in and imported back.
-import { formatDateGB } from './store';
 
 export const SHEET_COLUMNS = [
   ['forename', 'Forename'], ['surname', 'Surname'], ['class', 'Class'], ['dob', 'Date of birth'],
@@ -10,7 +9,6 @@ export const SHEET_COLUMNS = [
   ['weeklyFee', 'Fee'], ['enrollDate', 'Enrolled'], ['leaveDate', 'Left'], ['status', 'Status'], ['notes', 'Notes'],
 ];
 
-const gb = d => { try { return d ? formatDateGB(d) : ''; } catch { return d || ''; } };
 const STATUS = { Active: 'Active', Inactive: 'Left', 'Waiting list': 'Waiting list' };
 const PHONES = ['parent1Phone', 'parent2Phone'];
 
@@ -25,10 +23,10 @@ export function fixPhone(v) {
 }
 
 // → rows for the students spreadsheet (lib/xlsx.js): headings, then one row per student.
-// Every cell is text, so phone numbers keep their 0.
+// Dates are real Excel dates; everything else is text, so phone numbers keep their 0.
 export function studentsRows(students) {
   return [SHEET_COLUMNS.map(c => c[1]), ...students.map(s => SHEET_COLUMNS.map(([k]) =>
-    k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? gb(s[k]) : k === 'status' ? (STATUS[s.status] || s.status) : (s[k] ?? '')))];
+    k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? (s[k] ? { date: String(s[k]).slice(0, 10) } : '') : k === 'status' ? (STATUS[s.status] || s.status) : (s[k] ?? '')))];
 }
 
 // Text pasted from Excel / Google Sheets (tab-separated) or a .csv file → rows of cells.
@@ -62,7 +60,7 @@ const HEADINGS = [
   [/(parent|guardian|mother|father|contact)?\s*2.*(phone|mobile|tel|number)|(phone|mobile|tel).*2/, 'parent2Phone'],
   [/(parent|guardian|mother|father|contact)?\s*2/, 'parent2Name'],
   [/phone|mobile|tel|number|contact\s*no/, 'parent1Phone'],
-  [/parent|guardian|mother|father/, 'parent1Name'],
+  [/parent|guardian|carer|mother|mum|mom|father|dad/, 'parent1Name'],
   [/fee|amount|price/, 'weeklyFee'], [/enrol|start|joined/, 'enrollDate'], [/left|leav/, 'leaveDate'],
   [/status/, 'status'], [/note|comment/, 'notes'],
 ];
@@ -92,12 +90,22 @@ function valid(y, mo, d) {
 export function parseSheet(text) {
   const cells = splitRows(text || '');
   if (!cells.length) return { rows: [], headed: false };
-  // A second parent column ("Mother's name" then "Father name") fills Parent 2.
+  // Parents: columns named after a person ("Father", "Mother's mobile", "Dad phone") are
+  // kept together — whoever appears first is Parent 1 and the other Parent 2, so a mother's
+  // name and number always end up side by side whatever order the columns are in. Any other
+  // second parent column ("Phone" twice) fills Parent 2.
   const used = new Set();
   const SECOND = { parent1Name: 'parent2Name', parent1Phone: 'parent2Phone' };
+  const PERSON = [[/mother|\bmum|\bmom/, 'mother'], [/father|\bdad/, 'father'], [/guardian|carer/, 'guardian']];
+  const personSlot = {};
   const mapped = cells[0].map(h => {
     let f = headingField(h);
-    if (f && used.has(f) && SECOND[f]) f = SECOND[f];
+    const low = h.toLowerCase();
+    const person = (f === 'parent1Name' || f === 'parent1Phone') && PERSON.find(([re]) => re.test(low))?.[1];
+    if (person) {
+      if (!personSlot[person]) personSlot[person] = Object.keys(personSlot).length === 0 ? 1 : 2;
+      f = `parent${personSlot[person]}${f === 'parent1Phone' ? 'Phone' : 'Name'}`;
+    } else if (f && used.has(f) && SECOND[f]) f = SECOND[f];
     if (f) used.add(f);
     return f;
   });
