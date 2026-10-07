@@ -1,7 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { X, Upload, Download, FileSpreadsheet, ArrowLeft } from 'lucide-react';
 import { importStudents, getDefaultWeeklyFee } from '../lib/store';
-import { parseSheet, parseDate, SHEET_COLUMNS, downloadText } from '../lib/studentSheet';
+import { parseSheet, parseDate, SHEET_COLUMNS } from '../lib/studentSheet';
+import { xlsxBlob, downloadBlob, xlsxToText } from '../lib/xlsx';
 
 // Students → Import: paste rows copied from Excel / Google Sheets (or choose a .csv), check
 // them, then add them all at once. Class names the madrasah doesn't have yet can be matched
@@ -43,10 +44,16 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
   const toAdd = checked.filter(c => !c.skip);
   const skipped = checked.filter(c => c.skip);
 
-  function chooseFile(e) {
+  async function chooseFile(e) {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
+    if (/\.xlsx$/i.test(f.name)) {
+      try { setText(await xlsxToText(f)); setError(''); }
+      catch { setError("Couldn't read that Excel file — open it, copy the rows and paste them here instead."); }
+      return;
+    }
+    if (/\.(xls|numbers|ods)$/i.test(f.name)) { setError('Save it as an Excel (.xlsx) file first — or copy the rows and paste them here.'); return; }
     const reader = new FileReader();
     reader.onload = () => { setText(String(reader.result || '')); setError(''); };
     reader.readAsText(f);
@@ -77,7 +84,7 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
     setBusy(false);
   }
 
-  const blankSheet = () => downloadText('﻿' + SHEET_COLUMNS.slice(0, 9).map(c => c[1]).join(',') + '\r\n', 'students-template.csv');
+  const blankSheet = () => downloadBlob(xlsxBlob([SHEET_COLUMNS.slice(0, 9).map(c => c[1])], 'Students'), 'students-template.xlsx');
   const sel = { padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontFamily: 'var(--font)', fontSize: 13, minWidth: 0, maxWidth: '100%' };
 
   return (
@@ -90,14 +97,14 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
         <div className="modal-body">
           {step === 'paste' ? (<>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
-              In Excel or Google Sheets, select the rows (with the heading row) and copy them, then paste below. Or choose a .csv file.
+              In Excel or Google Sheets, select the rows (with the heading row) and copy them, then paste below. Or choose the file (.xlsx or .csv).
             </div>
             <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={8} placeholder={'Forename\tSurname\tClass\tDate of birth\tParent 1 name\tParent 1 phone\nAisha\tPatel\tQaa\'idah 1\t04/05/2017\tFatima Patel\t07700 900123'}
               style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 'var(--r-md)', resize: 'vertical' }} />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              <button className="btn btn-sm" onClick={() => fileRef.current?.click()}><Upload size={13} />Choose a .csv file</button>
+              <button className="btn btn-sm" onClick={() => fileRef.current?.click()}><Upload size={13} />Choose a file</button>
               <button className="btn btn-sm" onClick={blankSheet}><Download size={13} />Blank sheet to fill in</button>
-              <input ref={fileRef} type="file" accept=".csv,text/csv,.tsv,.txt" onChange={chooseFile} style={{ display: 'none' }} />
+              <input ref={fileRef} type="file" accept=".xlsx,.csv,text/csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} style={{ display: 'none' }} />
             </div>
             {text && !parsed.rows.length && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>No rows found.</div>}
             {text && parsed.rows.length > 0 && !parsed.headed && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>No heading row found — reading the columns as Forename, Surname, Class, Date of birth, Parent 1 name, Parent 1 phone…</div>}
