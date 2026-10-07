@@ -12,7 +12,8 @@ import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import Madaaris        from './pages/Madaaris';
 import ParentPortal    from './pages/ParentPortal';
-import { getSession } from './lib/store';
+import { getSession, logout } from './lib/store';
+import { LegalPage, AcceptTerms } from './components/Legal';
 import { setMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
 import { AuthProvider } from './lib/AuthContext';
@@ -72,6 +73,10 @@ export default function App() {
     };
   }, [currentUserKey]);
 
+  // The privacy policy and terms open for anyone, signed in or not.
+  const legal = { '/privacy': 'privacy', '/terms': 'terms' }[window.location.pathname];
+  if (legal) return <LegalPage kind={legal} />;
+
   if (session === null) {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
   }
@@ -81,6 +86,12 @@ export default function App() {
   }
 
   const isOwner = session.user.role === 'owner';
+
+  // A head agrees to the terms for their madrasah before using the app.
+  if (session.user.termsNeeded) {
+    return <AcceptTerms madrasahName={session.user.madrasah?.name} onAccepted={refreshSession}
+      onSignOut={async () => { try { await logout(); } catch {} refreshSession(); }} />;
+  }
 
   // Parents: their own children only, on one page of their own — none of the staff pages.
   if (session.user.role === 'parent') {

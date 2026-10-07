@@ -78,6 +78,13 @@ codebase (one codebase, not a fork).
   (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
+- **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
+  `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
+  and the parent portal. A head (not the platform owner, not a demo) agrees once per
+  `TERMS_VERSION` before using the app (`/api/session?action=accept-terms`, `madaaris.terms_*`;
+  the same version string is in `server/routes/session.js` — change both). If what's stored or
+  who handles it changes (a new table of personal data, a new outside service), update the
+  privacy policy too.
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets
   or a .csv, matches headings, and can add the sheet's new class names as classes; Settings →

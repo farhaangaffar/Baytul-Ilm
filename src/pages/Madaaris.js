@@ -94,6 +94,7 @@ export default function Madaaris() {
                 Code <strong style={{ color: 'var(--ink)' }}>{m.code}</strong>
                 {m.headLogin && <> · Head login <strong style={{ color: 'var(--ink)' }}>{m.headLogin}</strong></>}
                 {' '}· Added {formatDateGB(String(m.createdAt).slice(0, 10))}
+                {!m.isYours && <> · {m.termsAccepted ? `Terms agreed ${formatDateGB(m.termsAccepted)}` : 'Terms not agreed yet'}</>}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

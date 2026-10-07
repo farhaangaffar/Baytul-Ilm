@@ -78,6 +78,10 @@ export async function logout() {
 export async function getSession() {
   return apiFetch('/api/session');
 }
+// A head agrees to the terms of use for their madrasah (components/Legal.js).
+export async function acceptTerms() {
+  return apiFetch('/api/session?action=accept-terms', { method: 'POST' });
+}
 
 // ── Teacher and class logins (owner only) ──
 // data: { login, password, teacherId } for a teacher's own login, or { login, password, classId }

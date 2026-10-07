@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LegalLinks } from '../components/Legal';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
 import { getBranding, setBranding } from '../lib/branding';
 import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
@@ -100,7 +101,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   const linkBtn = { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
       <div className="card" style={{ width: '100%', maxWidth: mode === 'demo' ? 440 : 360, textAlign: 'center' }}>
         {mode !== 'demo' && <>
           {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
@@ -194,6 +195,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
           </form>
         )}
       </div>
+      <LegalLinks style={{ marginTop: 14 }} />
     </div>
   );
 }
