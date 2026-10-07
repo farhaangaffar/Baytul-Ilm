@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { LegalLinks } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents } from '../lib/store';
@@ -438,6 +439,8 @@ export default function Settings() {
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
         </div>
       </div>}
+
+      <LegalLinks style={{ margin: '18px 0 4px' }} />
 
       {pendingRestore&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>

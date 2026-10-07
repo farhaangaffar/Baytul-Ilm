@@ -26,6 +26,7 @@ let ready = false;
 async function ensureColumns() {
   if (ready) return;
   await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS free_until DATE');
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP'); // see routes/session.js
   ready = true;
 }
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,6 +52,7 @@ module.exports = requireAuth(async (req, res) => {
     const { rows } = await query(`
       SELECT m.id, m.name, m.code, m.active, m.created_at AS "createdAt",
         to_char(COALESCE(m.free_until, (m.created_at + interval '6 months')::date), 'YYYY-MM-DD') AS "freeUntil",
+        to_char(m.terms_accepted_at, 'YYYY-MM-DD') AS "termsAccepted",
         (SELECT string_agg(u.login, ', ' ORDER BY u.id) FROM users u WHERE u.madrasah_id = m.id AND u.role = 'owner') AS "headLogin",
         (SELECT count(*) FROM students s WHERE s.madrasah_id = m.id AND s.status = 'Active') AS students,
         (SELECT count(*) FROM teachers t WHERE t.madrasah_id = m.id) AS teachers,

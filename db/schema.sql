@@ -15,7 +15,10 @@ CREATE TABLE IF NOT EXISTS madaaris (
   created_at  TIMESTAMP NOT NULL DEFAULT now(),
   demo_until  TIMESTAMP,                  -- set for demo madaaris (server/demo.js), which delete themselves then
   demo_ip     TEXT,                       -- hashed address that started a demo, only to limit how many
-  free_until  DATE                        -- end of its free months (6 from joining); NULL = 6 months from created_at
+  free_until  DATE,                       -- end of its free months (6 from joining); NULL = 6 months from created_at
+  terms_version     TEXT,                 -- the terms of use the head agreed to (TERMS_VERSION, src/lib/legal.js)
+  terms_accepted_at TIMESTAMP,
+  terms_accepted_by TEXT                  -- the head's login
 );
 
 CREATE TABLE IF NOT EXISTS teachers (

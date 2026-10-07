@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { LegalLinks } from '../components/Legal';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
-import { getBranding, setBranding } from '../lib/branding';
+import { getBranding, setBranding, isNeutralBranding, APP_NAME, APP_NAME_ARABIC, APP_TAGLINE } from '../lib/branding';
 import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
 import { LogIn, KeyRound, UserPlus, PlayCircle } from 'lucide-react';
 import { DemoChooser } from '../components/Demo';
@@ -97,15 +98,21 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   );
 
   const usernameProps = { autoCapitalize: 'none', autoCorrect: 'off', autoComplete: 'username', spellCheck: false };
+  const neutral = isNeutralBranding();
   const linkBtn = { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
       <div className="card" style={{ width: '100%', maxWidth: mode === 'demo' ? 440 : 360, textAlign: 'center' }}>
-        {mode !== 'demo' && <>
+        {mode !== 'demo' && (neutral ? <>
+          {/* No madrasah on this device yet: the app's own name. */}
+          <div style={{ fontFamily: "'Amiri', serif", fontSize: 28, color: 'var(--ink)', marginBottom: 0 }}>{APP_NAME_ARABIC}</div>
+          <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>{APP_NAME}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{APP_TAGLINE}</div>
+        </> : <>
           {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
-        </>}
+        </>)}
 
         {mode === 'demo' && (
           <>
@@ -194,6 +201,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
           </form>
         )}
       </div>
+      <LegalLinks style={{ marginTop: 14 }} />
     </div>
   );
 }
