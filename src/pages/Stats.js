@@ -163,9 +163,9 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
                 <div className="axis-bars">
                   {monthly.map(m => (
                     <div className="stack-bar-wrap" key={m.ym}>
-                      <div className="stack-seg" style={{ height: `${(m.P / yMax) * 100}%`, background: 'var(--green)' }} />
-                      <div className="stack-seg" style={{ height: `${(m.L / yMax) * 100}%`, background: 'var(--amber)' }} />
-                      <div className="stack-seg" style={{ height: `${(m.A / yMax) * 100}%`, background: 'var(--red)' }} />
+                      {[[m.P, 'var(--green)'], [m.L, 'var(--amber)'], [m.A, 'var(--red)']].filter(([n]) => n > 0).map(([n, bg]) => (
+                        <div key={bg} className="stack-seg" style={{ height: `${(n / yMax) * 100}%`, background: bg }} />
+                      ))}
                     </div>
                   ))}
                 </div>
@@ -298,8 +298,9 @@ function FeesStats({ year, terms, fees, students, classNames, years, dataByYear 
                 <div className="axis-bars">
                   {monthly.map(m => (
                     <div className="stack-bar-wrap" key={m.ym}>
-                      <div className="stack-seg" style={{ height: `${(m.collected / yMax) * 100}%`, background: 'var(--blue)' }} />
-                      <div className="stack-seg" style={{ height: `${(m.outstanding / yMax) * 100}%`, background: '#eef0f4' }} />
+                      {[[m.collected, 'var(--blue)'], [m.outstanding, '#eef0f4']].filter(([n]) => n > 0).map(([n, bg]) => (
+                        <div key={bg} className="stack-seg" style={{ height: `${(n / yMax) * 100}%`, background: bg }} />
+                      ))}
                     </div>
                   ))}
                 </div>
