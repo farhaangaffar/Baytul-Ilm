@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet, Smartphone, Shield, CalendarDays,
   ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, Mail } from 'lucide-react';
 import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
@@ -74,6 +74,24 @@ function Phone({ src, alt, eager }) {
 
 export default function Landing({ onSignIn }) {
   const [open, setOpen] = useState(0);
+  const [active, setActive] = useState('');
+  // Highlight the feature currently on screen in the pinned feature bar.
+  useEffect(() => {
+    const els = FEATURES.map(f => document.getElementById(f.key)).filter(Boolean);
+    const seen = {};
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { seen[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
+      const best = Object.entries(seen).sort((a, b) => b[1] - a[1])[0];
+      setActive(best && best[1] > 0 ? best[0] : '');
+    }, { rootMargin: '-120px 0px -35% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+  // Keep the highlighted button in view in the bar on phones (it scrolls sideways).
+  useEffect(() => {
+    const b = active && document.querySelector(`.lp-strip a[href="#${active}"]`);
+    if (b) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [active]);
   const [legal, setLegal] = useState(null);
   const signIn = e => { e.preventDefault(); onSignIn(); };
 
@@ -112,13 +130,14 @@ export default function Landing({ onSignIn }) {
         </div>
       </section>
 
-      <section className="lp-strip">
-        {[["Qur'an progress", BookOpen], ['AI reports', Sparkles], ['Parent portal', Users], ['Registers', CheckSquare], ['Fees', PoundSterling]].map(([t, I]) => (
-          <a key={t} href={`#${FEATURES.find(f => f.tag === t).key}`}><I size={16} />{t}</a>
-        ))}
-      </section>
-
       <main id="features">
+        {/* The feature bar stays pinned under the top bar while the features scroll past. */}
+        <div className="lp-features">
+        <nav className="lp-strip" aria-label="Features">
+          {FEATURES.map(f => (
+            <a key={f.key} href={`#${f.key}`} className={active === f.key ? 'active' : ''}><f.icon size={16} />{f.tag}</a>
+          ))}
+        </nav>
         {FEATURES.map((f, i) => (
           <section key={f.key} id={f.key} className={`lp-feature ${i % 2 ? 'lp-flip' : ''}`}>
             <div className="lp-feature-text">
@@ -130,6 +149,7 @@ export default function Landing({ onSignIn }) {
             <div className="lp-feature-art"><Phone src={f.img} alt={f.tag} /></div>
           </section>
         ))}
+        </div>
 
         <section className="lp-section">
           <h2 className="lp-center">And everything else a madrasah needs</h2>
