@@ -162,11 +162,12 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             )}
             {/* Only on a device that isn't any madrasah's yet, so a madrasah's own people
                 don't see it; the ?demo link works anywhere. */}
-            {!setupRequired && !getMadrasahCode() && (
+            {!setupRequired && !getMadrasahCode() && (<>
               <button type="button" className="btn" onClick={() => switchMode('demo')} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>
                 <PlayCircle size={14} />Try the demo
               </button>
-            )}
+              <a href="/about" style={{ ...linkBtn, display: 'inline-block', marginTop: 12, textDecoration: 'underline' }}>What is {APP_NAME}?</a>
+            </>)}
           </form>
         )}
 

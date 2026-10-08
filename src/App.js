@@ -14,7 +14,8 @@ import Madaaris        from './pages/Madaaris';
 import ParentPortal    from './pages/ParentPortal';
 import { getSession, logout } from './lib/store';
 import { LegalPage, AcceptTerms } from './components/Legal';
-import { setMadrasahCode } from './lib/madrasahCode';
+import Landing from './pages/Landing';
+import { setMadrasahCode, getMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
 import { AuthProvider } from './lib/AuthContext';
 
@@ -76,6 +77,15 @@ export default function App() {
   // The privacy policy and terms open for anyone, signed in or not.
   const legal = { '/privacy': 'privacy', '/terms': 'terms' }[window.location.pathname];
   if (legal) return <LegalPage kind={legal} />;
+
+  // The front page: always at /about, and at / for someone who isn't signed in on a device
+  // that doesn't belong to any madrasah yet (staff and parents arrive with ?m=<code>, or the
+  // device remembers its code, so they go straight to sign-in). "Sign in" opens /?signin.
+  const toSignIn = () => window.location.assign('/?signin');
+  if (window.location.pathname === '/about') return <Landing onSignIn={toSignIn} />;
+  const params = new URLSearchParams(window.location.search);
+  const newVisitor = window.location.pathname === '/' && !getMadrasahCode() && !['m', 'demo', 'signin'].some(k => params.has(k));
+  if (newVisitor && session && !session.authenticated && !session.setupRequired) return <Landing onSignIn={toSignIn} />;
 
   if (session === null) {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
