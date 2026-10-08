@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getUsers, createUser, updateUser, deleteUser } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useAuth } from '../lib/AuthContext';
-import { KeyRound, Trash2, Save } from 'lucide-react';
+import { KeyRound, Trash2, Save, Share2, Copy, MessageCircle, X } from 'lucide-react';
+import { APP_URL } from '../lib/branding';
 
 // On a student's profile (Students page): the family's parent-portal logins. A login
 // covers each of that parent's children, and each parent can have their own login (both
@@ -18,6 +19,38 @@ function siblingsOf(student, students) {
     && phones.some(p => p === digits(s.parent1Phone) || p === digits(s.parent2Phone)));
 }
 
+// The message a parent is sent with their login: the link, code, username and password, then
+// how to install the app. *…* is bold on WhatsApp.
+export function parentLoginMessage(code, login, password) {
+  const link = code ? `${APP_URL}/?m=${encodeURIComponent(code)}` : APP_URL;
+  return [
+    `Salaams, click on the link: ${link}`, '',
+    `Code: ${code || ''}`, '',
+    `Username: ${login}`, '',
+    `Password: ${password} (case sensitive)`, '',
+    'After first login click the key button (top right) to change your password.', '',
+    'Then follow these instructions to install the app on your phone:', '',
+    '*iPhone*',
+    'Open the link in Safari.',
+    'Tap the Share button (the square with an arrow, at the bottom).',
+    'Tap Add to Home Screen, then Add.',
+    'Open the app from its new icon and sign in.', '',
+    '*Android*',
+    'Open the link in Chrome.',
+    "Tap Install when it pops up. If it doesn't, tap the ⋮ menu at the top right and choose Install app.",
+    'Open the app from its new icon and sign in.', '',
+    'You only need to sign in once. After that, just tap the icon.',
+  ].join('\n');
+}
+
+// A UK mobile as WhatsApp wants it (447…), or '' if it doesn't look like one.
+function whatsappNumber(phone) {
+  const d = digits(phone);
+  if (/^07\d{9}$/.test(d)) return '44' + d.slice(1);
+  if (/^447\d{9}$/.test(d)) return d;
+  return '';
+}
+
 const field = { padding: '8px 10px', border: 'none', borderRadius: 'var(--r-md)', background: '#f9fafb', fontFamily: 'var(--font)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
 
 export default function ParentLogin({ student, students }) {
@@ -29,6 +62,8 @@ export default function ParentLogin({ student, students }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [toSend, setToSend] = useState(null); // { login, password } just set — the message to pass on
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     try { setLogins((await getUsers()).filter(u => u.role === 'parent' && u.studentIds.includes(student.id))); }
@@ -42,7 +77,7 @@ export default function ParentLogin({ student, students }) {
   // A first login is suggested for parent 1; a second one (the other parent) for parent 2,
   // seeing the same children as the first.
   function startNew() {
-    setEditing('new'); setError(''); setConfirmRemove(false);
+    setEditing('new'); setError(''); setConfirmRemove(false); setToSend(null);
     const taken = new Set((logins || []).map(l => l.login));
     const login = [digits(student.parent1Phone), digits(student.parent2Phone)].find(p => p && !taken.has(p))
       || (taken.size ? '' : student.surname.toLowerCase().replace(/[^a-z0-9]/g, ''));
@@ -50,24 +85,38 @@ export default function ParentLogin({ student, students }) {
     setForm({ login, password: '', studentIds });
   }
   function startEdit(l) {
-    setEditing(l.id); setError(''); setConfirmRemove(false);
+    setEditing(l.id); setError(''); setConfirmRemove(false); setToSend(null);
     setForm({ login: l.login, password: '', studentIds: l.studentIds });
   }
   const toggleChild = id => setForm(f => ({ ...f, studentIds: f.studentIds.includes(id) ? f.studentIds.filter(x => x !== id) : [...f.studentIds, id] }));
 
-  async function run(fn) {
+  async function run(fn, then) {
     setBusy(true); setError('');
-    try { await fn(); setEditing(null); await load(); }
+    try { await fn(); setEditing(null); await load(); if (then) then(); }
     catch (err) { setError(err.message || 'Something went wrong'); }
     setBusy(false);
   }
   function save() {
-    if (editing === 'new') return run(() => createUser({ kind: 'parent', ...form }));
+    // A new login or a new password: show the message to send, while the password is known.
+    const sent = form.password ? { login: form.login.trim().toLowerCase(), password: form.password } : null;
+    const show = () => { if (sent) { setToSend(sent); setCopied(false); } };
+    if (editing === 'new') return run(() => createUser({ kind: 'parent', ...form }), show);
     const changes = { studentIds: form.studentIds };
     const current = logins.find(l => l.id === editing);
     if (form.login.trim().toLowerCase() !== current.login) changes.login = form.login;
     if (form.password) changes.password = form.password;
-    return run(() => updateUser(editing, changes));
+    return run(() => updateUser(editing, changes), show);
+  }
+
+  const code = user?.madrasah?.code || '';
+  const message = toSend ? parentLoginMessage(code, toSend.login, toSend.password) : '';
+  const waTo = toSend ? (whatsappNumber(toSend.login) || (digits(toSend.login) === digits(student.parent2Phone) ? whatsappNumber(student.parent2Phone) : whatsappNumber(student.parent1Phone))) : '';
+  async function share() {
+    try { await navigator.share({ text: message }); } catch { /* closed */ }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(message); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { window.prompt('Copy the message:', message); }
   }
 
   // The children shown as tick boxes: this student, their brothers and sisters, and anyone already linked.
@@ -94,6 +143,21 @@ export default function ParentLogin({ student, students }) {
           <button className="btn btn-sm" onClick={() => startEdit(l)}>Manage</button>
         </div>
       ))}
+      {toSend && !editing && (
+        <div style={{ border: '1px solid var(--green)', background: 'var(--green-light)', borderRadius: 'var(--r-md)', padding: 12, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ flex: 1, fontWeight: 700, fontSize: 13, color: 'var(--green-text)' }}>Send these details to the parent</div>
+            <button type="button" onClick={() => setToSend(null)} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex' }}><X size={15} /></button>
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 8 }}>The password can't be shown again after you close this — set a new one to send it again.</div>
+          <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font)', fontSize: 12, background: '#fff', borderRadius: 8, padding: 10, maxHeight: 180, overflowY: 'auto', margin: '0 0 8px' }}>{message}</pre>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {typeof navigator !== 'undefined' && navigator.share && <button className="btn btn-primary btn-sm" onClick={share}><Share2 size={12} />Share</button>}
+            <a className="btn btn-sm" href={`https://wa.me/${waTo}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}><MessageCircle size={12} />WhatsApp</a>
+            <button className="btn btn-sm" onClick={copy}><Copy size={12} />{copied ? 'Copied' : 'Copy'}</button>
+          </div>
+        </div>
+      )}
       {logins && !editing && (
         <button className="btn btn-sm" onClick={startNew}><KeyRound size={12} />{logins.length ? "Add the other parent's login" : 'Set up parent login'}</button>
       )}
@@ -117,7 +181,7 @@ export default function ParentLogin({ student, students }) {
             ))}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>
-            Pass the username and password to the parent{user?.madrasah?.code ? <>, with the madrasah code <strong style={{ color: 'var(--ink)' }}>{user.madrasah.code}</strong></> : ''}. They'll see attendance, fees, finished reports and Qur'an progress, and can report an absence.
+            After saving, you'll get a message with the link, code, username and password to send to the parent. They'll see attendance, fees, finished reports and Qur'an progress, and can report an absence.
           </div>
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)' }}>{error}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

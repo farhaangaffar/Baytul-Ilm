@@ -27,7 +27,7 @@ const HEAD = {
     'Children are grouped by class — tap a class to open it.',
     'Tap a child to see their details, attendance and fees. Tap Edit to change them.',
     'Add a new child with Enroll, or a whole spreadsheet of children with Import.',
-    'Set up a parent login from the child\'s card (switch the parent portal on in Settings first).',
+    'Set up a parent login from the child\'s card (switch the parent portal on in Settings first) — then Share or WhatsApp the ready-made message to the parent.',
     'Children who have left are kept at the bottom.',
   ] },
   '/attendance': { title: 'Attendance', steps: [

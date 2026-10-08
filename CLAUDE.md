@@ -67,6 +67,10 @@ codebase (one codebase, not a fork).
   staff on Attendance via `server/routes/absences.js`). The front end gives them one
   page (`src/pages/ParentPortal.js`). Each madrasah switches the portal on in Settings.
   Never add parent access to a staff route — add what parents need to `parent.js`.
+  Creating a parent login (or setting a new password) shows a ready-made message to send —
+  link, code, username, password, install steps — with Share / WhatsApp (to the parent's
+  number) / Copy (`parentLoginMessage()` in `src/components/ParentLogin.js`); passwords are
+  never stored readable, so it only appears right then.
 - **Demo** ("Try the demo" on the sign-in screen of a device with no madrasah yet, or any
   link ending `?demo`): `server/demo.js` builds each visitor a private made-up madrasah
   (`madaaris.demo_until`, 24 hours; expired ones stop signing in and are deleted when the
