@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
+import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
 import { feeFrequency, currentFeePeriod, FREQUENCIES } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 
@@ -27,6 +27,7 @@ export default function Dashboard() {
       const [studentsData, classesData, feesData, attendanceData, termsData] = await Promise.all([
         getStudents(), getClasses(), getFees(y), getAttendance(y),
         feeFrequency() === 'termly' ? getTerms(y) : Promise.resolve([]),
+        getSpecialDays().catch(() => null), // so this week's chart includes any extra days (e.g. a Ramadhaan Saturday)
       ]);
       setYear(y); setStudents(studentsData); setClasses(classesData); setFees(feesData); setAttendance(attendanceData); setTerms(termsData);
     } catch (err) {
@@ -163,9 +164,10 @@ export default function Dashboard() {
             <div className="axis-bars">
               {dailyCounts.map(dc=>(
                 <div className="stack-bar-wrap" key={dc.date}>
-                  <div className="stack-seg" style={{height:`${(dc.P/yMax)*100}%`, background:'var(--green)'}}/>
-                  <div className="stack-seg" style={{height:`${(dc.L/yMax)*100}%`, background:'var(--amber)'}}/>
-                  <div className="stack-seg" style={{height:`${(dc.A/yMax)*100}%`, background:'var(--red)'}}/>
+                  {/* Only pieces with something in them, so the top one gets the rounded corners. */}
+                  {[[dc.P,'var(--green)'],[dc.L,'var(--amber)'],[dc.A,'var(--red)']].filter(([n])=>n>0).map(([n,bg])=>(
+                    <div key={bg} className="stack-seg" style={{height:`${(n/yMax)*100}%`, background:bg}}/>
+                  ))}
                 </div>
               ))}
             </div>
