@@ -62,7 +62,7 @@ const HEAD = {
     'Everything saves by itself — there\'s no Save button.',
     'Your madrasah: its name, logo and sign-in code.',
     'Fees: how often you charge, how much, and which weeks or months.',
-    'Classes & parents: school days, reports and the parent portal.',
+    'Classes & parents: madrasah days, reports and the parent portal.',
     'Days off & extra days: add days you\'re closed (like Eid) or open extra (like Ramadhaan weekends) — one day, or From–To for several.',
     'Download a backup now and then. "Students spreadsheet" gives you every child and their parents\' details.',
   ] },

@@ -178,7 +178,7 @@ export default function Settings() {
       setBranding({ schoolDays: next });
       markSaved('days');
     } catch (err) {
-      showToast(err.message || 'Could not change the school days');
+      showToast(err.message || 'Could not change the madrasah days');
     }
   }
   async function changeFeeAuto(on) {
@@ -389,7 +389,7 @@ export default function Settings() {
         <div className="card-title" style={{marginBottom:16}}>Classes &amp; parents</div>
         <div className="form-grid school-grid">
           <div className="form-group">
-            <Label k="days">School days</Label>
+            <Label k="days">Madrasah days</Label>
             <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
               {[[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[0,'Sun']].map(([d,l])=>{
                 const on = (form.schoolDays?.length ? form.schoolDays : [1,2,3,4]).includes(d);
