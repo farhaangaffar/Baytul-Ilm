@@ -244,7 +244,6 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   const [previousSummaries, setPreviousSummaries] = useState([]);
   const [savingSummary, setSavingSummary] = useState(false);
   const [behavior, setBehavior] = useState('');
-  const [savingBehavior, setSavingBehavior] = useState('');
   const [summaryFit, setSummaryFit] = useState(null);
 
   useEffect(() => {
@@ -377,16 +376,11 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
     setAiLoading(false);
   }
 
-  async function setBehaviorRating(val) {
-    const next = behavior === val ? '' : val; // click again to clear
-    setBehavior(next); setSavingBehavior(val);
-    try {
-      await saveAiSummary(student.id, period.key, { summary: aiSummary, instructions: aiInstructions, behavior: next });
-    } catch (err) {
-      showToast(err.message || 'Could not save behaviour rating');
-      setBehavior(behavior); // revert on failure
-    }
-    setSavingBehavior('');
+  // Only picks the rating — it's saved with the summary on "Add to report". (Saving it on its
+  // own used to save whatever was in the summary box with it: an empty box wiped a report that
+  // was already added, and an unchecked draft became visible to parents.)
+  function setBehaviorRating(val) {
+    setBehavior(b => (b === val ? '' : val)); // click again to clear
   }
 
   async function addToReport() {
@@ -690,9 +684,8 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                   const active = behavior===opt;
                   return (
                     <button key={opt} type="button" className="btn btn-sm" onClick={()=>setBehaviorRating(opt)}
-                      disabled={!!savingBehavior}
                       style={{flex:'1 1 80px',minWidth:0,justifyContent:'center',background:active?'var(--ink)':undefined,color:active?'#fff':undefined,borderColor:active?'var(--ink)':undefined}}>
-                      {savingBehavior===opt?'…':opt}
+                      {opt}
                     </button>
                   );
                 })}
