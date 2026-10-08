@@ -64,7 +64,7 @@ const HEAD = {
     'Fees: how often you charge, how much, and which weeks or months.',
     'Classes & parents: madrasah days, reports and the parent portal.',
     'Days off & extra days: add days you\'re closed (like Eid) or open extra (like Ramadhaan weekends) — one day, or From–To for several.',
-    'Download a backup now and then. "Students spreadsheet" gives you every child and their parents\' details.',
+    'Download a backup now and then. "Download students to spreadsheet" gives you every child and their parents\' details.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',

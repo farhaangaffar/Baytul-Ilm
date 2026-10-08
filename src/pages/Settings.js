@@ -3,7 +3,7 @@ import { LegalLinks } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents } from '../lib/store';
-import { studentsRows } from '../lib/studentSheet';
+import { studentsRows, SHEET_LEFT } from '../lib/studentSheet';
 import { xlsxBlob, downloadBlob } from '../lib/xlsx';
 import TermsCard from '../components/TermsCard';
 import FeeWeeksCard from '../components/FeeWeeksCard';
@@ -246,7 +246,7 @@ export default function Settings() {
       const list = await getStudents();
       const order = { Active: 0, 'Waiting list': 1, Inactive: 2 };
       list.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || a.class.localeCompare(b.class) || a.forename.localeCompare(b.forename));
-      downloadBlob(xlsxBlob(studentsRows(list), 'Students'), `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-students-${new Date().toISOString().slice(0,10)}.xlsx`);
+      downloadBlob(xlsxBlob(studentsRows(list), 'Students', SHEET_LEFT), `${(form.schoolName || 'madrasah').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'madrasah'}-students-${new Date().toISOString().slice(0,10)}.xlsx`);
       showToast('Spreadsheet downloaded');
     } catch (err) {
       showToast(err.message || 'Could not make the spreadsheet');
@@ -433,11 +433,11 @@ export default function Settings() {
         <div className="card-sub" style={{marginBottom:16}}>
           Download one regularly, and always before restoring. The spreadsheet lists every student and their parents' details.
         </div>
-        <div className="flex items-center gap-2" style={{flexWrap:'wrap'}}>
-          <button className="btn btn-primary" onClick={handleExport} disabled={exporting}><Download size={14}/>{exporting?'Preparing…':'Download backup'}</button>
-          <button className="btn" onClick={downloadStudents} disabled={exporting}><FileSpreadsheet size={14}/>Students spreadsheet</button>
-          <button className="btn" onClick={()=>fileInputRef.current?.click()}><Upload size={14}/>Restore from backup</button>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:8,maxWidth:440}}>
+          <button className="btn btn-primary backup-btn" style={{justifyContent:'center',paddingLeft:8,paddingRight:8,gap:5}} onClick={handleExport} disabled={exporting}>{exporting?'Preparing…':'Download backup'}</button>
+          <button className="btn backup-btn" style={{justifyContent:'center',paddingLeft:8,paddingRight:8,gap:5}} onClick={()=>fileInputRef.current?.click()}>Restore backup</button>
           <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileSelect} style={{display:'none'}}/>
+          <button className="btn backup-btn" style={{justifyContent:'center',gridColumn:'1 / -1',paddingLeft:8,paddingRight:8,gap:5}} onClick={downloadStudents} disabled={exporting}><FileSpreadsheet size={14}/>Download students to spreadsheet</button>
         </div>
       </div>}
 
