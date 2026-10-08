@@ -85,6 +85,11 @@ codebase (one codebase, not a fork).
   (like `db/migrate-011-madaaris.sql`) are **run by hand, deliberately**, after a Backup,
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
+- **Front page** (`src/pages/Landing.js`, `src/landing.css`, screenshots in `public/landing/`
+  taken from the demo as "Madrasatul Huda"): shown at `/about`, and at `/` to anyone not signed
+  in on a device with no madrasah code (no `?m=`, `?demo`, `?signin`) — staff and parents never
+  see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then a
+  small monthly fee". When a feature changes a lot, retake its screenshot.
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per
