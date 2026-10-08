@@ -543,3 +543,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .period-pill-grid .week-pill { min-width: 0; max-width: none; }
 .period-pill-grid.months { grid-template-columns: repeat(6, 1fr); }
 @media (max-width: 560px) { .period-pill-grid.months { grid-template-columns: repeat(4, 1fr); } }
+
+/* Settings → Backup: the two buttons stay side by side even on the narrowest phones. */
+@media (max-width: 360px) { .backup-btn { font-size: 12px; } }

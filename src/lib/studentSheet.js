@@ -24,6 +24,9 @@ export function fixPhone(v) {
 
 // → rows for the students spreadsheet (lib/xlsx.js): headings, then one row per student.
 // Dates are real Excel dates; everything else is text, so phone numbers keep their 0.
+// Columns kept on the left in the spreadsheet (names and notes); the rest are centred.
+export const SHEET_LEFT = SHEET_COLUMNS.map(([k], i) => (/Name$|^forename$|^surname$|^notes$/.test(k) ? i : -1)).filter(i => i >= 0);
+
 export function studentsRows(students) {
   return [SHEET_COLUMNS.map(c => c[1]), ...students.map(s => SHEET_COLUMNS.map(([k]) =>
     k === 'dob' || k === 'enrollDate' || k === 'leaveDate' ? (s[k] ? { date: String(s[k]).slice(0, 10) } : '') : k === 'status' ? (STATUS[s.status] || s.status) : (s[k] ?? '')))];

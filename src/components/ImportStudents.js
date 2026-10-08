@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { X, Upload, Download, FileSpreadsheet, ArrowLeft } from 'lucide-react';
 import { importStudents, getDefaultWeeklyFee } from '../lib/store';
-import { parseSheet, parseDate, SHEET_COLUMNS } from '../lib/studentSheet';
+import { parseSheet, parseDate, SHEET_COLUMNS, SHEET_LEFT } from '../lib/studentSheet';
 import { xlsxBlob, downloadBlob, xlsxToText } from '../lib/xlsx';
 
 // Students → Import: paste rows copied from Excel / Google Sheets (or choose a .csv), check
@@ -84,7 +84,7 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
     setBusy(false);
   }
 
-  const blankSheet = () => downloadBlob(xlsxBlob([SHEET_COLUMNS.slice(0, 9).map(c => c[1])], 'Students'), 'students-template.xlsx');
+  const blankSheet = () => downloadBlob(xlsxBlob([SHEET_COLUMNS.slice(0, 9).map(c => c[1])], 'Students', SHEET_LEFT), 'students-template.xlsx');
   const sel = { padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontFamily: 'var(--font)', fontSize: 13, minWidth: 0, maxWidth: '100%' };
 
   return (
