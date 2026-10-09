@@ -144,6 +144,11 @@ codebase (one codebase, not a fork).
   closed: every day; open: only days that aren't usual school days — one row per date, shown grouped): closed dates like Eid — Attendance shows "Closed today — <name>"
   and greys the day; extra dates (a Ramadhaan Saturday) count as school days in `isSchoolDay()` /
   `getWeekDates()` once `getSpecialDays()` has loaded them.
+- **Attendance → a child's month** (`Attendance.js`, `.att-week` / `.att-day` in `index.css`): totals
+  on top, then one card per week (two across from 900px wide) with a line per day — coloured stripe,
+  date, status ("Late · 17:22"), and P / L / A buttons (tap the lit one again to clear). Any number of
+  days per week (usual days + extra days); days off are a faded line with their name. On phones it
+  opens scrolled to this week.
 - Report period (Settings): **monthly** (one report per school month — the original
   system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
   is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`

@@ -546,3 +546,28 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 
 /* Settings → Backup: the two buttons stay side by side even on the narrowest phones. */
 @media (max-width: 360px) { .backup-btn { font-size: 12px; } }
+
+/* Attendance → a child's month: one card per week, a line per day with P / L / A. */
+.att-weeks { display: grid; gap: 14px; align-items: start; }
+@media (min-width: 900px) { .att-weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.att-week { padding: 4px 16px 8px; scroll-margin-top: 12px; }
+.att-week-title { font-size: 11px; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 0 4px; }
+.att-day { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid #f0f2f5; }
+.att-week-title + .att-day { border-top: none; }
+.att-stripe { width: 4px; align-self: stretch; border-radius: 4px; background: #e5e7eb; flex-shrink: 0; }
+.att-day.P .att-stripe { background: var(--green); }
+.att-day.L .att-stripe { background: var(--amber); }
+.att-day.A .att-stripe { background: var(--red); }
+.att-day-main { flex: 1; min-width: 0; }
+.att-day-date { font-size: 13.5px; font-weight: 600; }
+.att-day-status { font-size: 11.5px; font-weight: 600; color: var(--text-soft); }
+.att-day.P .att-day-status { color: var(--green-text); }
+.att-day.L .att-day-status { color: var(--amber-text); }
+.att-day.A .att-day-status { color: var(--red-text); }
+.att-day.off { opacity: 0.55; padding: 9px 0; }
+.att-day-note { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+.att-today { margin-left: 7px; font-size: 10.5px; font-weight: 700; color: var(--blue); background: var(--blue-light); padding: 1px 7px; border-radius: 999px; vertical-align: 1px; }
+.att-mark { width: 36px; height: 32px; border: none; border-radius: 9px; cursor: pointer; font-family: var(--font-num); font-weight: 700; font-size: 13px; background: #f3f4f6; color: var(--text-soft); flex-shrink: 0; transition: background .12s, color .12s; }
+.att-mark.on.P { background: var(--green); color: #fff; }
+.att-mark.on.L { background: var(--amber); color: #5c4a00; }
+.att-mark.on.A { background: var(--red); color: #fff; }
