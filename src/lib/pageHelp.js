@@ -33,7 +33,7 @@ const HEAD = {
   '/attendance': { title: 'Attendance', steps: [
     'Pick the class at the top.',
     'Tap P (present), L (late) or A (absent) for each child — it saves straight away.',
-    'Tap a child\'s card to see their month or mark a different day.',
+    'Tap a child\'s card to see their month — tap P, L or A on any day to change it (tap it again to clear).',
     'Absences parents have told you about show at the top.',
   ] },
   '/fees': { title: 'Fees', steps: feesForHead },

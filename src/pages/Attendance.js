@@ -63,6 +63,13 @@ export default function Attendance() {
     if (mc) mc.scrollTop = listScrollRef.current;
   }, [selectedId]);
 
+  // A child's month opens at this week on phones (earlier weeks and the totals are just above).
+  useLayoutEffect(() => {
+    if (!selectedId || window.innerWidth >= 900) return;
+    const wk = document.querySelector('.att-week[data-this-week="1"]');
+    if (wk && wk.previousElementSibling) wk.scrollIntoView({ block: 'start' });
+  }, [selectedId, monthAnchor]);
+
   async function switchYear(y) {
     setYear(y);
     try { await loadYear(y); } catch (err) { showToast(err.message || 'Could not load that year'); }
@@ -179,43 +186,47 @@ export default function Attendance() {
           </div>
         </div>
 
-        {monthWeeks.map(w=>{
-          const weekDates = getWeekDates(w);
-          return (
-            // One card per school day (Settings → School days); on phones they sit in one
-            // compact row (att-days).
-            <div className="day-cal-row att-days" key={w} style={{marginBottom:12, gridTemplateColumns:`repeat(${weekDates.length}, minmax(0, 1fr))`}}>
-              {weekDates.map(date=>{
-                const status = attData[selected.id]?.[date];
-                const closed = daysOff[date] && !status; // a day off (marked days still show their mark)
-                const dayName = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short'});
-                const dayDate = formatDayMonthGB(date);
-                const bg = status==='P'?'var(--green-light)':status==='L'?'var(--amber-light)':status==='A'?'var(--red-light)':'#f3f4f6';
-                const dotBg = status==='P'?'var(--green)':status==='L'?'var(--amber)':status==='A'?'var(--red)':'#e5e7eb';
-                return (
-                  <div className="day-cal-card" key={date} style={{background:bg, opacity: closed ? 0.6 : 1}}>
-                    <div className="day-cal-name">{dayName}</div>
-                    <div className="day-cal-date">{dayDate}</div>
-                    <button className="day-cal-status" disabled={closed} style={{background:dotBg, color: status ? '#fff' : 'var(--text-soft)', cursor: closed ? 'default' : undefined}}
-                      onClick={()=>{
-                        const cycle=['P','L','A',null];
-                        saveMark(selected.id, date, cycle[(cycle.indexOf(status||null)+1)%cycle.length]);
-                      }}>
-                      {status||'·'}
-                    </button>
-                    <div className="day-cal-label">{closed ? daysOff[date] : status==='L' && lateTimes[selected.id]?.[date] ? lateTimes[selected.id][date] : status?STATUS_LABELS[status]:'Not marked'}</div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-
-        <div className="summary-row-v2">
+        {/* This month's totals first, then one card per week: a line per day (however many
+            days the madrasah opens — usual days plus any extra days) with P / L / A to tap.
+            Weeks sit two across on wide screens. */}
+        <div className="summary-row-v2" style={{marginBottom:14}}>
           <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{counts.P}</div><div className="l">Present</div></div>
           <div className="summary-box-v2" style={{background:'var(--amber-light)'}}><div className="n">{counts.L}</div><div className="l">Late</div></div>
           <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{counts.A}</div><div className="l">Absent</div></div>
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{pct}%</div><div className="l">This month</div></div>
+        </div>
+        <div className="att-weeks">
+          {monthWeeks.map(w=>{
+            const weekDates = getWeekDates(w);
+            const nextWeek = new Date(w+'T12:00:00'); nextWeek.setDate(nextWeek.getDate()+7);
+            const isThisWeek = TODAY >= w && TODAY < nextWeek.toISOString().slice(0,10);
+            return (
+              <div className="card att-week" key={w} data-this-week={isThisWeek ? '1' : undefined}>
+                <div className="att-week-title">Week of {new Date(w+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+                {weekDates.map(date=>{
+                  const status = attData[selected.id]?.[date];
+                  const label = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+                  if (daysOff[date] && !status) return ( // a day off (marked days still show their mark)
+                    <div className="att-day off" key={date}><span className="att-stripe"/><div className="att-day-main"><span className="att-day-date">{label}</span> <span className="att-day-note">· {daysOff[date]}</span></div></div>
+                  );
+                  const late = status==='L' && lateTimes[selected.id]?.[date];
+                  return (
+                    <div className={`att-day ${status||''}`} key={date}>
+                      <span className="att-stripe"/>
+                      <div className="att-day-main">
+                        <div className="att-day-date">{label}{date===TODAY && <span className="att-today">Today</span>}</div>
+                        <div className="att-day-status">{status ? STATUS_LABELS[status] : 'Not marked'}{late ? ` · ${late}` : ''}</div>
+                      </div>
+                      {['P','L','A'].map(k=>(
+                        <button key={k} type="button" className={`att-mark ${status===k ? 'on '+k : ''}`} aria-pressed={status===k} aria-label={`${STATUS_LABELS[k]} on ${label}`}
+                          onClick={()=>saveMark(selected.id, date, status===k ? null : k)}>{k}</button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
         {toast && <div className="toast">✓ {toast}</div>}
       </Layout>
