@@ -7,7 +7,15 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { attendanceCountsForMonth, getClasses, getTeachers } from './store';
-import { money, getBranding } from './branding';
+import { money, getBranding, APP_NAME, APP_URL } from './branding';
+
+// Every page's footer line — the school, the date, and a small credit to the app (dropping
+// "Confidential" if a long school name would make it overrun the footer band).
+const footerText = (date, font) => {
+  const credit = `Made with ${APP_NAME} · ${APP_URL.replace(/^https?:\/\//, '')}`;
+  const full = `${getBranding().schoolName} · Confidential · ${fmtDMY(date)} · ${credit}`;
+  return font.widthOfTextAtSize(full, 9) <= 500 ? full : `${getBranding().schoolName} · ${fmtDMY(date)} · ${credit}`;
+};
 import { periodForKey, feesForReport } from './reportPeriods';
 
 function fmtDMY(date) {
@@ -255,7 +263,7 @@ function newContinuationPage(doc, fonts, studentLabel, reportDate) {
 
   const footBandTop = PAGE_H - 60, footBandH = 28;
   page.drawRectangle({ x: 41, y: pdfY(footBandTop + footBandH, PAGE_H), width: 517, height: footBandH, color: COLORS.gray });
-  centerText(page, `${getBranding().schoolName} · Confidential · ${fmtDMY(reportDate)}`,
+  centerText(page, footerText(reportDate, fonts.regular),
     fonts.regular, 9, PAGE_W / 2, footBandTop + footBandH - 11, COLORS.muted, PAGE_H);
 
   return { page, pageTop: PAGE_H, contentTop: bandTop + bandH + 20, contentBottom: footBandTop - 15 };
@@ -376,7 +384,7 @@ export async function generateReportPdfBytes({ student, counts, feeTotals, month
   // quirk present even in the untouched source file). Redraw a uniform
   // stroke over it rather than leave that asymmetry visible.
   page.drawRectangle({ x: 40.3, y: pdfY(810.4), width: 518.9, height: 810.4 - 781.3, borderColor: COLORS.ink, borderWidth: 0.9 });
-  centerText(page, `${getBranding().schoolName} · Confidential · ${fmtDMY(reportDate)}`,
+  centerText(page, footerText(reportDate, regular),
     regular, 9, PAGE_W / 2, 799, COLORS.muted);
 
   return doc.save();

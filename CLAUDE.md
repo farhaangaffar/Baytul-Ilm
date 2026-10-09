@@ -89,7 +89,9 @@ codebase (one codebase, not a fork).
   taken from the demo as "Madrasatul Huda"): shown at `/about`, and at `/` to anyone not signed
   in on a device with no madrasah code (no `?m=`, `?demo`, `?signin`) — staff and parents never
   see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then a
-  small monthly fee". When a feature changes a lot, retake its screenshot.
+  small monthly fee". When a feature changes a lot, retake its screenshot. The parent portal and
+  PDF reports carry a small "Made with Suhuf" credit (`MadeWith` in `Legal.js`, `footerText` in
+  `src/lib/reportPdf.js`) linking to `/about`.
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per
