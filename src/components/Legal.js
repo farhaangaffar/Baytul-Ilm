@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ShieldCheck, Check } from 'lucide-react';
 import { PRIVACY, TERMS, LEGAL_UPDATED } from '../lib/legal';
 import { acceptTerms } from '../lib/store';
+import { APP_NAME, APP_URL } from '../lib/branding';
 
 // The privacy policy and terms: a page of their own (/privacy, /terms — anyone can open
 // them), small links that open them in a pop-up, and the one-time "agree" screen a head
@@ -61,6 +62,15 @@ export function LegalLinks({ style }) {
       <button type="button" style={link} onClick={() => setOpen('privacy')}>Privacy policy</button>
       <button type="button" style={link} onClick={() => setOpen('terms')}>Terms of use</button>
       {open && <LegalModal kind={open} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+// "Made with Suhuf" — a small credit under the parent portal, linking to the front page.
+export function MadeWith({ style }) {
+  return (
+    <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', ...style }}>
+      Made with <a href={`${APP_URL}/about`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', fontWeight: 700 }}>{APP_NAME}</a> · madrasah management
     </div>
   );
 }

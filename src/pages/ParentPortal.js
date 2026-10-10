@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LegalLinks } from '../components/Legal';
+import { LegalLinks, MadeWith } from '../components/Legal';
 import { getParentHome, getParentChild, reportAbsence, logout, formatDateGB } from '../lib/store';
 import { periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
@@ -318,6 +318,7 @@ export default function ParentPortal() {
           </>
         )}
         <LegalLinks style={{ margin: '20px 0 8px' }} />
+        <MadeWith style={{ marginBottom: 8 }} />
       </div>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
       <InstallSteps steps={pageHelp.open ? pageHelp.help : null} onClose={pageHelp.close} />
