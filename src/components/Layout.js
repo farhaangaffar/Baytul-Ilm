@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { appNavigate } from './BackToExit';
 import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2 } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
@@ -80,7 +81,7 @@ export default function Layout({ children, title, subtitle }) {
             return (
               <React.Fragment key={item.path}>
                 {item.section && <div className="sidebar-section-label">{item.section}</div>}
-                <button className={`nav-link ${active?'active':''}`} onClick={() => navigate(item.path)}>
+                <button className={`nav-link ${active?'active':''}`} onClick={() => appNavigate(navigate, item.path)}>
                   <Icon size={16}/><span>{item.label}</span>
                 </button>
               </React.Fragment>
@@ -131,7 +132,7 @@ export default function Layout({ children, title, subtitle }) {
               const Icon = item.icon;
               const active = pathname === item.path;
               return (
-                <button key={item.path} ref={active ? activeChipRef : null} className={`mobile-chip ${active?'active':''}`} onClick={() => navigate(item.path)}>
+                <button key={item.path} ref={active ? activeChipRef : null} className={`mobile-chip ${active?'active':''}`} onClick={() => appNavigate(navigate, item.path)}>
                   <Icon size={14}/>{item.label}
                 </button>
               );

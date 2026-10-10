@@ -12,6 +12,7 @@ import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import Madaaris        from './pages/Madaaris';
 import ParentPortal    from './pages/ParentPortal';
+import BackToExit     from './components/BackToExit';
 import { getSession, logout } from './lib/store';
 import { LegalPage, AcceptTerms } from './components/Legal';
 import Landing from './pages/Landing';
@@ -107,7 +108,7 @@ export default function App() {
   if (session.user.role === 'parent') {
     return (
       <AuthProvider value={{ user: session.user }}>
-        <SettingsProvider><ParentPortal /></SettingsProvider>
+        <SettingsProvider><ParentPortal /><BackToExit /></SettingsProvider>
       </AuthProvider>
     );
   }
@@ -116,6 +117,7 @@ export default function App() {
     <AuthProvider value={{ user: session.user }}>
       <SettingsProvider>
         <BrowserRouter>
+          <BackToExit />
           {isOwner ? (
             <Routes>
               <Route path="/"           element={<Dashboard />} />

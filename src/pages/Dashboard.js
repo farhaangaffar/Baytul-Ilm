@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { appNavigate } from '../components/BackToExit';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
@@ -97,22 +98,22 @@ export default function Dashboard() {
         <div className="stat-card-v2">
           <div className="n">{active.length}</div>
           <div className="l">Students</div>
-          <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/students')}>View all →</div>
+          <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/students')}>View all →</div>
         </div>
         <div className="stat-card-v2">
           <div className="n">{classes.length}</div>
           <div className="l">Classes</div>
-          <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>navigate('/classes')}>View all →</div>
+          <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/classes')}>View all →</div>
         </div>
         <div className="stat-card-v2">
           <div className="n">{weekAttPct}%</div>
           <div className="l">Attendance this week</div>
-          <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>navigate('/attendance')}>View all →</div>
+          <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/attendance')}>View all →</div>
         </div>
         <div className="stat-card-v2">
           <div className="n">{money(monthOutstanding)}</div>
           <div className="l">Outstanding this {unit}</div>
-          <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>navigate('/fees')}>View all →</div>
+          <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/fees')}>View all →</div>
         </div>
       </div>
 
