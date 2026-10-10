@@ -155,6 +155,17 @@ codebase (one codebase, not a fork).
   date, status ("Late · 17:22"), and P / L / A buttons (tap the lit one again to clear). Any number of
   days per week (usual days + extra days); days off are a faded line with their name. On phones it
   opens scrolled to this week.
+- **A child's fees** (Fees page → tap a child; `src/components/FeeRows.js`, `.fee-boxed` in `index.css`): the
+  attendance look — totals on top (Paid · Owed · Collected), then each week (a card per school month, two
+  across from 900px; later months behind "Show the rest of the year") or each month/term in its own box,
+  tinted green (paid) / red (owed). **Show, don't store:** periods still to come that will be charged are
+  shown as "Not due yet" from `?action=plan` (weeks/months off + `fee_skips`) without being saved; "Mark
+  paid" on one records it paid (`add-week` / `add-period`) — teachers may do this too, but only for a
+  future period not removed for that child/class. **Not due yet is never owed:** an unpaid fee whose
+  period hasn't started (`isDue()` / `countedFees()` in `feePeriods.js`) is left out of every total —
+  Dashboard, Stats, Students, reports (`feesForReport`) and the parent portal (which doesn't show them).
+  Head only: ✏️ amount, bin = take it off that child (`DELETE ?id=`, or `?action=skip` if not charged yet;
+  "Put back" undoes). Taking a week/month off for everyone is only in Settings (Fee weeks / Fee months).
 - Report period (Settings): **monthly** (one report per school month — the original
   system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
   is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`

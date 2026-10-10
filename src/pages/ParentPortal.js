@@ -4,6 +4,7 @@ import { getParentHome, getParentChild, reportAbsence, logout, formatDateGB } fr
 import { periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { money } from '../lib/branding';
+import { countedFees } from '../lib/feePeriods';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import ChangePasswordModal from '../components/ChangePasswordModal';
@@ -154,17 +155,19 @@ function ChildView({ child, reasons }) {
   const pct = marked ? Math.round(((count('P') + count('L')) / marked) * 100) : null;
   const attendanceByMonth = byMonth(data.attendance, a => a.date);
 
-  const unpaid = data.fees.filter(f => f.status !== 'Paid');
+  // Unpaid fees for weeks/months still to come aren't owed yet, so parents don't see them.
+  const fees = countedFees(data.fees);
+  const unpaid = fees.filter(f => f.status !== 'Paid');
   const owed = unpaid.reduce((t, f) => t + f.amount, 0);
-  const paidTotal = data.fees.filter(f => f.status === 'Paid').reduce((t, f) => t + f.amount, 0);
-  const feesByMonth = byMonth(data.fees, f => f.weekStarting);
+  const paidTotal = fees.filter(f => f.status === 'Paid').reduce((t, f) => t + f.amount, 0);
+  const feesByMonth = byMonth(fees, f => f.weekStarting);
 
   async function download(r) {
     setDownloading(r.month);
     try {
       const p = periodForKey(r.month, data.terms);
       const attendance = { [child.id]: Object.fromEntries(data.attendance.map(a => [a.date, a.status])) };
-      const bytes = await buildReportBytes(data.student, attendance, data.fees, {
+      const bytes = await buildReportBytes(data.student, attendance, fees, {
         summary: r.summary, behavior: r.behavior, reportDate: new Date(r.updatedAt), period: p, teacherName: data.teacherName,
       });
       downloadPdfBytes(bytes, `Report_${child.forename}_${child.surname}_${p.label.replace(/\s+/g, '_')}.pdf`);
@@ -203,10 +206,10 @@ function ChildView({ child, reasons }) {
 
       <OpenableSection title="Fees" summary={
         <>
-          <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, 'Unpaid'], [money(paidTotal), 'Paid', paidTotal > 0 ? 'var(--green)' : undefined], [data.fees.length - unpaid.length, 'Settled']]} />
-          {data.fees.length > 0 && unpaid.length === 0 && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 4 }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
+          <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, 'Unpaid'], [money(paidTotal), 'Paid', paidTotal > 0 ? 'var(--green)' : undefined], [fees.length - unpaid.length, 'Settled']]} />
+          {fees.length > 0 && unpaid.length === 0 && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 4 }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
         </>
-      } empty={data.fees.length === 0 && 'No fees yet.'}>
+      } empty={fees.length === 0 && 'No fees yet.'}>
         {feesByMonth.map(([month, items]) => {
           const monthOwed = items.filter(f => f.status !== 'Paid').reduce((t, f) => t + f.amount, 0);
           const monthPaid = items.filter(f => f.status === 'Paid').reduce((t, f) => t + f.amount, 0);

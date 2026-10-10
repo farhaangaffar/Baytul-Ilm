@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getSchoolMonthRange, getTerms } from '../lib/store';
-import { feeFrequency, feePeriodsForYear, FREQUENCIES } from '../lib/feePeriods';
+import { feeFrequency, feePeriodsForYear, FREQUENCIES, countedFees } from '../lib/feePeriods';
 import { CheckSquare, Coins } from 'lucide-react';
 import { money } from '../lib/branding';
 
@@ -51,7 +51,8 @@ function feeBuckets(yearLabel, frequency, terms) {
 }
 
 function feeStatsForRange(fees, start, endExclusive) {
-  const inRange = fees.filter(f => f.weekStarting >= start && f.weekStarting < endExclusive);
+  // Unpaid fees for periods still to come aren't owed yet, so they're left out.
+  const inRange = countedFees(fees).filter(f => f.weekStarting >= start && f.weekStarting < endExclusive);
   const billed = inRange.reduce((s, f) => s + Number(f.amount), 0);
   const collected = inRange.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   return { billed, collected, outstanding: billed - collected };
@@ -259,7 +260,7 @@ function FeesStats({ year, terms, fees, students, classNames, years, dataByYear 
 
   const classRows = classNames.map(c => {
     const ids = new Set(students.filter(s => s.class === c).map(s => s.id));
-    const classFees = fees.filter(f => ids.has(f.studentId) && f.weekStarting >= yearStart && f.weekStarting < yearEnd);
+    const classFees = countedFees(fees).filter(f => ids.has(f.studentId) && f.weekStarting >= yearStart && f.weekStarting < yearEnd);
     const billed = classFees.reduce((s, f) => s + Number(f.amount), 0);
     const collected = classFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
     return { name: c, billed, collected, outstanding: billed - collected };

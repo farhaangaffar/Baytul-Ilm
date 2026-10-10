@@ -3,6 +3,7 @@
 // using the term dates in Settings. A saved report summary (ai_summaries.month) is
 // keyed 'YYYY-MM' for a month or 'term:<termId>' for a term.
 import { getBranding } from './branding';
+import { ukToday } from './feePeriods';
 import { getCurrentSchoolMonth, currentSchoolMonthKey, academicYearOfMonth } from './store';
 
 export function reportPeriodSetting() {
@@ -63,8 +64,11 @@ export function currentReportPeriod(terms = [], refIso) {
 // monthly report takes that calendar month's record, and a termly report takes every
 // month from the one the term starts in.
 export function feesForReport(fees, studentId, period) {
+  const today = ukToday();
   return fees.filter(f => {
     if (f.studentId !== studentId) return false;
+    // Unpaid fees for weeks/months still to come aren't owed yet.
+    if (f.status !== 'Paid' && f.weekStarting > today) return false;
     if (f.period === 'month') {
       if (period.kind === 'month') return f.weekStarting === `${period.key}-01`;
       return f.weekStarting >= `${period.start.slice(0, 7)}-01` && f.weekStarting < period.endExclusive;

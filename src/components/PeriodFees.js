@@ -4,12 +4,14 @@ import { LoadingState, ErrorState } from './DataState';
 import {
   getFees, getStudents, getClassNames, getAcademicYears, currentSchoolYear, getTerms,
   markFeePaid, markFeeUnpaid, updateFeeAmount, addFeePeriods, deleteFeePeriods, hasEnrolledBy, addStudentPeriod,
+  getFeePlan, skipFeePeriod, deleteFeeRecord,
 } from '../lib/store';
-import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer } from '../lib/feePeriods';
+import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer, isDue, countedFees } from '../lib/feePeriods';
 import { money, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Check, X, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, X, Pencil, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { FeeRowList, FeeTotals } from './FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -45,6 +47,10 @@ export default function PeriodFees({ frequency }) {
   const [periodModal, setPeriodModal] = useState(null); // { mode: 'add' | 'remove', key }
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
+  // Months switched off and months/terms removed for a child or class — so the rest of the
+  // year can be shown before it's charged ("Not due yet").
+  const [plan, setPlan] = useState({ monthsOff: new Set(), skips: [] });
+  const [confirmRemove, setConfirmRemove] = useState(null); // a row of the child's list
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -60,6 +66,11 @@ export default function PeriodFees({ frequency }) {
     setLoading(false);
   }, [frequency]);
   useEffect(() => { load(); }, [load]);
+  const loadPlan = useCallback(() => {
+    if (!auto || !year) return;
+    getFeePlan(year).then(r => setPlan({ monthsOff: new Set(r.monthsOff), skips: r.skips.filter(k => k.period === freq.period) })).catch(() => {});
+  }, [auto, year, freq.period]);
+  useEffect(() => { loadPlan(); }, [loadPlan]);
   const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500); }
@@ -85,6 +96,14 @@ export default function PeriodFees({ frequency }) {
 
   async function confirmTogglePaid() {
     const fee = confirmToggle;
+    if (fee.planned) {
+      // A month/term not charged yet, paid ahead — it's recorded now, as paid.
+      setToggling(true);
+      try { await addStudentPeriod(fee.studentId, freq.period, fee.weekStarting, true); await refresh(); setConfirmToggle(null); }
+      catch (err) { showToast(err.message || 'Could not record this payment'); }
+      setToggling(false);
+      return;
+    }
     const wasPaid = fee.status === 'Paid';
     setToggling(true);
     setFees(prev => prev.map(f => f.id === fee.id ? { ...f, status: wasPaid ? 'Pending' : 'Paid', paidDate: wasPaid ? null : today } : f));
@@ -137,9 +156,27 @@ export default function PeriodFees({ frequency }) {
     setBusy(false);
   }
 
+  // Periods still to come are shown before they're charged ("show, don't store"): will this
+  // child be charged for p when it comes? (switched on, not removed, at the madrasah then)
+  const isFuture = p => (current ? p.start > current.start : p.start > today);
+  const monthOff = p => frequency === 'monthly' && plan.monthsOff.has(p.start);
+  const removedFor = (s, p) => plan.skips.some(k => k.start === p.start && k.studentId === s.id);
+  const classRemoved = (s, p) => plan.skips.some(k => k.start === p.start && !k.studentId && k.class === s.class);
+  const willCharge = (s, p) => auto && isFuture(p) && !monthOff(p) && !classRemoved(s, p) && !removedFor(s, p)
+    && (!s.enrollDate || s.enrollDate < p.endExclusive) && (!s.leaveDate || s.leaveDate >= p.start);
+  const payAhead = (s, p) => setConfirmToggle({ planned: true, studentId: s.id, weekStarting: p.start, amount: s.weeklyFee, status: 'Pending' });
+
   const pill = (s, p) => {
     const f = feeFor(s.id, p);
     const isCurrent = current && p.start === current.start;
+    if (!f && willCharge(s, p)) {
+      return (
+        <button key={p.key} className="week-pill not-due" title={`${p.label} — not due yet (tap to mark paid)`}
+          onClick={e => { e.stopPropagation(); payAhead(s, p); }}>
+          <span className="d">{p.short}</span><span className="dot"></span>
+        </button>
+      );
+    }
     if (!f) {
       return (
         <button key={p.key} className={`week-pill not-added ${isCurrent ? 'is-current' : ''}`} disabled={!(isOwner && auto)}
@@ -150,9 +187,10 @@ export default function PeriodFees({ frequency }) {
       );
     }
     const paid = f.status === 'Paid';
+    const notDue = !paid && !isDue(f);
     return (
-      <button key={p.key} className={`week-pill ${paid ? 'paid' : 'unpaid'} ${isCurrent ? 'is-current' : ''}`}
-        title={`${p.label} — ${paid ? 'Paid' : 'Unpaid'} (${money(f.amount)})${canToggle(f) ? ' — click to change' : ''}`}
+      <button key={p.key} className={`week-pill ${paid ? 'paid' : notDue ? 'not-due' : 'unpaid'} ${isCurrent ? 'is-current' : ''}`}
+        title={`${p.label} — ${paid ? 'Paid' : notDue ? 'Not due yet' : 'Unpaid'} (${money(f.amount)})${canToggle(f) ? ' — click to change' : ''}`}
         onClick={e => { e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
         <span className="d">{p.short}</span><span className="dot"></span>
       </button>
@@ -168,8 +206,49 @@ export default function PeriodFees({ frequency }) {
   const togglePeriod = confirmToggle && periods.find(p => p.start === confirmToggle.weekStarting);
   const willBePaid = confirmToggle?.status !== 'Paid';
 
+  // A child's year: one box per month/term — paid, owed, or not due yet (shown before it's charged).
+  const childPage = selected && (() => {
+    const rows = periods.map(p => {
+      const fee = feeFor(selected.id, p) || null;
+      const future = isFuture(p);
+      const removed = !fee && removedFor(selected, p);
+      return { key: p.key, label: p.label, p, now: !!current && p.start === current.start, future, fee, removed,
+        planned: !fee && willCharge(selected, p) ? { amount: selected.weeklyFee } : null,
+        offNote: monthOff(p) ? 'Month off' : classRemoved(selected, p) ? 'Not charged for the class' : 'Not charged',
+        canAdd: isOwner && auto && !monthOff(p) };
+    });
+    const sFees = rows.map(r => r.fee).filter(Boolean);
+    const paidSum = sFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
+    const owedSum = sFees.filter(f => f.status !== 'Paid' && isDue(f)).reduce((t, f) => t + Number(f.amount), 0);
+    return (<>
+      <div className="card-header" style={{ marginBottom: 20 }}>
+        <div className="flex items-center gap-3">
+          <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14} /> All students</button>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>{selected.forename} {selected.surname}</div>
+            <div className="text-muted text-sm">{selected.class} · {money(selected.weeklyFee)}{feePer()} · {year}</div>
+          </div>
+        </div>
+      </div>
+      <FeeTotals paid={paidSum} owed={owedSum} label={year === currentYear ? 'this year' : year} />
+      <div style={{ maxWidth: 560 }}>
+        <FeeRowList rows={rows} isOwner={isOwner} editCell={editCell} setEditCell={setEditCell} saveEdit={saveAmount} nowLabel={`This ${unit}`}
+          onToggle={f => canToggle(f) && setConfirmToggle(f)}
+          onPayAhead={r => payAhead(selected, r.p)}
+          onAdd={r => setAddOne({ studentId: selected.id, p: r.p })}
+          onRemove={r => setConfirmRemove(r)}
+          onPutBack={async r => {
+            if (!r.future) { setAddOne({ studentId: selected.id, p: r.p }); return; }
+            try { await skipFeePeriod(selected.id, freq.period, r.p.start, true); loadPlan(); showToast(`${r.p.label} put back`); }
+            catch (err) { showToast(err.message || 'Could not put it back'); }
+          }} />
+      </div>
+    </>);
+  })();
+
   return (
     <Layout title="Fees" subtitle={`${activeClass} · ${year} · charged ${freq.adjective.toLowerCase()}`}>
+      {childPage || <>
       <div className="pill-tabs">
         {classNames.map(c => (
           <button key={c} className={`pill-tab ${activeClass === c ? 'active' : ''}`} onClick={() => setActiveClass(c)}>{c}</button>
@@ -214,7 +293,7 @@ export default function PeriodFees({ frequency }) {
           <div className="entity-grid">
             {classStudents.map(s => {
               const sFees = classFees.filter(f => f.studentId === s.id);
-              const t = feeTotals(sFees, '0000-01-01', '9999-12-31');
+              const t = feeTotals(countedFees(sFees), '0000-01-01', '9999-12-31');
               return (
                 <div className="entity-card" key={s.id} onClick={() => setSelectedId(s.id)}>
                   <div className="entity-card-name">{s.forename} {s.surname}</div>
@@ -229,48 +308,31 @@ export default function PeriodFees({ frequency }) {
         </>
       )}
 
-      {/* A student's whole year, one row per month/term */}
-      {selected && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeStudent()}>
-          <div className="modal" style={{ maxWidth: 460 }}>
-            <div className="modal-header">
-              <div>
-                <div className="modal-title">{selected.forename} {selected.surname}</div>
-                <div className="text-muted text-sm">{selected.class} · {money(selected.weeklyFee)}{feePer()} · {year}</div>
+      </>}
+      {confirmRemove && selected && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && setConfirmRemove(null)}>
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-body" style={{ textAlign: 'center', paddingTop: 28 }}>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--red-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}><Trash2 size={24} color="var(--red)" /></div>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Remove {confirmRemove.p.label} for {selected.forename}?</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                {selected.forename} won't be charged for it{confirmRemove.fee?.status === 'Paid' ? ' — the payment recorded for it is removed too' : ''}. You can put it back later.
+                {frequency === 'monthly' && <><br /><span style={{ fontSize: 12 }}>A month off for everyone? Switch it off in Settings → Fee months.</span></>}
               </div>
-              <button className="btn btn-icon" onClick={closeStudent}><X size={16} /></button>
             </div>
-            <div className="modal-body" style={{ paddingTop: 8 }}>
-              {periods.map(p => {
-                const f = feeFor(selected.id, p);
-                const isEditing = f && editCell?.feeId === f.id;
-                return (
-                  <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ flex: 1, fontWeight: current && p.start === current.start ? 700 : 500, fontSize: 13.5 }}>{p.label}</div>
-                    {!f ? <span className="text-muted text-sm">Not added</span> : (
-                      <>
-                        {isEditing ? (
-                          <span className="flex items-center gap-2">
-                            <input type="number" value={editCell.val} autoFocus onChange={e => setEditCell({ ...editCell, val: e.target.value })}
-                              onKeyDown={e => { if (e.key === 'Enter') saveAmount(f.id); if (e.key === 'Escape') setEditCell(null); }}
-                              style={{ width: 70, padding: '3px 6px', fontSize: 12, border: '1px solid var(--blue)', borderRadius: 4, fontFamily: 'var(--font)' }} />
-                            <button className="btn btn-icon btn-sm" onClick={() => saveAmount(f.id)}><Check size={12} /></button>
-                          </span>
-                        ) : (
-                          <span className="text-sm" style={{ cursor: isOwner ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 4 }}
-                            onClick={() => isOwner && setEditCell({ feeId: f.id, val: String(f.amount) })}>
-                            {money(f.amount)}{isOwner && <Pencil size={10} style={{ opacity: .5 }} />}
-                          </span>
-                        )}
-                        <button className={`btn btn-sm ${f.status === 'Paid' ? 'btn-green' : ''}`} style={{ minWidth: 86, justifyContent: 'center' }}
-                          disabled={!canToggle(f)} onClick={() => setConfirmToggle(f)}>
-                          {f.status === 'Paid' ? <><Check size={12} />Paid</> : 'Unpaid'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="modal-footer" style={{ justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setConfirmRemove(null)} disabled={busy}>Cancel</button>
+              <button className="btn btn-danger" disabled={busy} onClick={async () => {
+                setBusy(true);
+                try {
+                  if (confirmRemove.fee) await deleteFeeRecord(confirmRemove.fee.id, year);
+                  else await skipFeePeriod(selected.id, freq.period, confirmRemove.p.start);
+                  await refresh(); loadPlan();
+                  showToast(`${confirmRemove.p.label} removed for ${selected.forename}`);
+                  setConfirmRemove(null);
+                } catch (err) { showToast(err.message || 'Could not remove it'); }
+                setBusy(false);
+              }}><Trash2 size={13} />Remove for {selected.forename}</button>
             </div>
           </div>
         </div>

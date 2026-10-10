@@ -306,7 +306,7 @@ export async function getFees(year) {
 // Head only: adds one week for one child (owed, or paid), if it's switched on in Fee weeks.
 // wholeClass: the week goes back on (owed) for everyone in that child's class.
 export async function addStudentWeek(studentId, weekStarting, paid, wholeClass = false) {
-  return apiFetch('/api/fees?action=add-week', { method: 'POST', body: JSON.stringify({ studentId, weekStarting, paid: !!paid, wholeClass }) });
+  return apiFetch('/api/fees?action=add-week', { method: 'POST', body: JSON.stringify({ studentId, weekStarting, paid: !!paid, ...(wholeClass ? { wholeClass: true } : {}) }) });
 }
 // Settings → Fee months (monthly fees): which months are switched off, and how many fees each has.
 export async function getFeeMonths(year) { return apiFetch(`/api/fees?action=fee-months&year=${encodeURIComponent(year)}`); }
@@ -330,6 +330,13 @@ export async function deleteFeeMonth(year, weeks, className) {
 }
 export async function markFeePaid(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'Paid' }) }); }
 export async function markFeeUnpaid(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'Pending' }) }); }
+// What the Fees page needs to show the rest of the year before it's charged: weeks/months
+// switched off and periods removed for a child or class (server/routes/fees.js ?action=plan).
+export async function getFeePlan(year) { return apiFetch(`/api/fees?action=plan&year=${encodeURIComponent(year)}`); }
+// Head only: take a period not charged yet off one child, or put it back (undo).
+export async function skipFeePeriod(studentId, period, start, undo = false) {
+  return apiFetch('/api/fees?action=skip', { method: 'POST', body: JSON.stringify({ studentId, period, start, undo }) });
+}
 export async function deleteFeeRecord(feeId, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'DELETE' }); }
 export async function updateFeeAmount(feeId, amount, year) { return apiFetch(`/api/fees?id=${encodeURIComponent(feeId)}`, { method: 'PATCH', body: JSON.stringify({ amount: Number(amount) }) }); }
 export async function getStudentFees(studentId, year) {
@@ -343,7 +350,7 @@ export function studentFeesFrom(feesForYear, studentId) {
 // Monthly/termly billing: one fee record per period ({ start, endExclusive }) per student.
 // Head only: one month or term for one child (owed or paid), or with wholeClass for everyone in that child's class missing it.
 export async function addStudentPeriod(studentId, period, start, paid, wholeClass = false) {
-  return apiFetch('/api/fees?action=add-period', { method: 'POST', body: JSON.stringify({ studentId, period, start, paid: !!paid, wholeClass }) });
+  return apiFetch('/api/fees?action=add-period', { method: 'POST', body: JSON.stringify({ studentId, period, start, paid: !!paid, ...(wholeClass ? { wholeClass: true } : {}) }) });
 }
 export async function addFeePeriods(year, period, periods, students) {
   return apiFetch('/api/fees?action=add-month', { method: 'POST', body: JSON.stringify({ year, period, periods, students }) });

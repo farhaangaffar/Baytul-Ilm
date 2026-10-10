@@ -11,7 +11,7 @@ import ReorderableGrid from '../components/ReorderableGrid';
 import ParentLogin from '../components/ParentLogin';
 import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download, FileSpreadsheet } from 'lucide-react';
 import { money, currencySymbol } from '../lib/branding';
-import { feeUnit, feePer } from '../lib/feePeriods';
+import { feeUnit, feePer, countedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
 
 const WAITING_LIST = 'Waiting list';
@@ -67,7 +67,7 @@ export default function Students() {
     const [studentsData, classNamesData, feesData, attendanceData] = await Promise.all([
       getStudents(), getClassNames(), getFees(y), getAttendance(y),
     ]);
-    setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(feesData); setAttendance(attendanceData);
+    setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(countedFees(feesData)); setAttendance(attendanceData);
     const leftIds = studentsData.filter(s=>s.status==='Inactive').map(s=>s.id);
     if (leftIds.length) getStudentTotals(leftIds).then(setLeftTotals).catch(()=>{/* pills are a bonus, not required to use the page */});
     else setLeftTotals({});
