@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ShieldCheck, Check } from 'lucide-react';
 import { PRIVACY, TERMS, LEGAL_UPDATED } from '../lib/legal';
 import { acceptTerms } from '../lib/store';
 import { APP_NAME, APP_URL } from '../lib/branding';
+import { countVisit } from '../lib/analytics';
 
 // The privacy policy and terms: a page of their own (/privacy, /terms — anyone can open
 // them), small links that open them in a pop-up, and the one-time "agree" screen a head
@@ -20,6 +21,7 @@ function Sections({ sections }) {
 
 export function LegalPage({ kind }) {
   const [title, sections] = DOCS[kind];
+  useEffect(() => { countVisit(`/${kind}`); }, [kind]);
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page)', padding: '24px 16px' }}>
       <div className="card" style={{ maxWidth: 680, margin: '0 auto' }}>

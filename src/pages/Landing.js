@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet, Smartphone, Shield, CalendarDays,
-  ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, Mail } from 'lucide-react';
+  ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, Mail, MessageCircle } from 'lucide-react';
 import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
 import { LegalModal } from '../components/Legal';
+import { countVisit } from '../lib/analytics';
 import '../landing.css';
 
 // The public front page (suhuf.uk for a device that isn't any madrasah's yet, and /about
@@ -11,6 +12,12 @@ import '../landing.css';
 
 const CONTACT = 'hello@suhuf.uk';
 const contactHref = `mailto:${CONTACT}?subject=${encodeURIComponent('Suhuf for our madrasah')}`;
+// "Get started" opens a WhatsApp chat with the message ready (the number in international form, no +).
+const WHATSAPP = '447984873612';
+const whatsappHref = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Salaam, I'd like to try Suhuf for our madrasah.")}`;
+function WhatsApp({ className, children }) {
+  return <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className={className} onClick={() => countVisit('/contact/whatsapp')}><MessageCircle size={16} />{children}</a>;
+}
 
 const FEATURES = [
   {
@@ -75,6 +82,7 @@ function Phone({ src, alt, eager }) {
 export default function Landing({ onSignIn }) {
   const [open, setOpen] = useState(0);
   const [active, setActive] = useState('');
+  useEffect(() => { countVisit(window.location.pathname); }, []);
   // Highlight the feature currently on screen in the pinned feature bar.
   useEffect(() => {
     const els = FEATURES.map(f => document.getElementById(f.key)).filter(Boolean);
@@ -116,7 +124,7 @@ export default function Landing({ onSignIn }) {
           <p className="lp-lead">Registers, fees, Qur'an progress, behaviour and AI-written reports — with a portal so parents can see how their child is doing.</p>
           <div className="lp-cta">
             <a href="/?demo" className="lp-btn lp-btn-primary"><PlayCircle size={17} />Try the demo</a>
-            <a href={contactHref} className="lp-btn lp-btn-light"><Mail size={16} />Get started free</a>
+            <WhatsApp className="lp-btn lp-btn-light">Get started free</WhatsApp>
           </div>
           <ul className="lp-ticks">
             <li><Check size={15} />Free for 6 months</li>
@@ -190,7 +198,7 @@ export default function Landing({ onSignIn }) {
               {['Every feature included — AI reports too', 'Unlimited teachers and parent logins', 'Help getting set up', 'No contract — leave any time, take your data with you'].map(x => <li key={x}><Check size={15} />{x}</li>)}
             </ul>
             <div className="lp-cta lp-cta-center">
-              <a href={contactHref} className="lp-btn lp-btn-primary"><Mail size={16} />Get started free</a>
+              <WhatsApp className="lp-btn lp-btn-primary">Get started free</WhatsApp>
               <a href="/?demo" className="lp-btn lp-btn-light"><PlayCircle size={17} />Try the demo</a>
             </div>
           </div>
@@ -210,9 +218,10 @@ export default function Landing({ onSignIn }) {
 
         <section className="lp-final">
           <h2>See it for yourself</h2>
-          <p>Have a look around a made-up madrasah as the head, a teacher or a parent — it takes a minute.</p>
+          <p>Have a look around a made-up madrasah as the head, a teacher or a parent — it takes a minute. Questions? Message us any time.</p>
           <div className="lp-cta lp-cta-center">
             <a href="/?demo" className="lp-btn lp-btn-white"><PlayCircle size={17} />Try the demo</a>
+            <WhatsApp className="lp-btn lp-btn-outline">Message us on WhatsApp</WhatsApp>
             <a href={contactHref} className="lp-btn lp-btn-outline"><Mail size={16} />{CONTACT}</a>
           </div>
         </section>
