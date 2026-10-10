@@ -67,7 +67,7 @@ const FAQ = [
   ['We already have our students in a spreadsheet. Can we use it?', 'Yes — paste the rows or upload the file. Suhuf works out the columns (names, classes, dates of birth, mother\'s and father\'s details), lets you check everything, and adds them all at once.'],
   ['How does the AI report work?', "It reads that child's lesson notes, Qur'an progress and behaviour records for the month or term, and writes a short report paragraph. You can add instructions, edit every word, and nothing reaches parents until you press \"Add to report\"."],
   ['Who can see our data?', 'Only your madrasah. Each madrasah\'s records are kept completely separate; teachers only see their own classes, and parents only their own children. You can download everything at any time.'],
-  ['What does it cost?', 'Suhuf is free for your first 6 months. After that there\'s a small monthly fee, agreed with you beforehand — no contract, and you can leave whenever you like.'],
+  ['What does it cost?', 'Suhuf is free for your first 6 months. After that it\'s £20 a month, or £200 a year — one price for the whole madrasah, however many children, teachers and parents use it. You pay by standing order; there\'s no contract, and you can leave whenever you like.'],
   ['What if we stop using it?', 'Download a full backup and a spreadsheet of your students first; then your information is deleted. Nothing is held back.'],
 ];
 
@@ -193,7 +193,8 @@ export default function Landing({ onSignIn }) {
           <div className="lp-price">
             <div className="lp-tag"><Sparkles size={15} />Simple pricing</div>
             <div className="lp-price-big">Free for 6 months</div>
-            <p>Then a small monthly fee, agreed with you beforehand.</p>
+            <p>Then <strong>£20 a month</strong>, or <strong>£200 a year</strong> (two months free).</p>
+            <p className="lp-price-note">One price for the whole madrasah — for 60 children, that's about 33p a child a month.</p>
             <ul className="lp-points">
               {['Every feature included — AI reports too', 'Unlimited teachers and parent logins', 'Help getting set up', 'No contract — leave any time, take your data with you'].map(x => <li key={x}><Check size={15} />{x}</li>)}
             </ul>
