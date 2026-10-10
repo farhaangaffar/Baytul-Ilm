@@ -210,8 +210,9 @@ codebase (one codebase, not a fork).
   Android/Chrome installs straight away; iPhone shows the Share → Add to Home Screen steps
   (`InstallSteps.js`). The manifest's `start_url` carries `?m=<code>`, so the installed app
   knows its madrasah. In the installed app (`isStandalone()`), back closes an open card first
-  (`useBackToClose`), page switches replace rather than add history (`appNavigate()`), and backing out
-  shows "Close the app?" (`src/components/BackToExit.js`) — a second back closes it.
+  (`useBackToClose`), page switches replace rather than add history (`appNavigate()`), back
+  with nothing open goes to the home page (Dashboard; Attendance for teachers); on the home page back shows
+  "Close the app?" (`src/components/BackToExit.js`) — a second back closes it.
 - **Page instructions:** every page has a "Page instructions" button (top bar on computers,
   top of the page on phones; the parent portal too) opening a few plain numbered steps for
   that person's role — `src/lib/pageHelp.js`, opened by itself the first time a page is
