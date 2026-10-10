@@ -91,7 +91,9 @@ codebase (one codebase, not a fork).
   see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then a
   small monthly fee". When a feature changes a lot, retake its screenshot. The parent portal and
   PDF reports carry a small "Made with Suhuf" credit (`MadeWith` in `Legal.js`, `footerText` in
-  `src/lib/reportPdf.js`) linking to `/about`.
+  `src/lib/reportPdf.js`) linking to `/about`. Visitor counts (Vercel Web Analytics, no cookies,
+  `src/lib/analytics.js` `countVisit()`, live site only): the front page, /privacy, /terms, `/demo` and
+  `/demo/<role>` — never pages inside a madrasah's app (auto-tracking is off on purpose).
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per

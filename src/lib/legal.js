@@ -34,6 +34,7 @@ export const PRIVACY = [
   ]],
   ['Cookies', [
     'One cookie keeps you signed in. Your device also remembers small things, such as your madrasah\'s code and which tab you last used. There are no tracking or advertising cookies.',
+    'On the public pages only (the front page, this policy and the terms, and the demo) we count visits with Vercel Web Analytics: which page, roughly which country, and the type of device. It uses no cookies and doesn\'t identify anyone. Nothing inside a madrasah\'s app is counted.',
   ]],
   ['How long it\'s kept', [
     'For as long as the madrasah uses the app. A madrasah can download everything at any time (Settings → Backup). When a madrasah stops using the app, its information is deleted within 30 days of it asking, or within 90 days of its account being switched off. Demo madaaris are made up and are deleted after 24 hours.',

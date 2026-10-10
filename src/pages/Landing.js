@@ -3,6 +3,7 @@ import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet,
   ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, Mail } from 'lucide-react';
 import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
 import { LegalModal } from '../components/Legal';
+import { countVisit } from '../lib/analytics';
 import '../landing.css';
 
 // The public front page (suhuf.uk for a device that isn't any madrasah's yet, and /about
@@ -75,6 +76,7 @@ function Phone({ src, alt, eager }) {
 export default function Landing({ onSignIn }) {
   const [open, setOpen] = useState(0);
   const [active, setActive] = useState('');
+  useEffect(() => { countVisit(window.location.pathname); }, []);
   // Highlight the feature currently on screen in the pinned feature bar.
   useEffect(() => {
     const els = FEATURES.map(f => document.getElementById(f.key)).filter(Boolean);

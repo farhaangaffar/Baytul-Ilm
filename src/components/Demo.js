@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, BookOpen, Users, Repeat, LogOut } from 'lucide-react';
 import { startDemo, logout } from '../lib/store';
+import { countVisit } from '../lib/analytics';
 
 // "Try the demo" (server/demo.js): a private, made-up madrasah that deletes itself after
 // a day. The visitor picks who to be — the head, a teacher or a parent — and can switch
@@ -26,9 +27,12 @@ async function enter(role) {
 export function DemoChooser({ current }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  // Count a new visitor opening the demo, and who they chose to be (not switches inside one).
+  useEffect(() => { if (!current) countVisit('/demo'); }, [current]);
 
   async function choose(role) {
     setBusy(role); setError('');
+    if (!current) countVisit(`/demo/${role}`);
     try { await enter(role); }
     catch (err) { setError(err.message || 'Could not open the demo — try again.'); setBusy(''); }
   }
