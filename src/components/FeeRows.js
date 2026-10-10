@@ -13,12 +13,13 @@ import { money } from '../lib/branding';
 // Later rows that aren't charged fold into one line ("9 more months") until opened.
 export function FeeRowList({ title, rows, isOwner, editCell, setEditCell, saveEdit, onToggle, onAdd, onRemove, nowLabel = 'Now', laterLabel, cardProps }) {
   const [showLater, setShowLater] = useState(false);
+  const boxStyle = (() => { try { return { boxed: 'fee-boxed', colour: 'fee-boxed colour' }[localStorage.getItem('fee_rows')] || ''; } catch { return ''; } })();
   let lastUsed = rows.length - 1;
   while (lastUsed >= 0 && rows[lastUsed].future && !rows[lastUsed].fee) lastUsed--;
   const later = laterLabel && !showLater ? rows.slice(lastUsed + 1) : [];
   const shown = later.length > 1 ? rows.slice(0, lastUsed + 1) : rows;
   return (
-    <div className="card att-week" {...cardProps}>
+    <div className={`card att-week ${boxStyle}`} {...cardProps}>
       {title && <div className="att-week-title">{title}</div>}
       {shown.map(r => {
         const f = r.fee;
