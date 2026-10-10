@@ -68,18 +68,19 @@ export default function TermsCard({ years, defaultYear }) {
 
       {editing ? (
         <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 12 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ flex: '1 1 140px', marginBottom: 0 }}>
-              <label>Term name</label>
-              <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. Autumn" />
-            </div>
-            <div className="form-group" style={{ flex: '1 1 140px', marginBottom: 0 }}>
+          {/* The name on its own line, then Starts and Ends side by side. */}
+          <div className="form-group" style={{ marginBottom: 10 }}>
+            <label>Term name</label>
+            <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. Autumn" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8 }}>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
               <label>Starts</label>
-              <input type="date" value={editing.startDate} onChange={e => setEditing({ ...editing, startDate: e.target.value })} />
+              <input type="date" value={editing.startDate} onChange={e => setEditing({ ...editing, startDate: e.target.value })} style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }} />
             </div>
-            <div className="form-group" style={{ flex: '1 1 140px', marginBottom: 0 }}>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
               <label>Ends</label>
-              <input type="date" value={editing.endDate} onChange={e => setEditing({ ...editing, endDate: e.target.value })} />
+              <input type="date" value={editing.endDate} onChange={e => setEditing({ ...editing, endDate: e.target.value })} style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }} />
             </div>
           </div>
           {error && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 8 }}>{error}</div>}
