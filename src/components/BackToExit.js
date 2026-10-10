@@ -33,9 +33,10 @@ function CloseAppPopup({ onStay }) {
           <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Close the app?</div>
           <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Press back again to close it.</div>
         </div>
+        {/* No Close button: an app installed from the browser isn't allowed to close itself —
+            only the phone's back button can, which is why it's "press back again". */}
         <div className="modal-footer" style={{ justifyContent: 'center' }}>
-          <button className="btn" onClick={() => window.close()}>Close</button>
-          <button className="btn btn-primary" onClick={onStay}>Stay</button>
+          <button className="btn btn-primary" onClick={onStay}>Stay in the app</button>
         </div>
       </div>
     </div>
