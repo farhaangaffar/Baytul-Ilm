@@ -12,6 +12,7 @@ import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { feePer, feeFrequency } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
+import { FeeRowList, shortDate } from '../components/FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -287,6 +288,7 @@ function WeeklyFees() {
     </div>
   );
 
+  const mockStyle = (() => { try { return localStorage.getItem('fee_mock') || ''; } catch { return ''; } })();
   if (selected) {
     const monthWeeks = getWeekStartsForMonth(monthAnchor);
     const studentFees = fees.filter(f=>f.studentId===selected.id);
@@ -310,13 +312,51 @@ function WeeklyFees() {
               <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}{feePer()}</div>
             </div>
           </div>
-          <div className="nav-arrow-row">
+          {mockStyle !== 'w2' && <div className="nav-arrow-row">
             <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(-1)} disabled={!canGoPrev}>‹</button>
             <span>{monthLabel(monthAnchor)}</span>
             <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(1)} disabled={!canGoNext}>›</button>
-          </div>
+          </div>}
         </div>
 
+        {mockStyle ? (() => {
+          const thisMonday = getMondayOf(isoToday());
+          const rowsFor = weeks => weeks.map(w => ({ key: w, label: `Week of ${shortDate(w)}`, now: w === thisMonday, future: w > thisMonday, fee: lookup[w],
+            offNote: offWeeks.has(w) ? 'Week off' : autoWeeks ? 'Not charged' : 'Not added', canAdd: canAddWeek(w) }));
+          const common = { isOwner, editCell, setEditCell, saveEdit, nowLabel: 'This week',
+            onToggle: f => canToggle(f) && setConfirmToggle(f), onAdd: r => setAddWeek({ studentId: selected.id, week: r.key }), onRemove: r => setConfirmDeleteWeek(r.key) };
+          const totalsBox = (p2, o2, label) => {
+            const b2 = p2 + o2;
+            return (
+              <div className="summary-row-v2" style={{ marginBottom: 14 }}>
+                <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{money(p2)}</div><div className="l">Paid</div></div>
+                <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{money(o2)}</div><div className="l">Owed</div></div>
+                <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{b2 ? Math.round(p2 / b2 * 100) : 0}%</div><div className="l">Collected {label}</div></div>
+              </div>
+            );
+          };
+          // "Owed" is only what's due by now — weeks charged ahead aren't owed yet.
+          const sums = list => [list.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0),
+            list.filter(f => f.status !== 'Paid' && f.weekStarting <= thisMonday).reduce((t, f) => t + Number(f.amount), 0)];
+          if (mockStyle === 'w1') return (<>
+            {totalsBox(...sums(monthFeesForStudent), 'this month')}
+            <div style={{ maxWidth: 560 }}><FeeRowList rows={rowsFor(monthWeeks)} {...common} /></div>
+          </>);
+          // w2: the whole year — one card per school month, weeks as lines.
+          const start = academicYearStartISO(year).slice(0, 7);
+          const nowMonth = getCurrentSchoolMonth(isoToday()).start.slice(0, 7);
+          const months = Array.from({ length: 12 }, (_, i) => shiftMonth(start, i))
+            .filter(m => m <= nowMonth || getWeekStartsForMonth(m).some(w => lookup[w]));
+          const yearFees = studentFees.filter(f => months.some(m => getWeekStartsForMonth(m).includes(f.weekStarting)));
+          const [yp, yo] = sums(yearFees);
+          return (<>
+            {totalsBox(yp, yo, 'this year')}
+            <div className="att-weeks">
+              {months.map(m => <FeeRowList key={m} title={monthLabel(m)} rows={rowsFor(getWeekStartsForMonth(m))} {...common}
+                cardProps={{ 'data-this-week': m === nowMonth ? '1' : undefined }} />)}
+            </div>
+          </>);
+        })() : <>
         <div className="day-cal-row" style={{gridTemplateColumns:`repeat(${monthWeeks.length},1fr)`}}>
           {monthWeeks.map(w=>{
             const f = lookup[w];
@@ -378,6 +418,7 @@ function WeeklyFees() {
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{money(billed)}</div><div className="l">Billed this month</div></div>
           <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{collectedPct}%</div><div className="l">Collected</div></div>
         </div>
+        </>}
 
         {confirmDeleteWeek&&(
           <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDeleteWeek(null)}>

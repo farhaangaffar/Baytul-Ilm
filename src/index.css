@@ -571,3 +571,45 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .att-mark.on.P { background: var(--green); color: #fff; }
 .att-mark.on.L { background: var(--amber); color: #5c4a00; }
 .att-mark.on.A { background: var(--red); color: #fff; }
+
+/* A child's fees as a list (FeeRows.js) — the attendance month's look: stripe, label, one button. */
+.att-day.paid .att-stripe { background: var(--green); }
+.att-day.owed .att-stripe { background: var(--red); }
+.att-day.paid .att-day-status { color: var(--green-text); }
+.att-day.owed .att-day-status { color: var(--red-text); }
+.fee-row.none { opacity: 0.6; }
+.fee-row.fee-later { opacity: 0.75; }
+.att-day.due .att-stripe { background: #f3c1bb; }
+.fee-btn.due { background: #fff; color: var(--text-soft); box-shadow: inset 0 0 0 1.5px #e5e7eb; }
+.att-today { white-space: nowrap; }
+.fee-amt { border: none; background: none; font-family: var(--font-num); font-weight: 600; font-size: 13.5px; color: var(--ink); padding: 6px 6px; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
+.fee-amt:not(:disabled):hover { background: #f3f4f6; }
+.fee-amt:disabled { cursor: default; color: var(--text-muted); }
+.fee-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 32px; min-width: 84px; padding: 0 10px; border: none; border-radius: 9px; cursor: pointer; font-family: var(--font); font-weight: 700; font-size: 12.5px; background: #f3f4f6; color: var(--text-soft); flex-shrink: 0; }
+.fee-btn.paid { background: var(--green); color: #fff; }
+.fee-btn.owed { background: #fff; color: var(--red-text); box-shadow: inset 0 0 0 1.5px var(--red); }
+.fee-btn.add { min-width: 0; }
+.fee-icon { border: none; background: none; color: var(--text-soft); padding: 6px; border-radius: 8px; cursor: pointer; line-height: 0; flex-shrink: 0; }
+.fee-icon:hover { background: #f3f4f6; }
+.fee-icon.ok { color: var(--green-text); }
+.fee-edit { display: inline-flex; align-items: center; gap: 2px; }
+.fee-edit input { width: 64px; padding: 5px 6px; font-size: 13px; border: 1px solid var(--blue); border-radius: 7px; font-family: var(--font-num); text-align: center; }
+.fee-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 600px) { .fee-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .fee-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.fee-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px 10px; border: none; border-radius: 12px; background: #f6f7f9; cursor: pointer; font-family: var(--font); overflow: hidden; }
+.fee-tile::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: #e5e7eb; }
+.fee-tile.paid::before { background: var(--green); }
+.fee-tile.owed::before { background: var(--red); }
+.fee-tile.due::before { background: #f3c1bb; }
+.fee-tile.paid { background: var(--green-light); }
+.fee-tile.owed { background: var(--red-light); }
+.fee-tile.none { opacity: .65; }
+.fee-tile.now { box-shadow: inset 0 0 0 2px var(--blue); }
+.fee-tile:disabled { cursor: default; }
+.fee-tile-label { font-weight: 700; font-size: 13px; color: var(--ink); }
+.fee-tile-amt { font-family: var(--font-num); font-weight: 600; font-size: 13px; color: var(--ink); }
+.fee-tile-status { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--text-soft); }
+.fee-tile.paid .fee-tile-status { color: var(--green-text); }
+.fee-tile.owed .fee-tile-status { color: var(--red-text); }
+.fee-tile-now { position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); font-size: 0; }

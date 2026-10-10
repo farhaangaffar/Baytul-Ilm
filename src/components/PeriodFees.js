@@ -9,7 +9,8 @@ import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer } f
 import { money, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Check, X, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, X, Pencil, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { FeeRowList, FeeTiles } from './FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -168,8 +169,40 @@ export default function PeriodFees({ frequency }) {
   const togglePeriod = confirmToggle && periods.find(p => p.start === confirmToggle.weekStarting);
   const willBePaid = confirmToggle?.status !== 'Paid';
 
+  const mockStyle = (() => { try { return localStorage.getItem('fee_mock_p') || ''; } catch { return ''; } })();
+  const childPage = selected && mockStyle && (() => {
+    const rows = periods.map(p => ({ key: p.key, label: p.label, short: p.short, now: current && p.start === current.start, future: !!current && p.start > current.start, fee: feeFor(selected.id, p),
+      offNote: 'Not charged', canAdd: isOwner && auto, p }));
+    const sFees = rows.map(r => r.fee).filter(Boolean);
+    const yp = sFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
+    const yo = sFees.filter(f => f.status !== 'Paid' && (!current || f.weekStarting <= current.start)).reduce((t, f) => t + Number(f.amount), 0);
+    const onToggle = f => canToggle(f) && setConfirmToggle(f);
+    const onAdd = r => setAddOne({ studentId: selected.id, p: r.p });
+    return (<>
+      <div className="card-header" style={{ marginBottom: 20 }}>
+        <div className="flex items-center gap-3">
+          <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14} /> All students</button>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>{selected.forename} {selected.surname}</div>
+            <div className="text-muted text-sm">{selected.class} · {money(selected.weeklyFee)}{feePer()} · {year}</div>
+          </div>
+        </div>
+      </div>
+      <div className="summary-row-v2" style={{ marginBottom: 14 }}>
+        <div className="summary-box-v2" style={{ background: 'var(--green-light)' }}><div className="n">{money(yp)}</div><div className="l">Paid</div></div>
+        <div className="summary-box-v2" style={{ background: 'var(--red-light)' }}><div className="n">{money(yo)}</div><div className="l">Owed</div></div>
+        <div className="summary-box-v2" style={{ background: '#f0f2f6' }}><div className="n">{yp + yo ? Math.round(yp / (yp + yo) * 100) : 0}%</div><div className="l">Collected this year</div></div>
+      </div>
+      {mockStyle === 'p2'
+        ? <div className="card" style={{ padding: 14 }}><FeeTiles rows={rows} onToggle={onToggle} onAdd={onAdd} /></div>
+        : <div style={{ maxWidth: 560 }}><FeeRowList rows={rows} isOwner={isOwner} editCell={editCell} setEditCell={setEditCell} saveEdit={saveAmount}
+            onToggle={onToggle} onAdd={onAdd} nowLabel={`This ${unit}`} laterLabel={`${unit}s`} /></div>}
+    </>);
+  })();
+
   return (
     <Layout title="Fees" subtitle={`${activeClass} · ${year} · charged ${freq.adjective.toLowerCase()}`}>
+      {childPage || <>
       <div className="pill-tabs">
         {classNames.map(c => (
           <button key={c} className={`pill-tab ${activeClass === c ? 'active' : ''}`} onClick={() => setActiveClass(c)}>{c}</button>
@@ -229,8 +262,9 @@ export default function PeriodFees({ frequency }) {
         </>
       )}
 
+      </>}
       {/* A student's whole year, one row per month/term */}
-      {selected && (
+      {selected && !mockStyle && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeStudent()}>
           <div className="modal" style={{ maxWidth: 460 }}>
             <div className="modal-header">
