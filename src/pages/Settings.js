@@ -361,7 +361,7 @@ export default function Settings() {
           <div className="form-group">
             <Label k="fee">Default fee per {FREQUENCIES[(savedFrequency || 'weekly')].unit}</Label>
             <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
-              onChange={e=>setForm({...form,defaultWeeklyFee:Number(e.target.value)})}
+              onChange={e=>setForm({...form,defaultWeeklyFee:e.target.value})}
               onBlur={()=>saveField('fee', { defaultWeeklyFee: Number(form.defaultWeeklyFee) || 0 })}/>
             <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>For new students — each child's fee can be changed.</span>
           </div>
