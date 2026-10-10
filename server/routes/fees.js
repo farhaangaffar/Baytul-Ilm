@@ -167,7 +167,12 @@ module.exports = requireAuth(async (req, res) => {
     // The automatic check only fills in weeks the head has already started, and only
     // ever for their own classes' students (checked below). Starting a week is head-only.
     const autoCheck = action === 'auto' && req.method === 'POST';
-    if (!readingList && !markingPaid && !autoCheck) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    // Which weeks/months are switched off and which were removed — so future ones can be shown.
+    const readingPlan = action === 'plan' && req.method === 'GET';
+    // A parent paying ahead: one future week/month/term for one child, marked paid (checked below).
+    const payingAhead = (action === 'add-week' || action === 'add-period') && req.method === 'POST' && b.paid === true
+      && Object.keys(b).every(k => ['studentId', 'weekStarting', 'period', 'start', 'paid'].includes(k));
+    if (!readingList && !markingPaid && !autoCheck && !readingPlan && !payingAhead) { res.status(403).json({ error: "You don't have access to this." }); return; }
     if (markingPaid) {
       const { rows } = await query('SELECT student_id FROM fees WHERE id = $1 AND madrasah_id = $2', [id, mid]);
       if (!rows.length) { res.status(404).json({ error: 'Fee record not found' }); return; }
@@ -296,6 +301,58 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  if (action === 'plan') {
+    // GET ?year= → what the Fees page needs to show the rest of the year before it's charged:
+    // { weeksOff, monthsOff, skips: [{ period, start, studentId, class }] } — skips only for
+    // this person's students and their classes.
+    if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const label = String(req.query.year || '');
+    const startY = /^\d{4}-/.test(label) ? Number(label.slice(0, 4)) : 2000 + Number(label.slice(0, 2));
+    if (!startY) { res.status(400).json({ error: 'year is required' }); return; }
+    const from = `${startY}-08-20`, to = `${startY + 1}-09-10`;
+    const { rows: wk } = await query('SELECT week_starting FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting >= $2 AND week_starting < $3', [mid, from, to]);
+    const { rows: mo } = await query('SELECT month_start FROM fee_months_off WHERE madrasah_id = $1 AND month_start >= $2 AND month_start < $3', [mid, from, to]);
+    const ids = [...scope.studentIds];
+    const { rows: cls } = await query('SELECT DISTINCT class FROM students WHERE madrasah_id = $1 AND id = ANY($2)', [mid, ids]);
+    const { rows: sk } = await query(
+      `SELECT period, start_date, class, student_id FROM fee_skips WHERE madrasah_id = $1 AND start_date >= $2 AND start_date < $3
+         AND (student_id = ANY($4) OR (student_id = '' AND class = ANY($5)))`,
+      [mid, from, to, ids, cls.map(r => r.class)]);
+    res.status(200).json({
+      weeksOff: wk.map(r => r.week_starting), monthsOff: mo.map(r => r.month_start),
+      skips: sk.map(r => ({ period: r.period, start: r.start_date, studentId: r.student_id, class: r.class })),
+    });
+    return;
+  }
+
+  if (action === 'skip') {
+    // Head only: take a week/month/term not charged yet off one child (or put it back, undo).
+    // { studentId, period, start, undo }. Fees already added are removed with DELETE ?id= instead.
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const { studentId, period, start, undo } = req.body || {};
+    if (!studentId || !PERIODS.includes(period) || !/^\d{4}-\d{2}-\d{2}$/.test(String(start || ''))) {
+      res.status(400).json({ error: 'studentId, period and start are required' }); return;
+    }
+    if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    if (undo) await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = $2 AND start_date = $3 AND student_id = $4`, [mid, period, start, studentId]);
+    else await query(`INSERT INTO fee_skips (madrasah_id, period, start_date, student_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [mid, period, start, studentId]);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  // A teacher paying ahead (add-week / add-period with paid: true) may only record a period
+  // that hasn't started yet and hasn't been removed for that child or their class.
+  async function teacherMayPayAhead(studentId, period, start) {
+    if (isOwner(req)) return true;
+    const today = ukToday();
+    if (period === 'week' ? start <= mondayOf(today) : start <= today) return false;
+    const { rows } = await query(
+      `SELECT 1 FROM fee_skips k WHERE k.madrasah_id = $1 AND k.period = $2 AND k.start_date = $3
+         AND (k.student_id = $4 OR (k.student_id = '' AND k.class = (SELECT class FROM students WHERE id = $4 AND madrasah_id = $1)))`,
+      [mid, period, start, studentId]);
+    return rows.length === 0;
+  }
+
   if (action === 'add-period') {
     // Head only: one month or term for one child — e.g. a parent paying ahead, or one removed
     // by mistake — owed or paid. { studentId, period: 'month'|'term', start, paid }. With
@@ -307,6 +364,7 @@ module.exports = requireAuth(async (req, res) => {
       res.status(400).json({ error: 'studentId, period and start are required' }); return;
     }
     if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    if (!(await teacherMayPayAhead(studentId, period, start))) { res.status(403).json({ error: 'Only the head can add this.' }); return; }
     let endExclusive, year;
     if (period === 'month') {
       if (!start.endsWith('-01')) { res.status(400).json({ error: 'A month starts on the 1st' }); return; }
@@ -344,7 +402,7 @@ module.exports = requireAuth(async (req, res) => {
        ON CONFLICT (year, student_id, period, week_starting) DO UPDATE SET status = EXCLUDED.status, paid_date = EXCLUDED.paid_date`,
       [mid, year, studentId, period, start, st[0].weekly_fee, paid ? 'Paid' : 'Pending', paid ? ukToday() : null]
     );
-    await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = $2 AND start_date = $3 AND student_id = $4`, [mid, period, start, studentId]);
+    if (isOwner(req)) await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = $2 AND start_date = $3 AND student_id = $4`, [mid, period, start, studentId]);
     res.status(200).json({ ok: true });
     return;
   }
@@ -360,6 +418,7 @@ module.exports = requireAuth(async (req, res) => {
     if (!studentId || !/^\d{4}-\d{2}-\d{2}$/.test(String(weekStarting || ''))) { res.status(400).json({ error: 'studentId and weekStarting are required' }); return; }
     if (!scope.studentIds.has(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
     const week = mondayOf(weekStarting);
+    if (!(await teacherMayPayAhead(studentId, 'week', week))) { res.status(403).json({ error: 'Only the head can add this.' }); return; }
     const { rows: isOff } = await query('SELECT 1 FROM fee_weeks_off WHERE madrasah_id = $1 AND week_starting = $2', [mid, week]);
     if (isOff.length) { res.status(400).json({ error: 'That week is switched off in Settings → Fee weeks.' }); return; }
     const { rows: st } = await query('SELECT weekly_fee FROM students WHERE id = $1 AND madrasah_id = $2', [studentId, mid]);
@@ -380,7 +439,7 @@ module.exports = requireAuth(async (req, res) => {
       [mid, year, studentId, week, st[0].weekly_fee, paid ? 'Paid' : 'Pending', paid ? ukToday() : null]
     );
     // Added back by hand for this child — no longer counts as removed for them.
-    await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = $2 AND student_id = $3`, [mid, week, studentId]);
+    if (isOwner(req)) await query(`DELETE FROM fee_skips WHERE madrasah_id = $1 AND period = 'week' AND start_date = $2 AND student_id = $3`, [mid, week, studentId]);
     res.status(200).json({ ok: true });
     return;
   }

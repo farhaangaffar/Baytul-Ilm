@@ -83,3 +83,11 @@ export function feeTotals(fees, start, endExclusive) {
   const collected = inRange.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   return { billed, collected, outstanding: billed - collected };
 }
+
+// A fee is due once its week / month / term has started. Unpaid fees for periods still to
+// come (charged ahead, e.g. the rest of a school month) are "Not due yet" and never count as
+// owed or outstanding anywhere.
+export const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+export const isDue = (f, today = ukToday()) => f.weekStarting <= today;
+// The fees that count in totals: everything paid, plus unpaid fees that are due.
+export const countedFees = (fees, today = ukToday()) => fees.filter(f => f.status === 'Paid' || f.weekStarting <= today);

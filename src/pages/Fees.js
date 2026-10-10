@@ -1,24 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
-  updateFeeAmount, deleteWeekFees, deleteFeeRecord, getFeeWeeks, addStudentWeek, getMondayOf, getWeekStartsForMonth, getClassNames,
+  updateFeeAmount, deleteWeekFees, deleteFeeRecord, addStudentWeek, getMondayOf, getWeekStartsForMonth, getClassNames,
   getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy,
+  getFeePlan, skipFeePeriod,
 } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
-import { feePer, feeFrequency } from '../lib/feePeriods';
+import { feePer, feeFrequency, isDue } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
-import { FeeRowList, shortDate } from '../components/FeeRows';
+import { FeeRowList, FeeTotals, shortDate } from '../components/FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
   const [y,m]=ym.split('-').map(Number);
   return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
 }
+function plusDays(iso, n) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 function shiftMonth(ym, dir) {
   const [y,m]=ym.split('-').map(Number);
   const d=new Date(y,m-1+dir,1);
@@ -62,7 +64,6 @@ function WeeklyFees() {
   const [deleteMonthVal, setDeleteMonthVal] = useState(isoToday().slice(0,7));
   const [deletingMonth, setDeletingMonth] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
   const [editCell, setEditCell] = useState(null);
   const [confirmDeleteWeek, setConfirmDeleteWeek] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
@@ -96,11 +97,21 @@ function WeeklyFees() {
   const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
 
   async function refresh(y2) { setFees(await getFees(y2||year)); }
-  // Which weeks are switched off, for the year on screen (head only).
-  useEffect(() => {
-    if (!isOwner || !autoWeeks || !year) return;
-    getFeeWeeks(year).then(r => setOffWeeks(new Set(r.off))).catch(() => {});
-  }, [isOwner, autoWeeks, year]);
+  // Weeks switched off and weeks removed for a child or class, for the year on screen — so the
+  // rest of the year can be shown before it's charged ("Not due yet").
+  const [skips, setSkips] = useState([]);
+  const [showRest, setShowRest] = useState(false);
+  const loadPlan = useCallback(() => {
+    if (!autoWeeks || !year) return;
+    getFeePlan(year).then(r => { setOffWeeks(new Set(r.weeksOff)); setSkips(r.skips.filter(k => k.period === 'week')); }).catch(() => {});
+  }, [autoWeeks, year]);
+  useEffect(() => { loadPlan(); }, [loadPlan]);
+  // On phones, a child's year opens at this month (earlier months are just above).
+  useLayoutEffect(() => {
+    if (!selectedId || window.innerWidth >= 900) return;
+    const card = document.querySelector('.att-week[data-this-week="1"]');
+    if (card && card.previousElementSibling) card.scrollIntoView({ block: 'start' });
+  }, [selectedId, year]);
   async function confirmAddWeek(paid, wholeClass = false) {
     setToggling(true);
     try {
@@ -120,6 +131,14 @@ function WeeklyFees() {
 
   async function confirmTogglePaid() {
     const fee = confirmToggle;
+    if (fee.planned) {
+      // A week not charged yet, paid ahead — it's recorded now, as paid.
+      setToggling(true);
+      try { await addStudentWeek(fee.studentId, fee.weekStarting, true); await refresh(); setConfirmToggle(null); }
+      catch (err) { showToast(err.message || 'Could not record this payment'); }
+      setToggling(false);
+      return;
+    }
     const wasPaid = fee.status === 'Paid';
     const nextStatus = wasPaid ? 'Pending' : 'Paid';
     const nextPaidDate = wasPaid ? null : isoToday();
@@ -186,30 +205,8 @@ function WeeklyFees() {
     setDeletingMonth(false);
   }
 
-  function openStudent(id) {
-    setSelectedId(id);
-    // isoToday().slice(0,7) would grab the raw calendar month even on days that, per the
-    // "month starts from its first Monday" rule, still belong to the previous one —
-    // getCurrentSchoolMonth already gets this right, reuse it instead of re-deriving.
-    const anchor = year===currentYear ? getCurrentSchoolMonth(isoToday()).start : academicYearStartISO(year);
-    setMonthAnchor(anchor.slice(0,7));
-  }
+  function openStudent(id) { setSelectedId(id); setShowRest(false); }
 
-  // Months are browsed within their own academic year only — crossing September or
-  // August hops to the adjacent year's tab (matching the source spreadsheets, one file
-  // per academic year) rather than wandering into another year while still "on" this one.
-  async function shiftDetailMonth(dir) {
-    const newMonth = shiftMonth(monthAnchor, dir);
-    const newYear = academicYearOfMonth(newMonth);
-    if (newYear === year) { setMonthAnchor(newMonth); return; }
-    if (!years.includes(newYear)) {
-      showToast(`No ${newYear} academic year yet — it starts on 1 September.`);
-      return;
-    }
-    setYear(newYear);
-    setMonthAnchor(newMonth);
-    try { await refresh(newYear); } catch (err) { showToast(err.message || 'Could not load that year'); }
-  }
 
   if (loading) return <Layout title="Fees"><LoadingState /></Layout>;
   if (error) return <Layout title="Fees"><ErrorState error={error} onRetry={load} /></Layout>;
@@ -224,7 +221,7 @@ function WeeklyFees() {
   const schoolMonth = getCurrentSchoolMonth(referenceDate);
   const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
   const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
   const thisWeekMonday = getMondayOf(referenceDate);
   // schoolMonth.label follows the "first Monday" school-month boundary, which for a
@@ -247,7 +244,7 @@ function WeeklyFees() {
             Mark week of {formatDayMonthGB(confirmToggle.weekStarting)} as {willBePaid?'paid':'unpaid'}?
           </div>
           <div style={{color:'var(--text-muted)',fontSize:12.5}}>
-            {toggleStudent?`${toggleStudent.forename} ${toggleStudent.surname}`:''} — {money(Number(confirmToggle.amount))} for this week.
+            {toggleStudent?`${toggleStudent.forename} ${toggleStudent.surname}`:''} — {money(Number(confirmToggle.amount))} for this week{confirmToggle.planned?', paid ahead':''}.
           </div>
         </div>
         <div className="modal-footer" style={{justifyContent:'center'}}>
@@ -288,19 +285,45 @@ function WeeklyFees() {
     </div>
   );
 
-  const mockStyle = (() => { try { return localStorage.getItem('fee_mock') || ''; } catch { return ''; } })();
   if (selected) {
-    const monthWeeks = getWeekStartsForMonth(monthAnchor);
     const studentFees = fees.filter(f=>f.studentId===selected.id);
     const lookup = {};
     studentFees.forEach(f=>{ lookup[f.weekStarting]=f; });
-    const monthFeesForStudent = monthWeeks.map(w=>lookup[w]).filter(Boolean);
-    const paid = monthFeesForStudent.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-    const owed = monthFeesForStudent.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
-    const billed = paid+owed;
-    const collectedPct = billed ? Math.round((paid/billed)*100) : 0;
-    const canGoPrev = years.includes(academicYearOfMonth(shiftMonth(monthAnchor,-1)));
-    const canGoNext = years.includes(academicYearOfMonth(shiftMonth(monthAnchor,1)));
+    const thisMonday = getMondayOf(isoToday());
+    const removedFor = w => skips.some(k => k.start === w && k.studentId === selected.id);
+    const classRemoved = w => skips.some(k => k.start === w && !k.studentId && k.class === selected.class);
+    // Will this child be charged this week when it comes? (switched on, not removed, at the madrasah then)
+    const chargeable = w => selected.status === 'Active' && !offWeeks.has(w) && !classRemoved(w)
+      && (!selected.enrollDate || selected.enrollDate < plusDays(w, 7)) && (!selected.leaveDate || selected.leaveDate >= w);
+    const rowsFor = weeks => weeks.map(w => {
+      const fee = lookup[w] || null;
+      const future = w > thisMonday;
+      const removed = !fee && removedFor(w);
+      return { key: w, week: w, label: `Week of ${shortDate(w)}`, now: w === thisMonday, future, fee, removed,
+        planned: !fee && !removed && autoWeeks && future && chargeable(w) ? { amount: selected.weeklyFee } : null,
+        offNote: offWeeks.has(w) ? 'Week off' : classRemoved(w) ? 'Not charged for the class' : autoWeeks ? 'Not charged' : 'Not added',
+        canAdd: canAddWeek(w) };
+    });
+    // The academic year, a card per school month; later months fold away until asked for.
+    const start = academicYearStartISO(year).slice(0, 7);
+    const nowMonth = getCurrentSchoolMonth(isoToday()).start.slice(0, 7);
+    const allMonths = Array.from({ length: 12 }, (_, i) => shiftMonth(start, i));
+    const months = isCurrentYear && !showRest ? allMonths.filter(m => m <= shiftMonth(nowMonth, 1)) : allMonths;
+    const yearFees = studentFees.filter(f => f.period === 'week');
+    const paidSum = yearFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
+    const owedSum = yearFees.filter(f => f.status !== 'Paid' && isDue(f)).reduce((t, f) => t + Number(f.amount), 0);
+    const rowHandlers = {
+      isOwner, editCell, setEditCell, saveEdit, nowLabel: 'This week',
+      onToggle: f => canToggle(f) && setConfirmToggle(f),
+      onPayAhead: r => setConfirmToggle({ planned: true, studentId: selected.id, weekStarting: r.week, amount: r.planned.amount, status: 'Pending' }),
+      onAdd: r => setAddWeek({ studentId: selected.id, week: r.week }),
+      onRemove: r => setConfirmDeleteWeek(r.week),
+      onPutBack: async r => {
+        if (!r.future) { setAddWeek({ studentId: selected.id, week: r.week }); return; }
+        try { await skipFeePeriod(selected.id, 'week', r.week, true); loadPlan(); showToast(`Week of ${shortDate(r.week)} put back`); }
+        catch (err) { showToast(err.message || 'Could not put it back'); }
+      },
+    };
 
     return (
       <Layout title="Fees" subtitle={`${selected.forename} ${selected.surname} · ${selected.class}`}>
@@ -309,143 +332,47 @@ function WeeklyFees() {
             <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14}/> All students</button>
             <div>
               <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
-              <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}{feePer()}</div>
+              <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}{feePer()} · {year}</div>
             </div>
           </div>
-          {mockStyle !== 'w2' && <div className="nav-arrow-row">
-            <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(-1)} disabled={!canGoPrev}>‹</button>
-            <span>{monthLabel(monthAnchor)}</span>
-            <button className="nav-arrow-btn" onClick={()=>shiftDetailMonth(1)} disabled={!canGoNext}>›</button>
-          </div>}
         </div>
 
-        {mockStyle ? (() => {
-          const thisMonday = getMondayOf(isoToday());
-          const rowsFor = weeks => weeks.map(w => ({ key: w, label: `Week of ${shortDate(w)}`, now: w === thisMonday, future: w > thisMonday, fee: lookup[w],
-            offNote: offWeeks.has(w) ? 'Week off' : autoWeeks ? 'Not charged' : 'Not added', canAdd: canAddWeek(w) }));
-          const common = { isOwner, editCell, setEditCell, saveEdit, nowLabel: 'This week',
-            onToggle: f => canToggle(f) && setConfirmToggle(f), onAdd: r => setAddWeek({ studentId: selected.id, week: r.key }), onRemove: r => setConfirmDeleteWeek(r.key) };
-          const totalsBox = (p2, o2, label) => {
-            const b2 = p2 + o2;
-            return (
-              <div className="summary-row-v2" style={{ marginBottom: 14 }}>
-                <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{money(p2)}</div><div className="l">Paid</div></div>
-                <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{money(o2)}</div><div className="l">Owed</div></div>
-                <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{b2 ? Math.round(p2 / b2 * 100) : 0}%</div><div className="l">Collected {label}</div></div>
-              </div>
-            );
-          };
-          // "Owed" is only what's due by now — weeks charged ahead aren't owed yet.
-          const sums = list => [list.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0),
-            list.filter(f => f.status !== 'Paid' && f.weekStarting <= thisMonday).reduce((t, f) => t + Number(f.amount), 0)];
-          if (mockStyle === 'w1') return (<>
-            {totalsBox(...sums(monthFeesForStudent), 'this month')}
-            <div style={{ maxWidth: 560 }}><FeeRowList rows={rowsFor(monthWeeks)} {...common} /></div>
-          </>);
-          // w2: the whole year — one card per school month, weeks as lines.
-          const start = academicYearStartISO(year).slice(0, 7);
-          const nowMonth = getCurrentSchoolMonth(isoToday()).start.slice(0, 7);
-          const months = Array.from({ length: 12 }, (_, i) => shiftMonth(start, i))
-            .filter(m => m <= nowMonth || getWeekStartsForMonth(m).some(w => lookup[w]));
-          const yearFees = studentFees.filter(f => months.some(m => getWeekStartsForMonth(m).includes(f.weekStarting)));
-          const [yp, yo] = sums(yearFees);
-          return (<>
-            {totalsBox(yp, yo, 'this year')}
-            <div className="att-weeks">
-              {months.map(m => <FeeRowList key={m} title={monthLabel(m)} rows={rowsFor(getWeekStartsForMonth(m))} {...common}
-                cardProps={{ 'data-this-week': m === nowMonth ? '1' : undefined }} />)}
-            </div>
-          </>);
-        })() : <>
-        <div className="day-cal-row" style={{gridTemplateColumns:`repeat(${monthWeeks.length},1fr)`}}>
-          {monthWeeks.map(w=>{
-            const f = lookup[w];
-            const dateLabel = formatDayMonthGB(w);
-            const isEditing = f && editCell?.feeId===f.id;
-            if (!f) {
-              return (
-                <div className="day-cal-card" key={w} style={{background:'#f4f5f8'}}>
-                  <div className="day-cal-name">W/C</div>
-                  <div className="day-cal-date">{dateLabel}</div>
-                  {canAddWeek(w)
-                    ? <button className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)'}} title="Add this week for this child"
-                        onClick={()=>setAddWeek({studentId:selected.id, week:w})}>+</button>
-                    : <div className="day-cal-status" style={{background:'#e5e7eb',color:'var(--text-soft)',cursor:'default'}}>—</div>}
-                  <div className="day-cal-label">{offWeeks.has(w) ? 'Week off' : autoWeeks ? 'Not charged' : 'Not added'}</div>
-                </div>
-              );
-            }
-            const bg = f.status==='Paid' ? 'var(--green-light)' : 'var(--red-light)';
-            const dotBg = f.status==='Paid' ? 'var(--green)' : 'var(--red)';
-            return (
-              <div className="day-cal-card" key={w} style={{background:bg, position:'relative'}}>
-                {isOwner && <button
-                  onClick={()=>setConfirmDeleteWeek(w)}
-                  title={`Remove week of ${dateLabel} — for ${selected.forename} or the whole class`}
-                  style={{position:'absolute',top:8,right:8,background:'none',border:'none',cursor:'pointer',color:'var(--text-soft)',padding:2,lineHeight:0}}>
-                  <Trash2 size={12}/>
-                </button>}
-                <div className="day-cal-name">W/C</div>
-                <div className="day-cal-date">{dateLabel}</div>
-                <button className="day-cal-status" style={{background:dotBg,cursor:canToggle(f)?'pointer':'default'}} onClick={()=>canToggle(f)&&setConfirmToggle(f)}>
-                  {f.status==='Paid'?'✓':'✗'}
-                </button>
-                {isEditing ? (
-                  <div className="flex items-center gap-2" style={{justifyContent:'center',marginTop:10}} onClick={e=>e.stopPropagation()}>
-                    <input type="number" value={editCell.val} autoFocus
-                      onChange={e=>setEditCell({...editCell,val:e.target.value})}
-                      onKeyDown={e=>{if(e.key==='Enter')saveEdit(f.id);if(e.key==='Escape')setEditCell(null);}}
-                      style={{width:50,padding:'3px 5px',fontSize:11,border:'1px solid var(--blue)',borderRadius:4,fontFamily:'var(--font)',textAlign:'center'}}/>
-                    <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--green-text)'}} onClick={()=>saveEdit(f.id)}><Check size={12}/></button>
-                    <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--red-text)'}} onClick={()=>setEditCell(null)}><X size={12}/></button>
-                  </div>
-                ) : isOwner ? (
-                  <div className="day-cal-label" style={{cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}
-                    onClick={()=>setEditCell({feeId:f.id,val:String(f.amount)})}>
-                    {money(Number(f.amount))}<Pencil size={9} style={{opacity:.5}}/>
-                  </div>
-                ) : (
-                  <div className="day-cal-label">{money(Number(f.amount))}</div>
-                )}
-              </div>
-            );
-          })}
+        <FeeTotals paid={paidSum} owed={owedSum} label={isCurrentYear ? 'this year' : year} />
+        <div className="att-weeks">
+          {months.map(m => <FeeRowList key={m} title={monthLabel(m)} rows={rowsFor(getWeekStartsForMonth(m))} {...rowHandlers}
+            cardProps={{ 'data-this-week': isCurrentYear && m === nowMonth ? '1' : undefined }} />)}
         </div>
-
-        <div className="summary-row-v2">
-          <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{money(paid)}</div><div className="l">Paid</div></div>
-          <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{money(owed)}</div><div className="l">Owed</div></div>
-          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{money(billed)}</div><div className="l">Billed this month</div></div>
-          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{collectedPct}%</div><div className="l">Collected</div></div>
-        </div>
-        </>}
+        {months.length < allMonths.length && (
+          <div className="fee-more"><button className="btn" onClick={() => setShowRest(true)}>Show the rest of the year</button></div>
+        )}
 
         {confirmDeleteWeek&&(
           <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDeleteWeek(null)}>
             <div className="modal" style={{maxWidth:400}}>
               <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
                 <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
-                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove week of {formatDayMonthGB(confirmDeleteWeek)}?</div>
+                <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Remove week of {shortDate(confirmDeleteWeek)} for {selected.forename}?</div>
                 <div style={{color:'var(--text-muted)',fontSize:13}}>
-                  Just for {selected.forename}, or for everyone in {selected.class}?
-                  <br/><span style={{fontSize:12}}>Whole class: useful for a holiday week. It isn't charged again either way. This cannot be undone.</span>
+                  {selected.forename} won't be charged for it{lookup[confirmDeleteWeek]?.status==='Paid' ? ' — the payment recorded for it is removed too' : ''}. You can put it back later.
+                  {autoWeeks && <><br/><span style={{fontSize:12}}>A holiday for everyone? Switch the week off in Settings → Fee weeks.</span></>}
                 </div>
               </div>
               <div className="modal-footer" style={{justifyContent:'center',flexWrap:'wrap'}}>
                 <button className="btn" onClick={()=>setConfirmDeleteWeek(null)}>Cancel</button>
-                {/* Just this child: removes their one fee (remembered, so it isn't added back). */}
-                <button className="btn btn-danger" style={{background:'#fff',color:'var(--red)',border:'1px solid var(--red)'}} onClick={async ()=>{
+                <button className="btn btn-danger" onClick={async ()=>{
                   try {
                     const mine = lookup[confirmDeleteWeek];
                     if (mine) await deleteFeeRecord(mine.id, year);
-                    await refresh();
+                    else await skipFeePeriod(selected.id, 'week', confirmDeleteWeek);
+                    await refresh(); loadPlan();
                     setConfirmDeleteWeek(null);
                     showToast(`Week removed for ${selected.forename}`);
                   } catch (err) {
                     showToast(err.message || 'Could not remove week');
                   }
-                }}><Trash2 size={13}/>Just {selected.forename}</button>
-                <button className="btn btn-danger" onClick={async ()=>{
+                }}><Trash2 size={13}/>Remove for {selected.forename}</button>
+                {/* Fees added by hand (automatic fees off): a holiday week can still go for the whole class here. */}
+                {!autoWeeks && <button className="btn btn-danger" onClick={async ()=>{
                   try {
                     await deleteWeekFees(confirmDeleteWeek, year, selected.class);
                     await refresh();
@@ -454,7 +381,7 @@ function WeeklyFees() {
                   } catch (err) {
                     showToast(err.message || 'Could not remove week');
                   }
-                }}><Trash2 size={13}/>Everyone in {selected.class}</button>
+                }}><Trash2 size={13}/>Everyone in {selected.class}</button>}
               </div>
             </div>
           </div>
@@ -483,7 +410,7 @@ function WeeklyFees() {
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
-        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid weeks</div></div>
+        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).length}</div><div className="l">Unpaid weeks</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
@@ -512,7 +439,7 @@ function WeeklyFees() {
         {classStudents.map(s=>{
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-          const monthOwed = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+          const monthOwed = monthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
@@ -535,9 +462,10 @@ function WeeklyFees() {
                       );
                     }
                     const paid = f.status==='Paid';
+                    const notDue = !paid && !isDue(f);
                     return (
-                      <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
-                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
+                      <button key={w} className={`week-pill ${paid?'paid':notDue?'not-due':'unpaid'} ${isCurrent?'is-current':''}`}
+                        title={`Week of ${dateLabel} — ${paid?'Paid':notDue?'Not due yet':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
                         onClick={e=>{ e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
                         <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>

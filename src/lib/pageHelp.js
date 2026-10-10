@@ -10,10 +10,9 @@ function feesForHead() {
   const where = feeFrequency() === 'weekly' ? 'Settings → Fee weeks' : feeFrequency() === 'monthly' ? 'Settings → Fee months' : 'Settings → Terms';
   return [
     'Pick the class at the top.',
-    `Green means paid, red means owed. Tap a ${unit} to mark it paid, or tap again to undo a mistake.`,
-    auto ? `Fees are added by themselves. Choose which ${unit}s are charged in ${where}.` : `Add a ${unit} for the class with the button above the children.`,
-    auto ? `Tap a grey box to add a ${unit} for one child — owed, or paid in advance.` : null,
-    'Tap a child\'s card to see all their fees, or change an amount.',
+    `Green means paid, red means owed. ${unit[0].toUpperCase() + unit.slice(1)}s still to come say "Not due yet" — they're never counted as owed. Tap one to mark it paid, or tap again to undo a mistake.`,
+    auto ? `Fees are added by themselves. To take a ${unit} off for everyone (a holiday), switch it off in ${where}.` : `Add a ${unit} for the class with the button above the children.`,
+    `Tap a child's card to see their whole year. Tap ✏️ next to an amount to change it, or the bin to take a ${unit} off just that child (Put back undoes it).`,
   ].filter(Boolean);
 }
 
@@ -79,7 +78,8 @@ const TEACHER = {
   '/fees': { title: 'Fees', steps: [
     'Pick your class at the top.',
     'Tap a fee to mark it paid. Tap it again if it was a mistake.',
-    'Fees are added by the madrasah office — you can\'t add, remove or change them.',
+    'Red is owed. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
+    'Tap a child to see their whole year. Amounts and removing fees are done by the head.',
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick your class, then tap a child.',
