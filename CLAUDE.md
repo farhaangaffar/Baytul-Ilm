@@ -68,7 +68,9 @@ codebase (one codebase, not a fork).
   once and kept in `platform_kv`, devices in `push_subscriptions`, shown by `public/sw.js`), and
   an email through Resend when `RESEND_API_KEY` is set in Vercel (to `NOTIFY_EMAIL`, else
   hello@suhuf.uk; from `NOTIFY_FROM`, else notifications@suhuf.uk — suhuf.uk must be verified in
-  Resend). Neither failing ever stops a sign-up. These tables are made by `server/platform.js`. The dashboard has no Ask AI any more. `requireAuth(handler)`
+  Resend). Neither failing ever stops a sign-up. Sign-up pushes wait up to a day for a sleeping phone;
+  "Send a test" ones expire after 60 s; each push has its own tag (a shared tag let Android replace
+  one silently); a push with no text still shows words (never a blank notification). These tables are made by `server/platform.js`. The dashboard has no Ask AI any more. `requireAuth(handler)`
   is owner-only by default; pass `{ teacher: true }` only for routes teachers use, and
   scope with `accessScope(req)` / `teacherScope(req)`. Teachers get Attendance, Daily
   records and Fees for their own classes, and on Fees may only tick an added fee paid or
