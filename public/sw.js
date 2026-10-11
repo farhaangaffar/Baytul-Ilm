@@ -8,7 +8,7 @@
 // icon after it was replaced — icons are no longer cached here at all.
 const CACHE = 'madrasah-shell-v3';
 // Shown on the Madaaris page's notifications card, to tell which copy a phone is running.
-const VERSION = 'v6';
+const VERSION = 'v7';
 // A note of the last notification message this phone received (read by the notifications card).
 const LOG = 'suhuf-push-log';
 
@@ -65,12 +65,15 @@ self.addEventListener('fetch', event => {
 // Notifications for the platform owner (a madrasah signed up — server/notify.js). Tapping one
 // opens the page it's about (the Madaaris page), reusing an open app window if there is one.
 // A notification must always be shown, or Chrome puts up its own empty one instead.
-const logPush = entry => caches.open(LOG)
-  .then(c => c.put('/__push-log', new Response(JSON.stringify({ at: new Date().toISOString(), ...entry }))))
-  .catch(() => {});
+const logPush = entry => caches.open(LOG).then(async c => {
+  const old = await c.match('/__push-log').then(r => (r ? r.json() : [])).catch(() => []);
+  const list = [{ at: new Date().toISOString(), ...entry }, ...(Array.isArray(old) ? old : [old])].slice(0, 5);
+  await c.put('/__push-log', new Response(JSON.stringify(list)));
+}).catch(() => {});
 
 self.addEventListener('push', event => {
   let data = {};
+  const hasData = !!event.data;
   try { data = event.data ? event.data.json() : {}; } catch { try { data = { body: event.data.text() }; } catch { data = {}; } }
   event.waitUntil(
     self.registration.showNotification(data.title || 'Suhuf', {
@@ -78,8 +81,8 @@ self.addEventListener('push', event => {
       // Each one its own tag: a shared tag made Android swap an old one for a new one silently.
       tag: `suhuf-${Date.now()}`, vibrate: [200, 100, 200],
     })
-      .then(() => logPush({ shown: true, title: data.title || '' }))
-      .catch(err => logPush({ shown: false, error: String(err && err.message || err) })
+      .then(() => logPush({ shown: true, hasData, title: data.title || '' }))
+      .catch(err => logPush({ shown: false, hasData, error: String(err && err.message || err) })
         .then(() => self.registration.showNotification('Suhuf', { body: data.body || '' })))
   );
 });

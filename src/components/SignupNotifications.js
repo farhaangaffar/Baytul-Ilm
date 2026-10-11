@@ -61,6 +61,8 @@ export default function SignupNotifications() {
   const [note, setNote] = useState('');
   const [debug, setDebug] = useState(null);
   const [debugOn, setDebugOn] = useState(DEBUG);
+  const [note2, setNote2] = useState('');
+  const DEBUG_ANY = () => debugOn;
   const [taps, setTaps] = useState(0);
   useEffect(() => {
     if (!debugOn) return undefined;
@@ -114,6 +116,7 @@ export default function SignupNotifications() {
         r = await sendTestNotification(endpoint);
       }
       const mine = r.thisPhone;
+      if (DEBUG_ANY()) setNote2(`Empty message: ${r.empty ? (r.empty.ok ? `accepted (${r.empty.status})` : `refused (${r.empty.status}) ${r.empty.error || ''}`) : 'not sent'}`);
       setNote((!endpoint || !mine ? 'Sent.' : mine.ok ? 'Sent — it should arrive in a few seconds.' : `Couldn't reach this phone (${mine.status || 'no answer'}). Tap Turn off on this device, then turn it on again.`)
         + (r.email ? ' An email was sent too.' : ''));
     } catch (err) { setNote(err.message || 'Could not send a test.'); }
@@ -132,6 +135,7 @@ export default function SignupNotifications() {
         <button className="btn btn-sm" onClick={test} disabled={busy}><Send size={13} />Send a test</button>
       </div>
       {note && <div className="text-sm" style={{ marginTop: 10, color: 'var(--text-muted)' }}>{note}</div>}
+      {debugOn && note2 && <div className="text-sm" style={{ marginTop: 6, color: 'var(--text-muted)' }}>{note2}</div>}
       {debug && <pre style={{ fontSize: 11, whiteSpace: 'pre-wrap', marginTop: 10, color: 'var(--text-muted)' }}>{JSON.stringify(debug, null, 1)}</pre>}
     </div>
   );
