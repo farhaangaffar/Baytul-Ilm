@@ -37,10 +37,11 @@ async function subscribeHere(fresh) {
 }
 const expired = r => r.thisPhone && !r.thisPhone.ok && (r.thisPhone.status === 404 || r.thisPhone.status === 410);
 
-// Only with ?debug in the address: what this phone's app last received (public/sw.js notes it).
+// With ?debug in the address, or after tapping the card's title 5 times: what this phone's app
+// last received (public/sw.js notes it), and which address it runs on.
 const DEBUG = typeof window !== 'undefined' && /[?&]debug\b/.test(window.location.search);
 async function debugInfo() {
-  const out = {};
+  const out = { site: window.location.host };
   try { const hit = await (await caches.open('suhuf-push-log')).match('/__push-log'); out.last = hit ? await hit.json() : null; } catch { out.last = 'unreadable'; }
   try {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -59,11 +60,13 @@ export default function SignupNotifications() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
   const [debug, setDebug] = useState(null);
+  const [debugOn, setDebugOn] = useState(DEBUG);
+  const [taps, setTaps] = useState(0);
   useEffect(() => {
-    if (!DEBUG) return undefined;
+    if (!debugOn) return undefined;
     const tick = () => debugInfo().then(setDebug);
     tick(); const t = setInterval(tick, 3000); return () => clearInterval(t);
-  }, []);
+  }, [debugOn]);
 
   useEffect(() => {
     if (!supported()) { setOn(false); return; }
@@ -120,7 +123,7 @@ export default function SignupNotifications() {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header" style={{ marginBottom: 12 }}>
-        <div className="card-title"><Bell size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />When a madrasah signs up</div>
+        <div className="card-title" onClick={() => { const n = taps + 1; setTaps(n); if (n >= 5) setDebugOn(true); }}><Bell size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />When a madrasah signs up</div>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {on
