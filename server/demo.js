@@ -22,7 +22,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'students', 'classes', 'teachers',
-  'academic_years', 'settings',
+  'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
 // Make sure every table the demo fills exists (a fresh database creates most of them on
@@ -35,6 +35,7 @@ async function ensureAllTables() {
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
     kind TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT now())`);
+  await require('./platform').ensurePlatformTables();
 }
 
 // Deletes expired demos (a few at a time, so starting a demo stays quick).

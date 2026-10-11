@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import SignupNotifications from '../components/SignupNotifications';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage } from '../lib/store';
+import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getIncome, getPayments, addPayment, deletePayment } from '../lib/store';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2 } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -24,6 +25,26 @@ function whatsappNumber(phone) {
   const d = String(phone).replace(/[^0-9]/g, '');
   return d.startsWith('0') ? `44${d.slice(1)}` : d;
 }
+
+// Where a madrasah is with paying us: still free, paid up to a date, or overdue (and by how much).
+const todayISO = () => new Date().toISOString().slice(0, 10);
+function monthsBetween(from, to) { // whole months from `from` up to and including `to`'s month start
+  const [fy, fm, fd] = from.split('-').map(Number), [ty, tm, td] = to.split('-').map(Number);
+  return (ty - fy) * 12 + (tm - fm) + (td >= fd ? 1 : 0);
+}
+function billingStatus(m) {
+  const today = todayISO();
+  if (m.monthsPaid === 0 && today < m.freeUntil) return null; // still in the free months — freeBadge says so
+  const date = formatDateGB(m.paidUntil);
+  if (m.paidUntil > today) {
+    const days = Math.ceil((new Date(m.paidUntil + 'T12:00:00') - new Date()) / 864e5);
+    return { cls: days <= 14 ? 'badge-amber' : 'badge-green', text: `Paid until ${date}`, owed: 0 };
+  }
+  const months = Math.max(1, monthsBetween(m.paidUntil, today));
+  const owed = m.billingPlan === 'yearly' ? m.billingAmount * Math.ceil(months / 12) : m.billingAmount * months;
+  return { cls: 'badge-red', text: `${m.monthsPaid ? 'Overdue' : 'Free months ended'} ${date} · £${owed.toFixed(2).replace(/\.00$/, '')} due`, owed };
+}
+const money = n => `£${Number(n).toFixed(2).replace(/\.00$/, '')}`;
 
 function freeBadge(freeUntil) {
   if (!freeUntil) return null;
@@ -47,6 +68,9 @@ export default function Madaaris() {
   const [toast, setToast] = useState('');
   const [dbBytes, setDbBytes] = useState(null);
   useEffect(() => { getDbUsage().then(u => setDbBytes(u.dbBytes)).catch(() => {}); }, []);
+  const [income, setIncome] = useState(null);
+  const loadIncome = useCallback(() => getIncome().then(setIncome).catch(() => {}), []);
+  useEffect(() => { loadIncome(); }, [loadIncome]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -82,6 +106,29 @@ export default function Madaaris() {
         <div className="stat-card-v2"><div className="n">{totals.ai}</div><div className="l">AI requests this month</div></div>
       </div>
 
+      <SignupNotifications />
+
+      {/* Money from madaaris: received, expected each month, and who's behind. */}
+      {(() => {
+        const paying = list.filter(m => !m.isYours && m.active);
+        const expected = paying.filter(m => todayISO() >= m.freeUntil || m.monthsPaid > 0)
+          .reduce((t, m) => t + (m.billingPlan === 'yearly' ? m.billingAmount / 12 : m.billingAmount), 0);
+        const overdue = paying.map(m => billingStatus(m)).filter(b => b && b.owed > 0);
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-header" style={{ marginBottom: 10 }}>
+              <div className="card-title"><PoundSterling size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Payments from madaaris</div>
+            </div>
+            <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
+              <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{income ? money(income.thisMonth) : '…'}</div><div className="l">Received this month</div></div>
+              <div className="stat-card-v2"><div className="n">{income ? money(income.last12) : '…'}</div><div className="l">Last 12 months</div></div>
+              <div className="stat-card-v2"><div className="n">{money(expected)}</div><div className="l">Expected each month</div></div>
+              <div className="stat-card-v2"><div className="n" style={{ color: overdue.length ? 'var(--red-text)' : undefined }}>{overdue.length ? money(overdue.reduce((t, b) => t + b.owed, 0)) : '£0'}</div><div className="l">{overdue.length ? `Overdue from ${overdue.length} madrasah${overdue.length === 1 ? '' : 's'}` : 'Nothing overdue'}</div></div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div className="text-muted text-sm">You only see counts here — each madrasah's students, fees and reports stay private to them.</div>
         <button className="btn btn-primary" onClick={() => setModal({ kind: 'add' })}><Plus size={14} /> Add madrasah</button>
@@ -95,7 +142,9 @@ export default function Madaaris() {
                 <span style={{ fontWeight: 700, fontSize: 15 }}>{m.name}</span>
                 {m.isYours && <span className="badge badge-teal">Yours</span>}
                 <span className={`badge ${m.active ? 'badge-green' : 'badge-gray'}`}>{m.active ? 'On' : 'Switched off'}</span>
-                {!m.isYours && freeBadge(m.freeUntil) && <span className={`badge ${freeBadge(m.freeUntil).cls}`}>{freeBadge(m.freeUntil).text}</span>}
+                {!m.isYours && (billingStatus(m)
+                  ? <span className={`badge ${billingStatus(m).cls}`}>{billingStatus(m).text}</span>
+                  : freeBadge(m.freeUntil) && <span className={`badge ${freeBadge(m.freeUntil).cls}`}>{freeBadge(m.freeUntil).text}</span>)}
                 {m.selfSignup && (Date.now() - new Date(m.createdAt) < 14 * 864e5
                   ? <span className="badge badge-amber">New · signed themselves up</span>
                   : <span className="badge badge-gray">Signed themselves up</span>)}
@@ -118,6 +167,7 @@ export default function Madaaris() {
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <button className="btn btn-sm" onClick={() => setModal({ kind: 'edit', m })}><Pencil size={12} /> Edit</button>
+              {!m.isYours && <button className="btn btn-sm" onClick={() => setModal({ kind: 'payments', m })}><PoundSterling size={12} /> Payments</button>}
               {!m.isYours && <button className="btn btn-sm" onClick={() => setModal({ kind: 'password', m })}><KeyRound size={12} /> Reset head's password</button>}
               {!m.isYours && (
                 <button className="btn btn-sm" style={m.active ? { color: 'var(--red)' } : undefined} onClick={() => setModal({ kind: 'power', m })}>
@@ -188,6 +238,10 @@ export default function Madaaris() {
       )}
       {modal?.kind === 'password' && (
         <PasswordModal m={modal.m} onClose={() => setModal(null)} onSaved={async () => { setModal(null); showToast("Head's password reset"); await load(); }} />
+      )}
+      {modal?.kind === 'payments' && (
+        <PaymentsModal m={list.find(x => x.id === modal.m.id) || modal.m} onClose={() => setModal(null)}
+          onChanged={async () => { await load(); await loadIncome(); }} />
       )}
       {modal?.kind === 'delete' && (
         <DeleteModal m={modal.m} onClose={() => setModal(null)} onDeleted={async () => { setModal(null); showToast(`${modal.m.name} deleted`); await load(); }} />
@@ -356,6 +410,97 @@ function PasswordModal({ m, onClose, onSaved }) {
         <input type="text" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} {...noAuto} autoFocus />
       </div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+    </ModalShell>
+  );
+}
+
+// A madrasah's plan (monthly or yearly, and its price) and the payments received from it.
+function PaymentsModal({ m, onClose, onChanged }) {
+  const [payments, setPayments] = useState(null);
+  const [plan, setPlan] = useState({ billingPlan: m.billingPlan, billingAmount: String(m.billingAmount) });
+  const months = plan.billingPlan === 'yearly' ? 12 : 1;
+  const [f, setF] = useState({ paidOn: todayISO(), amount: String(m.billingAmount), months: String(months), note: '' });
+  // Stays open after each payment, so busy is cleared here (useSubmit only clears it on errors).
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const submit = async fn => { setBusy(true); setError(''); try { await fn(); } catch (err) { setError(err.message || 'Something went wrong'); } setBusy(false); };
+  const reload = useCallback(() => getPayments(m.id).then(setPayments).catch(err => setError(err.message)), [m.id, setError]);
+  useEffect(() => { reload(); }, [reload]);
+
+  async function savePlan(next) {
+    setPlan(next);
+    try {
+      await updateMadrasah(m.id, { billingPlan: next.billingPlan, billingAmount: Number(next.billingAmount) || 0 });
+      setF(x => ({ ...x, amount: String(Number(next.billingAmount) || 0), months: next.billingPlan === 'yearly' ? '12' : '1' }));
+      await onChanged();
+    } catch (err) { setError(err.message); }
+  }
+  const status = billingStatus(m);
+
+  return (
+    <ModalShell title={`Payments — ${m.name}`} onClose={onClose} busy={busy} footer={<button className="btn" onClick={onClose}>Done</button>}>
+      <div style={{ fontSize: 13, marginBottom: 12 }}>
+        {status ? <span className={`badge ${status.cls}`}>{status.text}</span> : <span className="badge badge-gray">Free until {formatDateGB(m.freeUntil)}</span>}
+      </div>
+      <div className="form-section-title" style={{ marginBottom: 8 }}>Plan</div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="pill-tabs" style={{ marginBottom: 0 }}>
+          {[['monthly', 'Monthly'], ['yearly', 'Yearly']].map(([k, l]) => (
+            <button key={k} type="button" className={`pill-tab ${plan.billingPlan === k ? 'active' : ''}`}
+              onClick={() => savePlan({ billingPlan: k, billingAmount: k === 'yearly' ? '200' : '20' })}>{l}</button>
+          ))}
+        </div>
+        <div className="form-group" style={{ marginBottom: 0, width: 120 }}>
+          <label>Price {plan.billingPlan === 'yearly' ? 'a year' : 'a month'}</label>
+          <input type="number" min="0" step="1" value={plan.billingAmount} onChange={e => setPlan({ ...plan, billingAmount: e.target.value })}
+            onBlur={() => savePlan(plan)} />
+        </div>
+      </div>
+
+      <div className="form-section-title" style={{ marginBottom: 8 }}>Record a payment</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, alignItems: 'start' }}>
+        <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+          <label>Paid on</label>
+          <input type="date" value={f.paidOn} onChange={e => setF({ ...f, paidOn: e.target.value })} style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }} />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+          <label>Amount (£)</label>
+          <input type="number" min="0" step="0.01" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+          <label>Months</label>
+          <input type="number" min="0" max="60" step="1" value={f.months} onChange={e => setF({ ...f, months: e.target.value })} />
+        </div>
+      </div>
+      <div className="form-group" style={{ margin: '8px 0 0' }}>
+        <input value={f.note} onChange={e => setF({ ...f, note: e.target.value })} placeholder="Note (optional), e.g. standing order" maxLength={200} />
+      </div>
+      <button className="btn btn-primary btn-sm" style={{ marginTop: 10 }} disabled={busy || !(Number(f.amount) > 0) || !f.paidOn}
+        onClick={() => submit(async () => {
+          await addPayment(m.id, { paidOn: f.paidOn, amount: Number(f.amount), months: Number(f.months) || 0, note: f.note });
+          setF(x => ({ ...x, note: '' })); await reload(); await onChanged();
+        })}>
+        <Plus size={13} />{busy ? 'Saving…' : 'Record payment'}
+      </button>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+
+      <div className="form-section-title" style={{ margin: '18px 0 8px' }}>Payments received</div>
+      {!payments ? <div className="text-muted text-sm">Loading…</div> : payments.length === 0 ? <div className="text-muted text-sm">None yet.</div> : (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {payments.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13 }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <strong>{money(p.amount)}</strong> · {formatDateGB(p.paidOn)} · {p.months} month{p.months === 1 ? '' : 's'}
+                {p.note && <span className="text-muted"> · {p.note}</span>}
+              </span>
+              <button className="btn btn-icon btn-sm" title="Remove this payment" onClick={async () => {
+                if (!window.confirm(`Remove the ${money(p.amount)} payment from ${formatDateGB(p.paidOn)}?`)) return;
+                await deletePayment(m.id, p.id); await reload(); await onChanged();
+              }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
     </ModalShell>
   );
 }

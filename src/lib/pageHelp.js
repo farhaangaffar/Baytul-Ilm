@@ -69,6 +69,8 @@ const HEAD = {
     'Every madrasah using the app — you only see counts, never their children.',
     'Add a madrasah with its head\'s login, then send them their code.',
     'Each madrasah is free for 6 months — the badge shows when that ends. Change the date with Edit.',
+    'When one pays you, tap Payments on its card: choose Monthly or Yearly and record the payment. The badge then shows "Paid until" or "Overdue".',
+    'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
     'Your AI credit, database space and the demo link are at the bottom.',
   ] },
 };
