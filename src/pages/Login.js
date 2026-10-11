@@ -3,7 +3,7 @@ import { LegalLinks } from '../components/Legal';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
 import { getBranding, setBranding, isNeutralBranding, APP_NAME, APP_NAME_ARABIC, APP_TAGLINE } from '../lib/branding';
 import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
-import { LogIn, KeyRound, UserPlus, PlayCircle } from 'lucide-react';
+import { LogIn, KeyRound, UserPlus, PlayCircle, Rocket } from 'lucide-react';
 import { DemoChooser } from '../components/Demo';
 
 // Three screens share this card:
@@ -163,7 +163,10 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             {/* Only on a device that isn't any madrasah's yet, so a madrasah's own people
                 don't see it; the ?demo link works anywhere. */}
             {!setupRequired && !getMadrasahCode() && (<>
-              <button type="button" className="btn" onClick={() => switchMode('demo')} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>
+              <a href="/?start" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 18, boxSizing: 'border-box', textDecoration: 'none' }}>
+                <Rocket size={14} />New madrasah? Start free
+              </a>
+              <button type="button" className="btn" onClick={() => switchMode('demo')} style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}>
                 <PlayCircle size={14} />Try the demo
               </button>
               <a href="/about" style={{ ...linkBtn, display: 'inline-block', marginTop: 12, textDecoration: 'underline' }}>What is {APP_NAME}?</a>

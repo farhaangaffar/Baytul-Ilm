@@ -19,6 +19,7 @@ export const PRIVACY = [
     'About children: name, date of birth, class, attendance, fees, Qur\'an progress (lessons, grades and the teacher\'s lesson notes), behaviour records and the reports written about them.',
     'About parents: names and phone numbers, a parent login if the madrasah sets one up, and any absences reported through the app.',
     'About staff: names, contact details the madrasah adds, and login details. Passwords are stored scrambled (hashed) — nobody, including us, can read them.',
+    'When a madrasah signs up: the head\'s name, email and phone number, so we can help them get set up, and a scrambled (hashed) form of the internet address used, only to stop too many sign-ups from one place.',
     'About the madrasah: its name, logo, fee settings, term dates and similar settings.',
   ]],
   ['What it\'s used for', [
@@ -49,7 +50,7 @@ export const PRIVACY = [
 
 export const TERMS = [
   ['The agreement', [
-    `These terms are between ${PROVIDER.name} ("we") and the madrasah using Suhuf (suhuf.uk). The head agrees to them on the madrasah's behalf when they first sign in.`,
+    `These terms are between ${PROVIDER.name} ("we") and the madrasah using Suhuf (suhuf.uk). The head agrees to them on the madrasah's behalf when signing up, or when they first sign in.`,
   ]],
   ['Cost', [
     'Suhuf is free for the madrasah\'s first 6 months. After that it costs £20 a month, or £200 a year, for the whole madrasah, paid by standing order. If the price ever changes we\'ll tell you at least a month beforehand. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',

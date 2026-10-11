@@ -14,6 +14,7 @@ import { Trash2, Download, Upload, Check, Image as ImageIcon, FileSpreadsheet } 
 import { setBranding } from '../lib/branding';
 import { applySettings } from '../lib/SettingsContext';
 import { useAuth } from '../lib/AuthContext';
+import { markSettingsVisited } from '../components/GettingStarted';
 
 const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
 
@@ -93,6 +94,8 @@ export default function Settings() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Ticks "Set your fees and madrasah days" on a new madrasah's Getting started card.
+  useEffect(() => { markSettingsVisited(user?.madrasah?.code); }, [user]);
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
   function markSaved(key) {

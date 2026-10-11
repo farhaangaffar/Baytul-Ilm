@@ -94,8 +94,16 @@ codebase (one codebase, not a fork).
   `src/lib/reportPdf.js`) linking to `/about`. Visitor counts (Vercel Web Analytics, no cookies,
   `src/lib/analytics.js` `countVisit()`, live site only): the front page, /privacy, /terms, `/demo` and
   `/demo/<role>` — never pages inside a madrasah's app (auto-tracking is off on purpose).
-  "Get started free" opens WhatsApp to the owner's number (`WHATSAPP` in `Landing.js`, clicks counted
-  as `/contact/whatsapp`); hello@suhuf.uk is the email.
+  "Start free" opens the sign-up (`/?start`, below); "Message us on WhatsApp" goes to the owner's number
+  (`WHATSAPP` in `Landing.js`, clicks counted as `/contact/whatsapp`); hello@suhuf.uk is the email.
+- **Self sign-up** ("Start free" on the front page and the sign-in screen of a new device → `/?start`,
+  `src/pages/Signup.js`, `server/routes/signup.js`): madrasah name, head's name, email (their login), phone,
+  password, a sign-in code made from the name (changeable), and a tick for the terms (recorded, so no
+  agree screen after). They're straight in as the head, free for 6 months. Guards: a hidden field only bots
+  fill, max 3 sign-ups per address a day (`madaaris.signup_ip`, hashed). Creating a madrasah is shared with
+  the Madaaris page (`server/newMadrasah.js`). The Madaaris page marks them "New · signed themselves up"
+  with contact name/phone/WhatsApp/email. A new head's Dashboard shows "Getting started"
+  (`src/components/GettingStarted.js`: classes → students → Settings → teacher logins; ticks itself, can be hidden).
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per

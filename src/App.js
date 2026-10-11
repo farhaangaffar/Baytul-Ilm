@@ -13,6 +13,7 @@ import Login           from './pages/Login';
 import Madaaris        from './pages/Madaaris';
 import ParentPortal    from './pages/ParentPortal';
 import BackToExit, { ParentBackToExit } from './components/BackToExit';
+import Signup         from './pages/Signup';
 import { getSession, logout } from './lib/store';
 import { LegalPage, AcceptTerms } from './components/Legal';
 import Landing from './pages/Landing';
@@ -85,11 +86,16 @@ export default function App() {
   const toSignIn = () => window.location.assign('/?signin');
   if (window.location.pathname === '/about') return <Landing onSignIn={toSignIn} />;
   const params = new URLSearchParams(window.location.search);
-  const newVisitor = window.location.pathname === '/' && !getMadrasahCode() && !['m', 'demo', 'signin'].some(k => params.has(k));
+  const newVisitor = window.location.pathname === '/' && !getMadrasahCode() && !['m', 'demo', 'signin', 'start'].some(k => params.has(k));
   if (newVisitor && session && !session.authenticated && !session.setupRequired) return <Landing onSignIn={toSignIn} />;
 
   if (session === null) {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
+  }
+
+  // "Start free": a madrasah signs itself up (pages/Signup.js), then it's straight in.
+  if (!session.authenticated && !session.setupRequired && params.has('start')) {
+    return <Signup onDone={refreshSession} />;
   }
 
   if (!session.authenticated) {

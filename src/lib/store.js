@@ -67,6 +67,10 @@ export async function changePassword(currentPassword, newPassword) {
   return apiFetch('/api/login?action=change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
 }
 // The demo (server/routes/demo.js): role is 'head', 'teacher' or 'parent'.
+// A madrasah signing itself up ("Start free" — server/routes/signup.js). Signs its head in.
+export async function signUp(data) { return apiFetch('/api/signup', { method: 'POST', body: JSON.stringify(data) }); }
+export async function suggestSignupCode(name) { return apiFetch(`/api/signup?name=${encodeURIComponent(name)}`); }
+export async function signupCodeFree(code) { return apiFetch(`/api/signup?code=${encodeURIComponent(code)}`); }
 export async function startDemo(role) {
   return apiFetch('/api/demo', { method: 'POST', body: JSON.stringify({ role }) });
 }

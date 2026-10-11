@@ -19,6 +19,12 @@ const PENCE_PER_AI_REQUEST = 1;
 const DB_LIMIT_BYTES = 512 * 1024 * 1024;
 
 // The free months: "Free until …", "Free ends in 12 days" (last 30 days), then "Paying from …".
+// A UK number as WhatsApp wants it: 07700 900123 → 447700900123.
+function whatsappNumber(phone) {
+  const d = String(phone).replace(/[^0-9]/g, '');
+  return d.startsWith('0') ? `44${d.slice(1)}` : d;
+}
+
 function freeBadge(freeUntil) {
   if (!freeUntil) return null;
   const days = Math.ceil((new Date(freeUntil + 'T12:00:00') - new Date()) / 864e5);
@@ -90,7 +96,19 @@ export default function Madaaris() {
                 {m.isYours && <span className="badge badge-teal">Yours</span>}
                 <span className={`badge ${m.active ? 'badge-green' : 'badge-gray'}`}>{m.active ? 'On' : 'Switched off'}</span>
                 {!m.isYours && freeBadge(m.freeUntil) && <span className={`badge ${freeBadge(m.freeUntil).cls}`}>{freeBadge(m.freeUntil).text}</span>}
+                {m.selfSignup && (Date.now() - new Date(m.createdAt) < 14 * 864e5
+                  ? <span className="badge badge-amber">New · signed themselves up</span>
+                  : <span className="badge badge-gray">Signed themselves up</span>)}
               </div>
+              {/* Who to contact for a madrasah that signed itself up (from the Start free form). */}
+              {m.selfSignup && (m.contactName || m.contactEmail || m.contactPhone) && (
+                <div className="text-sm" style={{ marginTop: 6, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {m.contactName && <strong>{m.contactName}</strong>}
+                  {m.contactPhone && <a href={`tel:${m.contactPhone.replace(/\s/g, '')}`}>{m.contactPhone}</a>}
+                  {m.contactPhone && <a href={`https://wa.me/${whatsappNumber(m.contactPhone)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+                  {m.contactEmail && <a href={`mailto:${m.contactEmail}`}>{m.contactEmail}</a>}
+                </div>
+              )}
               <div className="text-muted text-sm" style={{ marginTop: 4 }}>
                 Code <strong style={{ color: 'var(--ink)' }}>{m.code}</strong>
                 {m.headLogin && <> · Head login <strong style={{ color: 'var(--ink)' }}>{m.headLogin}</strong></>}
