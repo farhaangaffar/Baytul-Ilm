@@ -24,6 +24,19 @@ async function freshWorker() {
   return reg;
 }
 
+// Signs this phone up with its push service (a brand-new registration when `fresh`, e.g. after
+// the old one expired) and saves it on the server.
+async function subscribeHere(fresh) {
+  const reg = await navigator.serviceWorker.ready;
+  const old = await reg.pushManager.getSubscription();
+  if (old && fresh) await old.unsubscribe().catch(() => {});
+  const { publicKey } = await getPushKey();
+  const sub = (!fresh && old) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+  await savePushSubscription(sub.toJSON());
+  return sub;
+}
+const expired = r => r.thisPhone && !r.thisPhone.ok && (r.thisPhone.status === 404 || r.thisPhone.status === 410);
+
 export default function SignupNotifications() {
   const [on, setOn] = useState(null);       // this device subscribed?
   const [busy, setBusy] = useState(false);
@@ -44,10 +57,7 @@ export default function SignupNotifications() {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') throw new Error('Notifications are blocked for this app — allow them in your phone\'s settings, then try again.');
       await freshWorker();
-      const reg = await navigator.serviceWorker.ready;
-      const { publicKey } = await getPushKey();
-      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
-      await savePushSubscription(sub.toJSON());
+      await subscribeHere(false);
       setOn(true); setNote('On — you\'ll get a notification on this device when a madrasah signs up.');
     } catch (err) { setNote(err.message || 'Could not switch notifications on.'); }
     setBusy(false);
@@ -71,9 +81,14 @@ export default function SignupNotifications() {
         const sub = reg && await reg.pushManager.getSubscription();
         if (sub) { endpoint = sub.endpoint; await savePushSubscription(sub.toJSON()); }
       }
-      const r = await sendTestNotification(endpoint);
+      let r = await sendTestNotification(endpoint);
+      // This phone's registration has expired: make a new one and try once more.
+      if (expired(r) && Notification.permission === 'granted') {
+        endpoint = (await subscribeHere(true)).endpoint;
+        r = await sendTestNotification(endpoint);
+      }
       const mine = r.thisPhone;
-      setNote((!endpoint || !mine ? 'Sent.' : mine.ok ? 'Sent — it should arrive in a few seconds.' : `Couldn't reach this phone (${mine.status || 'no answer'}). Turn it off and on again.`)
+      setNote((!endpoint || !mine ? 'Sent.' : mine.ok ? 'Sent — it should arrive in a few seconds.' : `Couldn't reach this phone (${mine.status || 'no answer'}). Tap Turn off on this device, then turn it on again.`)
         + (r.email ? ' An email was sent too.' : ''));
     } catch (err) { setNote(err.message || 'Could not send a test.'); }
     setBusy(false);

@@ -8,7 +8,7 @@
 // icon after it was replaced — icons are no longer cached here at all.
 const CACHE = 'madrasah-shell-v3';
 // Shown on the Madaaris page's notifications card, to tell which copy a phone is running.
-const VERSION = 'v5';
+const VERSION = 'v6';
 // A note of the last notification message this phone received (read by the notifications card).
 const LOG = 'suhuf-push-log';
 
@@ -92,4 +92,21 @@ self.addEventListener('notificationclick', event => {
     if (open) { open.navigate(url).catch(() => {}); return open.focus(); }
     return self.clients.openWindow(url);
   }));
+});
+
+// The phone's push service renewed this phone's registration: sign up again and tell the server
+// (only works while signed in as the platform owner — otherwise "Send a test" re-registers).
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil((async () => {
+    const r = await fetch('/api/madaaris?action=push-key', { credentials: 'same-origin' });
+    if (!r.ok) return;
+    const { publicKey } = await r.json();
+    const b64 = publicKey.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (publicKey.length % 4)) % 4);
+    const key = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    await fetch('/api/madaaris?action=push-subscribe', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    });
+  })().catch(() => {}));
 });
