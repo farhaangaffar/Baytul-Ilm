@@ -48,8 +48,9 @@ export default function SignupNotifications() {
     getPushKey().then(k => setEmail(k.email)).catch(() => {});
     if (!supported()) { setOn(false); return; }
     freshWorker().catch(() => {}).then(workerVersion).then(v => setVersion(v || 'old')).catch(() => setVersion('old'));
+    // Re-save this phone's details each visit, so the server never holds an out-of-date copy.
     navigator.serviceWorker.getRegistration().then(reg => reg ? reg.pushManager.getSubscription() : null)
-      .then(sub => setOn(!!sub)).catch(() => setOn(false));
+      .then(sub => { setOn(!!sub); if (sub) savePushSubscription(sub.toJSON()).catch(() => {}); }).catch(() => setOn(false));
   }, []);
 
   async function turnOn() {
@@ -94,9 +95,18 @@ export default function SignupNotifications() {
   async function test() {
     setBusy(true); setNote('');
     try {
-      if (supported()) await freshWorker().catch(() => {});
-      const r = await sendTestNotification();
-      setNote(`Sent to ${r.phones} device${r.phones === 1 ? '' : 's'}${r.email ? ' and by email' : ''}.`);
+      let endpoint = '';
+      if (supported()) {
+        const reg = await freshWorker().catch(() => null);
+        const sub = reg && await reg.pushManager.getSubscription();
+        if (sub) { endpoint = sub.endpoint; await savePushSubscription(sub.toJSON()); }
+      }
+      const r = await sendTestNotification(endpoint);
+      const here = !endpoint ? 'This device isn\'t switched on.'
+        : !r.thisPhone ? 'This phone wasn\'t found — turn notifications off and on again.'
+        : r.thisPhone.ok ? `Sent to this phone (accepted, ${r.thisPhone.status}). It should arrive within a minute.`
+        : `This phone's notification service refused it (${r.thisPhone.status || 'no answer'}): ${r.thisPhone.error || 'no details'}`;
+      setNote(`${here} ${r.phones} of ${r.devices} device${r.devices === 1 ? '' : 's'} reached${r.email ? ', and sent by email' : ''}.`);
     } catch (err) { setNote(err.message || 'Could not send a test.'); }
     setBusy(false);
   }

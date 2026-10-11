@@ -24,17 +24,17 @@ async function sendPush(payload) {
   const keys = await vapidKeys();
   webpush.setVapidDetails('mailto:hello@suhuf.uk', keys.publicKey, keys.privateKey);
   const { rows } = await query('SELECT id, endpoint, keys FROM push_subscriptions');
-  const sent = await Promise.all(rows.map(async s => {
+  // One result per phone: { endpoint, ok, status, error } — what the phone's push service said.
+  return Promise.all(rows.map(async s => {
     try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(payload), { TTL: 24 * 60 * 60, timeout: 5000 });
-      return true;
+      const r = await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(payload), { TTL: 24 * 60 * 60, timeout: 5000, urgency: 'high' });
+      return { endpoint: s.endpoint, ok: true, status: r.statusCode };
     } catch (err) {
       // That phone switched notifications off or the app was removed — forget it.
       if (err.statusCode === 404 || err.statusCode === 410) await query('DELETE FROM push_subscriptions WHERE id = $1', [s.id]).catch(() => {});
-      return false;
+      return { endpoint: s.endpoint, ok: false, status: err.statusCode || null, error: String(err.body || err.message || err).slice(0, 200) };
     }
   }));
-  return sent.filter(Boolean).length; // how many phones it reached
 }
 
 async function sendEmail({ subject, text }) {
@@ -62,7 +62,8 @@ async function notifyPlatformOwner({ title, body, url = '/madaaris', emailText }
     sendPush({ title, body, url }),
     sendEmail({ subject: title, text: emailText || `${body}\n\nhttps://suhuf.uk${url}` }),
   ]);
-  return { phones: push.status === 'fulfilled' ? push.value : 0, email: email.status === 'fulfilled' && email.value };
+  const results = push.status === 'fulfilled' ? push.value : [];
+  return { phones: results.filter(r => r.ok).length, results, email: email.status === 'fulfilled' && email.value };
 }
 
 module.exports = { vapidKeys, notifyPlatformOwner };

@@ -60,7 +60,10 @@ module.exports = requireAuth(async (req, res) => {
   }
   if (req.query.action === 'notify-test' && req.method === 'POST') {
     const r = await notifyPlatformOwner({ title: 'Suhuf notifications are on', body: "You'll get one like this whenever a madrasah signs up." });
-    res.status(200).json(r);
+    // What happened for the phone asking (if it's switched on), so the card can say.
+    const mine = r.results.find(x => x.endpoint === String((req.body || {}).endpoint || ''));
+    res.status(200).json({ phones: r.phones, devices: r.results.length, email: r.email,
+      thisPhone: mine ? { ok: mine.ok, status: mine.status, error: mine.error || '' } : null });
     return;
   }
 
