@@ -23,8 +23,31 @@ CREATE TABLE IF NOT EXISTS madaaris (
   contact_name  TEXT,                     -- from the sign-up form: who to contact
   contact_email TEXT,
   contact_phone TEXT,
-  signup_ip     TEXT                      -- hashed address, only to limit sign-ups from one place
+  signup_ip     TEXT,                     -- hashed address, only to limit sign-ups from one place
+  billing_plan   TEXT NOT NULL DEFAULT 'monthly', -- how it pays us: 'monthly' or 'yearly' (Madaaris page → Payments)
+  billing_amount NUMERIC(8,2)             -- its price for that plan; NULL = £20 a month / £200 a year
 );
+
+-- Running Suhuf itself (server/platform.js): what each madrasah has paid us, the phones that
+-- get a notification when a madrasah signs up, and small settings (the notification keys).
+CREATE TABLE IF NOT EXISTS madrasah_payments (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  paid_on     DATE NOT NULL,
+  amount      NUMERIC(8,2) NOT NULL,
+  months      INTEGER NOT NULL,           -- how many months it pays for (moves "paid until" on)
+  note        TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  user_id     INTEGER NOT NULL,
+  endpoint    TEXT NOT NULL UNIQUE,
+  keys        JSONB NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS platform_kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS teachers (
   id          TEXT PRIMARY KEY,

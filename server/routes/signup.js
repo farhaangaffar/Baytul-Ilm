@@ -3,6 +3,7 @@ const { query } = require('../db');
 const { ensureUsersTable, normalizeLogin, validateNewCredentials, setSessionCookie } = require('../auth');
 const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, codeFromName, ensureSignupColumns, createMadrasah } = require('../newMadrasah');
 const { TERMS_VERSION } = require('./session');
+const { notifyPlatformOwner } = require('../notify');
 
 // A madrasah signing itself up from the front page ("Start free"). Open to anyone, so:
 // a hidden field that only bots fill in, a limit of a few new madaaris per address a day,
@@ -79,6 +80,12 @@ module.exports = async (req, res) => {
     throw err;
   }
   const { madrasah, user } = made;
+  // Let the platform owner know (phone notification / email) — never holds up or breaks the sign-up.
+  await notifyPlatformOwner({
+    title: `New madrasah: ${name}`,
+    body: `${headName}${phone ? ` · ${phone}` : ''} · ${email}`,
+    emailText: `${name} has just signed up to Suhuf.\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
+  }).catch(() => {});
   setSessionCookie(res, user);
   res.status(201).json({ ok: true, code: madrasah.code });
 };

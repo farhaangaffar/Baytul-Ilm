@@ -53,7 +53,22 @@ codebase (one codebase, not a fork).
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
   demo link to copy or share). Each madrasah is free for 6 months (`madaaris.free_until`, set
   when added, editable there; older rows count 6 months from `created_at`) — payment is by
-  standing order, outside the app. The dashboard has no Ask AI any more. `requireAuth(handler)`
+  standing order, outside the app; the platform owner records each one on the Madaaris page.
+  Each madrasah is a tidy card (name, children · classes · AI this month, payment state, and a bar
+  along the bottom: grey free / green paid / yellow due within 2 weeks / red overdue); tapping it
+  opens everything (`DetailModal`): status, one-tap "Next month" / "A year" payments, month boxes
+  (tap one to pay up to it), plan `madaaris.billing_plan` monthly/yearly + `billing_amount` (default
+  £20/£200), payments received (`madrasah_payments`: date/amount/months), contact, size, and the
+  manage buttons (Edit details, reset password, switch off, delete). **Payments run from the 1st**
+  (`src/lib/billing.js`): free until the end of the month `free_until` falls in, then each payment's
+  months cover the next unpaid months in order — the date paid moves nothing. A "Payments from
+  madaaris" card totals income (`?action=income`). **Sign-up notifications**
+  (`server/notify.js`, `notifyPlatformOwner()`, called by `signup.js`): a phone push to every
+  device switched on in the Madaaris page's "When a madrasah signs up" card (web-push, keys made
+  once and kept in `platform_kv`, devices in `push_subscriptions`, shown by `public/sw.js`), and
+  an email through Resend when `RESEND_API_KEY` is set in Vercel (to `NOTIFY_EMAIL`, else
+  hello@suhuf.uk; from `NOTIFY_FROM`, else notifications@suhuf.uk — suhuf.uk must be verified in
+  Resend). Neither failing ever stops a sign-up. These tables are made by `server/platform.js`. The dashboard has no Ask AI any more. `requireAuth(handler)`
   is owner-only by default; pass `{ teacher: true }` only for routes teachers use, and
   scope with `accessScope(req)` / `teacherScope(req)`. Teachers get Attendance, Daily
   records and Fees for their own classes, and on Fees may only tick an added fee paid or

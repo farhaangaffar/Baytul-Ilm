@@ -112,6 +112,16 @@ export async function getMadaaris() { return apiFetch('/api/madaaris'); }
 // data: { name, code, headLogin, headPassword }
 export async function createMadrasah(data) { return apiFetch('/api/madaaris', { method: 'POST', body: JSON.stringify(data) }); }
 // data: any of { name, code, active, headPassword }
+// Sign-up notifications for the platform owner (phone + email — server/notify.js).
+export async function getPushKey() { return apiFetch('/api/madaaris?action=push-key'); }
+export async function savePushSubscription(subscription) { return apiFetch('/api/madaaris?action=push-subscribe', { method: 'POST', body: JSON.stringify({ subscription }) }); }
+export async function removePushSubscription(endpoint) { return apiFetch('/api/madaaris?action=push-unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }); }
+export async function sendTestNotification() { return apiFetch('/api/madaaris?action=notify-test', { method: 'POST' }); }
+// What madaaris pay us (platform owner): income totals, and each madrasah's payments.
+export async function getIncome() { return apiFetch('/api/madaaris?action=income'); }
+export async function getPayments(id) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}&action=payments`); }
+export async function addPayment(id, data) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}&action=payments`, { method: 'POST', body: JSON.stringify(data) }); }
+export async function deletePayment(id, paymentId) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}&action=payments&paymentId=${encodeURIComponent(paymentId)}`, { method: 'DELETE' }); }
 // Deletes a switched-off madrasah and everything in it, for ever (its code typed to confirm).
 export async function deleteMadrasah(id, confirmCode) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ confirmCode }) }); }
 export async function updateMadrasah(id, data) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }

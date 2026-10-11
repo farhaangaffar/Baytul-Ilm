@@ -612,3 +612,58 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
   .fee-boxed .fee-amt { padding: 6px 2px; }
   .fee-boxed .fee-icon { padding: 4px; }
 }
+
+/* Madaaris page (platform owner): one tidy card per madrasah with a payment bar along the
+   bottom, opening a pop-up with its payments, contact, size and manage buttons. */
+.madrasah-card { display: block; width: 100%; text-align: left; margin-bottom: 12px; padding: 18px 20px 0; overflow: hidden; cursor: pointer; border: none; font: inherit; color: inherit; }
+.madrasah-card:hover { box-shadow: var(--shadow-md); }
+.madrasah-card > div:first-child { padding-bottom: 16px; }
+.madrasah-card:not(:has(.madrasah-bar)) { padding-bottom: 2px; }
+.madrasah-card-name { font-family: 'Comfortaa', sans-serif; font-weight: 700; font-size: 16px; color: var(--ink); }
+.madrasah-bar { height: 8px; background: #eef1f5; margin: 0 -20px; }
+.madrasah-bar > div { height: 100%; border-radius: 0 99px 99px 0; transition: width .3s; }
+.pay-status { border-radius: 16px; padding: 14px 16px; text-align: center; margin-bottom: 4px; }
+.pay-status-big { font-family: 'Comfortaa', sans-serif; font-weight: 700; font-size: 20px; }
+.pay-status-sub { font-size: 13px; margin-top: 4px; }
+.pay-free { background: #eef1f5; color: #475569; }
+.pay-paid { background: var(--green-light); color: var(--green-text); }
+.pay-warn { background: var(--amber-light); color: var(--amber-text); }
+.pay-overdue { background: var(--red-light); color: var(--red-text); }
+.pay-off { background: #eef1f5; color: var(--text-muted); }
+.pay-h { margin: 18px 0 8px; }
+.pay-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pay-quick-btn { border: none; border-radius: 16px; padding: 12px 8px; background: var(--ink); color: #fff; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; }
+.pay-quick-btn small { display: block; font-weight: 400; font-size: 12px; opacity: .8; margin-top: 3px; }
+.pay-quick-year { background: var(--blue); }
+.pay-quick-btn:disabled { opacity: .5; cursor: default; }
+.pay-link { display: block; margin: 10px auto 0; background: none; border: none; color: var(--blue); font: inherit; font-size: 13.5px; cursor: pointer; }
+.pay-other { margin-top: 12px; background: #f8fafc; border-radius: 14px; padding: 12px; }
+.pay-other-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; align-items: start; }
+.pay-other-grid .form-group { margin-bottom: 0; min-width: 0; }
+.pay-other-grid input { width: 100%; box-sizing: border-box; min-width: 0; }
+.pay-done { margin-top: 10px; font-size: 13px; color: var(--green-text); text-align: center; }
+.pay-year { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 18px 0 8px; font-family: 'Comfortaa', sans-serif; font-weight: 700; }
+.pay-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pay-month { border: none; border-radius: 12px; padding: 8px 2px; text-align: center; font: inherit; font-size: 12.5px; font-weight: 600; cursor: default; }
+.pay-month small { display: block; font-weight: 400; font-size: 10.5px; margin-top: 2px; }
+.pay-month-before { background: transparent; color: var(--text-soft); border: 1.5px solid #f1f5f9; }
+.pay-month-free { background: #eef1f5; color: #64748b; }
+.pay-month-paid { background: var(--green-light); color: var(--green-text); }
+.pay-month-owed { background: var(--red-light); color: var(--red-text); cursor: pointer; }
+.pay-month-notdue { background: #fff; border: 1.5px dashed #cbd5e1; color: #64748b; cursor: pointer; }
+.pay-month.is-sel { outline: 2.5px solid var(--blue); outline-offset: 1px; }
+.pay-month:disabled { cursor: default; }
+.pay-hint { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 8px; }
+.pay-sel { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 10px; background: var(--blue-light); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+.pay-price { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-muted); }
+.pay-price input { width: 72px; padding: 7px 9px; border-radius: 10px; border: none; background: #f6f8fb; font: inherit; color: var(--ink); }
+.pay-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #f8fafc; border-radius: 10px; font-size: 13px; }
+.pay-contact { font-size: 13.5px; line-height: 1.9; }
+.pay-contact span { display: inline-block; min-width: 56px; color: var(--text-muted); }
+.pay-contact-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.pay-contact-btns a { text-decoration: none; }
+.pay-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; }
+.pay-stats > div { background: #f6f8fb; border-radius: 12px; padding: 8px 4px; text-align: center; font-size: 11.5px; color: var(--text-muted); }
+.pay-stats b { display: block; font-size: 16px; color: var(--ink); }
+.pay-manage { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
+.pay-manage .btn { justify-content: center; }

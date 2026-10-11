@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import SignupNotifications from '../components/SignupNotifications';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage } from '../lib/store';
+import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getIncome, getPayments, addPayment, deletePayment } from '../lib/store';
+import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, DEFAULT_PRICE } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2 } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -18,20 +20,19 @@ const PENCE_PER_AI_REQUEST = 1;
 // The free database plan's space (Neon Free: 0.5 GB per project).
 const DB_LIMIT_BYTES = 512 * 1024 * 1024;
 
-// The free months: "Free until …", "Free ends in 12 days" (last 30 days), then "Paying from …".
 // A UK number as WhatsApp wants it: 07700 900123 → 447700900123.
 function whatsappNumber(phone) {
   const d = String(phone).replace(/[^0-9]/g, '');
   return d.startsWith('0') ? `44${d.slice(1)}` : d;
 }
 
-function freeBadge(freeUntil) {
-  if (!freeUntil) return null;
-  const days = Math.ceil((new Date(freeUntil + 'T12:00:00') - new Date()) / 864e5);
-  const date = formatDateGB(freeUntil);
-  if (days < 0) return { cls: 'badge-green', text: `Paying from ${date}` };
-  if (days <= 30) return { cls: 'badge-amber', text: days === 0 ? 'Free ends today' : `Free ends in ${days} day${days === 1 ? '' : 's'} (${date})` };
-  return { cls: 'badge-gray', text: `Free until ${date}` };
+// Colours for where a madrasah is with paying: grey (free), green (paid), yellow (due within 2 weeks), red (overdue).
+function tone(b) {
+  if (b.state === 'overdue') return { text: 'var(--red-text)', bar: 'var(--red)' };
+  if (b.warn) return { text: 'var(--amber-text)', bar: '#e0b416' };
+  if (b.state === 'paid') return { text: 'var(--green-text)', bar: '#6fae3c' };
+  if (b.state === 'free') return { text: 'var(--text-muted)', bar: '#94a3b8' };
+  return { text: 'var(--text-soft)', bar: 'transparent' };
 }
 
 function suggestCode(name) {
@@ -42,11 +43,14 @@ export default function Madaaris() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [list, setList] = useState([]);
-  const [modal, setModal] = useState(null); // { kind: 'add' } | { kind: 'edit'|'password'|'power', m }
+  const [modal, setModal] = useState(null); // { kind: 'add' } | { kind: 'detail'|'edit'|'password'|'power'|'delete', m, back }
   const [created, setCreated] = useState(null); // details to hand over after adding one
   const [toast, setToast] = useState('');
   const [dbBytes, setDbBytes] = useState(null);
   useEffect(() => { getDbUsage().then(u => setDbBytes(u.dbBytes)).catch(() => {}); }, []);
+  const [income, setIncome] = useState(null);
+  const loadIncome = useCallback(() => getIncome().then(setIncome).catch(() => {}), []);
+  useEffect(() => { loadIncome(); }, [loadIncome]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -56,6 +60,8 @@ export default function Madaaris() {
   useEffect(() => { load(); }, [load]);
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500); }
+  // Closing a pop-up opened from a madrasah's details goes back to its details.
+  const back = () => setModal(cur => (cur?.back ? { kind: 'detail', m: cur.m } : null));
 
   if (loading) return <Layout title="Madaaris"><LoadingState /></Layout>;
   if (error) return <Layout title="Madaaris"><ErrorState error={error} onRetry={load} /></Layout>;
@@ -82,64 +88,62 @@ export default function Madaaris() {
         <div className="stat-card-v2"><div className="n">{totals.ai}</div><div className="l">AI requests this month</div></div>
       </div>
 
+      <SignupNotifications />
+
+      {/* Money from madaaris: received, expected each month, and who's behind. */}
+      {(() => {
+        const paying = list.map(m => ({ m, b: billing(m) })).filter(x => x.b.state === 'paid' || x.b.state === 'overdue');
+        const expected = paying.reduce((t, { m }) => t + (m.billingPlan === 'yearly' ? prices(m).yearly / 12 : prices(m).monthly), 0);
+        const overdue = paying.map(x => x.b).filter(b => b.owed > 0);
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-header" style={{ marginBottom: 10 }}>
+              <div className="card-title"><PoundSterling size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Payments from madaaris</div>
+            </div>
+            <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
+              <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{income ? money(income.thisMonth) : '…'}</div><div className="l">Received this month</div></div>
+              <div className="stat-card-v2"><div className="n">{income ? money(income.last12) : '…'}</div><div className="l">Last 12 months</div></div>
+              <div className="stat-card-v2"><div className="n">{money(expected)}</div><div className="l">Expected each month</div></div>
+              <div className="stat-card-v2"><div className="n" style={{ color: overdue.length ? 'var(--red-text)' : undefined }}>{overdue.length ? money(overdue.reduce((t, b) => t + b.owed, 0)) : '£0'}</div><div className="l">{overdue.length ? `Overdue from ${overdue.length} madrasah${overdue.length === 1 ? '' : 's'}` : 'Nothing overdue'}</div></div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div className="text-muted text-sm">You only see counts here — each madrasah's students, fees and reports stay private to them.</div>
         <button className="btn btn-primary" onClick={() => setModal({ kind: 'add' })}><Plus size={14} /> Add madrasah</button>
       </div>
 
-      {list.map(m => (
-        <div key={m.id} className="card" style={{ marginBottom: 12, opacity: m.active ? 1 : 0.7 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, fontSize: 15 }}>{m.name}</span>
-                {m.isYours && <span className="badge badge-teal">Yours</span>}
-                <span className={`badge ${m.active ? 'badge-green' : 'badge-gray'}`}>{m.active ? 'On' : 'Switched off'}</span>
-                {!m.isYours && freeBadge(m.freeUntil) && <span className={`badge ${freeBadge(m.freeUntil).cls}`}>{freeBadge(m.freeUntil).text}</span>}
-                {m.selfSignup && (Date.now() - new Date(m.createdAt) < 14 * 864e5
-                  ? <span className="badge badge-amber">New · signed themselves up</span>
-                  : <span className="badge badge-gray">Signed themselves up</span>)}
+      {list.map(m => {
+        const b = billing(m);
+        const t = tone(b);
+        const isNew = m.selfSignup && Date.now() - new Date(m.createdAt) < 14 * 864e5;
+        return (
+          <button key={m.id} type="button" className="card madrasah-card" onClick={() => setModal({ kind: 'detail', m })}
+            style={{ opacity: m.active ? 1 : 0.65 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ minWidth: 0 }}>
+                  <span className="madrasah-card-name">{m.name}</span>
+                  {isNew && <span className="badge badge-amber" style={{ marginLeft: 8, verticalAlign: '2px' }}>New</span>}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>{b.label}</span>
               </div>
-              {/* Who to contact for a madrasah that signed itself up (from the Start free form). */}
-              {m.selfSignup && (m.contactName || m.contactEmail || m.contactPhone) && (
-                <div className="text-sm" style={{ marginTop: 6, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {m.contactName && <strong>{m.contactName}</strong>}
-                  {m.contactPhone && <a href={`tel:${m.contactPhone.replace(/\s/g, '')}`}>{m.contactPhone}</a>}
-                  {m.contactPhone && <a href={`https://wa.me/${whatsappNumber(m.contactPhone)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
-                  {m.contactEmail && <a href={`mailto:${m.contactEmail}`}>{m.contactEmail}</a>}
-                </div>
-              )}
-              <div className="text-muted text-sm" style={{ marginTop: 4 }}>
-                Code <strong style={{ color: 'var(--ink)' }}>{m.code}</strong>
-                {m.headLogin && <> · Head login <strong style={{ color: 'var(--ink)' }}>{m.headLogin}</strong></>}
-                {' '}· Added {formatDateGB(String(m.createdAt).slice(0, 10))}
-                {!m.isYours && <> · {m.termsAccepted ? `Terms agreed ${formatDateGB(m.termsAccepted)}` : 'Terms not agreed yet'}</>}
+              <div className="text-muted" style={{ fontSize: 13, marginTop: 4 }}>
+                {m.students} {m.students === 1 ? 'child' : 'children'} · {m.classes} class{m.classes === 1 ? '' : 'es'}
+                {' · '}<Sparkles size={12} style={{ verticalAlign: '-1px' }} /> {m.aiThisMonth} AI this month
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button className="btn btn-sm" onClick={() => setModal({ kind: 'edit', m })}><Pencil size={12} /> Edit</button>
-              {!m.isYours && <button className="btn btn-sm" onClick={() => setModal({ kind: 'password', m })}><KeyRound size={12} /> Reset head's password</button>}
-              {!m.isYours && (
-                <button className="btn btn-sm" style={m.active ? { color: 'var(--red)' } : undefined} onClick={() => setModal({ kind: 'power', m })}>
-                  <Power size={12} /> {m.active ? 'Switch off' : 'Switch on'}
-                </button>
-              )}
-              {/* Deleting for ever: only once it's switched off. */}
-              {!m.isYours && !m.active && (
-                <button className="btn btn-sm" style={{ color: 'var(--red)' }} onClick={() => setModal({ kind: 'delete', m })}><Trash2 size={12} /> Delete</button>
-              )}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {[['Students', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['AI this month', m.aiThisMonth], ['AI all time', m.aiTotal]].map(([l, v]) => (
-              <div key={l} style={{ flex: '1 1 90px', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{v}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+            {(b.state === 'free' || b.state === 'paid' || b.state === 'overdue') && (
+              <div className="madrasah-bar"><div style={{ width: `${Math.max(3, Math.round(b.fill * 100))}%`, background: t.bar }} /></div>
+            )}
+          </button>
+        );
+      })}
+      <div className="text-muted" style={{ fontSize: 12, margin: '2px 2px 4px' }}>
+        Bar: grey = free months · green = paid · yellow = due within 2 weeks · red = overdue. Tap a madrasah for its details and payments.
+      </div>
 
       {/* Just for the platform owner: AI credit and the demo link to send out. */}
       <div className="card" style={{ marginTop: 16, marginBottom: 12 }}>
@@ -184,13 +188,17 @@ export default function Madaaris() {
         <AddModal onClose={() => setModal(null)} onCreated={async details => { setModal(null); setCreated(details); await load(); }} />
       )}
       {modal?.kind === 'edit' && (
-        <EditModal m={modal.m} onClose={() => setModal(null)} onSaved={async () => { setModal(null); showToast('Saved'); await load(); }} />
+        <EditModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast('Saved'); await load(); }} />
       )}
       {modal?.kind === 'password' && (
-        <PasswordModal m={modal.m} onClose={() => setModal(null)} onSaved={async () => { setModal(null); showToast("Head's password reset"); await load(); }} />
+        <PasswordModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast("Head's password reset"); await load(); }} />
+      )}
+      {modal?.kind === 'detail' && (
+        <DetailModal m={list.find(x => x.id === modal.m.id) || modal.m} onClose={() => setModal(null)} open={(kind, m) => setModal({ kind, m, back: true })}
+          onChanged={async () => { await load(); await loadIncome(); }} />
       )}
       {modal?.kind === 'delete' && (
-        <DeleteModal m={modal.m} onClose={() => setModal(null)} onDeleted={async () => { setModal(null); showToast(`${modal.m.name} deleted`); await load(); }} />
+        <DeleteModal m={modal.m} onClose={back} onDeleted={async () => { setModal(null); showToast(`${modal.m.name} deleted`); await load(); }} />
       )}
       {modal?.kind === 'power' && (
         <ConfirmModal
@@ -200,8 +208,8 @@ export default function Madaaris() {
             : 'Their logins will work again, with all their data as they left it.'}
           confirm={modal.m.active ? 'Switch off' : 'Switch on'}
           danger={modal.m.active}
-          onClose={() => setModal(null)}
-          onConfirm={async () => { await updateMadrasah(modal.m.id, { active: !modal.m.active }); setModal(null); await load(); }}
+          onClose={back}
+          onConfirm={async () => { await updateMadrasah(modal.m.id, { active: !modal.m.active }); back(); await load(); }}
         />
       )}
 
@@ -234,16 +242,19 @@ export default function Madaaris() {
   );
 }
 
-function ModalShell({ title, onClose, busy, children, footer }) {
+function ModalShell({ title, sub, onClose, busy, children, footer, width = 420 }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="modal" style={{ maxWidth: 420 }}>
+      <div className="modal" style={{ maxWidth: width }}>
         <div className="modal-header">
-          <div className="modal-title">{title}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="modal-title">{title}</div>
+            {sub && <div className="text-muted" style={{ fontSize: 12.5, marginTop: 3 }}>{sub}</div>}
+          </div>
           <button className="btn btn-icon" onClick={onClose} disabled={busy}><X size={16} /></button>
         </div>
         <div className="modal-body">{children}</div>
-        <div className="modal-footer">{footer}</div>
+        {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>
   );
@@ -309,7 +320,7 @@ function EditModal({ m, onClose, onSaved }) {
   if (code.trim().toLowerCase() !== m.code) changes.code = code;
   if (freeUntil && freeUntil !== m.freeUntil) changes.freeUntil = freeUntil;
   return (
-    <ModalShell title={`Edit ${m.name}`} onClose={onClose} busy={busy} footer={<>
+    <ModalShell title={`Edit details — ${m.name}`} onClose={onClose} busy={busy} footer={<>
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
       <button className="btn btn-primary" disabled={busy || !Object.keys(changes).length}
         onClick={() => submit(async () => { await updateMadrasah(m.id, changes); await onSaved(); })}>
@@ -329,7 +340,7 @@ function EditModal({ m, onClose, onSaved }) {
         <div className="form-group" style={{ marginTop: 12 }}>
           <label>Free until</label>
           <input type="date" value={freeUntil} onChange={e => { setFreeUntil(e.target.value); setError(''); }} />
-          <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>6 months from joining — change it to give them longer.</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>6 months from joining (free to the end of that month) — change it to give them longer.</span>
         </div>
       )}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
@@ -356,6 +367,185 @@ function PasswordModal({ m, onClose, onSaved }) {
         <input type="text" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} {...noAuto} autoFocus />
       </div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+    </ModalShell>
+  );
+}
+
+// Everything about one madrasah: where it is with paying (one-tap payments, month boxes,
+// plan and price, payments received), who to contact, its size, and the manage buttons.
+function DetailModal({ m, onClose, open, onChanged }) {
+  const b = billing(m);
+  const p = prices(m);
+  const today = todayLocal();
+  const nextDue = addMonths(billingStart(m.freeUntil), m.monthsPaid || 0);
+  const [payments, setPayments] = useState(null);
+  const [year, setYear] = useState(Number(today.slice(0, 4)));
+  const [sel, setSel] = useState(null); // a month box tapped: pay up to it
+  const [other, setOther] = useState(false);
+  const [f, setF] = useState({ paidOn: today, amount: String(p.monthly), months: '1', note: '' });
+  const [price, setPrice] = useState(String(m.billingPlan === 'yearly' ? p.yearly : p.monthly));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState('');
+  const reload = useCallback(() => getPayments(m.id).then(setPayments).catch(err => setError(err.message)), [m.id]);
+  useEffect(() => { if (!m.isYours) reload(); }, [reload, m.isYours]);
+  useEffect(() => { setPrice(String(m.billingPlan === 'yearly' ? p.yearly : p.monthly)); }, [m.billingPlan, p.monthly, p.yearly]);
+
+  const run = async (fn, msg) => {
+    setBusy(true); setError(''); setDone('');
+    try { await fn(); await reload(); await onChanged(); if (msg) setDone(msg); } catch (err) { setError(err.message || 'Something went wrong'); }
+    setBusy(false);
+  };
+  const pay = (months, amount, extra = {}) => run(
+    () => addPayment(m.id, { paidOn: today, amount, months, note: '', ...extra }),
+    `Recorded ${money(amount)} — ${months === 1 ? monthName(nextDue) : `${monthName(nextDue)} to ${monthName(addMonths(nextDue, months - 1))}`}`);
+  const savePlan = (plan, amount) => run(() => updateMadrasah(m.id, { billingPlan: plan, billingAmount: amount }));
+
+  const boxes = monthBoxes(m, year, today);
+  const selCount = sel ? sel.n - (m.monthsPaid || 0) + 1 : 0;
+  const selAmount = selCount === 12 && m.billingPlan === 'yearly' ? p.yearly : selCount * p.monthly;
+  const big = {
+    yours: null,
+    off: ['Switched off', 'Their logins are stopped. Nothing is deleted.'],
+    free: [`Free until ${formatDateGB(dayBefore(b.start || nextDue))}`, `First payment due ${formatDateGB(b.start || nextDue)}`],
+    paid: [`Paid to ${formatDateGB(b.paidTo || dayBefore(nextDue))}`, `Next due ${formatDateGB(nextDue)}`],
+    overdue: [`Overdue · ${money(b.owed || 0)}`, `Unpaid since ${formatDateGB(nextDue)} (${b.monthsOwed} month${b.monthsOwed === 1 ? '' : 's'})`],
+  }[b.state];
+  const planLine = m.billingPlan === 'yearly' ? `Yearly · ${money(p.yearly)}` : `Monthly · ${money(p.monthly)} on the 1st`;
+  const joined = formatDateGB(String(m.createdAt).slice(0, 10));
+
+  return (
+    <ModalShell title={m.name} width={480} onClose={onClose} busy={busy}
+      sub={<>Joined {joined}{m.selfSignup ? ' · signed themselves up' : ''}{!m.isYours && <> · {m.termsAccepted ? `terms agreed ${formatDateGB(m.termsAccepted)}` : 'terms not agreed yet'}</>}</>}>
+      {big && (
+        <div className={`pay-status pay-${b.state === 'paid' && b.warn ? 'warn' : b.state === 'free' && b.warn ? 'warn' : b.state}`}>
+          <div className="pay-status-big">{big[0]}</div>
+          <div className="pay-status-sub">{big[1]}{b.state !== 'off' && <> · {planLine}</>}</div>
+        </div>
+      )}
+
+      {!m.isYours && m.active && <>
+        <div className="form-section-title pay-h">They've just paid…</div>
+        <div className="pay-quick">
+          <button type="button" className="pay-quick-btn" disabled={busy} onClick={() => pay(1, p.monthly)}>
+            Next month<small>{money(p.monthly)} · covers {monthName(nextDue)}</small>
+          </button>
+          <button type="button" className="pay-quick-btn pay-quick-year" disabled={busy} onClick={() => pay(12, p.yearly)}>
+            A year<small>{money(p.yearly)} · {monthName(nextDue)} – {monthName(addMonths(nextDue, 11))}</small>
+          </button>
+        </div>
+        {!other ? (
+          <button type="button" className="pay-link" onClick={() => setOther(true)}>A different amount</button>
+        ) : (
+          <div className="pay-other">
+            <div className="pay-other-grid">
+              <div className="form-group"><label>Amount (£)</label>
+                <input type="number" min="0" step="0.01" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} /></div>
+              <div className="form-group"><label>Months it pays for</label>
+                <input type="number" min="0" max="60" step="1" value={f.months} onChange={e => setF({ ...f, months: e.target.value })} /></div>
+              <div className="form-group"><label>Paid on</label>
+                <input type="date" value={f.paidOn} onChange={e => setF({ ...f, paidOn: e.target.value })} /></div>
+            </div>
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <input value={f.note} onChange={e => setF({ ...f, note: e.target.value })} placeholder="Note (optional)" maxLength={200} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" disabled={busy || !(Number(f.amount) > 0) || !f.paidOn}
+                onClick={() => run(async () => { await addPayment(m.id, { paidOn: f.paidOn, amount: Number(f.amount), months: Number(f.months) || 0, note: f.note }); setOther(false); }, `Recorded ${money(Number(f.amount) || 0)}`)}>
+                <Plus size={13} /> Record payment
+              </button>
+              <button className="btn btn-sm" onClick={() => setOther(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </>}
+      {done && <div className="pay-done">✓ {done}</div>}
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+
+      {!m.isYours && <>
+        <div className="pay-year">
+          <button type="button" className="btn btn-icon btn-sm" onClick={() => { setYear(year - 1); setSel(null); }} aria-label="Previous year"><ChevronLeft size={15} /></button>
+          <span>{year}</span>
+          <button type="button" className="btn btn-icon btn-sm" onClick={() => { setYear(year + 1); setSel(null); }} aria-label="Next year"><ChevronRight size={15} /></button>
+        </div>
+        <div className="pay-months">
+          {boxes.map(x => (
+            <button key={x.first} type="button" disabled={!m.active || !(x.kind === 'owed' || x.kind === 'notdue')}
+              className={`pay-month pay-month-${x.kind}${sel && sel.first === x.first ? ' is-sel' : ''}`}
+              onClick={() => setSel(sel && sel.first === x.first ? null : x)}>
+              {x.name}<small>{{ before: '—', free: 'Free', paid: 'Paid', owed: 'Owed', notdue: 'Not due yet' }[x.kind]}</small>
+            </button>
+          ))}
+        </div>
+        {sel ? (
+          <div className="pay-sel">
+            <span>Paid {money(selAmount)} for {selCount === 1 ? monthName(sel.first) : `${monthName(nextDue)} – ${monthName(sel.first)}`}?</span>
+            <span style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-primary btn-sm" disabled={busy} onClick={async () => { await pay(selCount, selAmount); setSel(null); }}>Record</button>
+              <button className="btn btn-sm" onClick={() => setSel(null)}>Cancel</button>
+            </span>
+          </div>
+        ) : m.active && <div className="pay-hint">Tap a month to mark it (and any before it) paid.</div>}
+
+        <div className="form-section-title pay-h">Plan</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="pill-tabs" style={{ marginBottom: 0 }}>
+            {[['monthly', 'Monthly'], ['yearly', 'Yearly']].map(([k, l]) => (
+              <button key={k} type="button" className={`pill-tab ${m.billingPlan === k ? 'active' : ''}`} disabled={busy}
+                onClick={() => m.billingPlan !== k && savePlan(k, DEFAULT_PRICE[k])}>{l}</button>
+            ))}
+          </div>
+          <span className="pay-price">£<input type="number" min="0" step="1" value={price} onChange={e => setPrice(e.target.value)}
+            onBlur={() => Number(price) > 0 && Number(price) !== Number(m.billingAmount) && savePlan(m.billingPlan, Number(price))} />
+            {m.billingPlan === 'yearly' ? 'a year' : 'a month'}</span>
+        </div>
+
+        {payments && payments.length > 0 && <>
+          <div className="form-section-title pay-h">Payments received</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {payments.map(x => (
+              <div key={x.id} className="pay-row">
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <strong>{money(x.amount)}</strong> · {x.months} month{x.months === 1 ? '' : 's'}
+                  <span className="text-muted"> · {formatDateGB(x.paidOn)}{x.note ? ` · ${x.note}` : ''}</span>
+                </span>
+                <button className="btn btn-icon btn-sm" title="Remove this payment" disabled={busy} onClick={() => {
+                  if (window.confirm(`Remove the ${money(x.amount)} payment from ${formatDateGB(x.paidOn)}?`)) run(() => deletePayment(m.id, x.id));
+                }}><Trash2 size={13} /></button>
+              </div>
+            ))}
+          </div>
+        </>}
+      </>}
+
+      <div className="form-section-title pay-h">Contact</div>
+      <div className="pay-contact">
+        {m.contactName && <div><span>Head</span>{m.contactName}</div>}
+        {m.headLogin && <div><span>Login</span>{m.headLogin}</div>}
+        <div><span>Code</span>{m.code}</div>
+        {(m.contactPhone || m.contactEmail) && (
+          <div className="pay-contact-btns">
+            {m.contactPhone && <a className="btn btn-sm" href={`https://wa.me/${whatsappNumber(m.contactPhone)}`} target="_blank" rel="noopener noreferrer"><MessageCircle size={13} /> WhatsApp</a>}
+            {m.contactPhone && <a className="btn btn-sm" href={`tel:${m.contactPhone.replace(/\s/g, '')}`}><Phone size={13} /> {m.contactPhone}</a>}
+            {m.contactEmail && <a className="btn btn-sm" href={`mailto:${m.contactEmail}`}><Mail size={13} /> Email</a>}
+          </div>
+        )}
+      </div>
+
+      <div className="form-section-title pay-h">Size</div>
+      <div className="pay-stats">
+        {[['Children', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['AI this month', m.aiThisMonth], ['AI all time', m.aiTotal]].map(([l, v]) => (
+          <div key={l}><b>{v}</b>{l}</div>
+        ))}
+      </div>
+
+      <div className="form-section-title pay-h">Manage</div>
+      <div className="pay-manage">
+        <button className="btn" onClick={() => open('edit', m)}><Pencil size={13} /> Edit details</button>
+        {!m.isYours && <button className="btn" onClick={() => open('password', m)}><KeyRound size={13} /> Reset head's password</button>}
+        {!m.isYours && <button className="btn" style={m.active ? { color: 'var(--red)' } : undefined} onClick={() => open('power', m)}><Power size={13} /> {m.active ? 'Switch off' : 'Switch on'}</button>}
+        {!m.isYours && !m.active && <button className="btn" style={{ color: 'var(--red)' }} onClick={() => open('delete', m)}><Trash2 size={13} /> Delete</button>}
+      </div>
     </ModalShell>
   );
 }
