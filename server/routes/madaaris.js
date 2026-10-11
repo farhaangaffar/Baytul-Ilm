@@ -60,7 +60,7 @@ module.exports = requireAuth(async (req, res) => {
   }
   if (req.query.action === 'notify-test' && req.method === 'POST') {
     const time = new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const r = await notifyPlatformOwner({ title: `Suhuf test · ${time}`, body: "You'll get one like this whenever a madrasah signs up." });
+    const r = await notifyPlatformOwner({ title: `Suhuf test · ${time}`, body: "You'll get one like this whenever a madrasah signs up.", ttl: 60 }); // a test is dropped, not delivered hours late
     // What happened for the phone asking (if it's switched on), so the card can say.
     const mine = r.results.find(x => x.endpoint === String((req.body || {}).endpoint || ''));
     res.status(200).json({ phones: r.phones, devices: r.results.length, email: r.email,
