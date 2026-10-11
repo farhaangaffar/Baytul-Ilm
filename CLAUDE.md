@@ -245,7 +245,9 @@ codebase (one codebase, not a fork).
   visited on a device. **When a page changes, update its steps there.**
 - `public/sw.js` caches only content-hashed `/static/` files and fonts. Never cache
   `/api/` or anything that can change under the same URL (that's how a stale app icon
-  once got stuck on devices); bump the cache name if caching rules change.
+  once got stuck on devices); bump the cache name if caching rules change. It's registered with
+  `updateViaCache: 'none'` and re-checked whenever the app comes back to the front (`src/index.js`),
+  and its `push` handler must always show a notification (else Chrome shows an empty one).
 - Check changes with `CI=true npm run build` (warnings fail the build).
   `scripts/dev-api-server.js` runs the API locally (through the same router) against
   a Postgres in `.env.local`.

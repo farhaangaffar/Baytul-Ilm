@@ -10,6 +10,20 @@ const b64ToBytes = b64 => {
 };
 const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
+// Makes sure this device runs the latest public/sw.js (the part that shows notifications) —
+// an older copy would leave Chrome showing an empty notification of its own.
+async function freshWorker() {
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return navigator.serviceWorker.ready;
+  await reg.update().catch(() => {});
+  const w = reg.installing || reg.waiting;
+  if (w) await new Promise(done => {
+    const check = () => { if (w.state === 'activated' || w.state === 'redundant') done(); };
+    w.addEventListener('statechange', check); check(); setTimeout(done, 5000);
+  });
+  return reg;
+}
+
 export default function SignupNotifications() {
   const [on, setOn] = useState(null);       // this device subscribed?
   const [email, setEmail] = useState(null); // email notifications set up on the server?
@@ -19,6 +33,7 @@ export default function SignupNotifications() {
   useEffect(() => {
     getPushKey().then(k => setEmail(k.email)).catch(() => {});
     if (!supported()) { setOn(false); return; }
+    freshWorker().catch(() => {});
     navigator.serviceWorker.getRegistration().then(reg => reg ? reg.pushManager.getSubscription() : null)
       .then(sub => setOn(!!sub)).catch(() => setOn(false));
   }, []);
@@ -29,6 +44,7 @@ export default function SignupNotifications() {
       if (!supported()) throw new Error('This browser can\'t show notifications. On a phone, use the installed app.');
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') throw new Error('Notifications are blocked for this app — allow them in your phone\'s settings, then try again.');
+      await freshWorker();
       const reg = await navigator.serviceWorker.ready;
       const { publicKey } = await getPushKey();
       const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
@@ -50,6 +66,7 @@ export default function SignupNotifications() {
   async function test() {
     setBusy(true); setNote('');
     try {
+      if (supported()) await freshWorker().catch(() => {});
       const r = await sendTestNotification();
       setNote(`Sent to ${r.phones} device${r.phones === 1 ? '' : 's'}${r.email ? ' and by email' : ''}.`);
     } catch (err) { setNote(err.message || 'Could not send a test.'); }
