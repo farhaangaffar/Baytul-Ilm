@@ -8,7 +8,7 @@
 // icon after it was replaced — icons are no longer cached here at all.
 const CACHE = 'madrasah-shell-v3';
 // Shown on the Madaaris page's notifications card, to tell which copy a phone is running.
-const VERSION = 'v8';
+const VERSION = 'v9';
 // A note of the last notification message this phone received (read by the notifications card).
 const LOG = 'suhuf-push-log';
 
@@ -71,20 +71,21 @@ const logPush = entry => caches.open(LOG).then(async c => {
   await c.put('/__push-log', new Response(JSON.stringify(list)));
 }).catch(() => {});
 
+// Shown straight away with nothing to download: an icon URL made Chrome fetch the icon first,
+// and on a phone whose background internet is cut (battery saving) it timed out and put up its
+// own blank, silent notification instead. The phone's app icon is used anyway.
 self.addEventListener('push', event => {
   let data = {};
   const hasData = !!event.data;
   try { data = event.data ? event.data.json() : {}; } catch { try { data = { body: event.data.text() }; } catch { data = {}; } }
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Suhuf', {
-      body: data.body || 'Open the Madaaris page to see what\'s new.', icon: '/icons/book-192.png', data: { url: data.url || '/madaaris' },
-      // Each one its own tag: a shared tag made Android swap an old one for a new one silently.
-      tag: `suhuf-${Date.now()}`, vibrate: [200, 100, 200],
-    })
-      .then(() => logPush({ shown: true, hasData, title: data.title || '' }))
-      .catch(err => logPush({ shown: false, hasData, error: String(err && err.message || err) })
-        .then(() => self.registration.showNotification('Suhuf', { body: data.body || 'Open the Madaaris page to see what\'s new.' })))
-  );
+  const show = self.registration.showNotification(data.title || 'Suhuf', {
+    body: data.body || 'Open the Madaaris page to see what\'s new.', data: { url: data.url || '/madaaris' },
+    // Each one its own tag: a shared tag made Android swap an old one for a new one silently.
+    tag: `suhuf-${Date.now()}`, vibrate: [200, 100, 200],
+  });
+  event.waitUntil(Promise.all([
+    show.then(() => logPush({ shown: true, hasData, title: data.title || '' }), err => logPush({ shown: false, hasData, error: String(err && err.message || err) })),
+  ]));
 });
 
 self.addEventListener('notificationclick', event => {
