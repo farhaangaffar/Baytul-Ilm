@@ -67,9 +67,10 @@ const HEAD = {
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
-    'Add a madrasah with its head\'s login, then send them their code.',
-    'Each madrasah is free for 6 months — the badge shows when that ends. Change the date with Edit.',
-    'When one pays you, tap Payments on its card: choose Monthly or Yearly and record the payment. The badge then shows "Paid until" or "Overdue".',
+    'The bar on each card: grey = free months, green = paid, yellow = due within 2 weeks, red = overdue.',
+    'Tap a madrasah to open it. When they pay you, tap "Next month" or "A year" — or tap a month box to pay up to it.',
+    'Payments always run from the 1st: free to the end of their 6th month, then each payment covers the next unpaid month.',
+    'Add a madrasah with its head\'s login, then send them their code. Edit details, passwords and switching off are inside each one.',
     'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
     'Your AI credit, database space and the demo link are at the bottom.',
   ] },

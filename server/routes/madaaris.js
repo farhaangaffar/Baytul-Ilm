@@ -77,9 +77,7 @@ module.exports = requireAuth(async (req, res) => {
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id AND a.created_at >= date_trunc('month', now())) AS "aiThisMonth",
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id) AS "aiTotal",
         m.billing_plan AS "billingPlan", m.billing_amount AS "billingAmount",
-        -- Paid until: the end of the free months, moved on by every month paid for.
-        to_char((COALESCE(m.free_until, (m.created_at + interval '6 months')::date)
-          + make_interval(months => COALESCE((SELECT sum(p.months) FROM madrasah_payments p WHERE p.madrasah_id = m.id), 0)::int))::date, 'YYYY-MM-DD') AS "paidUntil",
+        -- Months paid for, counted on from the 1st after the free months (src/lib/billing.js).
         (SELECT COALESCE(sum(p.months), 0) FROM madrasah_payments p WHERE p.madrasah_id = m.id) AS "monthsPaid",
         (SELECT to_char(max(p.paid_on), 'YYYY-MM-DD') FROM madrasah_payments p WHERE p.madrasah_id = m.id) AS "lastPaid"
       FROM madaaris m WHERE m.demo_until IS NULL ORDER BY m.id`);
