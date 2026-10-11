@@ -20,14 +20,14 @@ async function vapidKeys() {
   return JSON.parse(row.value);
 }
 
-async function sendPush(payload) {
+async function sendPush(payload, ttl = 24 * 60 * 60) {
   const keys = await vapidKeys();
   webpush.setVapidDetails('mailto:hello@suhuf.uk', keys.publicKey, keys.privateKey);
   const { rows } = await query('SELECT id, endpoint, keys FROM push_subscriptions');
   // One result per phone: { endpoint, ok, status, error } — what the phone's push service said.
   return Promise.all(rows.map(async s => {
     try {
-      const r = await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(payload), { TTL: 24 * 60 * 60, timeout: 5000, urgency: 'high' });
+      const r = await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, JSON.stringify(payload), { TTL: ttl, timeout: 5000, urgency: 'high' });
       return { endpoint: s.endpoint, ok: true, status: r.statusCode };
     } catch (err) {
       // That phone switched notifications off or the app was removed — forget it.
@@ -57,9 +57,10 @@ async function sendEmail({ subject, text }) {
 }
 
 // { title, body, url, emailText } — waits (briefly) for both, never throws.
-async function notifyPlatformOwner({ title, body, url = '/madaaris', emailText }) {
+// ttl: how long a phone that's asleep can still be sent it (seconds) — a day for sign-ups.
+async function notifyPlatformOwner({ title, body, url = '/madaaris', emailText, ttl }) {
   const [push, email] = await Promise.allSettled([
-    sendPush({ title, body, url }),
+    sendPush({ title, body, url }, ttl),
     sendEmail({ subject: title, text: emailText || `${body}\n\nhttps://suhuf.uk${url}` }),
   ]);
   const results = push.status === 'fulfilled' ? push.value : [];

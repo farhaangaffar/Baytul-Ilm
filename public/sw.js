@@ -8,7 +8,7 @@
 // icon after it was replaced — icons are no longer cached here at all.
 const CACHE = 'madrasah-shell-v3';
 // Shown on the Madaaris page's notifications card, to tell which copy a phone is running.
-const VERSION = 'v7';
+const VERSION = 'v8';
 // A note of the last notification message this phone received (read by the notifications card).
 const LOG = 'suhuf-push-log';
 
@@ -77,13 +77,13 @@ self.addEventListener('push', event => {
   try { data = event.data ? event.data.json() : {}; } catch { try { data = { body: event.data.text() }; } catch { data = {}; } }
   event.waitUntil(
     self.registration.showNotification(data.title || 'Suhuf', {
-      body: data.body || '', icon: '/icons/book-192.png', data: { url: data.url || '/madaaris' },
+      body: data.body || 'Open the Madaaris page to see what\'s new.', icon: '/icons/book-192.png', data: { url: data.url || '/madaaris' },
       // Each one its own tag: a shared tag made Android swap an old one for a new one silently.
       tag: `suhuf-${Date.now()}`, vibrate: [200, 100, 200],
     })
       .then(() => logPush({ shown: true, hasData, title: data.title || '' }))
       .catch(err => logPush({ shown: false, hasData, error: String(err && err.message || err) })
-        .then(() => self.registration.showNotification('Suhuf', { body: data.body || '' })))
+        .then(() => self.registration.showNotification('Suhuf', { body: data.body || 'Open the Madaaris page to see what\'s new.' })))
   );
 });
 
