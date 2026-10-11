@@ -18,7 +18,12 @@ CREATE TABLE IF NOT EXISTS madaaris (
   free_until  DATE,                       -- end of its free months (6 from joining); NULL = 6 months from created_at
   terms_version     TEXT,                 -- the terms of use the head agreed to (TERMS_VERSION, src/lib/legal.js)
   terms_accepted_at TIMESTAMP,
-  terms_accepted_by TEXT                  -- the head's login
+  terms_accepted_by TEXT,                 -- the head's login
+  self_signup   BOOLEAN NOT NULL DEFAULT false, -- signed itself up ("Start free", server/routes/signup.js)
+  contact_name  TEXT,                     -- from the sign-up form: who to contact
+  contact_email TEXT,
+  contact_phone TEXT,
+  signup_ip     TEXT                      -- hashed address, only to limit sign-ups from one place
 );
 
 CREATE TABLE IF NOT EXISTS teachers (

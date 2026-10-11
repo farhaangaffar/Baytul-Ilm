@@ -23,6 +23,7 @@ const routes = {
   logout: require('../server/routes/logout'),
   session: require('../server/routes/session'),
   settings: require('../server/routes/settings'),
+  signup: require('../server/routes/signup'),
   students: require('../server/routes/students'),
   teachers: require('../server/routes/teachers'),
   terms: require('../server/routes/terms'),

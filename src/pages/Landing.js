@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet, Smartphone, Shield, CalendarDays,
-  ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, Mail, MessageCircle } from 'lucide-react';
+  ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, MessageCircle, Rocket } from 'lucide-react';
 import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
 import { LegalModal } from '../components/Legal';
 import { countVisit } from '../lib/analytics';
@@ -11,8 +11,8 @@ import '../landing.css';
 // "Sign in" goes to the normal sign-in screen; nothing here needs the database.
 
 const CONTACT = 'hello@suhuf.uk';
-const contactHref = `mailto:${CONTACT}?subject=${encodeURIComponent('Suhuf for our madrasah')}`;
-// "Get started" opens a WhatsApp chat with the message ready (the number in international form, no +).
+// "Start free" opens the sign-up page (/?start); WhatsApp is for questions — a chat with the
+// message ready (the number in international form, no +).
 const WHATSAPP = '447984873612';
 const whatsappHref = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Salaam, I'd like to try Suhuf for our madrasah.")}`;
 function WhatsApp({ className, children }) {
@@ -63,6 +63,7 @@ const MORE = [
 
 const FAQ = [
   ['Do teachers and parents need to download anything?', 'No. Suhuf works in the phone\'s browser and can be added to the home screen like an app in a few seconds — on iPhone and Android. It works on computers too.'],
+  ['How do we start?', 'Tap Start free, enter your madrasah\'s name and your details, and you\'re in straight away — free for 6 months, no card needed. Questions first? Message us on WhatsApp.'],
   ['How long does it take to set up?', 'Most madaaris are up and running in an afternoon: add your classes, paste in your students from a spreadsheet, set your fees and madrasah days, and give teachers their logins. We\'ll help you get started.'],
   ['We already have our students in a spreadsheet. Can we use it?', 'Yes — paste the rows or upload the file. Suhuf works out the columns (names, classes, dates of birth, mother\'s and father\'s details), lets you check everything, and adds them all at once.'],
   ['How does the AI report work?', "It reads that child's lesson notes, Qur'an progress and behaviour records for the month or term, and writes a short report paragraph. You can add instructions, edit every word, and nothing reaches parents until you press \"Add to report\"."],
@@ -124,7 +125,7 @@ export default function Landing({ onSignIn }) {
           <p className="lp-lead">Registers, fees, Qur'an progress, behaviour and AI-written reports — with a portal so parents can see how their child is doing.</p>
           <div className="lp-cta">
             <a href="/?demo" className="lp-btn lp-btn-primary"><PlayCircle size={17} />Try the demo</a>
-            <WhatsApp className="lp-btn lp-btn-light">Get started free</WhatsApp>
+            <a href="/?start" className="lp-btn lp-btn-light"><Rocket size={16} />Start free</a>
           </div>
           <ul className="lp-ticks">
             <li><Check size={15} />Free for 6 months</li>
@@ -199,7 +200,7 @@ export default function Landing({ onSignIn }) {
               {['Every feature included — AI reports too', 'Unlimited teachers and parent logins', 'Help getting set up', 'No contract — leave any time, take your data with you'].map(x => <li key={x}><Check size={15} />{x}</li>)}
             </ul>
             <div className="lp-cta lp-cta-center">
-              <WhatsApp className="lp-btn lp-btn-primary">Get started free</WhatsApp>
+              <a href="/?start" className="lp-btn lp-btn-primary"><Rocket size={16} />Start free</a>
               <a href="/?demo" className="lp-btn lp-btn-light"><PlayCircle size={17} />Try the demo</a>
             </div>
           </div>
@@ -222,8 +223,8 @@ export default function Landing({ onSignIn }) {
           <p>Have a look around a made-up madrasah as the head, a teacher or a parent — it takes a minute. Questions? Message us any time.</p>
           <div className="lp-cta lp-cta-center">
             <a href="/?demo" className="lp-btn lp-btn-white"><PlayCircle size={17} />Try the demo</a>
+            <a href="/?start" className="lp-btn lp-btn-outline"><Rocket size={16} />Start free</a>
             <WhatsApp className="lp-btn lp-btn-outline">Message us on WhatsApp</WhatsApp>
-            <a href={contactHref} className="lp-btn lp-btn-outline"><Mail size={16} />{CONTACT}</a>
           </div>
         </section>
       </main>

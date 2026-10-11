@@ -45,3 +45,5 @@ module.exports = async (req, res) => {
     },
   });
 };
+
+module.exports.TERMS_VERSION = TERMS_VERSION; // routes/signup.js records it when a madrasah signs itself up
