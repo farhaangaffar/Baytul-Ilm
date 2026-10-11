@@ -6,7 +6,7 @@ import { useAuth } from '../lib/AuthContext';
 import { appNavigate } from './BackToExit';
 
 // "Getting started" on a new madrasah's Dashboard (one that signed itself up, or any head
-// with steps left): classes → students → fees & days → teacher logins. Each ticks itself
+// with steps left): teachers & classes → fees & days → children → teacher logins. Each ticks itself
 // off from the madrasah's own data; the card goes once everything's done or it's hidden.
 const key = (code, what) => `getting_started_${what}:${code}`;
 const read = k => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -28,9 +28,9 @@ export default function GettingStarted({ students, classes }) {
   if (hidden || user?.demo || teacherLogins === null) return null;
 
   const steps = [
-    { label: 'Add your classes', sub: 'And who teaches each one', path: '/classes', done: classes.length > 0 },
-    { label: 'Add your students', sub: 'Type them in, or paste from a spreadsheet (Students → Import)', path: '/students', done: students.length > 0 },
-    { label: 'Set your fees and madrasah days', sub: 'How much, how often, and which days you\'re open', path: '/settings', done: !!read(key(code, 'settings')) },
+    { label: 'Add your teachers, then your classes', sub: 'Teachers first, so each new class can be given its teacher', path: '/classes', done: classes.length > 0 },
+    { label: 'Set your fees and madrasah days', sub: 'Default fee, how often you charge, and which days you\'re open', path: '/settings', done: !!read(key(code, 'settings')) },
+    { label: 'Add your children', sub: 'Type them in, or paste from a spreadsheet (Students → Import)', path: '/students', done: students.length > 0 },
     { label: 'Give your teachers their logins', sub: 'Classes & Teachers → tap Login on a teacher or a class', path: '/classes', done: teacherLogins },
   ];
   const left = steps.filter(s => !s.done).length;

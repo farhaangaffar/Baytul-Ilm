@@ -103,7 +103,8 @@ codebase (one codebase, not a fork).
   fill, max 3 sign-ups per address a day (`madaaris.signup_ip`, hashed). Creating a madrasah is shared with
   the Madaaris page (`server/newMadrasah.js`). The Madaaris page marks them "New · signed themselves up"
   with contact name/phone/WhatsApp/email. A new head's Dashboard shows "Getting started"
-  (`src/components/GettingStarted.js`: classes → students → Settings → teacher logins; ticks itself, can be hidden).
+  (`src/components/GettingStarted.js`: teachers then classes → Settings (fees, days) → children → teacher logins;
+  ticks itself, can be hidden).
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per
