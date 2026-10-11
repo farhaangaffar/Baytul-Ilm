@@ -24,16 +24,30 @@ async function freshWorker() {
   return reg;
 }
 
+// Which copy of public/sw.js is running here ('' if none answers — an old copy).
+async function workerVersion() {
+  const reg = await navigator.serviceWorker.getRegistration();
+  const w = reg && reg.active;
+  if (!w) return '';
+  return new Promise(done => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = e => done(String(e.data || ''));
+    w.postMessage('version', [ch.port2]);
+    setTimeout(() => done(''), 2000);
+  });
+}
+
 export default function SignupNotifications() {
   const [on, setOn] = useState(null);       // this device subscribed?
   const [email, setEmail] = useState(null); // email notifications set up on the server?
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [version, setVersion] = useState(null);
 
   useEffect(() => {
     getPushKey().then(k => setEmail(k.email)).catch(() => {});
     if (!supported()) { setOn(false); return; }
-    freshWorker().catch(() => {});
+    freshWorker().catch(() => {}).then(workerVersion).then(v => setVersion(v || 'old')).catch(() => setVersion('old'));
     navigator.serviceWorker.getRegistration().then(reg => reg ? reg.pushManager.getSubscription() : null)
       .then(sub => setOn(!!sub)).catch(() => setOn(false));
   }, []);
@@ -63,6 +77,20 @@ export default function SignupNotifications() {
     } catch (err) { setNote(err.message || 'Could not switch notifications off.'); }
     setBusy(false);
   }
+  // Shows a notification straight from this page — no internet involved — to check this
+  // phone displays them at all.
+  async function showHere() {
+    setBusy(true); setNote('');
+    try {
+      if (!supported()) throw new Error('This browser can\'t show notifications.');
+      if (Notification.permission !== 'granted' && (await Notification.requestPermission()) !== 'granted') throw new Error('Notifications are blocked for this app in your phone\'s settings.');
+      const reg = await freshWorker();
+      await reg.showNotification('Suhuf — test on this phone', { body: 'If you can read this, this phone shows notifications.', icon: '/icons/book-192.png', tag: 'suhuf-local', vibrate: [200, 100, 200] });
+      setNote('Shown on this phone (check the notification bar).');
+      setVersion((await workerVersion()) || 'old');
+    } catch (err) { setNote(err.message || 'Could not show one.'); }
+    setBusy(false);
+  }
   async function test() {
     setBusy(true); setNote('');
     try {
@@ -87,7 +115,9 @@ export default function SignupNotifications() {
           ? <button className="btn btn-sm" onClick={turnOff} disabled={busy}><BellOff size={13} />Turn off on this device</button>
           : <button className="btn btn-primary btn-sm" onClick={turnOn} disabled={busy}><Bell size={13} />Turn on phone notifications</button>}
         <button className="btn btn-sm" onClick={test} disabled={busy}><Send size={13} />Send a test</button>
+        <button className="btn btn-sm" onClick={showHere} disabled={busy}><Bell size={13} />Show one here</button>
       </div>
+      {version && <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 8 }}>App helper: {version}</div>}
       {note && <div className="text-sm" style={{ marginTop: 10, color: 'var(--text-muted)' }}>{note}</div>}
     </div>
   );
