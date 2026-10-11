@@ -28,10 +28,11 @@ export default function GettingStarted({ students, classes }) {
   if (hidden || user?.demo || teacherLogins === null) return null;
 
   const steps = [
-    { label: 'Add your teachers, then your classes', sub: 'Teachers first, so each new class can be given its teacher', path: '/classes', done: classes.length > 0 },
+    { label: 'Add your teachers, then your classes', sub: 'Teachers first, so each new class can be given its teacher', path: '/classes?tab=teachers', done: classes.length > 0 },
     { label: 'Set your fees and madrasah days', sub: 'Default fee, how often you charge, and which days you\'re open', path: '/settings', done: !!read(key(code, 'settings')) },
     { label: 'Add your children', sub: 'Type them in, or paste from a spreadsheet (Students → Import)', path: '/students', done: students.length > 0 },
-    { label: 'Give your teachers their logins', sub: 'Classes & Teachers → tap Login on a teacher or a class', path: '/classes', done: teacherLogins },
+    { label: 'Give your teachers logins', sub: 'One for each teacher, or one shared login for each class — whichever suits you', done: teacherLogins,
+      choices: [{ label: 'Teacher logins', path: '/classes?tab=teachers' }, { label: 'Class logins', path: '/classes?tab=classes' }] },
   ];
   const left = steps.filter(s => !s.done).length;
   if (!left) return null;
@@ -45,10 +46,12 @@ export default function GettingStarted({ students, classes }) {
       </div>
       <div className="card-sub" style={{ marginBottom: 12 }}>{left} step{left === 1 ? '' : 's'} left to get everything ready.</div>
       <div style={{ display: 'grid', gap: 8 }}>
-        {steps.map((s, i) => (
-          <button key={s.label} type="button" onClick={() => appNavigate(navigate, s.path)}
+        {steps.map((s, i) => {
+          const Row = s.choices ? 'div' : 'button';
+          return (
+          <Row key={s.label} {...(s.choices ? {} : { type: 'button', onClick: () => appNavigate(navigate, s.path) })}
             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 12,
-              background: s.done ? '#f7fbf2' : '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font)' }}>
+              background: s.done ? '#f7fbf2' : '#fff', cursor: s.choices ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'var(--font)' }}>
             <span style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: s.done ? 'var(--green)' : '#f3f4f6', color: s.done ? '#fff' : 'var(--text-soft)', fontWeight: 700, fontSize: 12.5 }}>
               {s.done ? <Check size={14} /> : i + 1}
@@ -56,10 +59,16 @@ export default function GettingStarted({ students, classes }) {
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</span>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>{s.sub}</span>
+              {s.choices && (
+                <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                  {s.choices.map(c => <button key={c.label} type="button" className="btn btn-sm" onClick={() => appNavigate(navigate, c.path)}>{c.label}<ChevronRight size={13} /></button>)}
+                </span>
+              )}
             </span>
-            {!s.done && <ChevronRight size={16} color="var(--text-soft)" />}
-          </button>
-        ))}
+            {!s.done && !s.choices && <ChevronRight size={16} color="var(--text-soft)" />}
+          </Row>
+          );
+        })}
       </div>
     </div>
   );

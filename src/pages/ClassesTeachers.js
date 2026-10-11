@@ -15,7 +15,8 @@ import { CLASS_QURAN_OPTIONS } from '../lib/quran';
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState('classes');
+  // ?tab=teachers opens the Teachers tab (e.g. from the Getting started checklist).
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'teachers' ? 'teachers' : 'classes'));
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
