@@ -37,12 +37,27 @@ async function workerVersion() {
   });
 }
 
+// The service worker's note of the last notification message this phone received, if any.
+async function lastPush() {
+  try {
+    const hit = await (await caches.open('suhuf-push-log')).match('/__push-log');
+    return hit ? await hit.json() : null;
+  } catch { return null; }
+}
+const timeAgo = iso => {
+  const s = Math.round((Date.now() - new Date(iso)) / 1000);
+  return s < 90 ? `${s} seconds ago` : s < 5400 ? `${Math.round(s / 60)} minutes ago` : new Date(iso).toLocaleString('en-GB');
+};
+
 export default function SignupNotifications() {
   const [on, setOn] = useState(null);       // this device subscribed?
   const [email, setEmail] = useState(null); // email notifications set up on the server?
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
   const [version, setVersion] = useState(null);
+  const [last, setLast] = useState(undefined);
+  const checkLast = () => lastPush().then(setLast);
+  useEffect(() => { checkLast(); const t = setInterval(checkLast, 3000); return () => clearInterval(t); }, []);
 
   useEffect(() => {
     getPushKey().then(k => setEmail(k.email)).catch(() => {});
@@ -127,7 +142,10 @@ export default function SignupNotifications() {
         <button className="btn btn-sm" onClick={test} disabled={busy}><Send size={13} />Send a test</button>
         <button className="btn btn-sm" onClick={showHere} disabled={busy}><Bell size={13} />Show one here</button>
       </div>
-      {version && <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 8 }}>App helper: {version}</div>}
+      {version && <div style={{ fontSize: 11, color: 'var(--text-soft)', marginTop: 8 }}>
+        App helper: {version} · Last message this phone received: {last === undefined ? '…' : !last ? 'none yet'
+          : `${timeAgo(last.at)}${last.shown ? ' (shown)' : ` (couldn't show: ${last.error})`}`}
+      </div>}
       {note && <div className="text-sm" style={{ marginTop: 10, color: 'var(--text-muted)' }}>{note}</div>}
     </div>
   );
