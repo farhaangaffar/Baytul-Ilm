@@ -66,19 +66,4 @@ async function notifyPlatformOwner({ title, body, url = '/madaaris', emailText }
   return { phones: results.filter(r => r.ok).length, results, email: email.status === 'fulfilled' && email.value };
 }
 
-// A message with nothing in it, to one phone: needs no decrypting, so it shows whether messages
-// reach the phone at all (used by the Madaaris page's Send a test).
-async function sendEmpty(endpoint) {
-  const keys = await vapidKeys();
-  const { rows: [s] } = await query('SELECT endpoint, keys FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
-  if (!s) return null;
-  try {
-    const r = await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, null, {
-      TTL: 24 * 60 * 60, timeout: 5000, urgency: 'high',
-      vapidDetails: { subject: 'mailto:hello@suhuf.uk', publicKey: keys.publicKey, privateKey: keys.privateKey },
-    });
-    return { ok: true, status: r.statusCode };
-  } catch (err) { return { ok: false, status: err.statusCode || null, error: String(err.body || err.message || err).slice(0, 200) }; }
-}
-
-module.exports = { vapidKeys, notifyPlatformOwner, sendEmpty };
+module.exports = { vapidKeys, notifyPlatformOwner };

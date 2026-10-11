@@ -37,38 +37,10 @@ async function subscribeHere(fresh) {
 }
 const expired = r => r.thisPhone && !r.thisPhone.ok && (r.thisPhone.status === 404 || r.thisPhone.status === 410);
 
-// With ?debug in the address, or after tapping the card's title 5 times: what this phone's app
-// last received (public/sw.js notes it), and which address it runs on.
-const DEBUG = typeof window !== 'undefined' && /[?&]debug\b/.test(window.location.search);
-async function debugInfo() {
-  const out = { site: window.location.host };
-  try { const hit = await (await caches.open('suhuf-push-log')).match('/__push-log'); out.last = hit ? await hit.json() : null; } catch { out.last = 'unreadable'; }
-  try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    const sub = reg && await reg.pushManager.getSubscription();
-    out.endpoint = sub ? sub.endpoint.slice(-12) : 'none';
-    out.permission = Notification.permission;
-    out.worker = reg && reg.active ? await new Promise(done => {
-      const ch = new MessageChannel(); ch.port1.onmessage = e => done(e.data); reg.active.postMessage('version', [ch.port2]); setTimeout(() => done('?'), 2000);
-    }) : 'none';
-  } catch (err) { out.error = String(err); }
-  return out;
-}
-
 export default function SignupNotifications() {
   const [on, setOn] = useState(null);       // this device subscribed?
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  const [debug, setDebug] = useState(null);
-  const [debugOn, setDebugOn] = useState(DEBUG);
-  const [note2, setNote2] = useState('');
-  const DEBUG_ANY = () => debugOn;
-  const [taps, setTaps] = useState(0);
-  useEffect(() => {
-    if (!debugOn) return undefined;
-    const tick = () => debugInfo().then(setDebug);
-    tick(); const t = setInterval(tick, 3000); return () => clearInterval(t);
-  }, [debugOn]);
 
   useEffect(() => {
     if (!supported()) { setOn(false); return; }
@@ -116,7 +88,6 @@ export default function SignupNotifications() {
         r = await sendTestNotification(endpoint);
       }
       const mine = r.thisPhone;
-      if (DEBUG_ANY()) setNote2(`Empty message: ${r.empty ? (r.empty.ok ? `accepted (${r.empty.status})` : `refused (${r.empty.status}) ${r.empty.error || ''}`) : 'not sent'}`);
       setNote((!endpoint || !mine ? 'Sent.' : mine.ok ? 'Sent — it should arrive in a few seconds.' : `Couldn't reach this phone (${mine.status || 'no answer'}). Tap Turn off on this device, then turn it on again.`)
         + (r.email ? ' An email was sent too.' : ''));
     } catch (err) { setNote(err.message || 'Could not send a test.'); }
@@ -126,7 +97,7 @@ export default function SignupNotifications() {
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header" style={{ marginBottom: 12 }}>
-        <div className="card-title" onClick={() => { const n = taps + 1; setTaps(n); if (n >= 5) setDebugOn(true); }}><Bell size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />When a madrasah signs up</div>
+        <div className="card-title"><Bell size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />When a madrasah signs up</div>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {on
@@ -135,8 +106,6 @@ export default function SignupNotifications() {
         <button className="btn btn-sm" onClick={test} disabled={busy}><Send size={13} />Send a test</button>
       </div>
       {note && <div className="text-sm" style={{ marginTop: 10, color: 'var(--text-muted)' }}>{note}</div>}
-      {debugOn && note2 && <div className="text-sm" style={{ marginTop: 6, color: 'var(--text-muted)' }}>{note2}</div>}
-      {debug && <pre style={{ fontSize: 11, whiteSpace: 'pre-wrap', marginTop: 10, color: 'var(--text-muted)' }}>{JSON.stringify(debug, null, 1)}</pre>}
     </div>
   );
 }
