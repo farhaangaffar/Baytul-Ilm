@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, formatDateGB, getDbUsage } from '../lib/store';
+import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage } from '../lib/store';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2 } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -124,6 +124,10 @@ export default function Madaaris() {
                   <Power size={12} /> {m.active ? 'Switch off' : 'Switch on'}
                 </button>
               )}
+              {/* Deleting for ever: only once it's switched off. */}
+              {!m.isYours && !m.active && (
+                <button className="btn btn-sm" style={{ color: 'var(--red)' }} onClick={() => setModal({ kind: 'delete', m })}><Trash2 size={12} /> Delete</button>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
@@ -184,6 +188,9 @@ export default function Madaaris() {
       )}
       {modal?.kind === 'password' && (
         <PasswordModal m={modal.m} onClose={() => setModal(null)} onSaved={async () => { setModal(null); showToast("Head's password reset"); await load(); }} />
+      )}
+      {modal?.kind === 'delete' && (
+        <DeleteModal m={modal.m} onClose={() => setModal(null)} onDeleted={async () => { setModal(null); showToast(`${modal.m.name} deleted`); await load(); }} />
       )}
       {modal?.kind === 'power' && (
         <ConfirmModal
@@ -347,6 +354,36 @@ function PasswordModal({ m, onClose, onSaved }) {
       <div className="form-group">
         <label>New password (8+ characters)</label>
         <input type="text" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} {...noAuto} autoFocus />
+      </div>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+    </ModalShell>
+  );
+}
+
+// Deletes a switched-off madrasah and everything in it — typed code to confirm.
+function DeleteModal({ m, onClose, onDeleted }) {
+  const [typed, setTyped] = useState('');
+  const { busy, error, setError, submit } = useSubmit();
+  const matches = typed.trim().toLowerCase() === String(m.code).toLowerCase();
+  return (
+    <ModalShell title={`Delete ${m.name}?`} onClose={onClose} busy={busy} footer={<>
+      <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+      <button className="btn btn-danger" disabled={busy || !matches}
+        onClick={() => submit(async () => { await deleteMadrasah(m.id, typed.trim()); await onDeleted(); })}>
+        <Trash2 size={13} />{busy ? 'Deleting…' : 'Delete for ever'}
+      </button>
+    </>}>
+      <div style={{ fontSize: 13, marginBottom: 12 }}>
+        This deletes <strong>everything</strong> for this madrasah — its {m.students} student{m.students === 1 ? '' : 's'}, attendance, fees,
+        reports, Qur'an records, logins and settings. <strong>It can't be undone.</strong>
+      </div>
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 12 }}>
+        If they might want their records, ask the head to download a Backup first (Settings → Backup) — switch it back on for them to do that.
+      </div>
+      <div className="form-group">
+        <label>Type its code to confirm</label>
+        <input value={typed} onChange={e => { setTyped(e.target.value); setError(''); }} placeholder={m.code} {...noAuto} autoFocus />
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>The code is <strong style={{ color: 'var(--ink)' }}>{m.code}</strong></span>
       </div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>

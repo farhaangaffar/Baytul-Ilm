@@ -17,7 +17,8 @@ const MAX_LIVE = 300;          // demos existing at once
 const MAX_PER_HOUR = 60;       // demos started in the last hour, everyone together
 const MAX_PER_IP_HOUR = 6;     // … and from one address
 
-// Every table holding a madrasah's data, children before parents, for deleting a demo.
+// Every table holding a madrasah's data, children before parents, for deleting a demo — or a
+// madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'students', 'classes', 'teachers',
@@ -401,4 +402,4 @@ async function createDemo(ipHash) {
   });
 }
 
-module.exports = { DEMO_HOURS, ensureAllTables, clearExpired, tooMany, createDemo, demoSummary, genderOf, rng };
+module.exports = { DEMO_HOURS, TABLES, ensureAllTables, clearExpired, tooMany, createDemo, demoSummary, genderOf, rng };

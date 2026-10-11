@@ -1,4 +1,5 @@
-const { query } = require('../db');
+const { query, transaction } = require('../db');
+const { TABLES, ensureAllTables } = require('../demo');
 const { requireAuth, hashPassword, normalizeLogin, validateNewCredentials } = require('../auth');
 const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, createMadrasah, ensureSignupColumns } = require('../newMadrasah');
 
@@ -112,6 +113,24 @@ module.exports = requireAuth(async (req, res) => {
       values.push(id);
       await query(`UPDATE madaaris SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
     }
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    // Deletes a madrasah and everything in it, for ever. Only one already switched off, never
+    // the platform owner's own, and only when its code is typed to confirm.
+    const m = found[0];
+    if (isOwn) { res.status(400).json({ error: "You can't delete your own madrasah." }); return; }
+    if (m.active) { res.status(400).json({ error: 'Switch it off first, then delete it.' }); return; }
+    if (normalizeCode((req.body || {}).confirmCode) !== String(m.code).toLowerCase()) {
+      res.status(400).json({ error: "Type the madrasah's code exactly to confirm." }); return;
+    }
+    await ensureAllTables();
+    await transaction(async c => {
+      for (const t of TABLES) await c.query(`DELETE FROM ${t} WHERE madrasah_id = $1`, [m.id]);
+      await c.query('DELETE FROM madaaris WHERE id = $1 AND active = false', [m.id]);
+    });
     res.status(200).json({ ok: true });
     return;
   }
