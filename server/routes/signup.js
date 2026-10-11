@@ -83,7 +83,7 @@ module.exports = async (req, res) => {
   // Let the platform owner know (phone notification / email) — never holds up or breaks the sign-up.
   await notifyPlatformOwner({
     title: `New madrasah: ${name}`,
-    body: `${headName}${phone ? ` · ${phone}` : ''} · ${email}`,
+    body: phone ? `${headName} · ${phone}` : headName, // short, so it fits a phone's notification
     emailText: `${name} has just signed up to Suhuf.\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
   }).catch(() => {});
   setSessionCookie(res, user);
