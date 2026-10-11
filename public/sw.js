@@ -54,11 +54,13 @@ self.addEventListener('fetch', event => {
 
 // Notifications for the platform owner (a madrasah signed up — server/notify.js). Tapping one
 // opens the page it's about (the Madaaris page), reusing an open app window if there is one.
+// A notification must always be shown, or Chrome puts up its own empty one instead.
 self.addEventListener('push', event => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'Suhuf', body: event.data && event.data.text() }; }
+  try { data = event.data ? event.data.json() : {}; } catch { try { data = { body: event.data.text() }; } catch { data = {}; } }
   event.waitUntil(self.registration.showNotification(data.title || 'Suhuf', {
-    body: data.body || '', icon: '/icons/book-192.png', badge: '/icons/book-192.png', data: { url: data.url || '/' },
+    body: data.body || '', icon: '/icons/book-192.png', data: { url: data.url || '/madaaris' },
+    tag: 'suhuf-signup', renotify: true, vibrate: [200, 100, 200],
   }));
 });
 
