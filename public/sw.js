@@ -6,10 +6,18 @@
 // Bumping this name makes the next activation delete every older cache. v1
 // cached /icons/ cache-first under fixed filenames, so devices kept showing an
 // icon after it was replaced — icons are no longer cached here at all.
-const CACHE = 'madrasah-shell-v2';
+const CACHE = 'madrasah-shell-v3';
+// Shown on the Madaaris page's notifications card, to tell which copy a phone is running.
+const VERSION = 'v3';
 
+// Saving the home page is a nice-to-have: if it fails (a weak signal), the update still goes
+// ahead — otherwise the phone would stay on the old copy of this file.
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(c => c.add('/')).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(c => c.add('/')).catch(() => {}).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('message', event => {
+  if (event.data === 'version' && event.ports[0]) event.ports[0].postMessage(VERSION);
 });
 
 self.addEventListener('activate', event => {
