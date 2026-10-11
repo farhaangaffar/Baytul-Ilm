@@ -1,7 +1,7 @@
 const { query, transaction } = require('../db');
 const { TABLES, ensureAllTables } = require('../demo');
 const { ensurePlatformTables } = require('../platform');
-const { vapidKeys, notifyPlatformOwner, sendEmpty } = require('../notify');
+const { vapidKeys, notifyPlatformOwner } = require('../notify');
 const { requireAuth, hashPassword, normalizeLogin, validateNewCredentials } = require('../auth');
 const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, createMadrasah, ensureSignupColumns } = require('../newMadrasah');
 
@@ -63,9 +63,8 @@ module.exports = requireAuth(async (req, res) => {
     const r = await notifyPlatformOwner({ title: `Suhuf test · ${time}`, body: "You'll get one like this whenever a madrasah signs up." });
     // What happened for the phone asking (if it's switched on), so the card can say.
     const mine = r.results.find(x => x.endpoint === String((req.body || {}).endpoint || ''));
-    const empty = mine ? await sendEmpty(mine.endpoint) : null;
     res.status(200).json({ phones: r.phones, devices: r.results.length, email: r.email,
-      thisPhone: mine ? { ok: mine.ok, status: mine.status, error: mine.error || '' } : null, empty });
+      thisPhone: mine ? { ok: mine.ok, status: mine.status, error: mine.error || '' } : null });
     return;
   }
 
