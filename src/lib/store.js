@@ -116,7 +116,7 @@ export async function createMadrasah(data) { return apiFetch('/api/madaaris', { 
 export async function getPushKey() { return apiFetch('/api/madaaris?action=push-key'); }
 export async function savePushSubscription(subscription) { return apiFetch('/api/madaaris?action=push-subscribe', { method: 'POST', body: JSON.stringify({ subscription }) }); }
 export async function removePushSubscription(endpoint) { return apiFetch('/api/madaaris?action=push-unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }); }
-export async function sendTestNotification() { return apiFetch('/api/madaaris?action=notify-test', { method: 'POST' }); }
+export async function sendTestNotification(endpoint) { return apiFetch('/api/madaaris?action=notify-test', { method: 'POST', body: JSON.stringify({ endpoint }) }); }
 // What madaaris pay us (platform owner): income totals, and each madrasah's payments.
 export async function getIncome() { return apiFetch('/api/madaaris?action=income'); }
 export async function getPayments(id) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}&action=payments`); }
