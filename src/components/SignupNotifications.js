@@ -37,10 +37,33 @@ async function subscribeHere(fresh) {
 }
 const expired = r => r.thisPhone && !r.thisPhone.ok && (r.thisPhone.status === 404 || r.thisPhone.status === 410);
 
+// Only with ?debug in the address: what this phone's app last received (public/sw.js notes it).
+const DEBUG = typeof window !== 'undefined' && /[?&]debug\b/.test(window.location.search);
+async function debugInfo() {
+  const out = {};
+  try { const hit = await (await caches.open('suhuf-push-log')).match('/__push-log'); out.last = hit ? await hit.json() : null; } catch { out.last = 'unreadable'; }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    out.endpoint = sub ? sub.endpoint.slice(-12) : 'none';
+    out.permission = Notification.permission;
+    out.worker = reg && reg.active ? await new Promise(done => {
+      const ch = new MessageChannel(); ch.port1.onmessage = e => done(e.data); reg.active.postMessage('version', [ch.port2]); setTimeout(() => done('?'), 2000);
+    }) : 'none';
+  } catch (err) { out.error = String(err); }
+  return out;
+}
+
 export default function SignupNotifications() {
   const [on, setOn] = useState(null);       // this device subscribed?
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [debug, setDebug] = useState(null);
+  useEffect(() => {
+    if (!DEBUG) return undefined;
+    const tick = () => debugInfo().then(setDebug);
+    tick(); const t = setInterval(tick, 3000); return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (!supported()) { setOn(false); return; }
@@ -106,6 +129,7 @@ export default function SignupNotifications() {
         <button className="btn btn-sm" onClick={test} disabled={busy}><Send size={13} />Send a test</button>
       </div>
       {note && <div className="text-sm" style={{ marginTop: 10, color: 'var(--text-muted)' }}>{note}</div>}
+      {debug && <pre style={{ fontSize: 11, whiteSpace: 'pre-wrap', marginTop: 10, color: 'var(--text-muted)' }}>{JSON.stringify(debug, null, 1)}</pre>}
     </div>
   );
 }
