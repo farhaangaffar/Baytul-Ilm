@@ -32,7 +32,8 @@ export function setBranding(s) {
     feeAuto: typeof s.feeAuto === 'boolean' ? s.feeAuto : current.feeAuto,
   };
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(current)); } catch {}
-  if (typeof document !== 'undefined') document.title = isNeutralBranding() ? APP_NAME : current.schoolName;
+  // Before a madrasah is chosen (the front page, which search engines read) keep the full title.
+  if (typeof document !== 'undefined') document.title = isNeutralBranding() ? `${APP_NAME} — madrasah management app` : current.schoolName;
 }
 
 // money(12.5) → "£12.50"; money(15, 0) → "£15"
