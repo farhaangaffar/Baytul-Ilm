@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { appNavigate } from './BackToExit';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2 } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -19,6 +19,7 @@ const navItems = [
   { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true },
   { label:'Daily records',      path:'/records',    icon:BookOpen,      teacher:true },
   { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup' },
+  { label:'Course',             path:'/course',     icon:Library,       darulUloom:true },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
@@ -38,12 +39,12 @@ export default function Layout({ children, title, subtitle }) {
   const { pathname } = useLocation();
   const settings = useSettings();
   const installPrompt = useInstallPrompt();
-  const { user, isOwner, isPlatformAdmin } = useAuth();
+  const { user, isOwner, isPlatformAdmin, isDarulUloom } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   const pageHelp = usePageHelp(pathname, user?.role);
   // Teachers only get their three pages (and no section headings).
   const visibleNav = isOwner
-    ? navItems.filter(i => !i.platform || isPlatformAdmin)
+    ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom))
     : navItems.filter(i => i.teacher).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);

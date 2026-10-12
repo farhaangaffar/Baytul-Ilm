@@ -85,6 +85,13 @@ codebase (one codebase, not a fork).
   `server/newMadrasah.js`, `KIND_PRICES` in `src/lib/billing.js`). The front end checks
   `useAuth().isDarulUloom`; a maktab must never see a Darul Uloom page. Sign-up and the front page
   only offer it once the stages are done (the terms' Cost section and `TERMS_VERSION` change then).
+  **Course page** (`/course`, head only, `src/pages/Course.js`, `server/routes/course.js` — answers 403 for
+  a maktab): a year group is an ordinary class with `classes.course_order` (1 = first year; NULL = not a
+  course year, e.g. Hifdh), so attendance/fees/reports work unchanged. Each year's subjects & kitaabs are in
+  `du_subjects` (any kitaab can be typed; the starter list's and the madrasah's own are suggested). "Use the
+  Dars-e-Nizami years" adds the usual years and kitaabs (`STARTER`). "Move everyone up" moves each Active
+  child one year on (held-back ones stay); the last year are marked left (`Inactive`, leave date today);
+  each move is logged in `du_year_moves` so it can be undone (only children not changed since).
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own

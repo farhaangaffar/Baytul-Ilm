@@ -667,3 +667,23 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .pay-stats b { display: block; font-size: 16px; color: var(--ink); }
 .pay-manage { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
 .pay-manage .btn { justify-content: center; }
+
+/* Darul Uloom course (pages/Course.js): a card per year, a row per subject. */
+.course-page > .card { margin-bottom: 14px; }
+.course-subjects { display: grid; gap: 6px; }
+.course-subject { display: grid; grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; align-items: center; width: 100%; text-align: left; padding: 10px 12px; border: none; border-radius: 10px; background: #f6f7f9; font-family: var(--font); font-size: 13px; color: var(--ink); cursor: pointer; }
+.course-subject:hover { background: var(--teal-light); }
+.course-subject-name { font-weight: 600; }
+.course-subject-kitaab { min-width: 0; }
+.course-subject-teacher { color: var(--text-muted); text-align: right; min-width: 0; }
+@media (max-width: 560px) {
+  .course-subject { grid-template-columns: 1fr auto; row-gap: 2px; }
+  .course-subject-kitaab { grid-column: 1 / -1; grid-row: 2; }
+}
+.course-year-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: #f6f7f9; font-size: 13.5px; }
+.course-year-num { width: 24px; height: 24px; border-radius: 50%; background: var(--teal-light); color: var(--teal); font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.course-move-year { padding: 10px 0; border-top: 1px solid #eef0f3; }
+.course-move-year:first-of-type { border-top: none; }
+.course-move-title { font-weight: 600; font-size: 13.5px; margin-bottom: 8px; }
+.course-kid { padding: 6px 12px; border-radius: 9999px; border: 1.5px solid var(--teal); background: var(--teal-light); color: var(--ink); font-family: var(--font); font-size: 12.5px; cursor: pointer; }
+.course-kid.held { border-color: #d1d5db; background: #fff; color: var(--text-muted); }
