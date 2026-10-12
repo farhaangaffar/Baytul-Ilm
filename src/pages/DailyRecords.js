@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
+import ClassBar from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { QuranEntryCard, QuranProgressCard, quranFactsForReport } from '../components/QuranCards';
 import { rangeLabel, upToLabel, effectiveQuranType } from '../lib/quran';
@@ -120,11 +121,8 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
 
   return (
     <div>
-      <div className="class-tabs">
-        {classNames.map(c=>(
-          <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
-        ))}
-      </div>
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} pills={['class-tabs', 'class-tab']}
+        notes={Object.fromEntries(classNames.map(c => { const n = students.filter(s => s.class === c && s.status === 'Active').length; return [c, `${n} ${n === 1 ? 'student' : 'students'}`]; }))} />
       <div className="grid-2">
         {classStudents.map(s=>{
           const counts=attendanceCountsFrom(attendance, s.id);

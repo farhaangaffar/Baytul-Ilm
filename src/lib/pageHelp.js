@@ -66,10 +66,10 @@ const HEAD = {
     'Download a backup now and then. "Download students to spreadsheet" gives you every child and their parents\' details.',
   ] },
   '/course': { title: 'Course', steps: [
-    'Your years are the boxes at the top, first year first. Tap a year to see its subjects and kitaabs.',
+    'Your years are listed first year first. Tap a year to open its kitaabs underneath.',
     'New? Tap "Use the Dars-e-Nizami years" to start from the usual years and kitaabs — or "Add a year" to make your own.',
     'Tap a kitaab to change it or its teacher. Any book can be typed in — it\'s then suggested next time. "Add a subject" adds another.',
-    'Edit (on an open year) renames it, moves it to another place, takes it out of the years, or deletes it if it has no students.',
+    '"Edit" under an open year renames it, moves it to another place, takes it out of the years, or deletes it if it has no students.',
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [

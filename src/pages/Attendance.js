@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
+import ClassBar, { MANY_CLASSES } from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay, getSpecialDays } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -237,15 +238,16 @@ export default function Attendance() {
     <Layout title="Attendance" subtitle={`${activeClass} · ${year}`}>
       {isCurrentYear ? (
         <div className="count-row">
-          {classNames.map(c=>{
-            const tc = todayCountFor(c);
+          {/* Many classes: just the whole madrasah and the chosen class (each class's count is in the class chooser). */}
+          {(classNames.length > MANY_CLASSES ? ['', activeClass] : classNames).map(c=>{
+            const tc = c ? todayCountFor(c) : classNames.reduce((t, n) => { const x = todayCountFor(n); return { present: t.present + x.present, total: t.total + x.total }; }, { present: 0, total: 0 });
             const pct = tc.total ? Math.round((tc.present/tc.total)*100) : 0;
             return (
-              <div className="count-chip" key={c}>
+              <div className="count-chip" key={c || 'all'}>
                 <div className="count-ring" style={{background:`conic-gradient(var(--green) 0% ${pct}%, #f3f4f6 ${pct}% 100%)`}}>{pct}%</div>
                 <div>
                   <div className="figure">{tc.present}<span> / {tc.total} present</span></div>
-                  <div className="label">{c} — today</div>
+                  <div className="label">{c || 'Everyone'} — today</div>
                 </div>
               </div>
             );
@@ -254,15 +256,8 @@ export default function Attendance() {
       ) : (
         <div className="text-muted text-sm mb-4">Browsing {year} — showing the week of {formatDayMonthGB(thisWeekDates[0])}. Open a student to mark or edit any day.</div>
       )}
-      <div className="pill-tabs">
-        {classNames.map(c=>(
-          <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
-        ))}
-        <div className="pill-divider"/>
-        {years.map(y=>(
-          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>switchYear(y)}>{y}</button>
-        ))}
-      </div>
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear}
+        notes={isCurrentYear ? Object.fromEntries(classNames.map(c => { const tc = todayCountFor(c); return [c, `${tc.present} / ${tc.total} present today`]; })) : {}} />
 
       {/* Absences parents have reported for the coming days, for this class. */}
       {(() => {

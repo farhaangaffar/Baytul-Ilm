@@ -668,26 +668,40 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .pay-manage { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
 .pay-manage .btn { justify-content: center; }
 
-/* Darul Uloom course (pages/Course.js): boxes like the Reports page's class boxes. */
+/* Darul Uloom course (pages/Course.js): single lines (.line-row) — a year opens its kitaabs underneath. */
 .course-page > .card { margin-bottom: 14px; }
-.course-box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
-.course-box-grid.wide { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-.box-row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.course-box { position: relative; border: 1px solid #dfe3e8; background: #f3f4f6; color: var(--ink); border-radius: 8px; padding: 8px 8px; min-height: 58px; cursor: pointer; font-family: var(--font); text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; min-width: 0; }
-.course-box:disabled { cursor: default; opacity: 0.7; }
-.course-box-name { font-weight: 700; font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
-.course-box-sub { font-size: 10.5px; font-weight: 500; opacity: 0.8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.course-box-sub.top { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
-.course-box-num { position: absolute; top: 5px; left: 7px; font-size: 10px; font-weight: 700; opacity: 0.55; }
-.course-box.subject { min-height: 66px; background: #fafbfc; }
-.course-box.subject .course-box-name { white-space: normal; }
-.course-box.on { background: var(--ink); border-color: var(--ink); color: #fff; }
-.course-box.action { background: var(--ink); border-color: var(--ink); color: #fff; }
-.course-box.add { background: #fff; border-style: dashed; border-color: #c9ced6; color: var(--text-muted); }
-.course-box.quiet { background: #fafbfc; color: var(--text-muted); cursor: default; }
-.course-box.danger { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+.course-lines { display: grid; gap: 6px; }
+.course-num { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid #dfe3e8; font-weight: 700; font-size: 11.5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.line-row.on .course-num { border-color: var(--teal); color: var(--teal-dark); }
+.course-open { display: grid; gap: 6px; margin: 0 0 8px 16px; padding-left: 12px; border-left: 2px solid var(--teal-light); }
+.course-kitaab { background: #fff; }
+.course-kitaab-subject { width: 130px; flex-shrink: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-open-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.line-row.danger { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+@media (max-width: 560px) {
+  .course-open { margin-left: 4px; padding-left: 8px; }
+  .course-kitaab { flex-wrap: wrap; row-gap: 2px; }
+  .course-kitaab-subject { width: 100%; }
+  .course-open-actions { grid-template-columns: 1fr; }
+}
 .course-move-year { padding: 10px 0; border-top: 1px solid #eef0f3; }
 .course-move-year:first-of-type { border-top: none; }
 .course-move-title { font-weight: 600; font-size: 13.5px; margin-bottom: 8px; }
 .course-kid { padding: 6px 12px; border-radius: 9999px; border: 1.5px solid var(--teal); background: var(--teal-light); color: var(--ink); font-family: var(--font); font-size: 12.5px; cursor: pointer; }
 .course-kid.held { border-color: #d1d5db; background: #fff; color: var(--text-muted); }
+
+/* components/ClassBar.js: with many classes, Class ▾ and Year ▾ boxes instead of a row of pills. */
+.class-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 16px; max-width: 560px; }
+.class-bar.two { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.class-bar-box { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 14px; border-radius: 12px; border: 1px solid #dfe3e8; background: var(--surface); box-shadow: var(--shadow-sm); cursor: pointer; font-family: var(--font); color: var(--ink); text-align: left; min-width: 0; }
+.class-bar-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.class-bar-value { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A single full-width line to tap (pop-up choices, the Course page's years and kitaabs). */
+.line-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid #e3e7ec; background: #f6f7f9; font-family: var(--font); font-size: 13.5px; color: var(--ink); text-align: left; cursor: pointer; min-width: 0; }
+.line-row:hover { border-color: var(--teal-mid); }
+.line-row.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.line-row.add { background: #fff; border-style: dashed; color: var(--text-muted); justify-content: center; }
+.line-row:disabled { cursor: default; opacity: 0.7; }
+.line-row-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line-row-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.line-row.on .line-row-sub { color: var(--teal-dark); }

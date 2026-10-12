@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from './Layout';
+import ClassBar from './ClassBar';
 import { LoadingState, ErrorState } from './DataState';
 import {
   getFees, getStudents, getClassNames, getAcademicYears, currentSchoolYear, getTerms,
@@ -249,15 +250,7 @@ export default function PeriodFees({ frequency }) {
   return (
     <Layout title="Fees" subtitle={`${activeClass} · ${year} · charged ${freq.adjective.toLowerCase()}`}>
       {childPage || <>
-      <div className="pill-tabs">
-        {classNames.map(c => (
-          <button key={c} className={`pill-tab ${activeClass === c ? 'active' : ''}`} onClick={() => setActiveClass(c)}>{c}</button>
-        ))}
-        <div className="pill-divider" />
-        {years.map(y => (
-          <button key={y} className={`pill-tab ${year === y ? 'year-active' : ''}`} onClick={() => switchYear(y)}>{y}</button>
-        ))}
-      </div>
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear} />
 
       {noTerms ? (
         <div className="card" style={{ textAlign: 'center', padding: 32 }}>

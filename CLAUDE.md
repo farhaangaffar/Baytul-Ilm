@@ -29,9 +29,11 @@ codebase (one codebase, not a fork).
   too (`<preview>/?demo`, or `<preview>/?demo=darul-uloom` for Darul Uloom work) so they see the
   change with realistic names, not an empty madrasah. If the change needs data the demo doesn't
   make yet, add it to `server/demo.js` in the same PR.
-- **The owner's design style:** boxes and cards — tidy grey boxes in a grid (the Reports page's class
-  boxes, `BoxRow`, `.course-box`, `.box-row-3`), tap a box to open it below, one card per thing,
-  pop-ups for editing. New pages use this look; avoid plain lists, tables and squashed columns.
+- **The owner's design style:** cards, with **single full-width lines** inside them to tap (`.line-row` —
+  the Course page, the class chooser) that open their details underneath, small grey boxes for figures and
+  quick choices (`BoxRow`, `.box-row-3`), and pop-ups for editing. Selected = light blue (`.line-row.on`,
+  `--teal-light`), never the dark ink fill. Keep the top of a page uncluttered: with more than 5 classes the
+  class/year pills become `ClassBar`'s Class ▾ / Year ▾ boxes. Avoid squashed columns and walls of buttons.
 
 ## Project conventions
 
@@ -99,7 +101,7 @@ codebase (one codebase, not a fork).
   Dars-e-Nizami years" adds the usual years and kitaabs (`STARTER`). "Move everyone up" moves each Active
   child one year on (held-back ones stay); the last year are marked left (`Inactive`, leave date today);
   each move is logged in `du_year_moves` so it can be undone (only children not changed since).
-  The page is boxes: year boxes (tap to open its kitaab boxes below), "Add a year" (`?action=year`: add,
+  The page is single lines: year lines (tap to open its kitaab lines underneath), "Add a year" (`?action=year`: add,
   rename, move to another place, take out of the years; a year with no students can be deleted). Classes
   are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
   year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
