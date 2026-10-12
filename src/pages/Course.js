@@ -1,4 +1,4 @@
-// pages/Course.js — a Darul Uloom's course (head only): its year groups in order, each
+// pages/Course.js — "Aalim course", a Darul Uloom's course (head only): its year groups in order, each
 // year's subjects and kitaabs with who teaches them, and moving everyone up a year at the
 // end of the year (which can be undone). A year group is an ordinary class with a place in
 // the course, so attendance, fees and reports work for it as for any class.
@@ -45,7 +45,7 @@ export default function Course() {
     setBusy(false);
   }
 
-  const title = 'Course';
+  const title = 'Aalim course';
   const subtitle = 'Years, subjects and kitaabs';
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
   if (error) return <Layout title={title} subtitle={subtitle}><ErrorState error={error} onRetry={load} /></Layout>;
@@ -140,14 +140,6 @@ export default function Course() {
           </div>
         )}
 
-        {/* Classes outside the course (e.g. Hifdh). */}
-        {others.length > 0 && years.length > 0 && (
-          <div className="card">
-            <div className="card-title" style={{ marginBottom: 2 }}>Other classes</div>
-            <div className="card-sub" style={{ marginBottom: 12 }}>Not part of the years (e.g. Hifdh)</div>
-            <div className="course-lines">{others.map(c => line(c))}</div>
-          </div>
-        )}
       </div>
 
       {modal?.kind === 'subject' && (
@@ -156,7 +148,7 @@ export default function Course() {
           onSaved={async msg => { setModal(null); await load(); showToast(msg); }} />
       )}
       {modal?.kind === 'year' && (
-        <YearModal initial={modal.year} place={modal.place} count={years.length} teachers={teachers}
+        <YearModal initial={modal.year} place={modal.place} count={years.length} teachers={teachers} others={others.filter(c => !c.quranType)}
           students={childrenIn(modal.year.name || '\u0000').length} subjects={modal.year.id ? subjectsOf(modal.year.id).length : 0}
           onClose={() => setModal(null)}
           onSaved={async (msg, id) => { setModal(null); if (id) setOpenId(id); await load(); showToast(msg); }} />
@@ -256,8 +248,10 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
 
 // Adds a year, or changes one: its name, teacher and place in the course. A year can be
 // taken out of the course (it stays a class), or deleted when it has no students.
-function YearModal({ initial, place, count, teachers, students, subjects, onClose, onSaved }) {
+function YearModal({ initial, place, count, teachers, others = [], students, subjects, onClose, onSaved }) {
   const isNew = !initial.id;
+  // A new year can be a brand-new class, or a class that already exists (e.g. made before on Classes & Teachers).
+  const [existing, setExisting] = useState('');
   const [f, setF] = useState({ name: initial.name || '', teacherId: initial.teacherId || '', position: isNew ? count + 1 : place });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -270,12 +264,12 @@ function YearModal({ initial, place, count, teachers, students, subjects, onClos
     try { await fn(); } catch (err) { setError(err.message || 'Something went wrong'); setBusy(false); }
   }
   const save = () => run(async () => {
-    const r = await saveCourseYear({ classId: initial.id, name: f.name, teacherId: f.teacherId, position: Number(f.position) });
+    const r = await saveCourseYear({ classId: initial.id || existing || undefined, name: f.name, teacherId: f.teacherId, position: Number(f.position) });
     await onSaved(isNew ? `${f.name.trim()} added` : 'Saved', r.id);
   });
   const takeOut = () => run(async () => {
     await saveCourseYear({ classId: initial.id, name: f.name, teacherId: f.teacherId, position: 0 });
-    await onSaved(`${initial.name} taken out of the years`);
+    await onSaved(`${initial.name} taken out — it's still on Classes & Teachers`);
   });
   const remove = () => run(async () => { await deleteClass(initial.id); await onSaved(`${initial.name} deleted`); });
 
@@ -287,6 +281,19 @@ function YearModal({ initial, place, count, teachers, students, subjects, onClos
       </button>
     </>}>
       <div className="form-grid">
+        {isNew && others.length > 0 && (
+          <div className="form-group">
+            <label>New or existing class</label>
+            <select value={existing} onChange={e => {
+              const c = others.find(o => o.id === e.target.value);
+              setExisting(e.target.value); setError('');
+              setF(prev => ({ ...prev, name: c ? c.name : '', teacherId: c ? c.teacherId || '' : prev.teacherId }));
+            }}>
+              <option value="">A new class</option>
+              {others.map(o => <option key={o.id} value={o.id}>{o.name} (already a class)</option>)}
+            </select>
+          </div>
+        )}
         <div className="form-group">
           <label>Name <span className="required">*</span></label>
           <input value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. 3rd year, Takmeel" autoFocus={isNew} />
@@ -295,7 +302,7 @@ function YearModal({ initial, place, count, teachers, students, subjects, onClos
           <label>Place in the course</label>
           <select value={f.position} onChange={e => set('position', e.target.value)}>
             {Array.from({ length: places }, (_, i) => <option key={i} value={i + 1}>Year {i + 1}{i === 0 ? ' (first)' : i === places - 1 ? ' (last)' : ''}</option>)}
-            {!isNew && <option value={0}>Not one of the years (e.g. Hifdh)</option>}
+            {!isNew && <option value={0}>Not an Aalim year (stays as a class)</option>}
           </select>
         </div>
         <div className="form-group">
@@ -310,7 +317,7 @@ function YearModal({ initial, place, count, teachers, students, subjects, onClos
         <div className="course-lines" style={{ marginTop: 14 }}>
           {place > 0 && (
             <button type="button" className="line-row" disabled={busy} onClick={takeOut}>
-              <span className="line-row-name">Take out of the years</span>
+              <span className="line-row-name">Take out of the Aalim years</span>
               <span className="line-row-sub">It stays as a class</span>
             </button>
           )}

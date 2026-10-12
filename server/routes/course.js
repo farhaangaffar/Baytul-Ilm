@@ -20,6 +20,7 @@ let ready = false;
 async function ensure() {
   if (ready) return;
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS course_order INTEGER');
+  await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS quran_type TEXT'); // read below (routes/classes.js owns it)
   await query(`CREATE TABLE IF NOT EXISTS du_subjects (
     id          BIGSERIAL PRIMARY KEY,
     madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -106,7 +107,7 @@ module.exports = requireAuth(async (req, res) => {
 
   if (req.method === 'GET') {
     const { rows: classes } = await query(
-      `SELECT id, name, teacher_id AS "teacherId", course_order AS "courseOrder" FROM classes
+      `SELECT id, name, teacher_id AS "teacherId", course_order AS "courseOrder", quran_type AS "quranType" FROM classes
        WHERE madrasah_id = $1 ORDER BY course_order NULLS LAST, name`, [mid]);
     const { rows: subjects } = await query(
       `SELECT s.id::text, s.class_id AS "classId", s.subject, s.kitaab, s.teacher_id AS "teacherId"

@@ -19,7 +19,7 @@ const navItems = [
   { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true },
   { label:'Daily records',      path:'/records',    icon:BookOpen,      teacher:true },
   { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup' },
-  { label:'Course',             path:'/course',     icon:Library,       darulUloom:true },
+  { label:'Aalim course',       path:'/course',     icon:Library,       darulUloom:true },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },

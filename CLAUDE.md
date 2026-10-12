@@ -94,15 +94,16 @@ codebase (one codebase, not a fork).
   `server/newMadrasah.js`, `KIND_PRICES` in `src/lib/billing.js`). The front end checks
   `useAuth().isDarulUloom`; a maktab must never see a Darul Uloom page. Sign-up and the front page
   only offer it once the stages are done (the terms' Cost section and `TERMS_VERSION` change then).
-  **Course page** (`/course`, head only, `src/pages/Course.js`, `server/routes/course.js` — answers 403 for
+  **Aalim course page** (`/course`, menu "Aalim course", head only, `src/pages/Course.js`, `server/routes/course.js` — answers 403 for
   a maktab): a year group is an ordinary class with `classes.course_order` (1 = first year; NULL = not a
   course year, e.g. Hifdh), so attendance/fees/reports work unchanged. Each year's subjects & kitaabs are in
   `du_subjects` (any kitaab can be typed; the starter list's and the madrasah's own are suggested). "Use the
   Dars-e-Nizami years" adds the usual years and kitaabs (`STARTER`). "Move everyone up" moves each Active
   child one year on (held-back ones stay); the last year are marked left (`Inactive`, leave date today);
   each move is logged in `du_year_moves` so it can be undone (only children not changed since).
-  The page is single lines: year lines (tap to open its kitaab lines underneath), "Add a year" (`?action=year`: add,
-  rename, move to another place, take out of the years; a year with no students can be deleted). Classes
+  The page is single lines: year lines (tap to open its kitaab lines underneath), "Add a year" (`?action=year`: a new
+  class or an existing one; rename, move to another place, take out of the Aalim years; a year with no students can be
+  deleted). Only the Aalim years show there — Hifdh and other classes live on Classes & Teachers only. Classes
   are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
   year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
