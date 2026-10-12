@@ -3,7 +3,10 @@
 // their free date falls in, so paying starts on the 1st after it. Each payment covers whole
 // months in order from there — when it was paid doesn't move anything.
 
-export const DEFAULT_PRICE = { monthly: 20, yearly: 200 };
+// What each kind of school pays by default (server/newMadrasah.js PRICES has the same).
+export const KIND_PRICES = { maktab: { monthly: 20, yearly: 200 }, darul_uloom: { monthly: 50, yearly: 500 } };
+export const KIND_LABELS = { maktab: 'Maktab', darul_uloom: 'Darul Uloom' };
+export const defaultPrice = m => KIND_PRICES[m.kind] || KIND_PRICES.maktab;
 export const WARN_DAYS = 14; // yellow for the last two weeks
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const money = n => `£${Number(n).toFixed(2).replace(/\.00$/, '')}`;
@@ -26,10 +29,10 @@ export function billingStart(freeUntil) {
 }
 
 export function prices(m) {
-  const amount = Number(m.billingAmount);
+  const amount = Number(m.billingAmount), d = defaultPrice(m);
   return {
-    monthly: m.billingPlan === 'monthly' && amount > 0 ? amount : DEFAULT_PRICE.monthly,
-    yearly: m.billingPlan === 'yearly' && amount > 0 ? amount : DEFAULT_PRICE.yearly,
+    monthly: m.billingPlan === 'monthly' && amount > 0 ? amount : d.monthly,
+    yearly: m.billingPlan === 'yearly' && amount > 0 ? amount : d.yearly,
   };
 }
 
