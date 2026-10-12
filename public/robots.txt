@@ -1,0 +1,7 @@
+# Search engines may read the public pages (front page, privacy, terms); the app itself
+# needs a sign-in and the API is never for them.
+User-agent: *
+Disallow: /api/
+Allow: /
+
+Sitemap: https://www.suhuf.uk/sitemap.xml
