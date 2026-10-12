@@ -15,16 +15,26 @@ const ROLES = [
   { role: 'parent', icon: Users, title: 'Parent', who: 'The Rahman family · two children',
     text: 'Their children\'s attendance, fees, reports and Qur\'an progress; reporting an absence.' },
 ];
+// The made-up Darul Uloom (?demo=darul-uloom, server/demo.js createDarulUloomDemo).
+const DU_ROLES = [
+  { role: 'head', icon: LayoutDashboard, title: 'Muhtamim (head)', who: 'Demo Darul Uloom',
+    text: 'Everything: the course years and kitaabs, students, attendance, fees, reports and settings.' },
+  { role: 'teacher', icon: BookOpen, title: 'Ustadh', who: 'Maulana Yusuf · 1st year',
+    text: 'His own year: the register, daily records and ticking fees paid.' },
+  { role: 'parent', icon: Users, title: 'Parent', who: 'The Patel family · two sons',
+    text: 'Their sons\' attendance, fees, reports and Hifdh progress; reporting an absence.' },
+];
+const rolesFor = kind => (kind === 'darul_uloom' ? DU_ROLES : ROLES);
 
 const SIGNED_IN_ROLE = { owner: 'head', teacher: 'teacher', parent: 'parent' };
 
 // Start (or switch within) a demo, then open the app afresh as that person.
-async function enter(role) {
-  await startDemo(role);
+async function enter(role, kind) {
+  await startDemo(role, kind);
   window.location.assign('/');
 }
 
-export function DemoChooser({ current }) {
+export function DemoChooser({ current, kind = 'maktab' }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   // Count a new visitor opening the demo, and who they chose to be (not switches inside one).
@@ -33,13 +43,13 @@ export function DemoChooser({ current }) {
   async function choose(role) {
     setBusy(role); setError('');
     if (!current) countVisit(`/demo/${role}`);
-    try { await enter(role); }
+    try { await enter(role, kind); }
     catch (err) { setError(err.message || 'Could not open the demo — try again.'); setBusy(''); }
   }
 
   return (
     <div style={{ display: 'grid', gap: 10, textAlign: 'left' }}>
-      {ROLES.map(({ role, icon: Icon, title, who, text }) => {
+      {rolesFor(kind).map(({ role, icon: Icon, title, who, text }) => {
         const here = current === role;
         return (
           <button key={role} type="button" onClick={() => choose(role)} disabled={!!busy || here}
@@ -84,7 +94,7 @@ export function DemoBar({ user }) {
     <>
       <div style={{ background: 'var(--green-text)', color: '#fff', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, flexShrink: 0 }}>
         <span style={{ flex: 1, minWidth: 0 }} title="Made-up data — change anything; it's deleted after a day.">
-          <strong>Demo</strong> · {ROLES.find(r => r.role === role)?.title || user.login} view
+          <strong>Demo</strong> · {rolesFor(user.madrasah?.kind).find(r => r.role === role)?.title || user.login} view
         </span>
         <button type="button" style={btn} onClick={() => setSwitching(true)}><Repeat size={13} />Switch view</button>
         <button type="button" style={btn} onClick={leaveDemo}><LogOut size={13} />Leave</button>
@@ -94,7 +104,7 @@ export function DemoBar({ user }) {
           <div className="modal" style={{ maxWidth: 440, padding: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Switch view</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>Same demo madrasah — see it as someone else.</div>
-            <DemoChooser current={role} />
+            <DemoChooser current={role} kind={user.madrasah?.kind} />
             <button type="button" className="btn" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }} onClick={() => setSwitching(false)}>Cancel</button>
           </div>
         </div>

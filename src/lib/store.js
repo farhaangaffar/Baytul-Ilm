@@ -71,8 +71,8 @@ export async function changePassword(currentPassword, newPassword) {
 export async function signUp(data) { return apiFetch('/api/signup', { method: 'POST', body: JSON.stringify(data) }); }
 export async function suggestSignupCode(name) { return apiFetch(`/api/signup?name=${encodeURIComponent(name)}`); }
 export async function signupCodeFree(code) { return apiFetch(`/api/signup?code=${encodeURIComponent(code)}`); }
-export async function startDemo(role) {
-  return apiFetch('/api/demo', { method: 'POST', body: JSON.stringify({ role }) });
+export async function startDemo(role, kind) {
+  return apiFetch('/api/demo', { method: 'POST', body: JSON.stringify({ role, kind }) });
 }
 export async function logout() {
   return apiFetch('/api/logout', { method: 'POST' });
@@ -412,7 +412,7 @@ export function getWeekStartsForMonth(yearMonth) {
 // A Darul Uloom's course: year groups in order, subjects & kitaabs, moving up (server/routes/course.js).
 export async function getCourse() { return apiFetch('/api/course'); }
 export async function addStarterCourse() { return apiFetch('/api/course?action=starter', { method: 'POST' }); }
-export async function setCourseYears(ids) { return apiFetch('/api/course?action=years', { method: 'POST', body: JSON.stringify({ ids }) }); }
+export async function saveCourseYear(data) { return apiFetch('/api/course?action=year', { method: 'POST', body: JSON.stringify(data) }); }
 export async function addCourseSubject(data) { return apiFetch('/api/course', { method: 'POST', body: JSON.stringify(data) }); }
 export async function updateCourseSubject(id, data) { return apiFetch(`/api/course?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteCourseSubject(id) { return apiFetch(`/api/course?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }

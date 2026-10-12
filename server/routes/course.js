@@ -10,6 +10,8 @@ const { requireAuth } = require('../auth');
 // GET                         → { years, others, subjects, starter, kitaabs, lastMove }
 // POST ?action=starter        → adds the usual Dars-e-Nizami years (those not there yet) and their kitaabs
 // POST ?action=years {ids}    → these classes, in this order, are the course years (the rest aren't)
+// POST ?action=year {classId?, name, teacherId, position} → adds a year (a new class) or changes one —
+//                               its name, teacher and place (1 = first year); 0 takes it out of the course
 // POST {classId, subject, kitaab, teacherId}  → adds a subject; PATCH ?id= changes it; DELETE ?id= removes it
 // POST ?action=move-up {holdBack: [studentIds]} → everyone up a year; the last year finish (marked left)
 // POST ?action=undo-move      → puts the last move back
@@ -174,6 +176,40 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && action === 'year') {
+    const b = req.body || {};
+    const name = clean(b.name, 60);
+    if (!name) { res.status(400).json({ error: "Enter the year's name." }); return; }
+    if (!(await teacherOk(b.teacherId, mid))) { res.status(400).json({ error: 'Teacher not found' }); return; }
+    const result = await transaction(async c => {
+      const { rows: clash } = await c.query('SELECT id FROM classes WHERE madrasah_id = $1 AND lower(name) = lower($2) AND id <> $3',
+        [mid, name, String(b.classId || '')]);
+      if (clash.length) return { error: 'There is already a class with that name.' };
+      let classId = b.classId ? String(b.classId) : null;
+      if (classId) {
+        const { rows: [old] } = await c.query('SELECT name FROM classes WHERE id = $1 AND madrasah_id = $2', [classId, mid]);
+        if (!old) return { error: 'Year not found' };
+        await c.query('UPDATE classes SET name = $1, teacher_id = $2 WHERE id = $3 AND madrasah_id = $4', [name, b.teacherId || null, classId, mid]);
+        // students.class holds the name, so a rename moves its students with it (as routes/classes.js does).
+        if (old.name !== name) await c.query('UPDATE students SET class = $1 WHERE class = $2 AND madrasah_id = $3', [name, old.name, mid]);
+      } else {
+        classId = 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await c.query('INSERT INTO classes (id, madrasah_id, name, teacher_id) VALUES ($1,$2,$3,$4)', [classId, mid, name, b.teacherId || null]);
+      }
+      // Its place: the course years in order, with this one put at `position` (0 = out of the course).
+      const ids = (await courseYears(c, mid)).map(y => y.id).filter(x => x !== classId);
+      const at = Number(b.position);
+      if (at > 0) ids.splice(Math.min(at, ids.length + 1) - 1, 0, classId);
+      else if (b.position === undefined || b.position === null) ids.push(classId);
+      await c.query('UPDATE classes SET course_order = NULL WHERE madrasah_id = $1', [mid]);
+      for (const [i, x] of ids.entries()) await c.query('UPDATE classes SET course_order = $1 WHERE id = $2 AND madrasah_id = $3', [i + 1, x, mid]);
+      return { id: classId };
+    });
+    if (result.error) { res.status(400).json({ error: result.error }); return; }
+    res.status(200).json({ ok: true, ...result });
+    return;
+  }
+
   if (req.method === 'POST' && action === 'reorder-subjects') {
     const ids = (req.body || {}).ids;
     if (!Array.isArray(ids) || ids.some(x => !/^\d+$/.test(String(x)))) { res.status(400).json({ error: 'ids[] is required' }); return; }
@@ -285,4 +321,5 @@ module.exports = requireAuth(async (req, res) => {
   res.status(405).json({ error: 'Method not allowed' });
 });
 
-module.exports.ensure = ensure; // server/demo.js makes sure the tables exist before deleting a madrasah
+module.exports.ensure = ensure;
+module.exports.STARTER = STARTER; // the Darul Uloom demo uses the same years and kitaabs // server/demo.js makes sure the tables exist before deleting a madrasah

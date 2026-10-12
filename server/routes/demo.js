@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 const { query } = require('../db');
 const { getUser, setSessionCookie } = require('../auth');
-const { ensureAllTables, clearExpired, tooMany, createDemo } = require('../demo');
+const { ensureAllTables, clearExpired, tooMany, createDemo, createDarulUloomDemo } = require('../demo');
 
-// "Try the demo": POST {role: 'head' | 'teacher' | 'parent'} signs the visitor in to a
+// "Try the demo": POST {role: 'head' | 'teacher' | 'parent', kind?: 'darul_uloom'} signs the visitor in to a
 // private demo madrasah as that person (server/demo.js). Someone already in a demo
 // just switches person within it; anyone else gets a fresh one. No password involved —
 // demo logins can't be signed in to any other way.
@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
     const hash = ipHash(req);
     const busy = await tooMany(hash);
     if (busy) { res.status(429).json({ error: busy }); return; }
-    mid = await createDemo(hash);
+    mid = (req.body || {}).kind === 'darul_uloom' ? await createDarulUloomDemo(hash) : await createDemo(hash);
   }
 
   const { rows } = await query(`SELECT * FROM users WHERE madrasah_id = $1 AND ${ROLE_SQL[role]} AND active ORDER BY id LIMIT 1`, [mid]);

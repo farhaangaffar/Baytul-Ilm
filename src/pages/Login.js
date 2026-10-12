@@ -18,6 +18,8 @@ import { DemoChooser } from '../components/Demo';
 // A fourth screen, "Try the demo" (also opened by a link ending ?demo), offers a made-up
 // madrasah to look around as its head, a teacher or a parent (components/Demo.js).
 const demoLink = () => { try { return new URLSearchParams(window.location.search).has('demo'); } catch { return false; } };
+// ?demo=darul-uloom opens a made-up full-time Darul Uloom instead (its years, kitaabs and Hifdh class).
+const demoKind = () => { try { return new URLSearchParams(window.location.search).get('demo') === 'darul-uloom' ? 'darul_uloom' : 'maktab'; } catch { return 'maktab'; } };
 
 export default function Login({ setupRequired, notice, onSuccess }) {
   const [mode, setMode] = useState(() => (!setupRequired && demoLink() ? 'demo' : 'signin')); // 'signin' | 'setup' | 'recover' | 'demo'
@@ -118,9 +120,9 @@ export default function Login({ setupRequired, notice, onSuccess }) {
           <>
             <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Try the demo</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
-              A made-up madrasah, just for you. Change anything — it's deleted after a day. Who would you like to be?
+              A made-up {demoKind() === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'}, just for you. Change anything — it's deleted after a day. Who would you like to be?
             </div>
-            <DemoChooser />
+            <DemoChooser kind={demoKind()} />
             <button type="button" onClick={() => switchMode('signin')} style={{ ...linkBtn, marginTop: 14 }}>Back to sign in</button>
           </>
         )}

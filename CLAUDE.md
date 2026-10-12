@@ -25,6 +25,13 @@ codebase (one codebase, not a fork).
 - If unsure whether a change is small or large, treat it as large.
 - After a PR is merged, start follow-up work on a fresh branch from the latest `main`.
 - Explain things in plain language — the owner isn't a developer.
+- **Every preview shows made-up data:** when giving the owner a preview link, give the demo link
+  too (`<preview>/?demo`, or `<preview>/?demo=darul-uloom` for Darul Uloom work) so they see the
+  change with realistic names, not an empty madrasah. If the change needs data the demo doesn't
+  make yet, add it to `server/demo.js` in the same PR.
+- **The owner's design style:** boxes and cards — tidy grey boxes in a grid (the Reports page's class
+  boxes, `BoxRow`, `.course-box`, `.box-row-3`), tap a box to open it below, one card per thing,
+  pop-ups for editing. New pages use this look; avoid plain lists, tables and squashed columns.
 
 ## Project conventions
 
@@ -92,6 +99,13 @@ codebase (one codebase, not a fork).
   Dars-e-Nizami years" adds the usual years and kitaabs (`STARTER`). "Move everyone up" moves each Active
   child one year on (held-back ones stay); the last year are marked left (`Inactive`, leave date today);
   each move is logged in `du_year_moves` so it can be undone (only children not changed since).
+  The page is boxes: year boxes (tap to open its kitaab boxes below), "Add a year" (`?action=year`: add,
+  rename, move to another place, take out of the years; a year with no students can be deleted). Classes
+  are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
+  year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
+  **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
+  with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
+  behaviour records, last month's reports; logins: head, Maulana Yusuf (1st year), the Patel family.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own

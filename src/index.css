@@ -668,20 +668,24 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .pay-manage { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
 .pay-manage .btn { justify-content: center; }
 
-/* Darul Uloom course (pages/Course.js): a card per year, a row per subject. */
+/* Darul Uloom course (pages/Course.js): boxes like the Reports page's class boxes. */
 .course-page > .card { margin-bottom: 14px; }
-.course-subjects { display: grid; gap: 6px; }
-.course-subject { display: grid; grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; align-items: center; width: 100%; text-align: left; padding: 10px 12px; border: none; border-radius: 10px; background: #f6f7f9; font-family: var(--font); font-size: 13px; color: var(--ink); cursor: pointer; }
-.course-subject:hover { background: var(--teal-light); }
-.course-subject-name { font-weight: 600; }
-.course-subject-kitaab { min-width: 0; }
-.course-subject-teacher { color: var(--text-muted); text-align: right; min-width: 0; }
-@media (max-width: 560px) {
-  .course-subject { grid-template-columns: 1fr auto; row-gap: 2px; }
-  .course-subject-kitaab { grid-column: 1 / -1; grid-row: 2; }
-}
-.course-year-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: #f6f7f9; font-size: 13.5px; }
-.course-year-num { width: 24px; height: 24px; border-radius: 50%; background: var(--teal-light); color: var(--teal); font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.course-box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.course-box-grid.wide { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.box-row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.course-box { position: relative; border: 1px solid #dfe3e8; background: #f3f4f6; color: var(--ink); border-radius: 8px; padding: 8px 8px; min-height: 58px; cursor: pointer; font-family: var(--font); text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; min-width: 0; }
+.course-box:disabled { cursor: default; opacity: 0.7; }
+.course-box-name { font-weight: 700; font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.course-box-sub { font-size: 10.5px; font-weight: 500; opacity: 0.8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-box-sub.top { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+.course-box-num { position: absolute; top: 5px; left: 7px; font-size: 10px; font-weight: 700; opacity: 0.55; }
+.course-box.subject { min-height: 66px; background: #fafbfc; }
+.course-box.subject .course-box-name { white-space: normal; }
+.course-box.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.course-box.action { background: var(--ink); border-color: var(--ink); color: #fff; }
+.course-box.add { background: #fff; border-style: dashed; border-color: #c9ced6; color: var(--text-muted); }
+.course-box.quiet { background: #fafbfc; color: var(--text-muted); cursor: default; }
+.course-box.danger { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
 .course-move-year { padding: 10px 0; border-top: 1px solid #eef0f3; }
 .course-move-year:first-of-type { border-top: none; }
 .course-move-title { font-weight: 600; font-size: 13.5px; margin-bottom: 8px; }

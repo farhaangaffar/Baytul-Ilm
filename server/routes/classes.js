@@ -9,10 +9,11 @@ let columnsReady = false;
 async function ensureColumns() {
   if (columnsReady) return;
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS quran_type TEXT');
+  await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS course_order INTEGER'); // a Darul Uloom's years (routes/course.js)
   columnsReady = true;
 }
 const QURAN_TYPES = ['hifz', 'nazira', 'qaida', 'mixed'];
-const COLS = 'id, name, teacher_id AS "teacherId", quran_type AS "quranType"';
+const COLS = 'id, name, teacher_id AS "teacherId", quran_type AS "quranType", course_order AS "courseOrder"';
 
 // A class's teacher must be one of the same madrasah's teachers.
 async function teacherOk(teacherId, mid) {
@@ -31,14 +32,14 @@ module.exports = requireAuth(async (req, res) => {
   if (!isOwner(req)) {
     if (id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
     const names = await teacherClassNames(req.user);
-    const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY name`, [mid, names]);
+    const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY course_order NULLS LAST, name`, [mid, names]);
     res.status(200).json(rows);
     return;
   }
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 ORDER BY name`, [mid]);
+      const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 ORDER BY course_order NULLS LAST, name`, [mid]);
       res.status(200).json(rows);
       return;
     }

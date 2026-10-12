@@ -6,10 +6,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
-  getCourse, addStarterCourse, setCourseYears, addCourseSubject, updateCourseSubject, deleteCourseSubject,
-  moveCourseUp, undoCourseMove, getTeachers, getStudents, formatDateGB,
+  getCourse, addStarterCourse, saveCourseYear, addCourseSubject, updateCourseSubject, deleteCourseSubject,
+  moveCourseUp, undoCourseMove, getTeachers, getStudents, deleteClass, formatDateGB,
 } from '../lib/store';
-import { Plus, X, Save, Trash2, ArrowUp, ArrowDown, ChevronsUp, Undo2, ListOrdered, Library, Users } from 'lucide-react';
+import { Plus, X, Save, Trash2, ChevronsUp, Undo2, Library, Pencil } from 'lucide-react';
 
 export default function Course() {
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,8 @@ export default function Course() {
   const [course, setCourse] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
-  const [modal, setModal] = useState(null); // { kind: 'subject' | 'years' | 'move' | 'undo', … }
+  const [openId, setOpenId] = useState('');  // the year (or other class) opened below the boxes
+  const [modal, setModal] = useState(null);  // { kind: 'subject' | 'year' | 'move' | 'undo', … }
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -26,6 +27,7 @@ export default function Course() {
     try {
       const [c, t, s] = await Promise.all([getCourse(), getTeachers(), getStudents()]);
       setCourse(c); setTeachers(t); setStudents(s);
+      setOpenId(prev => (prev && [...c.years, ...c.others].some(y => y.id === prev) ? prev : c.years[0]?.id || ''));
     } catch (err) { setError(err); }
     setLoading(false);
   }, []);
@@ -43,79 +45,122 @@ export default function Course() {
     setBusy(false);
   }
 
-  if (loading) return <Layout title="Course" subtitle="Year groups, subjects and kitaabs"><LoadingState /></Layout>;
-  if (error) return <Layout title="Course" subtitle="Year groups, subjects and kitaabs"><ErrorState error={error} onRetry={load} /></Layout>;
+  const title = 'Course';
+  const subtitle = 'Years, subjects and kitaabs';
+  if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
+  if (error) return <Layout title={title} subtitle={subtitle}><ErrorState error={error} onRetry={load} /></Layout>;
 
   const { years, others, subjects, lastMove } = course;
+  const open = years.find(y => y.id === openId) || others.find(c => c.id === openId);
+  const openPlace = open ? years.indexOf(open) + 1 : 0; // 0 = not a course year
+  const subjectsOf = id => subjects.filter(s => s.classId === id);
+  const newYear = () => setModal({ kind: 'year', year: { name: '', teacherId: '' }, place: years.length + 1 });
 
   return (
-    <Layout title="Course" subtitle="Year groups, subjects and kitaabs">
-      <div className="student-page course-page">
-        {years.length === 0 ? (
+    <Layout title={title} subtitle={subtitle}>
+      <div className="course-page">
+        {years.length === 0 && (
           <div className="card">
             <div className="card-title" style={{ marginBottom: 6 }}><Library size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Set up your course years</div>
             <div className="card-sub" style={{ marginBottom: 14 }}>
-              Start from the usual Dars-e-Nizami years (1st year to Dawrah al-Hadith) with their subjects and kitaabs, then change anything to suit you.
+              Start from the usual Dars-e-Nizami years (1st year to Dawrah al-Hadith) with their kitaabs, or add your own years one by one.
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" disabled={busy} onClick={useStarter}><Plus size={14} />{busy ? 'Adding…' : 'Use the Dars-e-Nizami years'}</button>
-              {others.length > 0 && <button className="btn" onClick={() => setModal({ kind: 'years' })}><ListOrdered size={14} /> Choose from my classes</button>}
+            <div className="box-row-2">
+              <button type="button" className="course-box action" disabled={busy} onClick={useStarter}>
+                <span className="course-box-name">{busy ? 'Adding…' : 'Use the Dars-e-Nizami years'}</span>
+                <span className="course-box-sub">7 years with their kitaabs</span>
+              </button>
+              <button type="button" className="course-box" onClick={newYear}>
+                <span className="course-box-name"><Plus size={13} /> Add a year</span>
+                <span className="course-box-sub">Start from nothing</span>
+              </button>
             </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-            <button className="btn" onClick={() => setModal({ kind: 'years' })}><ListOrdered size={14} /> Years</button>
-            <button className="btn btn-primary" onClick={() => setModal({ kind: 'move' })}><ChevronsUp size={14} /> Move everyone up</button>
           </div>
         )}
 
-        {lastMove && (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', padding: '12px 16px' }}>
-            <span className="text-muted" style={{ fontSize: 13 }}>Everyone moved up on {formatDateGB(lastMove.movedOn)} ({lastMove.count} {lastMove.count === 1 ? 'child' : 'children'}).</span>
-            <button className="btn btn-sm" onClick={() => setModal({ kind: 'undo' })}><Undo2 size={13} /> Undo</button>
-          </div>
-        )}
-
-        {years.map((y, i) => {
-          const list = subjects.filter(s => s.classId === y.id);
-          const n = childrenIn(y.name).length;
-          return (
-            <div key={y.id} className="card course-year">
-              <div className="card-header">
-                <div>
-                  <div className="card-title">{y.name}</div>
-                  <div className="card-sub">
-                    Year {i + 1} · <Users size={11} style={{ verticalAlign: '-1px' }} /> {n} {n === 1 ? 'student' : 'students'}
-                    {y.teacherId && teacherName(y.teacherId) ? ` · ${teacherName(y.teacherId)}` : ''}
-                  </div>
-                </div>
-                <button className="btn btn-sm" onClick={() => setModal({ kind: 'subject', subject: { classId: y.id, subject: '', kitaab: '', teacherId: '' }, yearName: y.name })}>
-                  <Plus size={13} /> Subject
+        {/* The years as boxes, first year first — tap one to open it below. */}
+        {years.length > 0 && (
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 2 }}>Years</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>First year first · tap a year to see its subjects</div>
+            <div className="course-box-grid">
+              {years.map((y, i) => {
+                const n = childrenIn(y.name).length;
+                return (
+                  <button key={y.id} type="button" className={`course-box ${openId === y.id ? 'on' : ''}`} onClick={() => setOpenId(y.id)}>
+                    <span className="course-box-num">{i + 1}</span>
+                    <span className="course-box-name">{y.name}</span>
+                    <span className="course-box-sub">{n} {n === 1 ? 'student' : 'students'} · {subjectsOf(y.id).length} kitaabs</span>
+                  </button>
+                );
+              })}
+              <button type="button" className="course-box add" onClick={newYear}>
+                <span className="course-box-name"><Plus size={13} /> Add a year</span>
+                <span className="course-box-sub">More years? Add them</span>
+              </button>
+            </div>
+            <div className="box-row-2" style={{ marginTop: 10 }}>
+              <button type="button" className="course-box action" onClick={() => setModal({ kind: 'move' })}>
+                <span className="course-box-name"><ChevronsUp size={14} /> Move everyone up</span>
+                <span className="course-box-sub">End of the year</span>
+              </button>
+              {lastMove ? (
+                <button type="button" className="course-box" onClick={() => setModal({ kind: 'undo' })}>
+                  <span className="course-box-name"><Undo2 size={13} /> Undo moving up</span>
+                  <span className="course-box-sub">Done {formatDateGB(lastMove.movedOn)} · {lastMove.count} {lastMove.count === 1 ? 'child' : 'children'}</span>
                 </button>
-              </div>
-              {list.length === 0 ? (
-                <div className="text-muted" style={{ fontSize: 13, padding: '4px 2px 6px' }}>No subjects yet — tap "+ Subject".</div>
               ) : (
-                <div className="course-subjects">
-                  {list.map(s => (
-                    <button key={s.id} type="button" className="course-subject" onClick={() => setModal({ kind: 'subject', subject: s, yearName: y.name })}>
-                      <span className="course-subject-name">{s.subject}</span>
-                      <span className="course-subject-kitaab">{s.kitaab || <span className="text-muted">No kitaab yet</span>}</span>
-                      <span className="course-subject-teacher">{teacherName(s.teacherId) || 'No teacher yet'}</span>
-                    </button>
-                  ))}
+                <div className="course-box quiet">
+                  <span className="course-box-name">Not moved up yet</span>
+                  <span className="course-box-sub">You can undo it after</span>
                 </div>
               )}
             </div>
-          );
-        })}
+          </div>
+        )}
 
-        {years.length > 0 && others.length > 0 && (
+        {/* The open year: its details, then each subject and kitaab as a box. */}
+        {open && (
           <div className="card">
-            <div className="card-title" style={{ marginBottom: 4 }}>Other classes</div>
-            <div className="card-sub" style={{ marginBottom: 10 }}>Not part of the course years (e.g. Hifdh). Add them with "Years".</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {others.map(c => <span key={c.id} className="badge badge-blue">{c.name} · {childrenIn(c.name).length}</span>)}
+            <div className="card-header">
+              <div>
+                <div className="card-title">{open.name}</div>
+                <div className="card-sub">
+                  {openPlace ? `Year ${openPlace} of ${years.length}` : 'Not one of the course years'}
+                  {' · '}{childrenIn(open.name).length} students
+                  {teacherName(open.teacherId) ? ` · ${teacherName(open.teacherId)}` : ''}
+                </div>
+              </div>
+              <button className="btn btn-sm" onClick={() => setModal({ kind: 'year', year: open, place: openPlace })}><Pencil size={13} /> Edit</button>
+            </div>
+            <div className="course-box-grid wide">
+              {subjectsOf(open.id).map(s => (
+                <button key={s.id} type="button" className="course-box subject" onClick={() => setModal({ kind: 'subject', subject: s, yearName: open.name })}>
+                  <span className="course-box-sub top">{s.subject}</span>
+                  <span className="course-box-name">{s.kitaab || 'No kitaab yet'}</span>
+                  <span className="course-box-sub">{teacherName(s.teacherId) || 'No teacher yet'}</span>
+                </button>
+              ))}
+              <button type="button" className="course-box add" onClick={() => setModal({ kind: 'subject', subject: { classId: open.id, subject: '', kitaab: '', teacherId: '' }, yearName: open.name })}>
+                <span className="course-box-name"><Plus size={13} /> Add a subject</span>
+                <span className="course-box-sub">Any kitaab</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Classes outside the course (e.g. Hifdh) — tap to open, or add to the years. */}
+        {others.length > 0 && years.length > 0 && (
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 2 }}>Other classes</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>Not part of the years (e.g. Hifdh)</div>
+            <div className="course-box-grid">
+              {others.map(c => (
+                <button key={c.id} type="button" className={`course-box ${openId === c.id ? 'on' : ''}`} onClick={() => setOpenId(c.id)}>
+                  <span className="course-box-name">{c.name}</span>
+                  <span className="course-box-sub">{childrenIn(c.name).length} students</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -126,9 +171,11 @@ export default function Course() {
           onClose={() => setModal(null)}
           onSaved={async msg => { setModal(null); await load(); showToast(msg); }} />
       )}
-      {modal?.kind === 'years' && (
-        <YearsModal years={years} others={others} onClose={() => setModal(null)}
-          onSaved={async () => { setModal(null); await load(); showToast('Years saved'); }} />
+      {modal?.kind === 'year' && (
+        <YearModal initial={modal.year} place={modal.place} count={years.length} teachers={teachers}
+          students={childrenIn(modal.year.name || '\u0000').length} subjects={modal.year.id ? subjectsOf(modal.year.id).length : 0}
+          onClose={() => setModal(null)}
+          onSaved={async (msg, id) => { setModal(null); if (id) setOpenId(id); await load(); showToast(msg); }} />
       )}
       {modal?.kind === 'move' && (
         <MoveUpModal years={years} childrenIn={childrenIn} onClose={() => setModal(null)}
@@ -223,50 +270,79 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
   );
 }
 
-// Which classes are course years, in order (first year at the top).
-function YearsModal({ years, others, onClose, onSaved }) {
-  const [inCourse, setInCourse] = useState(years.map(y => ({ id: y.id, name: y.name })));
-  const [out, setOut] = useState(others.map(c => ({ id: c.id, name: c.name })));
+// Adds a year, or changes one: its name, teacher and place in the course. A year can be
+// taken out of the course (it stays a class), or deleted when it has no students.
+function YearModal({ initial, place, count, teachers, students, subjects, onClose, onSaved }) {
+  const isNew = !initial.id;
+  const [f, setF] = useState({ name: initial.name || '', teacherId: initial.teacherId || '', position: isNew ? count + 1 : place });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const move = (i, d) => setInCourse(list => {
-    const next = [...list]; const j = i + d;
-    if (j < 0 || j >= next.length) return list;
-    [next[i], next[j]] = [next[j], next[i]];
-    return next;
-  });
-  const remove = c => { setInCourse(l => l.filter(x => x.id !== c.id)); setOut(l => [...l, c]); };
-  const add = c => { setOut(l => l.filter(x => x.id !== c.id)); setInCourse(l => [...l, c]); };
+  const [sure, setSure] = useState(false);
+  const set = (k, v) => { setError(''); setF(prev => ({ ...prev, [k]: v })); };
+  const places = isNew || !place ? count + 1 : count; // how many places it could take (0 = not one of the years)
 
-  async function save() {
+  async function run(fn) {
     setBusy(true); setError('');
-    try { await setCourseYears(inCourse.map(c => c.id)); await onSaved(); } catch (err) { setError(err.message || 'Could not save'); setBusy(false); }
+    try { await fn(); } catch (err) { setError(err.message || 'Something went wrong'); setBusy(false); }
   }
+  const save = () => run(async () => {
+    const r = await saveCourseYear({ classId: initial.id, name: f.name, teacherId: f.teacherId, position: Number(f.position) });
+    await onSaved(isNew ? `${f.name.trim()} added` : 'Saved', r.id);
+  });
+  const takeOut = () => run(async () => {
+    await saveCourseYear({ classId: initial.id, name: f.name, teacherId: f.teacherId, position: 0 });
+    await onSaved(`${initial.name} taken out of the years`);
+  });
+  const remove = () => run(async () => { await deleteClass(initial.id); await onSaved(`${initial.name} deleted`); });
 
   return (
-    <ModalShell title="Course years" onClose={onClose} footer={<>
+    <ModalShell title={isNew ? 'Add a year' : `Edit — ${initial.name}`} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
-      <button className="btn btn-teal" disabled={busy} onClick={save}><Save size={13} /> {busy ? 'Saving…' : 'Save'}</button>
+      <button className="btn btn-teal" disabled={busy || !f.name.trim()} onClick={save}>
+        <Save size={13} /> {busy ? 'Saving…' : isNew ? 'Add year' : 'Save'}
+      </button>
     </>}>
-      <div className="text-muted" style={{ fontSize: 12.5, marginBottom: 10 }}>First year at the top. Children move down this list when they move up.</div>
-      {inCourse.length === 0 && <div className="text-muted" style={{ fontSize: 13, marginBottom: 10 }}>No course years yet — add classes below.</div>}
-      <div style={{ display: 'grid', gap: 6, marginBottom: 14 }}>
-        {inCourse.map((c, i) => (
-          <div key={c.id} className="course-year-row">
-            <span className="course-year-num">{i + 1}</span>
-            <span style={{ flex: 1, minWidth: 0, fontWeight: 600 }}>{c.name}</span>
-            <button className="btn btn-icon" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={14} /></button>
-            <button className="btn btn-icon" aria-label="Move down" disabled={i === inCourse.length - 1} onClick={() => move(i, 1)}><ArrowDown size={14} /></button>
-            <button className="btn btn-icon" aria-label="Take out of the course" onClick={() => remove(c)}><X size={14} /></button>
-          </div>
-        ))}
-      </div>
-      {out.length > 0 && <>
-        <div className="form-section-title" style={{ marginBottom: 6 }}>Other classes</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {out.map(c => <button key={c.id} className="btn btn-sm" onClick={() => add(c)}><Plus size={12} /> {c.name}</button>)}
+      <div className="form-grid">
+        <div className="form-group">
+          <label>Name <span className="required">*</span></label>
+          <input value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. 3rd year, Takmeel" autoFocus={isNew} />
         </div>
-      </>}
+        <div className="form-group">
+          <label>Place in the course</label>
+          <select value={f.position} onChange={e => set('position', e.target.value)}>
+            {Array.from({ length: places }, (_, i) => <option key={i} value={i + 1}>Year {i + 1}{i === 0 ? ' (first)' : i === places - 1 ? ' (last)' : ''}</option>)}
+            {!isNew && <option value={0}>Not one of the years (e.g. Hifdh)</option>}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Class teacher</label>
+          <select value={f.teacherId} onChange={e => set('teacherId', e.target.value)}>
+            <option value="">— Not chosen yet —</option>
+            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      </div>
+      {!isNew && (
+        <div className="box-row-2" style={{ marginTop: 14 }}>
+          {place > 0 && (
+            <button type="button" className="course-box" disabled={busy} onClick={takeOut}>
+              <span className="course-box-name">Take out of the years</span>
+              <span className="course-box-sub">It stays as a class</span>
+            </button>
+          )}
+          {students === 0 ? (
+            <button type="button" className={`course-box ${sure ? 'danger' : ''}`} disabled={busy} onClick={() => (sure ? remove() : setSure(true))}>
+              <span className="course-box-name"><Trash2 size={13} /> {sure ? 'Tap again to delete' : 'Delete this year'}</span>
+              <span className="course-box-sub">{subjects ? `and its ${subjects} kitaabs` : 'It has no students'}</span>
+            </button>
+          ) : (
+            <div className="course-box quiet">
+              <span className="course-box-name">Can't delete</span>
+              <span className="course-box-sub">{students} students are in it</span>
+            </div>
+          )}
+        </div>
+      )}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );

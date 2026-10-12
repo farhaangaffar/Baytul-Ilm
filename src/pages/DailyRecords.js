@@ -165,6 +165,11 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
           );
         })}
       </div>
+      {classStudents.length === 0 && (
+        <div className="card text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
+          {activeClass ? `No children in ${activeClass} yet — add them on the Students page.` : 'No classes yet — add one on Classes & Teachers.'}
+        </div>
+      )}
     </div>
   );
 }
