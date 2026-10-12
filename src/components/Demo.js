@@ -75,6 +75,26 @@ export function DemoChooser({ current, kind = 'maktab' }) {
   );
 }
 
+// A demo link (?demo, ?demo=darul-uloom) opened by someone already signed in — to their own
+// madrasah, or to the other kind of demo — still offers the demo, rather than quietly opening
+// their own madrasah. Starting it signs them in to the demo instead on this device.
+export function DemoScreen({ kind, signedInAs }) {
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--page)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div className="card" style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
+        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Try the demo</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
+          A made-up {kind === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'} with made-up children — change anything; it's deleted after a day.
+          {signedInAs && <> You're signed in to {signedInAs}; opening the demo signs you out of it on this device.</>}
+        </div>
+        <DemoChooser kind={kind} />
+        <button type="button" className="btn" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+          onClick={() => window.location.assign('/')}>{signedInAs ? `Back to ${signedInAs}` : 'Back'}</button>
+      </div>
+    </div>
+  );
+}
+
 // Leaving a demo forgets its name and settings on this device, so the sign-in screen
 // goes back to normal.
 export async function leaveDemo() {

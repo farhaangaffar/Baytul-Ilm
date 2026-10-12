@@ -17,6 +17,7 @@ import BackToExit, { ParentBackToExit } from './components/BackToExit';
 import Signup         from './pages/Signup';
 import { getSession, logout } from './lib/store';
 import { LegalPage, AcceptTerms } from './components/Legal';
+import { DemoScreen } from './components/Demo';
 import Landing from './pages/Landing';
 import { setMadrasahCode, getMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
@@ -92,6 +93,14 @@ export default function App() {
 
   if (session === null) {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
+  }
+
+  // A demo link while signed in: offer the demo (the made-up children) unless already in that kind of demo.
+  if (session.authenticated && params.has('demo')) {
+    const kind = params.get('demo') === 'darul-uloom' ? 'darul_uloom' : 'maktab';
+    if (!(session.user.demo && (session.user.madrasah?.kind || 'maktab') === kind)) {
+      return <DemoScreen kind={kind} signedInAs={session.user.demo ? '' : session.user.madrasah?.name} />;
+    }
   }
 
   // "Start free": a madrasah signs itself up (pages/Signup.js), then it's straight in.

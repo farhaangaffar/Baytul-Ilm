@@ -27,7 +27,12 @@ module.exports = async (req, res) => {
   await ensureAllTables();
 
   const me = await getUser(req);
+  // Someone in a demo switches person within it — unless they asked for the other kind of demo.
   let mid = me && me.demo ? me.madrasahId : null;
+  if (mid && (req.body || {}).kind) {
+    const { rows: [cur] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
+    if ((cur?.kind || 'maktab') !== (req.body.kind === 'darul_uloom' ? 'darul_uloom' : 'maktab')) mid = null;
+  }
   if (!mid) {
     // Demos are only offered once the site is set up (its first owner exists).
     const { rows: real } = await query(

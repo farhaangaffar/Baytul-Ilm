@@ -108,6 +108,8 @@ codebase (one codebase, not a fork).
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
   behaviour records, last month's reports; logins: head, Maulana Yusuf (1st year), the Patel family.
+  A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
+  (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own
