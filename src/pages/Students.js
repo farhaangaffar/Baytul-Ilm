@@ -302,7 +302,7 @@ export default function Students() {
                       <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
                         <div style={{minWidth:0}}>
                           <div className="student-compact-name">{s.forename} {s.surname}</div>
-                          <div className="student-compact-sub">{currencySymbol()}{s.weeklyFee}{feePer()} · {fmtDob(s.dob)}</div>
+                          <div className="student-compact-sub">{money(s.weeklyFee)}{feePer()} · {fmtDob(s.dob)}</div>
                         </div>
                         {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                       </div>
@@ -397,7 +397,7 @@ export default function Students() {
                     ['Date of birth',formatDateGB(selected.dob)],
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
-                    [`Fee per ${feeUnit()}`,`${currencySymbol()}${selected.weeklyFee}${feePer()}`],
+                    [`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`],
                     ['Status',selected.status],
                     // Extra history rows only for a left student — their attendance/fees
                     // totals below are already all-time, so the fuller picture (paid,

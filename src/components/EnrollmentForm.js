@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, BookOpen, ChevronRight, CheckCircle } from 'lucide-react';
 import { addStudent, getClassNames, getDefaultWeeklyFee } from '../lib/store';
-import { currencySymbol } from '../lib/branding';
+import { currencySymbol, money } from '../lib/branding';
 import { feeUnit } from '../lib/feePeriods';
 
 function emptyForm(defaultWeeklyFee) {
@@ -129,7 +129,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                 {saved?.class === 'Waiting list' ? (
                   <>{saved?.forename} {saved?.surname} has been added to the <strong>waiting list</strong>.</>
                 ) : (
-                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at {currencySymbol()}{saved?.weeklyFee} per {feeUnit()}.</>
+                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at {money(saved?.weeklyFee)} per {feeUnit()}.</>
                 )}
               </div>
               <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-md)', padding: '12px 16px', textAlign: 'left', fontSize: 12, color: 'var(--text-muted)' }}>

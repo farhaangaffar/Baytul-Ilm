@@ -9,7 +9,7 @@ export const KIND_LABELS = { maktab: 'Maktab', darul_uloom: 'Darul Uloom' };
 export const defaultPrice = m => KIND_PRICES[m.kind] || KIND_PRICES.maktab;
 export const WARN_DAYS = 14; // yellow for the last two weeks
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-export const money = n => `£${Number(n).toFixed(2).replace(/\.00$/, '')}`;
+export const money = n => { const v = Number(n || 0); const p = Math.round(v * 100) % 100 === 0 ? 0 : 2; return `£${v.toLocaleString('en-GB', { minimumFractionDigits: p, maximumFractionDigits: p })}`; };
 
 const pad = n => String(n).padStart(2, '0');
 const iso = (y, m, d) => { const t = new Date(Date.UTC(y, m - 1, d)); return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`; };
