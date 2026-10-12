@@ -35,6 +35,8 @@ codebase (one codebase, not a fork).
   `server/routes/` and a static `require` line in `api/router.js` — never add files
   to `api/` (each file there becomes a separate function; the free Hobby plan caps
   them at 12). The app stays on the Hobby plan until the first paying madrasah.
+  The function runs in London (`"regions": ["lhr1"]` in `vercel.json`), next to the Neon database
+  (eu-west-2) — every query used to cross the Atlantic from Vercel's default US region.
 - **Many madaaris, one database** (`madaaris` table). Every table of school data has a
   `madrasah_id`, and **every query must be limited to `req.user.madrasahId`** — reads,
   updates and deletes by id included (`… WHERE id = $1 AND madrasah_id = $2`). Any
