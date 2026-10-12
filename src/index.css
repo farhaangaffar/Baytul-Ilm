@@ -222,6 +222,13 @@ tbody tr:hover td { background: #f9fafb; }
 .class-card-stats { margin-left: auto; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-muted); }
 .class-card-stats strong { color: var(--ink); font-weight: 700; }
 .class-card-stats span[style] strong { color: inherit; }
+/* Phones: the class name on its own line, then students · attendance · owed as three equal boxes. */
+@media (max-width: 640px) {
+  .class-card-stats { margin-left: 0; width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .class-card-stats > span { display: flex; flex-direction: column; align-items: center; gap: 1px; background: #f3f4f6; border-radius: 8px; padding: 6px 4px; font-size: 11px; text-align: center; white-space: nowrap; }
+  .class-card-stats > span strong { font-size: 13.5px; }
+  .class-card-name { flex: 1; min-width: 0; }
+}
 .class-card-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
 .class-card-students .student-compact-card { background: #f9fafb; box-shadow: none; }
 .class-card-students .student-compact-card:hover { background: #f3f4f6; box-shadow: none; }

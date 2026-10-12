@@ -32,8 +32,9 @@ codebase (one codebase, not a fork).
 - **The owner's design style:** cards, with **single full-width lines** inside them to tap (`.line-row` —
   the Course page, the class chooser) that open their details underneath, small grey boxes for figures and
   quick choices (`BoxRow`, `.box-row-3`), and pop-ups for editing. Selected = light blue (`.line-row.on`,
-  `--teal-light`), never the dark ink fill. Keep the top of a page uncluttered: with more than 5 classes the
-  class/year pills become `ClassBar`'s Class ▾ / Year ▾ boxes. Avoid squashed columns and walls of buttons.
+  `--teal-light`), never the dark ink fill. Keep the top of a page uncluttered: with more than 5 classes (and always in a Darul Uloom, head and
+  teachers alike) the class/year pills become `ClassBar`'s Class ▾ / Year ▾ boxes. Rows must keep one shape
+  whatever their content (e.g. Students' class rows: on phones, name then three equal boxes). Avoid squashed columns and walls of buttons.
 
 ## Project conventions
 

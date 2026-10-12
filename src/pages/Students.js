@@ -287,8 +287,9 @@ export default function Students() {
                 <span className="class-card-name">{c}</span>
                 <span className="class-card-stats">
                   <span><strong>{classStudents.length}</strong> student{classStudents.length===1?'':'s'}</span>
-                  {classStudents.length>0 && <span><strong>{classAtt}%</strong> attendance</span>}
-                  {classOwed>0 && <span style={{color:'var(--red-text)'}}><strong>{money(classOwed)}</strong> owed</span>}
+                  {/* Always all three, so every class's line has the same shape (on phones, three boxes). */}
+                  <span><strong>{classStudents.length>0 ? `${classAtt}%` : '—'}</strong> attendance</span>
+                  <span style={classOwed>0 ? {color:'var(--red-text)'} : undefined}><strong>{money(classOwed)}</strong> owed</span>
                 </span>
               </button>
               {isOpen && (
