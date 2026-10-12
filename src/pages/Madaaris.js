@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import SignupNotifications from '../components/SignupNotifications';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getIncome, getPayments, addPayment, deletePayment } from '../lib/store';
-import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, DEFAULT_PRICE } from '../lib/billing';
+import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
 import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail } from 'lucide-react';
 
@@ -126,6 +126,7 @@ export default function Madaaris() {
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ minWidth: 0 }}>
                   <span className="madrasah-card-name">{m.name}</span>
+                  {m.kind === 'darul_uloom' && <span className="badge badge-blue" style={{ marginLeft: 8, verticalAlign: '2px' }}>Darul Uloom</span>}
                   {isNew && <span className="badge badge-amber" style={{ marginLeft: 8, verticalAlign: '2px' }}>New</span>}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>{b.label}</span>
@@ -274,7 +275,7 @@ function useSubmit() {
 const noAuto = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'off' };
 
 function AddModal({ onClose, onCreated }) {
-  const [f, setF] = useState({ name: '', code: '', headLogin: '', headPassword: '' });
+  const [f, setF] = useState({ name: '', code: '', headLogin: '', headPassword: '', kind: 'maktab' });
   const [codeTouched, setCodeTouched] = useState(false);
   const { busy, error, setError, submit } = useSubmit();
   const set = (k, v) => { setError(''); setF(prev => ({ ...prev, [k]: v, ...(k === 'name' && !codeTouched ? { code: suggestCode(v) } : {}) })); };
@@ -291,6 +292,7 @@ function AddModal({ onClose, onCreated }) {
         <label>Madrasah name</label>
         <input value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Al-Noor Academy" autoFocus />
       </div>
+      <KindChoice value={f.kind} onChange={k => set('kind', k)} />
       <div className="form-group" style={{ marginBottom: 12 }}>
         <label>Sign-in code</label>
         <input value={f.code} onChange={e => { setCodeTouched(true); set('code', e.target.value); }} placeholder="e.g. al-noor" {...noAuto} />
@@ -304,9 +306,24 @@ function AddModal({ onClose, onCreated }) {
         <label>Starting password (8+ characters)</label>
         <input type="text" value={f.headPassword} onChange={e => set('headPassword', e.target.value)} {...noAuto} />
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for 6 months.</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for 6 months{f.kind === 'darul_uloom' ? ', then £500 a year' : ''}.</div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
+  );
+}
+
+// Maktab or Darul Uloom — a Darul Uloom also gets the Darul Uloom pages. Only set here, by
+// the platform owner (so a mistake can be put right).
+function KindChoice({ value, onChange }) {
+  return (
+    <div className="form-group" style={{ marginBottom: 12 }}>
+      <label>Type</label>
+      <div className="pill-tabs" style={{ marginBottom: 0 }}>
+        {Object.entries(KIND_LABELS).map(([k, l]) => (
+          <button key={k} type="button" className={`pill-tab ${value === k ? 'active' : ''}`} onClick={() => onChange(k)}>{l}</button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -314,8 +331,10 @@ function EditModal({ m, onClose, onSaved }) {
   const [name, setName] = useState(m.name);
   const [code, setCode] = useState(m.code);
   const [freeUntil, setFreeUntil] = useState(m.freeUntil || '');
+  const [kind, setKind] = useState(m.kind || 'maktab');
   const { busy, error, setError, submit } = useSubmit();
   const changes = {};
+  if (kind !== (m.kind || 'maktab')) changes.kind = kind;
   if (name.trim() !== m.name) changes.name = name;
   if (code.trim().toLowerCase() !== m.code) changes.code = code;
   if (freeUntil && freeUntil !== m.freeUntil) changes.freeUntil = freeUntil;
@@ -336,6 +355,8 @@ function EditModal({ m, onClose, onSaved }) {
         <input value={code} onChange={e => { setCode(e.target.value); setError(''); }} {...noAuto} />
       </div>
       {changes.code && <div style={{ fontSize: 11.5, color: 'var(--amber-text)' }}>Devices that remember the old code will need the new one typed in once.</div>}
+      <div style={{ marginTop: 12 }}><KindChoice value={kind} onChange={k => { setKind(k); setError(''); }} /></div>
+      {changes.kind && <div style={{ fontSize: 11.5, color: 'var(--amber-text)', marginTop: -6 }}>Their plan and price change to a {KIND_LABELS[kind]}'s ({kind === 'darul_uloom' ? '£500 a year' : '£20 a month'}). Nothing they've entered is lost.</div>}
       {!m.isYours && (
         <div className="form-group" style={{ marginTop: 12 }}>
           <label>Free until</label>
@@ -492,7 +513,7 @@ function DetailModal({ m, onClose, open, onChanged }) {
           <div className="pill-tabs" style={{ marginBottom: 0 }}>
             {[['monthly', 'Monthly'], ['yearly', 'Yearly']].map(([k, l]) => (
               <button key={k} type="button" className={`pill-tab ${m.billingPlan === k ? 'active' : ''}`} disabled={busy}
-                onClick={() => m.billingPlan !== k && savePlan(k, DEFAULT_PRICE[k])}>{l}</button>
+                onClick={() => m.billingPlan !== k && savePlan(k, defaultPrice(m)[k])}>{l}</button>
             ))}
           </div>
           <span className="pay-price">£<input type="number" min="0" step="1" value={price} onChange={e => setPrice(e.target.value)}

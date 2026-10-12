@@ -3,7 +3,7 @@ const { TABLES, ensureAllTables } = require('../demo');
 const { ensurePlatformTables } = require('../platform');
 const { vapidKeys, notifyPlatformOwner } = require('../notify');
 const { requireAuth, hashPassword, normalizeLogin, validateNewCredentials } = require('../auth');
-const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, createMadrasah, ensureSignupColumns } = require('../newMadrasah');
+const { KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, createMadrasah, ensureSignupColumns } = require('../newMadrasah');
 
 // The platform owner's page (Madaaris): every madrasah using this service, with
 // counts only — never another madrasah's students, fees or reports. From here the
@@ -18,15 +18,13 @@ async function ensureColumns() {
   if (ready) return;
   await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS free_until DATE');
   await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP'); // see routes/session.js
-  await ensureSignupColumns();
-  // What each madrasah pays us (after its free months) and the payments received.
-  await query(`ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS billing_plan TEXT NOT NULL DEFAULT 'monthly'`);
-  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS billing_amount NUMERIC(8,2)');
+  await ensureSignupColumns(); // also what each madrasah pays us (billing_*) and its kind
   await ensurePlatformTables();
   ready = true;
 }
-// Prices (CLAUDE.md, the terms' Cost section): £20 a month or £200 a year.
-const PLANS = { monthly: { amount: 20, months: 1 }, yearly: { amount: 200, months: 12 } };
+// Plans (CLAUDE.md, the terms' Cost section): a maktab £20 a month or £200 a year; a Darul Uloom
+// £500 a year (PRICES, server/newMadrasah.js).
+const PLANS = { monthly: { months: 1 }, yearly: { months: 12 } };
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 module.exports = requireAuth(async (req, res) => {
@@ -79,7 +77,7 @@ module.exports = requireAuth(async (req, res) => {
         (SELECT count(*) FROM classes c WHERE c.madrasah_id = m.id) AS classes,
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id AND a.created_at >= date_trunc('month', now())) AS "aiThisMonth",
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id) AS "aiTotal",
-        m.billing_plan AS "billingPlan", m.billing_amount AS "billingAmount",
+        m.kind, m.billing_plan AS "billingPlan", m.billing_amount AS "billingAmount",
         -- Months paid for, counted on from the 1st after the free months (src/lib/billing.js).
         (SELECT COALESCE(sum(p.months), 0) FROM madrasah_payments p WHERE p.madrasah_id = m.id) AS "monthsPaid",
         (SELECT to_char(max(p.paid_on), 'YYYY-MM-DD') FROM madrasah_payments p WHERE p.madrasah_id = m.id) AS "lastPaid"
@@ -87,7 +85,7 @@ module.exports = requireAuth(async (req, res) => {
     res.status(200).json(rows.map(r => ({
       ...r, id: String(r.id), students: Number(r.students), teachers: Number(r.teachers), classes: Number(r.classes),
       aiThisMonth: Number(r.aiThisMonth), aiTotal: Number(r.aiTotal), isYours: r.id === req.user.madrasahId,
-      billingAmount: r.billingAmount === null ? PLANS[r.billingPlan]?.amount ?? 20 : Number(r.billingAmount), monthsPaid: Number(r.monthsPaid),
+      billingAmount: r.billingAmount === null ? (PRICES[r.kind] || PRICES.maktab)[r.billingPlan] ?? 20 : Number(r.billingAmount), monthsPaid: Number(r.monthsPaid),
     })));
     return;
   }
@@ -113,8 +111,9 @@ module.exports = requireAuth(async (req, res) => {
     if (!CODE_RE.test(code)) { res.status(400).json({ error: CODE_PROBLEM }); return; }
     const problem = validateNewCredentials(headLogin, b.headPassword);
     if (problem) { res.status(400).json({ error: problem }); return; }
+    if (b.kind !== undefined && !KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab or Darul Uloom.' }); return; }
     if (await codeTaken(code)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
-    const { madrasah } = await createMadrasah({ name, code, headLogin, headPassword: b.headPassword });
+    const { madrasah } = await createMadrasah({ name, code, headLogin, headPassword: b.headPassword, kind: b.kind });
     res.status(201).json({ ok: true, id: String(madrasah.id) });
     return;
   }
@@ -170,6 +169,16 @@ module.exports = requireAuth(async (req, res) => {
       if (!CODE_RE.test(code)) { res.status(400).json({ error: CODE_PROBLEM }); return; }
       if (await codeTaken(code, id)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
       values.push(code); sets.push(`code = $${values.length}`);
+    }
+    if (b.kind !== undefined && b.kind !== found[0].kind) {
+      // Changing the kind (e.g. set wrongly) also puts its plan and price back to that kind's.
+      if (!KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab or Darul Uloom.' }); return; }
+      const bill = kindBilling(b.kind);
+      values.push(b.kind); sets.push(`kind = $${values.length}`);
+      if (b.billingPlan === undefined && b.billingAmount === undefined) {
+        values.push(bill.plan); sets.push(`billing_plan = $${values.length}`);
+        values.push(bill.amount); sets.push(`billing_amount = $${values.length}`);
+      }
     }
     if (b.billingPlan !== undefined) {
       if (!PLANS[b.billingPlan]) { res.status(400).json({ error: 'Choose monthly or yearly.' }); return; }

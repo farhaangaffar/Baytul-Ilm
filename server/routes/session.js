@@ -1,5 +1,6 @@
 const { query } = require('../db');
 const { ensureUsersTable, getUser, teacherClassNames } = require('../auth');
+const { ensureSignupColumns } = require('../newMadrasah');
 
 // Who is signed in (and, for a teacher or class login, which classes they can see),
 // which madrasah they belong to, plus whether the first owner account still needs
@@ -18,6 +19,7 @@ async function ensureTermsColumns() {
 module.exports = async (req, res) => {
   await ensureUsersTable();
   await ensureTermsColumns();
+  await ensureSignupColumns(); // madaaris.kind
   const user = await getUser(req);
 
   // POST ?action=accept-terms — the head agrees to the terms for their madrasah.
@@ -34,14 +36,14 @@ module.exports = async (req, res) => {
   const setupRequired = rows.length === 0;
   if (!user) { res.status(200).json({ authenticated: false, setupRequired }); return; }
   const classNames = user.role === 'teacher' ? await teacherClassNames(user) : null;
-  const { rows: [m] } = await query('SELECT code, name, terms_version FROM madaaris WHERE id = $1', [user.madrasahId]);
+  const { rows: [m] } = await query('SELECT code, name, kind, terms_version FROM madaaris WHERE id = $1', [user.madrasahId]);
   // Heads agree to the terms once per version; not the platform owner (they wrote them) or a demo.
   const termsNeeded = user.role === 'owner' && !user.platformAdmin && !user.demo && m.terms_version !== TERMS_VERSION;
   res.status(200).json({
     authenticated: true, setupRequired,
     user: {
       login: user.login, role: user.role, teacherId: user.teacherId, classId: user.classId, classNames,
-      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name }, termsNeeded,
+      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name, kind: m.kind }, termsNeeded,
     },
   });
 };
