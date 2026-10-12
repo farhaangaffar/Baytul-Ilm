@@ -102,14 +102,14 @@ input, select, textarea { font-family: var(--font); }
    figures without clipping (e.g. "£630.00") — drop to 2 columns a bit earlier than the
    general mobile breakpoint to give each stat card enough room. */
 @media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2,1fr); } }
-.metric-card { background: var(--surface); border-radius: var(--r-card); padding: 18px 20px; box-shadow: var(--shadow-sm); min-width: 0; }
+.metric-card { background: var(--surface); border-radius: var(--r-card); padding: 18px 20px; box-shadow: var(--shadow-sm); min-width: 0; container-type: inline-size; }
 .metric-icon { width: 36px; height: 36px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
 .metric-icon.teal  { background: var(--teal-light); color: var(--teal-dark); }
 .metric-icon.green { background: var(--green-light); color: var(--green-text); }
 .metric-icon.amber { background: var(--amber-light); color: var(--amber-text); }
 .metric-icon.red   { background: var(--red-light); color: var(--red-text); }
 .metric-icon.dark  { background: #f3f4f6; color: var(--ink); }
-.metric-value { font-family: var(--font-num); font-size: 26px; font-weight: 600; color: var(--text); line-height: 1; }
+.metric-value { font-family: var(--font-num); font-size: min(26px, 12.5cqi); font-weight: 600; color: var(--text); line-height: 1; white-space: nowrap; }
 .metric-label { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
 .metric-delta { font-size: 11px; color: var(--teal-dark); margin-top: 3px; }
 
@@ -169,8 +169,9 @@ tbody tr:hover td { background: #f9fafb; }
 .pill-divider { width: 1px; height: 22px; background: #e2e6ee; margin: 0 4px; }
 
 .stat-grid-v2 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 16px; }
-.stat-card-v2 { background: var(--surface); border-radius: var(--r-card); padding: 18px; box-shadow: var(--shadow-md); min-width: 0; }
-.stat-card-v2 .n { font-family: var(--font-num); font-size: 30px; font-weight: 600; line-height: 1; color: var(--text); }
+.stat-card-v2 { background: var(--surface); border-radius: var(--r-card); padding: 18px; box-shadow: var(--shadow-md); min-width: 0; container-type: inline-size; }
+/* Figures shrink with their box (12cqi = 12% of its width) so big amounts like £13,250.00 never spill out. */
+.stat-card-v2 .n { font-family: var(--font-num); font-size: min(30px, 12.5cqi); font-weight: 600; line-height: 1; color: var(--text); white-space: nowrap; }
 .stat-card-v2 .l { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
 .stat-card-v2 .view-all { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; margin-top: 12px; }
 @media (max-width: 900px) { .stat-grid-v2 { grid-template-columns: repeat(2,1fr); } }
@@ -251,7 +252,7 @@ tbody tr:hover td { background: #f9fafb; }
 .mark-btn-sm:disabled { cursor: default; }
 .mark-btn-sm.is-current { box-shadow: 0 0 0 2px var(--blue); }
 
-.count-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.count-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .count-chip { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 12px 18px; display: flex; align-items: center; gap: 12px; flex: 1; min-width: 190px; }
 .count-ring { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-num); font-size: 10.5px; font-weight: 700; color: var(--green-text); }
 .count-chip .figure { font-family: var(--font-num); font-size: 19px; font-weight: 700; line-height: 1; }
@@ -398,7 +399,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
    (align-items: flex-end below) could size itself past the real fold and get its top
    (header/name) clipped above it. dvh tracks the real, current viewport; same fallback
    pattern as .app-shell/.main-content above. */
-.modal { background: var(--surface); border-radius: 20px; width: 100%; max-width: 680px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+/* clip-path keeps the scroll bar inside the rounded corners. */
+.modal { clip-path: inset(0 round 20px); background: var(--surface); border-radius: 20px; width: 100%; max-width: 680px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; box-shadow: var(--shadow-lg); }
 .modal-header { padding: 22px 26px 18px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); z-index: 1; border-radius: 20px 20px 0 0; }
 .modal-title { font-size: 16px; font-weight: 600; }
 .modal-body { padding: 24px 26px; }
@@ -691,8 +693,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .course-kid.held { border-color: #d1d5db; background: #fff; color: var(--text-muted); }
 
 /* components/ClassBar.js: with many classes, Class ▾ and Year ▾ boxes instead of a row of pills. */
-.class-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 16px; max-width: 560px; }
-.class-bar.two { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.class-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+.class-bar.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .class-bar-box { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 14px; border-radius: 12px; border: 1px solid #dfe3e8; background: var(--surface); box-shadow: var(--shadow-sm); cursor: pointer; font-family: var(--font); color: var(--ink); text-align: left; min-width: 0; }
 .class-bar-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
 .class-bar-value { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

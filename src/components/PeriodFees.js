@@ -232,7 +232,7 @@ export default function PeriodFees({ frequency }) {
         </div>
       </div>
       <FeeTotals paid={paidSum} owed={owedSum} label={year === currentYear ? 'this year' : year} />
-      <div style={{ maxWidth: 560 }}>
+      <div>
         <FeeRowList rows={rows} isOwner={isOwner} editCell={editCell} setEditCell={setEditCell} saveEdit={saveAmount} nowLabel={`This ${unit}`}
           onToggle={f => canToggle(f) && setConfirmToggle(f)}
           onPayAhead={r => payAhead(selected, r.p)}
