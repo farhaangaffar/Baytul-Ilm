@@ -254,12 +254,15 @@ module.exports = requireAuth(async (req, res) => {
       const studentId = (req.body || {}).studentId;
       if (!studentId || !(await accessScope(req)).studentIds.has(studentId)) { res.status(400).json({ error: 'studentId is required' }); return; }
       const { rows: [s] } = await query(
-        `SELECT s.forename, c.quran_type, q.quran_type AS own FROM students s
+        `SELECT s.forename, c.quran_type, c.course_order, q.quran_type AS own,
+                (SELECT report_period FROM settings WHERE madrasah_id = s.madrasah_id LIMIT 1) AS report_period
+         FROM students s
          LEFT JOIN classes c ON c.name = s.class AND c.madrasah_id = s.madrasah_id
          LEFT JOIN quran_students q ON q.student_id = s.id
          WHERE s.id = $1 AND s.madrasah_id = $2`, [studentId, mid]);
-      const type = ['hifz', 'nazira', 'qaida'].includes(s.own) ? s.own : ['hifz', 'nazira', 'qaida'].includes(s.quran_type) ? s.quran_type : 'qaida';
-      res.status(200).json({ summary: demoSummary({ f: s.forename, g: genderOf(s.forename) }, type, rng(Date.now())) });
+      const type = ['hifz', 'nazira', 'qaida'].includes(s.own) ? s.own : ['hifz', 'nazira', 'qaida'].includes(s.quran_type) ? s.quran_type : s.course_order ? 'alim' : 'qaida';
+      const unit = { termly: 'term', yearly: 'year' }[s.report_period] || 'month';
+      res.status(200).json({ summary: demoSummary({ f: s.forename, g: genderOf(s.forename) }, type, rng(Date.now()), unit) });
       return;
     }
     const apiKey = process.env.ANTHROPIC_API_KEY;

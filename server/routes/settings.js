@@ -140,7 +140,7 @@ module.exports = async (req, res) => {
       values.push(b.feeFrequency); sets.push(`fee_frequency = $${values.length}`);
     }
     if (b.reportPeriod !== undefined) {
-      if (!['monthly', 'termly'].includes(b.reportPeriod)) { res.status(400).json({ error: 'Report period must be monthly or termly' }); return; }
+      if (!['monthly', 'termly', 'yearly'].includes(b.reportPeriod)) { res.status(400).json({ error: 'Report period must be monthly, termly or yearly' }); return; }
       values.push(b.reportPeriod); sets.push(`report_period = $${values.length}`);
     }
     if (b.parentPortal !== undefined) { values.push(!!b.parentPortal); sets.push(`parent_portal = $${values.length}`); }

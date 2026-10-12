@@ -186,11 +186,12 @@ const LESSON_NOTES = {
 };
 
 // A finished report summary (the kind the AI writes from a child's records), made up.
-function demoSummary(st, type, r) {
+// unit: 'month' | 'term' | 'year' — what the report covers.
+function demoSummary(st, type, r, unit = 'month') {
   const he = st.g === 'm' ? 'He' : 'She', his = st.g === 'm' ? 'his' : 'her', him = st.g === 'm' ? 'him' : 'her';
   const open = r.pick([
-    `${st.f} has had a ${r.pick(['very positive', 'steady', 'good', 'productive'])} month at the madrasah.`,
-    `It has been a ${r.pick(['pleasure', 'joy'])} teaching ${st.f} this month.`,
+    `${st.f} has had a ${r.pick(['very positive', 'steady', 'good', 'productive'])} ${unit} at the madrasah.`,
+    `It has been a ${r.pick(['pleasure', 'joy'])} teaching ${st.f} this ${unit}.`,
   ]);
   const attitude = r.pick([
     `${he} arrives ready to learn, is respectful to ${his} teachers and gets on well with ${his} classmates.`,
@@ -218,7 +219,7 @@ function demoSummary(st, type, r) {
   const rec = r.pick([
     `We would encourage ${him} to revise for ten minutes at home each day to keep building on this progress.`,
     `Reading with ${him} at home a few times a week would help ${him} grow in confidence.`,
-    `Keep up the good work — we look forward to seeing ${him} continue to grow next month.`,
+    `Keep up the good work — we look forward to seeing ${him} continue to grow next ${unit}.`,
   ]);
   return `${open} ${attitude}\n\n${quran} ${rec} JazakAllahu khairan for your support.`;
 }

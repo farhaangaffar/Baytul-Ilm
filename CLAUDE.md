@@ -229,8 +229,9 @@ codebase (one codebase, not a fork).
   Head only: ✏️ amount, bin = take it off that child (`DELETE ?id=`, or `?action=skip` if not charged yet;
   "Put back" undoes). Taking a week/month off for everyone is only in Settings (Fee weeks / Fee months).
 - Report period (Settings): **monthly** (one report per school month — the original
-  system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
-  is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`
+  system), **termly** (one per term) or **yearly** (one per academic year, first Monday of
+  September to the next). A saved report summary (`ai_summaries.month`)
+  is keyed `'YYYY-MM'`, `'term:<terms.id>'` or `'year:<26-27>'`; use `src/lib/reportPeriods.js`
   (`currentReportPeriod()`, `periodForKey()`, `feesForReport()`) for ranges, labels and
   which fees belong on a report. The Terms section in Settings shows when fees or
   reports are termly.
