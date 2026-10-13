@@ -73,6 +73,14 @@ const HEAD = {
     'Hifdh and any other classes are on Classes & Teachers.',
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
+  '/timetable': { title: 'Timetable', steps: [
+    'Pick a class or a teacher at the top, then a day — or Week for the whole week.',
+    'New? Under "Periods & times", tap "Use a typical day" (then change any times), or add your own periods and breaks.',
+    'Tap a period to add or change its lesson: pick one of that year\'s books (or "Something else"), the teacher and the days it\'s on.',
+    'A red note means that teacher is already teaching another class then. Same book with two classes? It\'s one shared lesson.',
+    'Fill one day, then "Copy one day to other days" to save typing.',
+    'A period can be on some days only — e.g. no afternoon periods on Friday.',
+  ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
     'The bar on each card: grey = free months, green = paid, yellow = due within 2 weeks, red = overdue.',
@@ -96,6 +104,11 @@ const TEACHER = {
     'Pick your class, then tap a child.',
     'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
     'Behaviour: write a comment, positives and concerns for the day.',
+  ] },
+  '/timetable': { title: 'Timetable', steps: [
+    'It opens on your own lessons today.',
+    'Tap a day — or Week for the whole week.',
+    'Tap the box at the top to see any class or teacher. Changes are made by the head.',
   ] },
 };
 

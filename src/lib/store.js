@@ -607,3 +607,11 @@ export async function importAllData(payload) {
     for (const { id, ...e } of q.entries || []) await addQuranEntry({ ...e, studentId });
   }
 }
+
+// ── Timetable (Darul Uloom; server/routes/timetable.js) ──
+export async function getTimetable() { return apiFetch('/api/timetable'); }
+export async function addStarterPeriods() { return apiFetch('/api/timetable?action=starter-periods', { method: 'POST' }); }
+export async function savePeriod(data) { return apiFetch('/api/timetable?action=period', { method: 'POST', body: JSON.stringify(data) }); }
+export async function deletePeriod(id) { return apiFetch(`/api/timetable?action=period&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+export async function saveLesson(data) { return apiFetch('/api/timetable?action=lesson', { method: 'POST', body: JSON.stringify(data) }); }
+export async function copyTimetableDay(from, to) { return apiFetch('/api/timetable?action=copy-day', { method: 'POST', body: JSON.stringify({ from, to }) }); }

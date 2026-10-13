@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course'];
+  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -420,6 +420,8 @@ const DU_TEACHERS = [
   { key: 'hamza', name: 'Maulana Hamza Ali', subjects: ['Arabic language', 'Arabic literature', 'Balaghah'] },
   { key: 'zakariyya', name: 'Maulana Zakariyya Bhana', subjects: ['Tafsir', 'Usul-ut-Tafsir', "Tarjamat-ul-Qur'an", 'Aqeedah', 'Seerah'] },
   { key: 'ibrahim', name: 'Qari Ibrahim Khan', subjects: ['Tajweed', 'Hifdh'] },
+  { key: 'idris', name: 'Maulana Idris Mulla', subjects: ['Hadith', 'Fiqh'] },
+  { key: 'haroon', name: 'Maulana Haroon Seedat', subjects: ['Nahw', 'Arabic literature', 'Mantiq', 'Usul-ul-Fiqh'] },
 ];
 // Each year's class teacher, and how many students it has.
 const DU_YEARS = [['yusuf', 6], ['hamza', 6], ['ismail', 5], ['ismail', 5], ['zakariyya', 4], ['rahman', 4], ['rahman', 4]];
@@ -474,7 +476,14 @@ async function createDarulUloomDemo(ipHash) {
     const teacherIds = {};
     await bulk(c, 'teachers', ['id', 'madrasah_id', 'name', 'phone', 'email', 'subjects', 'sort_order'],
       DU_TEACHERS.map((t, i) => { teacherIds[t.key] = newId('T'); return [teacherIds[t.key], mid, t.name, `07700 90020${i}`, `${t.key}@example.com`, JSON.stringify(t.subjects), i]; }));
-    const subjectTeacher = subject => teacherIds[(DU_TEACHERS.find(t => t.subjects.includes(subject)) || DU_TEACHERS[0]).key];
+    // A subject taught by more than one teacher is shared out between them in turn.
+    const turn = {};
+    const subjectTeacher = subject => {
+      const who = DU_TEACHERS.filter(t => t.subjects.includes(subject));
+      if (!who.length) return teacherIds[DU_TEACHERS[0].key];
+      turn[subject] = (turn[subject] ?? -1) + 1;
+      return teacherIds[who[turn[subject] % who.length].key];
+    };
 
     // The years (with their kitaabs) and a Hifdh class.
     const yearClasses = STARTER.map((y, i) => ({ id: newId('C'), name: y.name, teacher: DU_YEARS[i][0], size: DU_YEARS[i][1], order: i + 1, subjects: y.subjects }));
@@ -483,6 +492,42 @@ async function createDarulUloomDemo(ipHash) {
       [...yearClasses.map(y => [y.id, mid, y.name, teacherIds[y.teacher], null, y.order]), [hifdh.id, mid, hifdh.name, teacherIds.ibrahim, 'hifz', null]]);
     await bulk(c, 'du_subjects', ['madrasah_id', 'class_id', 'subject', 'kitaab', 'teacher_id', 'sort_order'],
       yearClasses.flatMap(y => y.subjects.map(([subject, kitaab], i) => [mid, y.id, subject, kitaab, subjectTeacher(subject), i])));
+
+    // A timetable: the usual day (routes/timetable.js), the afternoon periods Monday–Thursday only (a short
+    // Friday); Hifdh with its teacher every morning; each year's books spread over the week, no teacher in
+    // two places at once (a year whose teachers are all busy has revision on its own).
+    const { STARTER_PERIODS } = require('./routes/timetable');
+    const { rows: subs } = await c.query('SELECT id::text, class_id, subject, kitaab, teacher_id FROM du_subjects WHERE madrasah_id = $1 ORDER BY sort_order, id', [mid]);
+    const lessonPeriods = [];
+    for (const [pname, starts, ends, isBreak] of STARTER_PERIODS) {
+      const afternoon = !isBreak && starts >= '13:00';
+      const { rows: [p] } = await c.query('INSERT INTO du_periods (madrasah_id, name, starts, ends, is_break, days) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id::text',
+        [mid, pname, starts, ends, !!isBreak, afternoon ? '1,2,3,4' : '']);
+      if (!isBreak) lessonPeriods.push({ id: p.id, afternoon });
+    }
+    const lessonRows = [];
+    const bookTurn = {}; // each year works through its books in turn, so the week is evenly spread
+    for (const d of schoolDays) {
+      lessonPeriods.forEach((p, pi) => {
+        if (p.afternoon && d === 5) return;
+        const busy = new Set();
+        if (!p.afternoon) { busy.add(teacherIds.ibrahim); lessonRows.push([mid, d, p.id, hifdh.id, null, 'Hifdh', '', teacherIds.ibrahim, 'Masjid']); }
+        yearClasses.forEach((y, yi) => {
+          const ys = subs.filter(s => s.class_id === y.id);
+          bookTurn[y.id] = bookTurn[y.id] ?? yi;
+          for (let k = 0; k < ys.length; k++) {
+            const s = ys[(bookTurn[y.id] + k) % ys.length];
+            if (s.teacher_id && busy.has(s.teacher_id)) continue;
+            if (s.teacher_id) busy.add(s.teacher_id);
+            bookTurn[y.id] += k + 1;
+            lessonRows.push([mid, d, p.id, y.id, s.id, s.subject, s.kitaab, s.teacher_id, `Room ${yi + 1}`]);
+            return;
+          }
+          lessonRows.push([mid, d, p.id, y.id, null, 'Revision', '', null, `Room ${yi + 1}`]);
+        });
+      });
+    }
+    await bulk(c, 'du_lessons', ['madrasah_id', 'day', 'period_id', 'class_id', 'subject_id', 'subject', 'kitaab', 'teacher_id', 'room'], lessonRows);
 
     // Students: made-up names, no two the same; the Patel brothers (3rd year and Hifdh) share a parent login.
     const used = new Set();

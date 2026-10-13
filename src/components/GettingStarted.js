@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, ChevronRight, X } from 'lucide-react';
-import { getUsers, getTeachers, addStudent, deleteStudent, getDefaultWeeklyFee } from '../lib/store';
+import { getUsers, getTeachers, addStudent, deleteStudent, getDefaultWeeklyFee, getTimetable } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { appNavigate } from './BackToExit';
 
 // "Getting started" on a new madrasah's Dashboard (one that signed itself up, or any head
 // with steps left): teachers & classes → fees & days → children → teacher logins. A Darul Uloom
 // gets its own order: Settings → teachers → classes (Hifz, Nazarah…) → Aalim years & books →
-// students → logins. Each ticks itself off from the madrasah's own data; the card goes once
+// timetable → students → logins. Each ticks itself off from the madrasah's own data; the card goes once
 // everything's done or it's hidden. The students step can add a few made-up students to try
 // things with (marked in their notes, MADE_UP) — they don't tick the step, and one tap removes them.
 const key = (code, what) => `getting_started_${what}:${code}`;
@@ -30,14 +30,18 @@ export default function GettingStarted({ students, classes, onChanged }) {
   const [hidden, setHidden] = useState(() => !!read(key(code, 'hidden')));
   const [teacherLogins, setTeacherLogins] = useState(null);
   const [teacherCount, setTeacherCount] = useState(null);
+  const [hasTimetable, setHasTimetable] = useState(null);
   const [noOthers, setNoOthers] = useState(() => !!read(key(code, 'no_other_classes')));
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (hidden || user?.demo) return;
     getUsers().then(us => setTeacherLogins((us.users || us).some(u => u.role === 'teacher'))).catch(() => setTeacherLogins(false));
-    if (isDarulUloom) getTeachers().then(t => setTeacherCount(t.length)).catch(() => setTeacherCount(0));
+    if (isDarulUloom) {
+      getTeachers().then(t => setTeacherCount(t.length)).catch(() => setTeacherCount(0));
+      getTimetable().then(t => setHasTimetable(t.lessons.length > 0)).catch(() => setHasTimetable(false));
+    }
   }, [hidden, user, isDarulUloom]);
-  if (hidden || user?.demo || teacherLogins === null || (isDarulUloom && teacherCount === null)) return null;
+  if (hidden || user?.demo || teacherLogins === null || (isDarulUloom && (teacherCount === null || hasTimetable === null))) return null;
 
   // A few made-up students, spread over the classes, to try attendance, fees and records with.
   const madeUp = students.filter(isMadeUp);
@@ -76,6 +80,7 @@ export default function GettingStarted({ students, classes, onChanged }) {
     { label: 'Add your classes', sub: 'Hifz, Nazarah, Qaa\'idah… — any class that isn\'t an Aalim year', path: '/classes?tab=classes', done: noOthers || classes.some(c => !c.courseOrder),
       extra: { label: "We don't have any", onClick: () => { write(key(code, 'no_other_classes'), '1'); setNoOthers(true); } } },
     { label: 'Set up your Aalim years and books', sub: 'Your own year names and books — or start from the usual Dars-e-Nizami list and change it', path: '/course', done: classes.some(c => c.courseOrder) },
+    { label: 'Make your timetable', sub: 'Your periods and times, then which book each class has when — fill one day and copy it', path: '/timetable', done: hasTimetable },
     studentsStep, loginsStep,
   ] : [
     { label: 'Add your teachers, then your classes', sub: 'Teachers first, so each new class can be given its teacher', path: '/classes?tab=teachers', done: classes.length > 0 },

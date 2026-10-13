@@ -113,9 +113,17 @@ codebase (one codebase, not a fork).
   deleted). Only the Aalim years show there — Hifdh and other classes live on Classes & Teachers only. Classes
   are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
   year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
+  **Timetable** (`/timetable`, menu "Timetable", head edits, teachers read — it opens on their own lessons
+  today; `src/pages/Timetable.js`, `server/routes/timetable.js`, 403 for a maktab): each madrasah's own periods
+  (`du_periods`: name, times, break or lessons, which days — '' = every school day, e.g. no afternoon on Friday;
+  "Use a typical day" = `STARTER_PERIODS`) and lessons (`du_lessons`, one per class/day/period: subject + book —
+  usually one of the year's `du_subjects` — teacher, room). Viewed by class or teacher (Class ▾ box), a day at a
+  time or the Week (a grid on computers, a card per day on phones). The lesson pop-up warns when the teacher is
+  already with another class then; the same subject and book with two classes is one shared lesson. "Copy one
+  day to other days" (`?action=copy-day`) fills the week.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
-  behaviour records, last month's reports; logins: head, Maulana Yusuf (1st year), the Patel family.
+  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday); logins: head, Maulana Yusuf (1st year), the Patel family.
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
@@ -165,7 +173,7 @@ codebase (one codebase, not a fork).
   (`src/components/GettingStarted.js`: teachers then classes → Settings (fees, days) → children → logins, with a
   choice of Teacher logins / Class logins (`/classes?tab=teachers|classes` opens that tab);
   ticks itself, can be hidden). A Darul Uloom gets its own order: Settings → teachers → classes (with "We don't
-  have any") → Aalim years & books → students → logins. The students step offers "Try it with 6 made-up students"
+  have any") → Aalim years & books → timetable → students → logins. The students step offers "Try it with 6 made-up students"
   (notes start "Made-up student to try the app"; they don't tick the step; "Remove the made-up students" deletes them).
   **Darul Uloom screens are in plain English** (teachers, books, Head — not asatidha/kitaabs/Muhtamim) so
   non-Urdu-speaking Darul Ulooms follow them; subject names and "Aalim"/"Dars-e-Nizami" stay. Code names (`kitaab`) are unchanged.

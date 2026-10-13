@@ -28,6 +28,7 @@ const routes = {
   students: require('../server/routes/students'),
   teachers: require('../server/routes/teachers'),
   terms: require('../server/routes/terms'),
+  timetable: require('../server/routes/timetable'),
   users: require('../server/routes/users'),
 };
 

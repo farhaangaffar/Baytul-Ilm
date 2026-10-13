@@ -96,6 +96,8 @@ module.exports = requireAuth(async (req, res) => {
     // A Darul Uloom year's subjects and kitaabs go with it (routes/course.js).
     const { rows: [t] } = await query(`SELECT to_regclass('public.du_subjects') IS NOT NULL AS ok`);
     if (t.ok) await query('DELETE FROM du_subjects WHERE class_id = $1 AND madrasah_id = $2', [id, mid]);
+    const { rows: [tt] } = await query(`SELECT to_regclass('public.du_lessons') IS NOT NULL AS ok`);
+    if (tt.ok) await query('DELETE FROM du_lessons WHERE class_id = $1 AND madrasah_id = $2', [id, mid]);
     res.status(200).json({ ok: true });
     return;
   }

@@ -714,3 +714,49 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .line-row-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line-row-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .line-row.on .line-row-sub { color: var(--teal-dark); }
+
+/* Darul Uloom timetable (pages/Timetable.js): day boxes, then one line per period. */
+.tt-days { display: grid; gap: 6px; margin-bottom: 16px; }
+.tt-day { padding: 9px 4px; border-radius: 10px; border: 1px solid #dfe3e8; background: var(--surface); font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; min-width: 0; }
+.tt-day.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.tt-lines { display: grid; gap: 6px; }
+.tt-line { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 14px; border-radius: 10px; border: 1px solid #e3e7ec; background: #f6f7f9; font-family: var(--font); color: var(--ink); text-align: left; min-width: 0; }
+button.tt-line { cursor: pointer; }
+button.tt-line:hover { border-color: var(--teal-mid); }
+.tt-line.on { background: var(--surface); border-left: 3px solid var(--teal); }
+.tt-line.free { background: #fff; border-style: dashed; }
+.tt-line.break { background: #f3f4f6; border-color: transparent; padding-top: 6px; padding-bottom: 6px; color: var(--text-muted); }
+.tt-time { width: 44px; flex-shrink: 0; font-size: 11.5px; line-height: 1.35; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tt-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tt-main { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-book { font-weight: 500; color: var(--text-muted); }
+.tt-sub { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-free { font-weight: 500; color: var(--text-soft); }
+.tt-plus { color: var(--text-soft); flex-shrink: 0; }
+.tt-period-time { width: 92px; flex-shrink: 0; font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.line-row.tt-break-row { background: #fff; color: var(--text-muted); }
+.line-row.tt-break-row .line-row-name { font-weight: 500; font-style: italic; }
+.tt-pick-head { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); margin: 4px 0 6px; }
+.tt-pick-head ~ .tt-pick-head { margin-top: 14px; }
+.tt-note { font-size: 12.5px; border-radius: 8px; padding: 8px 10px; margin-top: 10px; }
+.tt-note.blue { background: var(--teal-light); color: var(--teal-dark); }
+.tt-note.red { background: var(--red-light); color: var(--red-text); }
+.tt-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tt-week-wrap { overflow-x: auto; }
+.tt-week-narrow { display: none; }
+@media (max-width: 700px) { .tt-week-wide { display: none; } .tt-week-narrow { display: block; } }
+.tt-week { width: 100%; border-collapse: separate; border-spacing: 4px; min-width: 560px; table-layout: fixed; }
+.tt-week th { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px; }
+.tt-week tbody th { text-align: left; width: 96px; }
+.tt-week-name { display: block; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-week-time { display: block; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tt-week td { background: #fafbfc; border: 1px dashed #dfe3e8; border-radius: 8px; padding: 6px; font-size: 11.5px; line-height: 1.3; text-align: center; vertical-align: middle; height: 44px; overflow: hidden; }
+.tt-week td.on { background: var(--surface); border: 1px solid #dfe3e8; border-top: 3px solid var(--teal); }
+.tt-week td b, .tt-week td span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-week td span { color: var(--text-muted); }
+.tt-week td.off { background: transparent; border: none; }
+.tt-week tr.break td.off { background: #f3f4f6; border-radius: 6px; }
+@media (max-width: 640px) {
+  .tt-line { padding: 9px 10px; gap: 10px; }
+  .tt-period-time { width: 78px; font-size: 12px; }
+}
