@@ -223,6 +223,11 @@ function WeeklyFees() {
   const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
   const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
+  // The whole month's billed total — collected plus everything still unpaid, whether due
+  // yet or not. "Not due yet is never owed" stays true everywhere (Outstanding above is
+  // still isDue-filtered) — this is a separate, clearly forward-looking figure: what the
+  // month is expected to bring in altogether.
+  const monthTotalBilled = classMonthFees.reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
   const thisWeekMonday = getMondayOf(referenceDate);
   // schoolMonth.label follows the "first Monday" school-month boundary, which for a
@@ -401,9 +406,9 @@ function WeeklyFees() {
       {/* This month only, for this class (the year's totals are on Stats). */}
       <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'0 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>{activeClass} · this month — {referenceMonthLabel}</div>
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
+        <div className="stat-card-v2"><div className="n">{money(monthTotalBilled)}</div><div className="l">Expected this month</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
-        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).length}</div><div className="l">Unpaid weeks</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
