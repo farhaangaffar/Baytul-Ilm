@@ -77,6 +77,12 @@ export default function Dashboard() {
   const monthOutstanding = monthFees.filter(f => f.status !== 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthBilled = monthCollected + monthOutstanding;
   const monthCollectedPct = monthBilled ? Math.round((monthCollected / monthBilled) * 100) : 0;
+  // The whole period's billed total regardless of due status — what the month/term is
+  // expected to bring in altogether, not just what's collected plus already due. Separate
+  // from monthBilled above, which stays "due so far" (never redefined — see Fees.js).
+  const periodExpected = fees
+    .filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive)
+    .reduce((s, f) => s + Number(f.amount), 0);
 
   const dateStr = `${new Date().toLocaleDateString('en-GB', { weekday: 'long' })} ${formatDateGB(new Date())}`;
 
@@ -144,6 +150,7 @@ export default function Dashboard() {
           <div className="ring-breakdown">
             <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: {money(monthCollected)}</span>
             <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: {money(monthOutstanding)}</span>
+            <span><span className="dot" style={{background:'var(--ink)'}}/>Expected this {unit}: {money(periodExpected)}</span>
           </div>
         </div>
       </div>
