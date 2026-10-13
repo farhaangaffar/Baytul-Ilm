@@ -153,10 +153,10 @@ export default function App() {
               {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}
             </Routes>
           ) : (
-            // Teachers: their own classes' attendance, daily records and fees only.
+            // Teachers: their own classes' attendance, daily records and fees only (a Darul Uloom's office takes fees).
             <Routes>
               <Route path="/attendance" element={<Attendance />} />
-              <Route path="/fees"       element={<Fees />} />
+              {session.user.madrasah?.kind !== 'darul_uloom' && <Route path="/fees" element={<Fees />} />}
               <Route path="/records"    element={<DailyRecords />} />
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}

@@ -124,26 +124,24 @@ function drawCard(doc, f, logo, card) {
   if (r.resits?.length) { text(fit(`To resit: ${r.resits.join(', ')}`, f.reg, 9.5, W - 2 * M), M, top + 6, 9.5, f.reg, C.red); top += 16; }
   top += 8;
 
-  // Comments, each in its own box (shortened to fit the page if very long).
-  const comment = (label, words, h) => {
+  // Comments, each in a box sized to its words (shortened to fit the page if very long). The head's
+  // only appears when there is one.
+  const room = H - 70 - top;
+  const lineCount = words => wrapText(safe(words || ''), f.reg, 10, W - 2 * M - 24).length;
+  const heads = (card.headComment || '').trim();
+  const comment = (label, words, maxH) => {
+    const lines = wrapText(safe(words || ''), f.reg, 10, W - 2 * M - 24);
+    const h = Math.max(46, Math.min(maxH, lines.length * 14 + 22));
     text(label, M, top, 9, f.semi, C.muted);
     box(M, top + 6, W - 2 * M, h, C.white, C.line);
-    const lines = wrapText(safe(words || ''), f.reg, 10, W - 2 * M - 24);
     const max = Math.floor((h - 12) / 14);
     lines.slice(0, max).forEach((l, i) => text(i === max - 1 && lines.length > max ? `${l.replace(/\s*\S*$/, '')}…` : l, M + 12, top + 22 + i * 14, 10));
     top += h + 22;
   };
-  const room = H - 120 - top;
-  const ch = Math.max(46, Math.min(96, (room - 44) / 2));
-  comment("Class teacher's comment", card.teacherComment, ch);
-  comment("Head's comment", card.headComment, ch);
+  const share = heads ? Math.max(70, (room - 44) / 2) : room - 22;
+  comment("Class teacher's comment", card.teacherComment, heads ? Math.max(share, room - 44 - Math.min(share, lineCount(heads) * 14 + 22)) : share);
+  if (heads) comment("Head's comment", heads, Math.max(46, H - 70 - top - 22));
 
-  // Signatures and the footer.
-  const sigTop = Math.min(top + 18, H - 74);
-  [["Class teacher's signature", M], ["Head's signature", W / 2 + 10]].forEach(([label, sx]) => {
-    page.drawLine({ start: { x: sx, y: Y(sigTop) }, end: { x: sx + (W / 2 - M - 10), y: Y(sigTop) }, thickness: 0.6, color: C.muted });
-    text(label, sx, sigTop + 12, 8, f.reg, C.muted);
-  });
   const now = new Date();
   const foot = `${school} · ${dmy(now.toISOString().slice(0, 10))} · Made with ${APP_NAME} · ${APP_URL.replace(/^https?:\/\//, '')}`;
   centre(fit(foot, f.reg, 8, W - 2 * M), W / 2, H - 28, 8, f.reg, C.muted);

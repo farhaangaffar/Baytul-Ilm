@@ -155,10 +155,7 @@ export default function Exams() {
                 return (
                   <button key={p.id} type="button" className="line-row course-kitaab" onClick={() => setModal({ kind: 'marks', paper: p })}>
                     <span className="course-kitaab-subject">{p.subject}</span>
-                    <span className="course-kitaab-main">
-                      <span className="line-row-name">{p.kitaab && p.kitaab !== p.subject ? p.kitaab : p.subject}</span>
-                      <span className="line-row-sub">{[teacherName(p.teacherId), `out of ${p.outOf}`].filter(Boolean).join(' · ')}</span>
-                    </span>
+                    <span className="line-row-name">{p.kitaab && p.kitaab !== p.subject ? p.kitaab : p.subject}</span>
                     <span className={`exam-tag ${n === kids.length && kids.length ? 'green' : ''}`}>{n}/{kids.length}</span>
                   </button>
                 );
@@ -425,11 +422,15 @@ export function CardModal({ card, canTeacher, canHead, onClose, onSaved }) {
           const done = p.absent || p.mark !== null;
           const pass = !p.absent && p.mark !== null && p.mark >= p.passMark;
           return (
-            <div key={p.id} className="exam-card-row">
-              <span className="course-kitaab-subject">{p.subject}</span>
-              <span className="line-row-name" style={{ fontWeight: 500 }}>{p.kitaab && p.kitaab !== p.subject ? p.kitaab : ''}</span>
-              <span className="exam-card-mark">{p.absent ? 'Absent' : done ? `${num(p.mark)} / ${p.outOf}` : '—'}</span>
-              {done && <span className={`exam-tag ${pass ? 'green' : 'red'}`}>{pass ? 'Pass' : 'Resit'}</span>}
+            <div key={p.id} className={`exam-card-row ${done ? (pass ? 'pass' : 'resit') : ''}`}>
+              <span className="exam-card-what">
+                <span className="exam-card-subject">{p.subject}</span>
+                {p.kitaab && p.kitaab !== p.subject && <span className="exam-card-book">{p.kitaab}</span>}
+              </span>
+              <span className="exam-card-result">
+                <span className="exam-card-mark">{p.absent ? 'Absent' : done ? <>{num(p.mark)}<small> / {p.outOf}</small></> : '—'}</span>
+                {done && <span className={`exam-tag ${pass ? 'green' : 'red'}`}>{pass ? 'Pass' : 'Resit'}</span>}
+              </span>
             </div>
           );
         })}

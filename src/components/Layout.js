@@ -16,7 +16,7 @@ const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
   { label:'Students',           path:'/students',   icon:Users,         section:'Management' },
   { label:'Attendance',         path:'/attendance', icon:CheckSquare,   teacher:true },
-  { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true },
+  { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true, duOffice:true }, // a Darul Uloom's office takes fees, not its teachers
   { label:'Daily records',      path:'/records',    icon:BookOpen,      teacher:true },
   { label:'Timetable',          path:'/timetable',  icon:CalendarClock, teacher:true, darulUloom:true },
   { label:'Exams & reports',    path:'/exams',      icon:ClipboardList, teacher:true, darulUloom:true },
@@ -49,7 +49,7 @@ export default function Layout({ children, title, subtitle }) {
   const visibleNav = isOwner
     ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom))
       .map(i => (isDarulUloom && i.duSection ? { ...i, section: i.duSection } : i))
-    : navItems.filter(i => i.teacher && (!i.darulUloom || isDarulUloom)).map(i => ({ ...i, section: undefined }));
+    : navItems.filter(i => i.teacher && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 

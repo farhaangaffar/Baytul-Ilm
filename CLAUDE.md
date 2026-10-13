@@ -137,7 +137,8 @@ codebase (one codebase, not a fork).
   only their papers, plus results for the class they're class teacher of. "Publish to parents" puts the report card (marks,
   result, comments, PDF) in the parent portal (`publishedExams()` in `server/routes/parent.js`). A child's report cards also show
   on their Report tab in Daily records (`StudentExams`, `GET /api/exams?studentId=` — head or class teacher; both use
-  `studentExamCards()`). "Print the whole class" is one PDF for printing; parents only ever get their own child's.
+  `studentExamCards()`). "Print the whole class" is one PDF for printing; parents only ever get their own child's. The PDF has no
+  signature lines and shows the head's comment only when there is one. A Darul Uloom's teachers have no Fees page (the office takes fees).
   **A Darul Uloom's report IS its exam report card** — no monthly/termly summaries: the card adds the term's attendance
   (from the previous exam this year, or 1 September, to the exam — `termOf()`), a behaviour rating
   (`du_exam_comments.behavior`, Excellent/Good/Fair/Poor) and the comments; "Write it for me" (`?action=draft`, head or
