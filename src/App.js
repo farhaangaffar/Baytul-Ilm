@@ -147,7 +147,7 @@ export default function App() {
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/course" element={<Course />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
-              <Route path="/reports"    element={<Reports />} />
+              <Route path="/reports"    element={session.user.madrasah?.kind === 'darul_uloom' ? <Navigate to="/exams" replace /> : <Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />
               {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}

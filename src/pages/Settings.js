@@ -413,7 +413,7 @@ export default function Settings() {
             {isDarulUloom ? (
               // A Darul Uloom's report is each exam's report card — set up on the Exams page.
               <><div className="settings-fixed">With each exam</div>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One report per exam — marks, attendance, behaviour and comments.</span></>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One report per exam, written on Exams &amp; reports.</span></>
             ) : (
             <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
               <option value="monthly">Monthly</option>

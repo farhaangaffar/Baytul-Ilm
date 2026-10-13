@@ -126,7 +126,7 @@ codebase (one codebase, not a fork).
   shows last time's. The lesson's own teacher has a Record button; the head and the class's login can record too; any other teacher can, as **cover** (tapping someone else's lesson opens it with a "Covering for …" note) — the record keeps who wrote it, and the book's history shows "Recorded by … (cover)" (`mayLog`). Not for Hifdh / Naazhirah / Qaa'idah (a Qur'an class, or that subject — `QURAN_SUBJECT`): those are recorded child by child in Daily records.
   The Aalim course page shows each book's latest ("Last: …") and its history in the book's pop-up.
   Typed fields with suggestions use `PickField` (a plain box + small grey suggestion boxes) — never `<datalist>`.
-  **Exams & report cards** (`/exams`, menu "Exams", head + teachers; `src/pages/Exams.js`, `server/routes/exams.js`, results
+  **Exams & reports** (`/exams`, menu "Exams & reports", head + teachers; `src/pages/Exams.js`, `server/routes/exams.js`, results
   worked out in `server/examResults.js`, PDF `src/lib/reportCardPdf.js`; 403 for a maktab): the head adds an exam (`du_exams`:
   name, date, academic year, each paper's out of and the pass mark — each madrasah's own, e.g. out of 50 pass 17 — and the
   classes sitting it); each class's papers (`du_exam_papers`) start as its books (`du_subjects`) and can be added to (e.g.
@@ -142,10 +142,12 @@ codebase (one codebase, not a fork).
   (from the previous exam this year, or 1 September, to the exam — `termOf()`), a behaviour rating
   (`du_exam_comments.behavior`, Excellent/Good/Fair/Poor) and the comments; "Write it for me" (`?action=draft`, head or
   class teacher; demo = ready-made) drafts the class teacher's comment with AI from the term's marks, attendance,
-  behaviour records, lessons covered and Qur'an notes. The Reports page for a Darul Uloom is `ExamReports` (Exam ▾ /
-  Class ▾, Ready = every paper marked + teacher's comment); the Report tab is `StudentExams`; Settings shows "Reports are
-  made: With each exam"; the parent portal's "Reports" are the exam cards; page help has `DU_HEAD` overrides; the pop-up
-  is `CardModal` (exported from Exams.js). Note: Settings → Backup
+  behaviour records, lessons covered and Qur'an notes. **One place to do it all** (the owner found two pages confusing): an
+  exam opens to Class ▾ then three numbered steps — 1 Marks (papers), 2 Reports (each child: Ready = every paper marked +
+  teacher's comment / Marks missing / Not written; tap → `CardModal`; Print the whole class), 3 Send to parents (Publish,
+  head only). A Darul Uloom has **no Reports page** (menu hidden, `/reports` → `/exams`); the child's Report tab
+  (`StudentExams`) only lists their reports to download; Settings says "Reports are made: With each exam"; the parent
+  portal's "Reports" are the exam cards; page help has `DU_HEAD` overrides. Note: Settings → Backup
   doesn't yet include the Darul Uloom tables (course, timetable, exams) — add before launch.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,

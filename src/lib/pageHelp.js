@@ -82,14 +82,12 @@ const HEAD = {
     'A period can be on some days only — e.g. no afternoon periods on Friday.',
     'Once a lesson has happened, tap it then "Record what this lesson covered" — teachers do this for their own lessons.',
   ] },
-  '/exams': { title: 'Exams', steps: [
+  '/exams': { title: 'Exams & reports', steps: [
     'Tap "Add an exam": its name, date, what each paper is out of, the pass mark, and which classes sit it.',
-    'Each class\'s papers start as its books on the Aalim course page. Tap the class box to switch class; "Add a paper" for anything else (e.g. Hifdh, Tajweed).',
-    'Tap a paper to enter its marks — or Absent. Teachers enter marks for the papers they teach.',
-    'Results show each child\'s percentage, grade, position and whether they passed. A failed or missed paper is a resit.',
-    'Tap a child to write the comments (the class teacher\'s and yours — they go on the report card) and download it.',
-    '"Print the whole class" makes one PDF of every child\'s report card, for printing. Parents never get that — only their own child\'s.',
-    'When it\'s ready, tap "Publish to parents" — each family then sees their child\'s report card in the parent portal. It\'s also on the child\'s Report tab in Daily records.',
+    'Open an exam and pick a class at the top. Then work down the three steps.',
+    '1 · Marks: tap a paper to enter its marks (or Absent). Papers start as the year\'s books — "Add a paper" for anything else.',
+    '2 · Reports: tap a child — choose their behaviour, write the comments ("Write it for me" drafts the class teacher\'s) and get the PDF. "Print the whole class" makes one PDF.',
+    '3 · Send to parents: tap Publish when the reports are ready — each family sees only their own child\'s.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
@@ -122,10 +120,10 @@ const TEACHER = {
     'Tap the box at the top to see any class or teacher. Changes are made by the head.',
     'Covering for someone who\'s off? Tap their lesson and fill it in — it\'s saved under your name.',
   ] },
-  '/exams': { title: 'Exams', steps: [
-    'Tap an exam, then the class box to choose a class.',
-    'Your papers are listed — tap one to enter its marks (or Absent) and Save.',
-    'Class teachers also see their class\'s results: tap a child to write your comment and download their report card.',
+  '/exams': { title: 'Exams & reports', steps: [
+    'Tap an exam, then choose a class at the top.',
+    '1 · Marks: tap one of your papers to enter its marks (or Absent) and Save.',
+    '2 · Reports (class teachers): tap a child to choose their behaviour and write your comment — "Write it for me" drafts it.',
   ] },
 };
 
@@ -139,17 +137,11 @@ const PARENT = { title: 'How to use this page', steps: [
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
 const DU_HEAD = {
-  '/reports': { title: 'Reports', steps: [
-    'A Darul Uloom\'s report is each exam\'s report card: marks, attendance for the term, behaviour and comments.',
-    'Choose the exam and the class at the top. "Ready" means every paper is marked and the class teacher\'s comment is written.',
-    'Tap a child to choose their behaviour, write the comments — "Write it for me" drafts the class teacher\'s — and get the PDF.',
-    '"Print the whole class" makes one PDF for printing. Publish the exam on the Exams page and each family sees their own child\'s.',
-  ] },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
     'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
     'Behaviour: write a comment, positives and concerns for the day — they go into the report\'s comment.',
-    'Report: one per exam — tap one to write it and get the PDF.',
+    'Report: their reports, one per exam, to download — they\'re written on Exams & reports.',
   ] },
 };
 

@@ -53,8 +53,8 @@ export default function Exams() {
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000); }
   const after = async msg => { setModal(null); await load(); if (msg) showToast(msg); };
 
-  const title = 'Exams';
-  const subtitle = 'Marks, results and report cards';
+  const title = 'Exams & reports';
+  const subtitle = 'Marks, then each child\'s report, then send to parents';
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
   if (error) return <Layout title={title} subtitle={subtitle}><ErrorState error={error} onRetry={load} /></Layout>;
   const { exams, classes, teachers } = list;
@@ -107,6 +107,7 @@ export default function Exams() {
     const ra = results[a.id], rb = results[b.id];
     return (ra?.position ?? 999) - (rb?.position ?? 999) || (rb?.pct ?? -1) - (ra?.pct ?? -1);
   });
+  const isReady = s => !!results[s.id]?.complete && comments.some(c => c.studentId === s.id && c.teacherComment);
   const cardFor = s => {
     const cm = comments.find(c => c.studentId === s.id) || {};
     return {
@@ -134,15 +135,7 @@ export default function Exams() {
           <div className="card-sub" style={{ marginBottom: isOwner ? 12 : 0 }}>
             {[exam.heldOn && monthYear(exam.heldOn), `Marked out of ${exam.outOf}`, `pass mark ${num(exam.passMark)}`].filter(Boolean).join(' · ')}
           </div>
-          {isOwner && (
-            <div className="course-open-actions">
-              <button type="button" className="line-row add" onClick={() => setModal({ kind: 'exam', exam })}><Pencil size={13} /> Edit exam</button>
-              <button type="button" className={`line-row ${exam.published ? 'on' : 'add'}`}
-                onClick={async () => { await publishExam(exam.id, !exam.published); after(exam.published ? 'Taken back from parents' : 'Published — parents can see the report cards'); }}>
-                {exam.published ? <><Check size={14} /> Published to parents</> : <><Send size={13} /> Publish to parents</>}
-              </button>
-            </div>
-          )}
+          {isOwner && <button type="button" className="line-row add" onClick={() => setModal({ kind: 'exam', exam })}><Pencil size={13} /> Edit exam</button>}
         </div>
 
         {detail.classes.length > 0 && (
@@ -152,8 +145,10 @@ export default function Exams() {
 
         {cls && (
           <div className="card">
-            <div className="card-title" style={{ marginBottom: 2 }}>Papers — {cls.name}</div>
-            <div className="card-sub" style={{ marginBottom: 12 }}>Tap a paper to enter its marks</div>
+            <div className="exam-step-title"><span className="exam-step">1</span>Marks — {cls.name}</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>
+              {classPapers.filter(p => kids.length && entered(p) === kids.length).length} of {classPapers.length} papers marked · tap a paper to enter its marks
+            </div>
             <div className="course-lines">
               {classPapers.map(p => {
                 const n = entered(p);
@@ -180,18 +175,22 @@ export default function Exams() {
 
         {cls?.results && (
           <div className="card">
-            <div className="card-title" style={{ marginBottom: 2 }}>Results — {cls.name}</div>
-            <div className="card-sub" style={{ marginBottom: 12 }}>Tap a child to write their comments and get their report card</div>
+            <div className="exam-step-title"><span className="exam-step">2</span>Reports — {cls.name}</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>
+              {kids.filter(isReady).length} of {kids.length} ready · tap a child to write their report and get the PDF
+            </div>
             <div className="course-lines">
               {ranked.map(s => {
                 const r = results[s.id];
+                const ok = isReady(s);
                 return (
                   <button key={s.id} type="button" className="line-row" onClick={() => setModal({ kind: 'card', student: s })}>
                     <span className="course-num">{r?.position ?? '–'}</span>
-                    <span className="line-row-name">{s.forename} {s.surname}</span>
-                    <span className="line-row-sub">{r?.pct === null || !r ? 'No marks yet' : `${num(r.pct)}% · ${r.grade}`}
-                      {!comments.some(c => c.studentId === s.id && c.teacherComment) && <span className="exam-no-comment"> · no comment yet</span>}</span>
-                    {r?.result && <span className={`exam-tag ${r.result === 'Passed' ? 'green' : r.result === 'Resit' ? 'red' : ''}`}>{r.result === 'Not finished' ? `${r.marked}/${r.papers}` : r.result}</span>}
+                    <span className="course-kitaab-main">
+                      <span className="line-row-name">{s.forename} {s.surname}</span>
+                      <span className="line-row-sub">{!r?.marked ? 'No marks yet' : [r.pct !== null && `${num(r.pct)}%`, r.grade, r.result === 'Resit' && 'Resit'].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    <span className={`exam-tag ${ok ? 'green' : 'amber'}`}>{ok ? 'Ready' : !r?.complete ? 'Marks missing' : 'Not written'}</span>
                   </button>
                 );
               })}
@@ -202,6 +201,18 @@ export default function Exams() {
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {isOwner && (
+          <div className="card">
+            <div className="exam-step-title"><span className="exam-step">3</span>Send to parents</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>Each family sees only their own child's report, in the parent portal</div>
+            <button type="button" className={`line-row ${exam.published ? 'on' : 'add'}`}
+              onClick={async () => { await publishExam(exam.id, !exam.published); after(exam.published ? 'Taken back from parents' : 'Published — families can see their reports'); }}>
+              {exam.published ? <><Check size={14} /><span className="line-row-name">Published</span><span className="line-row-sub">Tap to take it back</span></>
+                : <><Send size={13} /><span className="line-row-name">Publish to parents</span><span className="line-row-sub">When every class's reports are ready</span></>}
+            </button>
           </div>
         )}
       </div>
