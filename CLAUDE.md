@@ -24,6 +24,12 @@ codebase (one codebase, not a fork).
   previews use a separate test database.
 - If unsure whether a change is small or large, treat it as large.
 - After a PR is merged, start follow-up work on a fresh branch from the latest `main`.
+- **After merging (or closing) a PR, delete its Neon preview branch too** (Neon MCP
+  tools: `list_branches` / `delete_branch`, name `preview/<git branch>`) — Neon's free
+  plan caps the total number of database branches, and leftover preview ones (Vercel
+  creates one per branch automatically) silently fill that cap and make every future
+  preview deployment fail with no useful error, until old ones are cleared out. Never
+  delete `main`'s own branch or one backing another still-open PR.
 - Explain things in plain language — the owner isn't a developer.
 - **Every preview shows made-up data:** when giving the owner a preview link, give the demo link
   too (`<preview>/?demo`, or `<preview>/?demo=darul-uloom` for Darul Uloom work) so they see the
