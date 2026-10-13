@@ -3,9 +3,9 @@ import { Check, Plus, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { money } from '../lib/branding';
 
 // A child's fees as a list of boxes — the same look as a child's attendance month: each
-// week/month/term in its own box, tinted and striped green (paid) or red (owed); ones that
-// haven't started yet are "Not due yet" and never count as owed. Used by weekly fees (a card
-// per school month) and monthly/termly fees (one card for the year).
+// week/month/term in its own box, tinted and striped green (paid) or red (owed); a period
+// not yet added (a future month not started yet) shows as "Not due yet" until then. Used by
+// weekly fees (a card per school month) and monthly/termly fees (one card for the year).
 //
 // rows: [{ key, label, now, future, fee, planned, removed, offNote, canAdd }]
 //   fee      — the fee record (stored), or null
@@ -48,15 +48,14 @@ export function FeeRowList({ title, rows, isOwner, editCell, setEditCell, saveEd
           );
         }
         const paid = f.status === 'Paid';
-        const notDue = !paid && r.future;
         const editing = editCell?.feeId === f.id;
         return (
-          <div key={r.key} className={`att-day fee-row ${paid ? 'paid' : notDue ? 'due' : 'owed'}`}>
+          <div key={r.key} className={`att-day fee-row ${paid ? 'paid' : 'owed'}`}>
             <span className="att-stripe" />
             <div className="att-day-main">
               <div className="att-day-date">{r.label}</div>
               <div className="att-day-status">
-                {paid ? `Paid${f.paidDate ? ` ${shortDate(f.paidDate)}` : ''}` : notDue ? 'Not due yet' : 'Owed'}
+                {paid ? `Paid${f.paidDate ? ` ${shortDate(f.paidDate)}` : ''}` : 'Owed'}
                 {tag(r)}
               </div>
             </div>
@@ -72,7 +71,7 @@ export function FeeRowList({ title, rows, isOwner, editCell, setEditCell, saveEd
                 {money(Number(f.amount))}<Pencil size={11} />
               </button>
             ) : <span className="fee-amt plain">{money(Number(f.amount))}</span>}
-            <button className={`fee-btn ${paid ? 'paid' : notDue ? 'due' : 'owed'}`} onClick={() => onToggle(f)} aria-pressed={paid}>
+            <button className={`fee-btn ${paid ? 'paid' : 'owed'}`} onClick={() => onToggle(f)} aria-pressed={paid}>
               {paid ? <><Check size={13} />Paid</> : 'Mark paid'}
             </button>
             {isOwner && onRemove && <button className="fee-icon" onClick={() => onRemove(r)} aria-label={`Remove ${r.label}`}><Trash2 size={13} /></button>}
@@ -85,7 +84,7 @@ export function FeeRowList({ title, rows, isOwner, editCell, setEditCell, saveEd
 
 export const shortDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
-// Paid / Owed / Collected for a child — owed counts only periods that have started.
+// Paid / Owed / Collected for a child.
 export function FeeTotals({ paid, owed, label }) {
   const billed = paid + owed;
   return (

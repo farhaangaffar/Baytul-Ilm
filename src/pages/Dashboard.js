@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import GettingStarted from '../components/GettingStarted';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
-import { feeFrequency, currentFeePeriod, FREQUENCIES, countedFees } from '../lib/feePeriods';
+import { feeFrequency, currentFeePeriod, FREQUENCIES } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -71,18 +71,11 @@ export default function Dashboard() {
   const frequency = feeFrequency();
   const unit = FREQUENCIES[frequency].unit;
   const feePeriod = currentFeePeriod(frequency, terms) || { start: '9999-12-31', endExclusive: '9999-12-31', label: 'no term dates set' };
-  // Unpaid fees for weeks still to come this month aren't owed yet.
-  const monthFees = countedFees(fees.filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive));
+  const monthFees = fees.filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive);
   const monthCollected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthOutstanding = monthFees.filter(f => f.status !== 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthBilled = monthCollected + monthOutstanding;
   const monthCollectedPct = monthBilled ? Math.round((monthCollected / monthBilled) * 100) : 0;
-  // The whole period's billed total regardless of due status — what the month/term is
-  // expected to bring in altogether, not just what's collected plus already due. Separate
-  // from monthBilled above, which stays "due so far" (never redefined — see Fees.js).
-  const periodExpected = fees
-    .filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive)
-    .reduce((s, f) => s + Number(f.amount), 0);
 
   const dateStr = `${new Date().toLocaleDateString('en-GB', { weekday: 'long' })} ${formatDateGB(new Date())}`;
 
@@ -150,7 +143,6 @@ export default function Dashboard() {
           <div className="ring-breakdown">
             <span><span className="dot" style={{background:'var(--blue)'}}/>Collected: {money(monthCollected)}</span>
             <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: {money(monthOutstanding)}</span>
-            <span><span className="dot" style={{background:'var(--ink)'}}/>Expected this {unit}: {money(periodExpected)}</span>
           </div>
         </div>
       </div>

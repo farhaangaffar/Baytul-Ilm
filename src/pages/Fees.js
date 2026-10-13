@@ -12,7 +12,7 @@ import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
-import { feePer, feeFrequency, isDue } from '../lib/feePeriods';
+import { feePer, feeFrequency } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
 import { FeeRowList, FeeTotals, shortDate } from '../components/FeeRows';
 
@@ -99,7 +99,7 @@ function WeeklyFees() {
 
   async function refresh(y2) { setFees(await getFees(y2||year)); }
   // Weeks switched off and weeks removed for a child or class, for the year on screen — so the
-  // rest of the year can be shown before it's charged ("Not due yet").
+  // rest of the year can be shown before it's charged ("Not added yet").
   const [skips, setSkips] = useState([]);
   const [showRest, setShowRest] = useState(false);
   const loadPlan = useCallback(() => {
@@ -222,12 +222,7 @@ function WeeklyFees() {
   const schoolMonth = getCurrentSchoolMonth(referenceDate);
   const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
   const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
-  // The whole month's billed total — collected plus everything still unpaid, whether due
-  // yet or not. "Not due yet is never owed" stays true everywhere (Outstanding above is
-  // still isDue-filtered) — this is a separate, clearly forward-looking figure: what the
-  // month is expected to bring in altogether.
-  const monthTotalBilled = classMonthFees.reduce((s,f)=>s+Number(f.amount),0);
+  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
   const thisWeekMonday = getMondayOf(referenceDate);
   // schoolMonth.label follows the "first Monday" school-month boundary, which for a
@@ -317,7 +312,7 @@ function WeeklyFees() {
     const months = isCurrentYear && !showRest ? allMonths.filter(m => m <= shiftMonth(nowMonth, 1)) : allMonths;
     const yearFees = studentFees.filter(f => f.period === 'week');
     const paidSum = yearFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
-    const owedSum = yearFees.filter(f => f.status !== 'Paid' && isDue(f)).reduce((t, f) => t + Number(f.amount), 0);
+    const owedSum = yearFees.filter(f => f.status !== 'Paid').reduce((t, f) => t + Number(f.amount), 0);
     const rowHandlers = {
       isOwner, editCell, setEditCell, saveEdit, nowLabel: 'This week',
       onToggle: f => canToggle(f) && setConfirmToggle(f),
@@ -406,9 +401,9 @@ function WeeklyFees() {
       {/* This month only, for this class (the year's totals are on Stats). */}
       <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'0 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>{activeClass} · this month — {referenceMonthLabel}</div>
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
-        <div className="stat-card-v2"><div className="n">{money(monthTotalBilled)}</div><div className="l">Expected this month</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid weeks</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
@@ -437,12 +432,6 @@ function WeeklyFees() {
         {classStudents.map(s=>{
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-          // The whole month's unpaid total, not just weeks that have actually started (isDue) —
-          // this caption is meant to answer "what do I still need to collect this month", which
-          // includes weeks already billed ahead for the rest of the month. "Due"/"not due yet" stays
-          // the way the week-pills and the class-wide stat above read, since those genuinely mean
-          // "owed right now" — this is deliberately a different, broader figure, so it gets its own
-          // wording ("owed") rather than reusing "due"/"outstanding" for a different scope.
           const monthOwedTotal = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
@@ -466,10 +455,9 @@ function WeeklyFees() {
                       );
                     }
                     const paid = f.status==='Paid';
-                    const notDue = !paid && !isDue(f);
                     return (
-                      <button key={w} className={`week-pill ${paid?'paid':notDue?'not-due':'unpaid'} ${isCurrent?'is-current':''}`}
-                        title={`Week of ${dateLabel} — ${paid?'Paid':notDue?'Not due yet':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
+                      <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
+                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
                         onClick={e=>{ e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
                         <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>
