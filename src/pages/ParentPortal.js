@@ -3,6 +3,7 @@ import { LegalLinks, MadeWith } from '../components/Legal';
 import { getParentHome, getParentChild, reportAbsence, logout, formatDateGB } from '../lib/store';
 import { periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
+import { buildReportCards } from '../lib/reportCardPdf';
 import { money } from '../lib/branding';
 import { countedFees } from '../lib/feePeriods';
 import { useSettings } from '../lib/SettingsContext';
@@ -175,6 +176,16 @@ function ChildView({ child, reasons }) {
     setDownloading('');
   }
 
+  async function downloadCard(e) {
+    setDownloading(`exam-${e.id}`);
+    try {
+      const bytes = await buildReportCards([{ student: data.student, exam: e, papers: e.papers, result: e.result,
+        teacherComment: e.teacherComment, headComment: e.headComment, teacherName: data.teacherName }]);
+      downloadPdfBytes(bytes, `Report_card_${child.forename}_${child.surname}_${e.name}.pdf`.replace(/\s+/g, '_'));
+    } catch (err) { setError(err.message || 'Could not make the report card'); }
+    setDownloading('');
+  }
+
   return (
     <>
       <OpenableSection title="Attendance" summary={
@@ -251,6 +262,25 @@ function ChildView({ child, reasons }) {
           );
         })}
       </Section>
+
+      {data.exams?.length > 0 && (
+        <Section title="Exam results">
+          {data.exams.map(e => (
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{e.name}</div>
+                <div className="text-muted" style={{ fontSize: 12 }}>
+                  {[e.result.pct !== null && `${e.result.pct}%`, e.result.grade, e.result.complete && e.result.position && `${e.result.position} of ${e.result.of} in class`,
+                    e.result.result === 'Resit' ? `Resit: ${e.result.resits.join(', ')}` : e.result.result].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              <button className="btn btn-sm" onClick={() => downloadCard(e)} disabled={!!downloading}>
+                <Download size={13} />{downloading === `exam-${e.id}` ? 'Preparing…' : 'PDF'}
+              </button>
+            </div>
+          ))}
+        </Section>
+      )}
 
       <Section title="Report an absence">
         {sent && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Sent — the teacher will see it when they take the register.</div>}

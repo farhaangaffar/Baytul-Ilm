@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { appNavigate } from './BackToExit';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -19,6 +19,7 @@ const navItems = [
   { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true },
   { label:'Daily records',      path:'/records',    icon:BookOpen,      teacher:true },
   { label:'Timetable',          path:'/timetable',  icon:CalendarClock, teacher:true, darulUloom:true },
+  { label:'Exams',              path:'/exams',      icon:ClipboardList, teacher:true, darulUloom:true },
   { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup' },
   { label:'Aalim course',       path:'/course',     icon:Library,       darulUloom:true },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },

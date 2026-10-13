@@ -7,11 +7,40 @@ const { ensureParentTables, childIds, portalOn, ABSENCE_REASONS } = require('../
 // name or records, nor the class list, teachers' details or anything else staff use.
 //   GET               → { children: [...], absenceReasons }
 //   GET ?studentId=   → one child's attendance, fees, finished reports, Qur'an
-//                       progress and the absences this family has reported
+//                       progress, published exam results (a Darul Uloom) and the absences this family has reported
 //   POST ?action=absence {studentId, date, reason, note} → tell the madrasah
 // When the madrasah has the portal switched off (Settings), every call says so.
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+// A Darul Uloom's published exams this child sat: their own marks, result and the comments —
+// worked out with the whole class (for the position) but only this child's returned.
+async function publishedExams(mid, s) {
+  const { rows: [m] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
+  if (m?.kind !== 'darul_uloom') return [];
+  const ex = require('./exams');
+  await ex.ensure();
+  const { rows: [cls] } = await query('SELECT id FROM classes WHERE name = $1 AND madrasah_id = $2', [s.class, mid]);
+  if (!cls) return [];
+  const { rows } = await query('SELECT id::text FROM du_exams WHERE madrasah_id = $1 AND published AND $2 = ANY(class_ids) ORDER BY held_on DESC NULLS LAST, id DESC', [mid, cls.id]);
+  const out = [];
+  for (const { id } of rows) {
+    const d = await ex.examDetail(mid, id, null);
+    const r = d?.results[s.id];
+    if (!r || !r.marked) continue;
+    const mine = d.marks.filter(mk => mk.studentId === s.id);
+    const cm = d.comments.find(c => c.studentId === s.id) || {};
+    out.push({
+      id, name: d.exam.name, year: d.exam.year, heldOn: d.exam.heldOn, result: r,
+      papers: d.papers.filter(p => p.classId === cls.id).map(p => {
+        const mk = mine.find(x => x.paperId === p.id);
+        return { subject: p.subject, kitaab: p.kitaab, outOf: p.outOf, passMark: p.passMark, mark: mk ? mk.mark : null, absent: !!mk?.absent };
+      }),
+      teacherComment: cm.teacherComment || '', headComment: cm.headComment || '',
+    });
+  }
+  return out;
+}
 
 module.exports = async (req, res) => {
   const user = await getUser(req);
@@ -52,6 +81,7 @@ module.exports = async (req, res) => {
     ]);
     const s = st.rows[0];
     if (!s) { res.status(404).json({ error: 'Not found' }); return; }
+    const exams = await publishedExams(mid, s).catch(() => []);
     res.status(200).json({
       student: {
         id: s.id, forename: s.forename, surname: s.surname, class: s.class, status: s.status,
@@ -70,6 +100,7 @@ module.exports = async (req, res) => {
         priorJuz: prior.rows[0]?.prior_juz || [],
       },
       absences: absences.rows,
+      exams,
     });
     return;
   }

@@ -16,6 +16,7 @@ const routes = {
   'daily-records': require('../server/routes/daily-records'),
   'days-off': require('../server/routes/days-off'),
   demo: require('../server/routes/demo'),
+  exams: require('../server/routes/exams'),
   fees: require('../server/routes/fees'),
   login: require('../server/routes/login'),
   madaaris: require('../server/routes/madaaris'),

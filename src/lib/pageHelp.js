@@ -82,6 +82,14 @@ const HEAD = {
     'A period can be on some days only — e.g. no afternoon periods on Friday.',
     'Once a lesson has happened, tap it then "Record what this lesson covered" — teachers do this for their own lessons.',
   ] },
+  '/exams': { title: 'Exams', steps: [
+    'Tap "Add an exam": its name, date, what each paper is out of, the pass mark, and which classes sit it.',
+    'Each class\'s papers start as its books on the Aalim course page. Tap the class box to switch class; "Add a paper" for anything else (e.g. Hifdh, Tajweed).',
+    'Tap a paper to enter its marks — or Absent. Teachers enter marks for the papers they teach.',
+    'Results show each child\'s percentage, grade, position and whether they passed. A failed or missed paper is a resit.',
+    'Tap a child to write your comment and download their report card. "Download all" makes the whole class\'s in one PDF.',
+    'When it\'s ready, tap "Publish to parents" — families then see the report card in the parent portal.',
+  ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
     'The bar on each card: grey = free months, green = paid, yellow = due within 2 weeks, red = overdue.',
@@ -112,6 +120,11 @@ const TEACHER = {
     'Tap a day — or Week for the whole week. You can fill in any day this week that\'s gone by.',
     'Tap the box at the top to see any class or teacher. Changes are made by the head.',
     'Covering for someone who\'s off? Tap their lesson and fill it in — it\'s saved under your name.',
+  ] },
+  '/exams': { title: 'Exams', steps: [
+    'Tap an exam, then the class box to choose a class.',
+    'Your papers are listed — tap one to enter its marks (or Absent) and Save.',
+    'Class teachers also see their class\'s results: tap a child to write your comment and download their report card.',
   ] },
 };
 

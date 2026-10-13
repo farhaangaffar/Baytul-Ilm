@@ -126,9 +126,20 @@ codebase (one codebase, not a fork).
   shows last time's. The lesson's own teacher has a Record button; the head and the class's login can record too; any other teacher can, as **cover** (tapping someone else's lesson opens it with a "Covering for …" note) — the record keeps who wrote it, and the book's history shows "Recorded by … (cover)" (`mayLog`). Not for Hifdh / Naazhirah / Qaa'idah (a Qur'an class, or that subject — `QURAN_SUBJECT`): those are recorded child by child in Daily records.
   The Aalim course page shows each book's latest ("Last: …") and its history in the book's pop-up.
   Typed fields with suggestions use `PickField` (a plain box + small grey suggestion boxes) — never `<datalist>`.
+  **Exams & report cards** (`/exams`, menu "Exams", head + teachers; `src/pages/Exams.js`, `server/routes/exams.js`, results
+  worked out in `server/examResults.js`, PDF `src/lib/reportCardPdf.js`; 403 for a maktab): the head adds an exam (`du_exams`:
+  name, date, academic year, each paper's out of and the pass mark — each madrasah's own, e.g. out of 50 pass 17 — and the
+  classes sitting it); each class's papers (`du_exam_papers`) start as its books (`du_subjects`) and can be added to (e.g.
+  Hifdh, Tajweed) or changed. Marks (`du_exam_marks`, a mark or Absent) are entered per paper by its teacher, the class
+  teacher or the head. Results per class: total, %, grade (Excellent 80+ / Very good 65+ / Good 50+ / Pass / Below pass),
+  position (once every paper is marked; equal %s share), Passed or Resit (any failed — below the pass mark scaled to the
+  paper — or absent paper). Comments (`du_exam_comments`): class teacher's (class teacher or head) and head's. Teachers see
+  only their papers, plus results for the class they're class teacher of. "Publish to parents" puts the report card (marks,
+  result, comments, PDF) in the parent portal (`publishedExams()` in `server/routes/parent.js`). Note: Settings → Backup
+  doesn't yet include the Darul Uloom tables (course, timetable, exams) — add before launch.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
-  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; logins: head, Maulana Yusuf (1st year), the Patel family.
+  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; logins: head, Maulana Yusuf (1st year), the Patel family.
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
