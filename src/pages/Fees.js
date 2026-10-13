@@ -432,7 +432,13 @@ function WeeklyFees() {
         {classStudents.map(s=>{
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-          const monthOwed = monthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
+          // The whole month's unpaid total, not just weeks that have actually started (isDue) —
+          // this caption is meant to answer "what do I still need to collect this month", which
+          // includes weeks already billed ahead for the rest of the month. "Due"/"not due yet" stays
+          // the way the week-pills and the class-wide stat above read, since those genuinely mean
+          // "owed right now" — this is deliberately a different, broader figure, so it gets its own
+          // wording ("owed") rather than reusing "due"/"outstanding" for a different scope.
+          const monthOwedTotal = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
@@ -465,7 +471,7 @@ function WeeklyFees() {
                     );
                   })}
                 </div>
-                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: {money(monthPaid)} paid · {money(monthOwed)} due</span>
+                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: {money(monthPaid)} paid · {money(monthOwedTotal)} owed</span>
               </div>
             </div>
           );
