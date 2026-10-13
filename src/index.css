@@ -778,3 +778,4 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .course-history-date { width: 82px; flex-shrink: 0; color: var(--text-muted); }
 .course-history-text { flex: 1; min-width: 0; }
 .course-history-notes { display: block; color: var(--text-muted); font-size: 12px; }
+.tt-note.amber { background: var(--amber-light); color: var(--amber-text); }

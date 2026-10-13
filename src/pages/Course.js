@@ -258,7 +258,10 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
                 {history.slice(0, 12).map(h => (
                   <div key={h.id} className="course-history-row">
                     <span className="course-history-date">{niceDate(h.date)}</span>
-                    <span className="course-history-text">{h.covered}{h.notes && <span className="course-history-notes">{h.notes}</span>}</span>
+                    <span className="course-history-text">{h.covered}
+                      {h.teacherId && h.teacherId !== initial.teacherId && <span className="course-history-notes">Recorded by {teachers.find(t => t.id === h.teacherId)?.name || 'another teacher'} (cover)</span>}
+                      {h.notes && <span className="course-history-notes">{h.notes}</span>}
+                    </span>
                   </div>
                 ))}
               </div>}

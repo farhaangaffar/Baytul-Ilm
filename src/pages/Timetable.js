@@ -88,18 +88,23 @@ export default function Timetable() {
   // Hifdh, Naazhirah and Qaa'idah are recorded child by child in Daily records, so there's no
   // "what the class covered" for them — a Qur'an class, or a lesson with one of those subjects.
   const individual = l => !!classes.find(c => c.id === l.classId)?.quranType || QURAN_SUBJECT.test(l.subject);
-  // Who can fill in what a lesson covered: the head, the class's own login, or its teacher.
-  const mayRecord = l => !individual(l) && (isOwner || (user?.classId ? user.classId === l.classId
-    : !!user?.teacherId && (l.teacherId === user.teacherId || classes.find(c => c.id === l.classId)?.teacherId === user.teacherId)));
+  // Who fills in what a lesson covered: the head, the class's own login, or the lesson's teacher.
+  // Any other teacher can too, as cover for someone who's off — offered when they tap the lesson.
+  const mayRecord = l => !individual(l) && (isOwner || (user?.classId ? user.classId === l.classId : !!user?.teacherId && l.teacherId === user.teacherId));
+  const mayCover = l => !individual(l) && !mayRecord(l) && !!user?.teacherId;
   const logOf = (l, date) => logs.find(x => x.classId === l.classId && x.date === date && x.subject === l.subject && x.kitaab === l.kitaab);
   // A lesson and any other class sharing it (same period and day, teacher, subject and book).
   const sharedWith = l => (l.teacherId ? lessons.filter(x => x.periodId === l.periodId && x.day === l.day && x.teacherId === l.teacherId
     && x.subject === l.subject && x.kitaab === l.kitaab) : [l]);
-  const record = (found, d) => setModal({ kind: 'log', found, date: dateOf(d), log: logOf(found[0], dateOf(d)) });
+  const record = (found, d, cover = false) => setModal({ kind: 'log', found, date: dateOf(d), log: logOf(found[0], dateOf(d)),
+    coverFor: cover ? teacherName(found[0].teacherId) || 'another teacher' : '' });
   const open = (p, d, found) => {
     if (p.isBreak) return;
     // Teachers tap a lesson that's happened (today or earlier this week) to fill in what it covered.
-    if (!isOwner) { if (found.length && dateOf(d) <= TODAY && mayRecord(found[0])) record(found, d); return; }
+    if (!isOwner) {
+      if (found.length && dateOf(d) <= TODAY && (mayRecord(found[0]) || mayCover(found[0]))) record(found, d, !mayRecord(found[0]));
+      return;
+    }
     const l = found[0];
     setModal({ kind: 'lesson', period: p, day: d, classId: l ? l.classId : view.kind === 'class' ? view.id : '', lesson: l || null,
       teacherId: l ? l.teacherId : view.kind === 'teacher' ? view.id : '' });
@@ -137,7 +142,7 @@ export default function Timetable() {
             const happened = t && dateOf(d) <= TODAY;
             const log = happened ? logOf(found[0], dateOf(d)) : null;
             const canRecord = happened && mayRecord(found[0]);
-            const Row = isOwner || canRecord ? 'button' : 'div';
+            const Row = isOwner || canRecord || (happened && mayCover(found[0])) ? 'button' : 'div';
             return (
               <Row key={p.id} type={Row === 'button' ? 'button' : undefined} className={`tt-line ${t ? 'on' : 'free'}`} onClick={() => open(p, d, found)}>
                 <span className="tt-time">{hm(p.starts)}<br />{hm(p.ends)}</span>
@@ -542,7 +547,7 @@ function CopyModal({ days, from: initialFrom, onClose, onSaved }) {
 
 // What one lesson covered on one day — for the whole class (an Aalim year goes through its books
 // together); a shared lesson is recorded for every class in it. Shows last time's, to carry on from.
-function LogModal({ found, date, log, className, onClose, onSaved }) {
+function LogModal({ found, date, log, coverFor, className, onClose, onSaved }) {
   const l = found[0];
   const [covered, setCovered] = useState(log?.covered || '');
   const [notes, setNotes] = useState(log?.notes || '');
@@ -566,6 +571,7 @@ function LogModal({ found, date, log, className, onClose, onSaved }) {
       <button className="btn btn-teal" disabled={busy || !covered.trim()} onClick={() => run(covered, 'Saved')}><Save size={13} /> {busy ? 'Saving…' : 'Save'}</button>
     </>}>
       <div className="card-sub" style={{ marginBottom: 12 }}>{found.map(x => className(x.classId)).join(' & ')} · {niceDate(date)}</div>
+      {coverFor && <div className="tt-note amber" style={{ marginTop: 0, marginBottom: 12 }}>Covering for {coverFor}? Fill it in — it's saved under your name as cover.</div>}
       {last && <div className="tt-note blue" style={{ marginTop: 0, marginBottom: 12 }}>Last time ({niceDate(last.date)}): {last.covered}</div>}
       <div className="form-grid">
         <div className="form-group">

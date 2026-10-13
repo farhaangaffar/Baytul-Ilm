@@ -111,6 +111,7 @@ const TEACHER = {
     'After each lesson, tap it (or "Record") and write what the class covered — e.g. Pages 34–36. It shows what you covered last time.',
     'Tap a day — or Week for the whole week. You can fill in any day this week that\'s gone by.',
     'Tap the box at the top to see any class or teacher. Changes are made by the head.',
+    'Covering for someone who\'s off? Tap their lesson and fill it in — it\'s saved under your name.',
   ] },
 };
 

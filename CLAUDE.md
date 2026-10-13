@@ -123,7 +123,7 @@ codebase (one codebase, not a fork).
   day to other days" (`?action=copy-day`) fills the week. **What a lesson covered** is kept per class (an Aalim year
   moves through its books together — `du_lesson_logs`, one per class/date/subject/book): the teacher taps one of
   today's (or this week's past) lessons → "What did the class cover?" (e.g. Pages 34–36) + notes for the head; it
-  shows last time's. Allowed for the head, the class's login, its class teacher or anyone teaching it (`mayLog`). Not for Hifdh / Naazhirah / Qaa'idah (a Qur'an class, or that subject — `QURAN_SUBJECT`): those are recorded child by child in Daily records.
+  shows last time's. The lesson's own teacher has a Record button; the head and the class's login can record too; any other teacher can, as **cover** (tapping someone else's lesson opens it with a "Covering for …" note) — the record keeps who wrote it, and the book's history shows "Recorded by … (cover)" (`mayLog`). Not for Hifdh / Naazhirah / Qaa'idah (a Qur'an class, or that subject — `QURAN_SUBJECT`): those are recorded child by child in Daily records.
   The Aalim course page shows each book's latest ("Last: …") and its history in the book's pop-up.
   Typed fields with suggestions use `PickField` (a plain box + small grey suggestion boxes) — never `<datalist>`.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years

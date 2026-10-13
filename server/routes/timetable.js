@@ -70,18 +70,13 @@ const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
 const LOG_COLS = `id::text, class_id AS "classId", to_char(date, 'YYYY-MM-DD') AS date, subject_id::text AS "subjectId",
   subject, kitaab, covered, notes, teacher_id AS "teacherId"`;
 
-// May this login record lessons for this class? The head; a class login for its class; a teacher who
-// is the class's teacher or teaches it (on the timetable or the Aalim course page).
-async function mayLog(user, classId, mid) {
+// May this login record lessons for this class? The head; a class login for its own class; any
+// teacher — their own lessons, or one they're covering for someone who's off (the Timetable page
+// only offers that as cover). Each record keeps who wrote it (teacher_id), so cover shows as such.
+function mayLog(user, classId) {
   if (user.role === 'owner') return true;
   if (user.classId) return user.classId === classId;
-  if (!user.teacherId) return false;
-  const { rows } = await query(
-    `SELECT 1 FROM classes WHERE id = $1 AND madrasah_id = $2 AND teacher_id = $3
-     UNION SELECT 1 FROM du_lessons WHERE class_id = $1 AND madrasah_id = $2 AND teacher_id = $3
-     UNION SELECT 1 FROM du_subjects WHERE class_id = $1 AND madrasah_id = $2 AND teacher_id = $3 LIMIT 1`,
-    [classId, mid, user.teacherId]);
-  return rows.length > 0;
+  return !!user.teacherId;
 }
 
 // A typical full-time day — a starting point each madrasah changes to suit itself.
@@ -154,7 +149,7 @@ module.exports = requireAuth(async (req, res) => {
       const { rows } = await query('SELECT quran_type FROM classes WHERE id = $1 AND madrasah_id = $2', [cid, mid]);
       if (!rows.length) { res.status(400).json({ error: 'Class not found' }); return; }
       if (rows[0].quran_type) { res.status(400).json({ error: 'This is recorded for each child in Daily records.' }); return; }
-      if (!(await mayLog(req.user, cid, mid))) { res.status(403).json({ error: "You don't teach this class." }); return; }
+      if (!mayLog(req.user, cid)) { res.status(403).json({ error: "You don't teach this class." }); return; }
     }
     const subjectId = /^\d+$/.test(String(b.subjectId || '')) ? String(b.subjectId) : null;
     await transaction(async c => {
