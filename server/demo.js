@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -528,6 +528,22 @@ async function createDarulUloomDemo(ipHash) {
       });
     }
     await bulk(c, 'du_lessons', ['madrasah_id', 'day', 'period_id', 'class_id', 'subject_id', 'subject', 'kitaab', 'teacher_id', 'room'], lessonRows);
+    // What the last three weeks' lessons covered — each book a few pages further each time (today's are left to fill in).
+    const page = {}, logs = new Map();
+    const LOG_NOTES = ['Went over the previous lesson first.', 'Good discussion; a few found the grammar hard.', 'Short lesson — exam practice after.'];
+    for (const date of days.slice(-15)) {
+      for (const [, d, , classId, subjectId, subject, kitaab, teacherId] of lessonRows) {
+        if (d !== dow(date) || subject === 'Revision' || subject === 'Hifdh') continue;
+        const key = `${classId}|${date}|${subject}|${kitaab}`;
+        if (logs.has(key)) continue;
+        const book = `${classId}|${subject}|${kitaab}`;
+        const from = page[book] ?? 12 + Math.floor(r() * 60);
+        const to = from + 1 + Math.floor(r() * 3);
+        page[book] = to + 1;
+        logs.set(key, [mid, classId, date, subjectId, subject, kitaab, `Pages ${from}–${to}`, r.chance(0.12) ? r.pick(LOG_NOTES) : '', teacherId]);
+      }
+    }
+    await bulk(c, 'du_lesson_logs', ['madrasah_id', 'class_id', 'date', 'subject_id', 'subject', 'kitaab', 'covered', 'notes', 'teacher_id'], [...logs.values()]);
 
     // Students: made-up names, no two the same; the Patel brothers (3rd year and Hifdh) share a parent login.
     const used = new Set();

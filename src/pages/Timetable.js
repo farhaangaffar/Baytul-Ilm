@@ -6,13 +6,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getTimetable, addStarterPeriods, savePeriod, deletePeriod, saveLesson, copyTimetableDay, schoolDays } from '../lib/store';
+import { getTimetable, addStarterPeriods, savePeriod, deletePeriod, saveLesson, copyTimetableDay, schoolDays, getLessonLogs, saveLessonLog, getBookLogs, niceDate } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
-import { Plus, X, Save, Trash2, ChevronDown, Check, Copy, Clock } from 'lucide-react';
+import { Plus, X, Save, Trash2, ChevronDown, Check, Copy, Clock, PenLine, CheckCircle2 } from 'lucide-react';
 
 const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY3 = DAY.map(d => d.slice(0, 3));
 const hm = t => (t || '').replace(/^0/, '');
+// This week's date for a day number (Monday-first weeks).
+const iso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+const TODAY = iso(new Date());
+const dateOf = d => { const t = new Date(); t.setDate(t.getDate() - ((t.getDay() + 6) % 7) + ((d + 6) % 7)); return iso(t); };
 const runsOn = (p, d) => !p.days.length || p.days.includes(d);
 const sameLesson = (a, b) => a && b && a.subject === b.subject && a.kitaab === b.kitaab && (a.teacherId || '') === (b.teacherId || '');
 // "Every day", or the days in Monday-first order with runs joined: "Mon–Thu", "Mon, Wed, Fri".
@@ -41,13 +45,14 @@ export default function Timetable() {
   const [picking, setPicking] = useState(false);
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
+  const [logs, setLogs] = useState([]);       // what this week's lessons covered (du_lesson_logs)
   const days = schoolDays().slice().sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)); // Monday first
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const d = await getTimetable();
-      setData(d);
+      const [d, l] = await Promise.all([getTimetable(), getLessonLogs(dateOf(1), dateOf(0))]);
+      setData(d); setLogs(l.logs);
       setView(prev => {
         if (prev && (prev.kind === 'class' ? d.classes : d.teachers).some(x => x.id === prev.id)) return prev;
         // Teachers open on their own lessons (or their class, for a class login); the head on the first year.
@@ -79,8 +84,18 @@ export default function Timetable() {
     if (!view) return [];
     return lessons.filter(l => l.periodId === p.id && l.day === d && (view.kind === 'class' ? l.classId === view.id : l.teacherId === view.id));
   };
+  // Who can fill in what a lesson covered: the head, the class's own login, or its teacher.
+  const mayRecord = l => isOwner || (user?.classId ? user.classId === l.classId
+    : !!user?.teacherId && (l.teacherId === user.teacherId || classes.find(c => c.id === l.classId)?.teacherId === user.teacherId));
+  const logOf = (l, date) => logs.find(x => x.classId === l.classId && x.date === date && x.subject === l.subject && x.kitaab === l.kitaab);
+  // A lesson and any other class sharing it (same period and day, teacher, subject and book).
+  const sharedWith = l => (l.teacherId ? lessons.filter(x => x.periodId === l.periodId && x.day === l.day && x.teacherId === l.teacherId
+    && x.subject === l.subject && x.kitaab === l.kitaab) : [l]);
+  const record = (found, d) => setModal({ kind: 'log', found, date: dateOf(d), log: logOf(found[0], dateOf(d)) });
   const open = (p, d, found) => {
-    if (!isOwner || p.isBreak) return;
+    if (p.isBreak) return;
+    // Teachers tap a lesson that's happened (today or earlier this week) to fill in what it covered.
+    if (!isOwner) { if (found.length && dateOf(d) <= TODAY && mayRecord(found[0])) record(found, d); return; }
     const l = found[0];
     setModal({ kind: 'lesson', period: p, day: d, classId: l ? l.classId : view.kind === 'class' ? view.id : '', lesson: l || null,
       teacherId: l ? l.teacherId : view.kind === 'teacher' ? view.id : '' });
@@ -99,7 +114,7 @@ export default function Timetable() {
     const taught = ps.filter(p => slot(p, d).length).length;
     return (
       <div className="card" key={d}>
-        <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — {DAY[d]}</div>
+        <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — {DAY[d]} {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
         <div className="card-sub" style={{ marginBottom: 12 }}>
           {ps.length ? `${hm(ps[0].starts)}–${hm(ps[ps.length - 1].ends)} · ${taught} ${taught === 1 ? 'lesson' : 'lessons'}` : 'No periods on this day'}
         </div>
@@ -115,20 +130,25 @@ export default function Timetable() {
             }
             const found = slot(p, d);
             const t = lessonText(found);
-            const Row = isOwner ? 'button' : 'div';
+            const happened = t && dateOf(d) <= TODAY;
+            const log = happened ? logOf(found[0], dateOf(d)) : null;
+            const canRecord = happened && mayRecord(found[0]);
+            const Row = isOwner || canRecord ? 'button' : 'div';
             return (
-              <Row key={p.id} type={isOwner ? 'button' : undefined} className={`tt-line ${t ? 'on' : 'free'}`} onClick={() => open(p, d, found)}>
+              <Row key={p.id} type={Row === 'button' ? 'button' : undefined} className={`tt-line ${t ? 'on' : 'free'}`} onClick={() => open(p, d, found)}>
                 <span className="tt-time">{hm(p.starts)}<br />{hm(p.ends)}</span>
                 <span className="tt-body">
                   {t ? <>
                     <span className="tt-main">{t.main}{t.book && t.book !== t.main ? <span className="tt-book"> · {t.book}</span> : null}</span>
                     <span className="tt-sub">{[t.who || (view.kind === 'class' ? 'No teacher yet' : ''), t.room].filter(Boolean).join(' · ')}{found.length > 1 ? ' · shared' : ''}</span>
+                    {log && <span className="tt-covered"><CheckCircle2 size={12} /> {log.covered}</span>}
                   </> : <>
                     <span className="tt-main tt-free">{isOwner ? 'Free — tap to add a lesson' : 'Free'}</span>
                     <span className="tt-sub">{p.name}</span>
                   </>}
                 </span>
                 {isOwner && !t && <Plus size={15} className="tt-plus" />}
+                {canRecord && !log && !isOwner && <span className="tt-record"><PenLine size={13} /> Record</span>}
               </Row>
             );
           })}
@@ -263,7 +283,12 @@ export default function Timetable() {
       )}
       {modal?.kind === 'lesson' && (
         <LessonModal {...modal} data={data} days={days} className={className} teacherName={teacherName}
+          date={dateOf(modal.day)} log={modal.lesson ? logOf(modal.lesson, dateOf(modal.day)) : null}
+          onRecord={() => record(sharedWith(modal.lesson), modal.day)}
           onClose={() => setModal(null)} onSaved={after} />
+      )}
+      {modal?.kind === 'log' && (
+        <LogModal {...modal} className={className} onClose={() => setModal(null)} onSaved={after} />
       )}
       {modal?.kind === 'period' && (
         <PeriodModal initial={modal.period} days={days} onClose={() => setModal(null)} onSaved={after}
@@ -306,7 +331,7 @@ function DayBoxes({ days, on, onToggle }) {
 // One class's lesson in one period: pick one of that year's books (or type anything), its teacher,
 // and the days it's on. Warns when the teacher is already teaching another class then — unless it's
 // the same subject and book, which makes it one shared lesson.
-function LessonModal({ period, day, classId: initialClass, lesson, teacherId: presetTeacher, data, days, className, teacherName, onClose, onSaved }) {
+function LessonModal({ period, day, classId: initialClass, lesson, teacherId: presetTeacher, data, days, className, teacherName, date, log, onRecord, onClose, onSaved }) {
   const { lessons, subjects, classes, teachers } = data;
   const [classId, setClassId] = useState(initialClass);
   // The days this class already has the same lesson in this period — changed together.
@@ -356,6 +381,12 @@ function LessonModal({ period, day, classId: initialClass, lesson, teacherId: pr
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
       <button className="btn btn-teal" disabled={busy || !classId || !f.subject.trim() || !on.length} onClick={save}><Save size={13} /> {busy ? 'Saving…' : 'Save'}</button>
     </>}>
+      {lesson && date <= TODAY && (
+        <button type="button" className={`line-row ${log ? 'on' : ''}`} style={{ marginBottom: 14 }} onClick={onRecord}>
+          <PenLine size={14} /><span className="line-row-name">{log ? `Covered: ${log.covered}` : 'Record what this lesson covered'}</span>
+          <span className="line-row-sub">{niceDate(date)}</span>
+        </button>
+      )}
       <div className="form-grid">
         {!initialClass ? (
           <div className="form-group">
@@ -499,6 +530,48 @@ function CopyModal({ days, from: initialFrom, onClose, onSaved }) {
         </div>
       </div>
       <div className="tt-note red">Every class's lessons on {to.length ? to.map(d => DAY[d]).join(', ') : 'those days'} are replaced by {DAY[from]}'s.</div>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+    </ModalShell>
+  );
+}
+
+// What one lesson covered on one day — for the whole class (an Aalim year goes through its books
+// together); a shared lesson is recorded for every class in it. Shows last time's, to carry on from.
+function LogModal({ found, date, log, className, onClose, onSaved }) {
+  const l = found[0];
+  const [covered, setCovered] = useState(log?.covered || '');
+  const [notes, setNotes] = useState(log?.notes || '');
+  const [last, setLast] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    getBookLogs(l.classId, l.subject, l.kitaab).then(r => setLast(r.logs.find(x => x.date < date) || null)).catch(() => {});
+  }, [l.classId, l.subject, l.kitaab, date]);
+  async function run(c, msg) {
+    setBusy(true); setError('');
+    try {
+      await saveLessonLog({ classIds: found.map(x => x.classId), date, subjectId: l.subjectId, subject: l.subject, kitaab: l.kitaab, covered: c, notes });
+      await onSaved(msg);
+    } catch (err) { setError(err.message || 'Something went wrong'); setBusy(false); }
+  }
+  return (
+    <ModalShell title={`${l.subject}${l.kitaab && l.kitaab !== l.subject ? ` · ${l.kitaab}` : ''}`} onClose={onClose} footer={<>
+      {log && <button className="btn" style={{ marginRight: 'auto', color: 'var(--red)' }} disabled={busy} onClick={() => run('', 'Cleared')}><Trash2 size={13} /> Clear</button>}
+      <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+      <button className="btn btn-teal" disabled={busy || !covered.trim()} onClick={() => run(covered, 'Saved')}><Save size={13} /> {busy ? 'Saving…' : 'Save'}</button>
+    </>}>
+      <div className="card-sub" style={{ marginBottom: 12 }}>{found.map(x => className(x.classId)).join(' & ')} · {niceDate(date)}</div>
+      {last && <div className="tt-note blue" style={{ marginTop: 0, marginBottom: 12 }}>Last time ({niceDate(last.date)}): {last.covered}</div>}
+      <div className="form-grid">
+        <div className="form-group">
+          <label>What did the class cover? <span className="required">*</span></label>
+          <input value={covered} onChange={e => setCovered(e.target.value)} placeholder="e.g. Pages 34–36, or Bab as-Salah" autoFocus />
+        </div>
+        <div className="form-group">
+          <label>Notes for the head</label>
+          <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional — e.g. went over last lesson again" />
+        </div>
+      </div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );

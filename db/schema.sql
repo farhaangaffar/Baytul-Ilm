@@ -347,3 +347,19 @@ CREATE TABLE IF NOT EXISTS du_lessons (
   room        TEXT NOT NULL DEFAULT '',
   UNIQUE (madrasah_id, day, period_id, class_id)
 );
+);
+-- What each lesson covered, per class (an Aalim year goes through its books together).
+CREATE TABLE IF NOT EXISTS du_lesson_logs (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  class_id    TEXT NOT NULL,
+  date        DATE NOT NULL,
+  subject_id  BIGINT,
+  subject     TEXT NOT NULL,
+  kitaab      TEXT NOT NULL DEFAULT '',
+  covered     TEXT NOT NULL,            -- e.g. 'Pages 34–36'
+  notes       TEXT NOT NULL DEFAULT '', -- for the head
+  teacher_id  TEXT,
+  updated_at  TIMESTAMP NOT NULL DEFAULT now(),
+  UNIQUE (madrasah_id, class_id, date, subject, kitaab)
+);

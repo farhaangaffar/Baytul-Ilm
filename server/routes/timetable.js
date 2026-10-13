@@ -14,6 +14,12 @@ const { requireAuth } = require('../auth');
 // POST ?action=lesson {classId, periodId, days[], clearDays[], subjectId?, subject, kitaab, teacherId, room}
 //                              → that lesson on each of days[]; the class's lesson in that period is cleared on clearDays[]
 // POST ?action=copy-day {from, to[]} → every class's lessons on `from` are copied to the `to` days (replacing theirs)
+//
+// What each lesson covered — an Aalim year goes through its books together, so it's kept per class, not per
+// student (du_lesson_logs). The teacher of that lesson (or the class's teacher, or the head) records it:
+// GET ?action=logs&from=&to=                  → { logs } between those dates (the week on the Timetable page)
+// GET ?action=logs&classId=&subject=&kitaab=  → { logs } for one book, newest first (the Aalim course page)
+// POST ?action=log {classIds[], date, subjectId?, subject, kitaab, covered, notes} → records it ('' covered = clears it)
 
 let ready = false;
 async function ensure() {
@@ -41,7 +47,40 @@ async function ensure() {
     room        TEXT NOT NULL DEFAULT '',
     UNIQUE (madrasah_id, day, period_id, class_id)
   )`);
+  await query(`CREATE TABLE IF NOT EXISTS du_lesson_logs (
+    id          BIGSERIAL PRIMARY KEY,
+    madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+    class_id    TEXT NOT NULL,
+    date        DATE NOT NULL,
+    subject_id  BIGINT,
+    subject     TEXT NOT NULL,
+    kitaab      TEXT NOT NULL DEFAULT '',
+    covered     TEXT NOT NULL,
+    notes       TEXT NOT NULL DEFAULT '',
+    teacher_id  TEXT,
+    updated_at  TIMESTAMP NOT NULL DEFAULT now(),
+    UNIQUE (madrasah_id, class_id, date, subject, kitaab)
+  )`);
   ready = true;
+}
+
+const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+const LOG_COLS = `id::text, class_id AS "classId", to_char(date, 'YYYY-MM-DD') AS date, subject_id::text AS "subjectId",
+  subject, kitaab, covered, notes, teacher_id AS "teacherId"`;
+
+// May this login record lessons for this class? The head; a class login for its class; a teacher who
+// is the class's teacher or teaches it (on the timetable or the Aalim course page).
+async function mayLog(user, classId, mid) {
+  if (user.role === 'owner') return true;
+  if (user.classId) return user.classId === classId;
+  if (!user.teacherId) return false;
+  const { rows } = await query(
+    `SELECT 1 FROM classes WHERE id = $1 AND madrasah_id = $2 AND teacher_id = $3
+     UNION SELECT 1 FROM du_lessons WHERE class_id = $1 AND madrasah_id = $2 AND teacher_id = $3
+     UNION SELECT 1 FROM du_subjects WHERE class_id = $1 AND madrasah_id = $2 AND teacher_id = $3 LIMIT 1`,
+    [classId, mid, user.teacherId]);
+  return rows.length > 0;
 }
 
 // A typical full-time day — a starting point each madrasah changes to suit itself.
@@ -67,14 +106,14 @@ module.exports = requireAuth(async (req, res) => {
   await require('./course').ensure(); // du_subjects and classes.course_order
   if (!(await isDarulUloom(mid))) { res.status(403).json({ error: 'This is only for a Darul Uloom.' }); return; }
 
-  if (req.method === 'GET') {
+  if (req.method === 'GET' && !action) {
     const [periods, lessons, classes, teachers, subjects] = await Promise.all([
       query(`SELECT id::text, name, starts, ends, is_break AS "isBreak", days FROM du_periods
              WHERE madrasah_id = $1 ORDER BY starts, ends, id`, [mid]),
       query(`SELECT l.id::text, l.day, l.period_id::text AS "periodId", l.class_id AS "classId", l.subject_id::text AS "subjectId",
                     l.subject, l.kitaab, l.teacher_id AS "teacherId", l.room
              FROM du_lessons l WHERE l.madrasah_id = $1`, [mid]),
-      query(`SELECT id, name, course_order AS "courseOrder" FROM classes WHERE madrasah_id = $1
+      query(`SELECT id, name, course_order AS "courseOrder", teacher_id AS "teacherId" FROM classes WHERE madrasah_id = $1
              ORDER BY course_order NULLS LAST, name`, [mid]),
       query('SELECT id, name FROM teachers WHERE madrasah_id = $1 ORDER BY name', [mid]),
       query(`SELECT id::text, class_id AS "classId", subject, kitaab, teacher_id AS "teacherId" FROM du_subjects
@@ -84,6 +123,52 @@ module.exports = requireAuth(async (req, res) => {
       periods: periods.rows.map(p => ({ ...p, days: p.days ? p.days.split(',').map(Number) : [] })),
       lessons: lessons.rows, classes: classes.rows, teachers: teachers.rows, subjects: subjects.rows,
     });
+    return;
+  }
+
+  if (req.method === 'GET' && action === 'logs') {
+    const { from, to, classId, subject, kitaab } = req.query;
+    let rows;
+    if (classId) {
+      ({ rows } = await query(`SELECT ${LOG_COLS} FROM du_lesson_logs WHERE madrasah_id = $1 AND class_id = $2 AND subject = $3 AND kitaab = $4
+        ORDER BY date DESC LIMIT 60`, [mid, String(classId), String(subject || ''), String(kitaab || '')]));
+    } else {
+      if (!isDate(from) || !isDate(to)) { res.status(400).json({ error: 'from and to are required' }); return; }
+      ({ rows } = await query(`SELECT ${LOG_COLS} FROM du_lesson_logs WHERE madrasah_id = $1 AND date BETWEEN $2 AND $3`, [mid, from, to]));
+    }
+    res.status(200).json({ logs: rows });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'log') {
+    const b = req.body || {};
+    const classIds = Array.isArray(b.classIds) ? [...new Set(b.classIds.map(String))] : [];
+    const subject = clean(b.subject, 80), kitaab = clean(b.kitaab, 120);
+    const covered = String(b.covered ?? '').trim().slice(0, 500), notes = String(b.notes ?? '').trim().slice(0, 1000);
+    if (!classIds.length || !subject) { res.status(400).json({ error: 'Lesson not found' }); return; }
+    if (!isDate(b.date) || b.date > ukToday()) { res.status(400).json({ error: 'You can only fill in today or a day gone by.' }); return; }
+    for (const cid of classIds) {
+      const { rows } = await query('SELECT 1 FROM classes WHERE id = $1 AND madrasah_id = $2', [cid, mid]);
+      if (!rows.length) { res.status(400).json({ error: 'Class not found' }); return; }
+      if (!(await mayLog(req.user, cid, mid))) { res.status(403).json({ error: "You don't teach this class." }); return; }
+    }
+    const subjectId = /^\d+$/.test(String(b.subjectId || '')) ? String(b.subjectId) : null;
+    await transaction(async c => {
+      for (const cid of classIds) {
+        if (!covered) {
+          await c.query('DELETE FROM du_lesson_logs WHERE madrasah_id = $1 AND class_id = $2 AND date = $3 AND subject = $4 AND kitaab = $5', [mid, cid, b.date, subject, kitaab]);
+          continue;
+        }
+        await c.query(
+          `INSERT INTO du_lesson_logs (madrasah_id, class_id, date, subject_id, subject, kitaab, covered, notes, teacher_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           ON CONFLICT (madrasah_id, class_id, date, subject, kitaab) DO UPDATE
+           SET covered = EXCLUDED.covered, notes = EXCLUDED.notes, subject_id = COALESCE(EXCLUDED.subject_id, du_lesson_logs.subject_id),
+               teacher_id = COALESCE(EXCLUDED.teacher_id, du_lesson_logs.teacher_id), updated_at = now()`,
+          [mid, cid, b.date, subjectId, subject, kitaab, covered, notes, req.user.teacherId || null]);
+      }
+    });
+    res.status(200).json({ ok: true });
     return;
   }
 

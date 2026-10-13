@@ -15,6 +15,10 @@ export function formatDateGB(value) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
+// "Mon 12 Oct" — for lesson records (Timetable, Aalim course).
+export function niceDate(value) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
 export function formatDayMonthGB(value) {
   const d = value instanceof Date ? value : new Date(`${value}T12:00:00`);
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -615,3 +619,8 @@ export async function savePeriod(data) { return apiFetch('/api/timetable?action=
 export async function deletePeriod(id) { return apiFetch(`/api/timetable?action=period&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 export async function saveLesson(data) { return apiFetch('/api/timetable?action=lesson', { method: 'POST', body: JSON.stringify(data) }); }
 export async function copyTimetableDay(from, to) { return apiFetch('/api/timetable?action=copy-day', { method: 'POST', body: JSON.stringify({ from, to }) }); }
+export async function getLessonLogs(from, to) { return apiFetch(`/api/timetable?action=logs&from=${from}&to=${to}`); }
+export async function getBookLogs(classId, subject, kitaab) {
+  return apiFetch(`/api/timetable?action=logs&classId=${encodeURIComponent(classId)}&subject=${encodeURIComponent(subject)}&kitaab=${encodeURIComponent(kitaab || '')}`);
+}
+export async function saveLessonLog(data) { return apiFetch('/api/timetable?action=log', { method: 'POST', body: JSON.stringify(data) }); }
