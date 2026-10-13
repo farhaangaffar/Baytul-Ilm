@@ -5,12 +5,16 @@ import { feeFrequency, feeUnit } from './feePeriods';
 import { getBranding } from './branding';
 
 function feesForHead() {
-  const unit = feeUnit(feeFrequency());
+  const frequency = feeFrequency();
+  const unit = feeUnit(frequency);
   const auto = getBranding().feeAuto !== false;
-  const where = feeFrequency() === 'weekly' ? 'Settings → Fee weeks' : feeFrequency() === 'monthly' ? 'Settings → Fee months' : 'Settings → Terms';
+  const where = frequency === 'weekly' ? 'Settings → Fee weeks' : frequency === 'monthly' ? 'Settings → Fee months' : 'Settings → Terms';
+  const dueLine = frequency === 'weekly'
+    ? 'Green means paid, red means owed — every week in a month that’s started counts as owed straight away, not just the ones that have individually arrived. Tap one to mark it paid, or tap again to undo a mistake.'
+    : `Green means paid, red means owed. ${unit[0].toUpperCase() + unit.slice(1)}s still to come say "Not due yet" — they're never counted as owed. Tap one to mark it paid, or tap again to undo a mistake.`;
   return [
     'Pick the class at the top.',
-    `Green means paid, red means owed — a ${unit} counts as owed as soon as it's added, even before it's actually started. Tap one to mark it paid, or tap again to undo a mistake.`,
+    dueLine,
     auto ? `Fees are added by themselves. To take a ${unit} off for everyone (a holiday), switch it off in ${where}.` : `Add a ${unit} for the class with the button above the children.`,
     `Tap a child's card to see their whole year. Tap ✏️ next to an amount to change it, or the bin to take a ${unit} off just that child (Put back undoes it).`,
   ].filter(Boolean);
@@ -98,7 +102,7 @@ const TEACHER = {
   '/fees': { title: 'Fees', steps: [
     'Pick your class at the top.',
     'Tap a fee to mark it paid. Tap it again if it was a mistake.',
-    'Red is owed, even for a fee not started yet — a parent paying ahead? Tap Mark paid.',
+    'Red is owed. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
     'Tap a child to see their whole year. Amounts and removing fees are done by the head.',
   ] },
   '/records': { title: 'Daily records', steps: [
