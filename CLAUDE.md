@@ -137,7 +137,15 @@ codebase (one codebase, not a fork).
   only their papers, plus results for the class they're class teacher of. "Publish to parents" puts the report card (marks,
   result, comments, PDF) in the parent portal (`publishedExams()` in `server/routes/parent.js`). A child's report cards also show
   on their Report tab in Daily records (`StudentExams`, `GET /api/exams?studentId=` — head or class teacher; both use
-  `studentExamCards()`). "Print the whole class" is one PDF for printing; parents only ever get their own child's. Note: Settings → Backup
+  `studentExamCards()`). "Print the whole class" is one PDF for printing; parents only ever get their own child's.
+  **A Darul Uloom's report IS its exam report card** — no monthly/termly summaries: the card adds the term's attendance
+  (from the previous exam this year, or 1 September, to the exam — `termOf()`), a behaviour rating
+  (`du_exam_comments.behavior`, Excellent/Good/Fair/Poor) and the comments; "Write it for me" (`?action=draft`, head or
+  class teacher; demo = ready-made) drafts the class teacher's comment with AI from the term's marks, attendance,
+  behaviour records, lessons covered and Qur'an notes. The Reports page for a Darul Uloom is `ExamReports` (Exam ▾ /
+  Class ▾, Ready = every paper marked + teacher's comment); the Report tab is `StudentExams`; Settings shows "Reports are
+  made: With each exam"; the parent portal's "Reports" are the exam cards; page help has `DU_HEAD` overrides; the pop-up
+  is `CardModal` (exported from Exams.js). Note: Settings → Backup
   doesn't yet include the Darul Uloom tables (course, timetable, exams) — add before launch.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
