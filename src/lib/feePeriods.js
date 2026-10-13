@@ -84,10 +84,19 @@ export function feeTotals(fees, start, endExclusive) {
   return { billed, collected, outstanding: billed - collected };
 }
 
-// A fee is due once its week / month / term has started. Unpaid fees for periods still to
-// come (charged ahead, e.g. the rest of a school month) are "Not due yet" and never count as
-// owed or outstanding anywhere.
+// A fee is due once its week / month / term has started. The parent portal and printed
+// reports use this strict, per-record version: a week/month/term still to come (charged
+// ahead) is "Not due yet" and never counts as owed there.
 export const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
 export const isDue = (f, today = ukToday()) => f.weekStarting <= today;
 // The fees that count in totals: everything paid, plus unpaid fees that are due.
 export const countedFees = (fees, today = ukToday()) => fees.filter(f => f.status === 'Paid' || f.weekStarting <= today);
+
+// For staff pages: whether an unpaid fee counts as owed yet. Weekly rolls this up to the
+// school month — every week in a month already running counts as owed straight away, not
+// just the weeks that have individually arrived. Monthly and termly have no finer grouping
+// than the period itself, so a month/term added ahead of its start (e.g. put back after
+// being switched off, or paid ahead) still reads "Not due yet" until it actually begins.
+export const periodStarted = (f, today = ukToday()) =>
+  f.period === 'week' ? getCurrentSchoolMonth(f.weekStarting).start <= getCurrentSchoolMonth(today).start : f.weekStarting <= today;
+export const ownedFees = (fees, today = ukToday()) => fees.filter(f => f.status === 'Paid' || periodStarted(f, today));

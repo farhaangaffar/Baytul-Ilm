@@ -7,7 +7,7 @@ import {
   markFeePaid, markFeeUnpaid, updateFeeAmount, addFeePeriods, deleteFeePeriods, hasEnrolledBy, addStudentPeriod,
   getFeePlan, skipFeePeriod, deleteFeeRecord,
 } from '../lib/store';
-import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer } from '../lib/feePeriods';
+import { feePeriodsForYear, currentFeePeriod, feeTotals, FREQUENCIES, feePer, isDue, countedFees } from '../lib/feePeriods';
 import { money, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -188,9 +188,10 @@ export default function PeriodFees({ frequency }) {
       );
     }
     const paid = f.status === 'Paid';
+    const notDue = !paid && !isDue(f);
     return (
-      <button key={p.key} className={`week-pill ${paid ? 'paid' : 'unpaid'} ${isCurrent ? 'is-current' : ''}`}
-        title={`${p.label} — ${paid ? 'Paid' : 'Unpaid'} (${money(f.amount)})${canToggle(f) ? ' — click to change' : ''}`}
+      <button key={p.key} className={`week-pill ${paid ? 'paid' : notDue ? 'not-due' : 'unpaid'} ${isCurrent ? 'is-current' : ''}`}
+        title={`${p.label} — ${paid ? 'Paid' : notDue ? 'Not due yet' : 'Unpaid'} (${money(f.amount)})${canToggle(f) ? ' — click to change' : ''}`}
         onClick={e => { e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
         <span className="d">{p.short}</span><span className="dot"></span>
       </button>
@@ -215,11 +216,11 @@ export default function PeriodFees({ frequency }) {
       return { key: p.key, label: p.label, p, now: !!current && p.start === current.start, future, fee, removed,
         planned: !fee && willCharge(selected, p) ? { amount: selected.weeklyFee } : null,
         offNote: monthOff(p) ? 'Month off' : classRemoved(selected, p) ? 'Not charged for the class' : 'Not charged',
-        canAdd: isOwner && auto && !monthOff(p) };
+        canAdd: isOwner && auto && !monthOff(p), notDueYet: !!fee && !isDue(fee) };
     });
     const sFees = rows.map(r => r.fee).filter(Boolean);
     const paidSum = sFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
-    const owedSum = sFees.filter(f => f.status !== 'Paid').reduce((t, f) => t + Number(f.amount), 0);
+    const owedSum = sFees.filter(f => f.status !== 'Paid' && isDue(f)).reduce((t, f) => t + Number(f.amount), 0);
     return (<>
       <div className="card-header" style={{ marginBottom: 20 }}>
         <div className="flex items-center gap-3">
@@ -285,7 +286,7 @@ export default function PeriodFees({ frequency }) {
           <div className="entity-grid">
             {classStudents.map(s => {
               const sFees = classFees.filter(f => f.studentId === s.id);
-              const t = feeTotals(sFees, '0000-01-01', '9999-12-31');
+              const t = feeTotals(countedFees(sFees), '0000-01-01', '9999-12-31');
               return (
                 <div className="entity-card" key={s.id} onClick={() => setSelectedId(s.id)}>
                   <div className="entity-card-name">{s.forename} {s.surname}</div>

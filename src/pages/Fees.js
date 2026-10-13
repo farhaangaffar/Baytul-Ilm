@@ -12,7 +12,7 @@ import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
-import { feePer, feeFrequency } from '../lib/feePeriods';
+import { feePer, feeFrequency, periodStarted } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
 import { FeeRowList, FeeTotals, shortDate } from '../components/FeeRows';
 
@@ -303,7 +303,7 @@ function WeeklyFees() {
       return { key: w, week: w, label: `Week of ${shortDate(w)}`, now: w === thisMonday, future, fee, removed,
         planned: !fee && !removed && autoWeeks && future && chargeable(w) ? { amount: selected.weeklyFee } : null,
         offNote: offWeeks.has(w) ? 'Week off' : classRemoved(w) ? 'Not charged for the class' : autoWeeks ? 'Not charged' : 'Not added',
-        canAdd: canAddWeek(w) };
+        canAdd: canAddWeek(w), notDueYet: !!fee && !periodStarted(fee) };
     });
     // The academic year, a card per school month; later months fold away until asked for.
     const start = academicYearStartISO(year).slice(0, 7);
@@ -312,7 +312,7 @@ function WeeklyFees() {
     const months = isCurrentYear && !showRest ? allMonths.filter(m => m <= shiftMonth(nowMonth, 1)) : allMonths;
     const yearFees = studentFees.filter(f => f.period === 'week');
     const paidSum = yearFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
-    const owedSum = yearFees.filter(f => f.status !== 'Paid').reduce((t, f) => t + Number(f.amount), 0);
+    const owedSum = yearFees.filter(f => f.status !== 'Paid' && periodStarted(f)).reduce((t, f) => t + Number(f.amount), 0);
     const rowHandlers = {
       isOwner, editCell, setEditCell, saveEdit, nowLabel: 'This week',
       onToggle: f => canToggle(f) && setConfirmToggle(f),
