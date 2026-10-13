@@ -64,6 +64,7 @@ async function ensure() {
   ready = true;
 }
 
+const QURAN_SUBJECT = /^(hifdh|hifz|hifzh|naazhirah|nazira|nazirah|nazarah|qaa'?idah|qaida|qaidah)\b/i; // as in pages/Timetable.js
 const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
 const LOG_COLS = `id::text, class_id AS "classId", to_char(date, 'YYYY-MM-DD') AS date, subject_id::text AS "subjectId",
@@ -113,7 +114,7 @@ module.exports = requireAuth(async (req, res) => {
       query(`SELECT l.id::text, l.day, l.period_id::text AS "periodId", l.class_id AS "classId", l.subject_id::text AS "subjectId",
                     l.subject, l.kitaab, l.teacher_id AS "teacherId", l.room
              FROM du_lessons l WHERE l.madrasah_id = $1`, [mid]),
-      query(`SELECT id, name, course_order AS "courseOrder", teacher_id AS "teacherId" FROM classes WHERE madrasah_id = $1
+      query(`SELECT id, name, course_order AS "courseOrder", teacher_id AS "teacherId", quran_type AS "quranType" FROM classes WHERE madrasah_id = $1
              ORDER BY course_order NULLS LAST, name`, [mid]),
       query('SELECT id, name FROM teachers WHERE madrasah_id = $1 ORDER BY name', [mid]),
       query(`SELECT id::text, class_id AS "classId", subject, kitaab, teacher_id AS "teacherId" FROM du_subjects
@@ -147,9 +148,12 @@ module.exports = requireAuth(async (req, res) => {
     const covered = String(b.covered ?? '').trim().slice(0, 500), notes = String(b.notes ?? '').trim().slice(0, 1000);
     if (!classIds.length || !subject) { res.status(400).json({ error: 'Lesson not found' }); return; }
     if (!isDate(b.date) || b.date > ukToday()) { res.status(400).json({ error: 'You can only fill in today or a day gone by.' }); return; }
+    // Hifdh, Naazhirah and Qaa'idah are recorded child by child (Daily records), never per class.
+    if (QURAN_SUBJECT.test(subject)) { res.status(400).json({ error: 'This is recorded for each child in Daily records.' }); return; }
     for (const cid of classIds) {
-      const { rows } = await query('SELECT 1 FROM classes WHERE id = $1 AND madrasah_id = $2', [cid, mid]);
+      const { rows } = await query('SELECT quran_type FROM classes WHERE id = $1 AND madrasah_id = $2', [cid, mid]);
       if (!rows.length) { res.status(400).json({ error: 'Class not found' }); return; }
+      if (rows[0].quran_type) { res.status(400).json({ error: 'This is recorded for each child in Daily records.' }); return; }
       if (!(await mayLog(req.user, cid, mid))) { res.status(403).json({ error: "You don't teach this class." }); return; }
     }
     const subjectId = /^\d+$/.test(String(b.subjectId || '')) ? String(b.subjectId) : null;

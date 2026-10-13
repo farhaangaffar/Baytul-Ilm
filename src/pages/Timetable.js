@@ -17,6 +17,7 @@ const hm = t => (t || '').replace(/^0/, '');
 const iso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 const TODAY = iso(new Date());
 const dateOf = d => { const t = new Date(); t.setDate(t.getDate() - ((t.getDay() + 6) % 7) + ((d + 6) % 7)); return iso(t); };
+const QURAN_SUBJECT = /^(hifdh|hifz|hifzh|naazhirah|nazira|nazirah|nazarah|qaa'?idah|qaida|qaidah)\b/i;
 const runsOn = (p, d) => !p.days.length || p.days.includes(d);
 const sameLesson = (a, b) => a && b && a.subject === b.subject && a.kitaab === b.kitaab && (a.teacherId || '') === (b.teacherId || '');
 // "Every day", or the days in Monday-first order with runs joined: "Mon–Thu", "Mon, Wed, Fri".
@@ -84,9 +85,12 @@ export default function Timetable() {
     if (!view) return [];
     return lessons.filter(l => l.periodId === p.id && l.day === d && (view.kind === 'class' ? l.classId === view.id : l.teacherId === view.id));
   };
+  // Hifdh, Naazhirah and Qaa'idah are recorded child by child in Daily records, so there's no
+  // "what the class covered" for them — a Qur'an class, or a lesson with one of those subjects.
+  const individual = l => !!classes.find(c => c.id === l.classId)?.quranType || QURAN_SUBJECT.test(l.subject);
   // Who can fill in what a lesson covered: the head, the class's own login, or its teacher.
-  const mayRecord = l => isOwner || (user?.classId ? user.classId === l.classId
-    : !!user?.teacherId && (l.teacherId === user.teacherId || classes.find(c => c.id === l.classId)?.teacherId === user.teacherId));
+  const mayRecord = l => !individual(l) && (isOwner || (user?.classId ? user.classId === l.classId
+    : !!user?.teacherId && (l.teacherId === user.teacherId || classes.find(c => c.id === l.classId)?.teacherId === user.teacherId)));
   const logOf = (l, date) => logs.find(x => x.classId === l.classId && x.date === date && x.subject === l.subject && x.kitaab === l.kitaab);
   // A lesson and any other class sharing it (same period and day, teacher, subject and book).
   const sharedWith = l => (l.teacherId ? lessons.filter(x => x.periodId === l.periodId && x.day === l.day && x.teacherId === l.teacherId
@@ -284,6 +288,7 @@ export default function Timetable() {
       {modal?.kind === 'lesson' && (
         <LessonModal {...modal} data={data} days={days} className={className} teacherName={teacherName}
           date={dateOf(modal.day)} log={modal.lesson ? logOf(modal.lesson, dateOf(modal.day)) : null}
+          canRecord={!!modal.lesson && mayRecord(modal.lesson)}
           onRecord={() => record(sharedWith(modal.lesson), modal.day)}
           onClose={() => setModal(null)} onSaved={after} />
       )}
@@ -331,7 +336,7 @@ function DayBoxes({ days, on, onToggle }) {
 // One class's lesson in one period: pick one of that year's books (or type anything), its teacher,
 // and the days it's on. Warns when the teacher is already teaching another class then — unless it's
 // the same subject and book, which makes it one shared lesson.
-function LessonModal({ period, day, classId: initialClass, lesson, teacherId: presetTeacher, data, days, className, teacherName, date, log, onRecord, onClose, onSaved }) {
+function LessonModal({ period, day, classId: initialClass, lesson, teacherId: presetTeacher, data, days, className, teacherName, date, log, canRecord, onRecord, onClose, onSaved }) {
   const { lessons, subjects, classes, teachers } = data;
   const [classId, setClassId] = useState(initialClass);
   // The days this class already has the same lesson in this period — changed together.
@@ -381,7 +386,7 @@ function LessonModal({ period, day, classId: initialClass, lesson, teacherId: pr
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
       <button className="btn btn-teal" disabled={busy || !classId || !f.subject.trim() || !on.length} onClick={save}><Save size={13} /> {busy ? 'Saving…' : 'Save'}</button>
     </>}>
-      {lesson && date <= TODAY && (
+      {canRecord && date <= TODAY && (
         <button type="button" className={`line-row ${log ? 'on' : ''}`} style={{ marginBottom: 14 }} onClick={onRecord}>
           <PenLine size={14} /><span className="line-row-name">{log ? `Covered: ${log.covered}` : 'Record what this lesson covered'}</span>
           <span className="line-row-sub">{niceDate(date)}</span>
