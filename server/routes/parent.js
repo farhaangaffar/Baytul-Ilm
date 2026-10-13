@@ -13,33 +13,11 @@ const { ensureParentTables, childIds, portalOn, ABSENCE_REASONS } = require('../
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
-// A Darul Uloom's published exams this child sat: their own marks, result and the comments —
-// worked out with the whole class (for the position) but only this child's returned.
+// A Darul Uloom's published exams this child sat — their own report cards only.
 async function publishedExams(mid, s) {
   const { rows: [m] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
   if (m?.kind !== 'darul_uloom') return [];
-  const ex = require('./exams');
-  await ex.ensure();
-  const { rows: [cls] } = await query('SELECT id FROM classes WHERE name = $1 AND madrasah_id = $2', [s.class, mid]);
-  if (!cls) return [];
-  const { rows } = await query('SELECT id::text FROM du_exams WHERE madrasah_id = $1 AND published AND $2 = ANY(class_ids) ORDER BY held_on DESC NULLS LAST, id DESC', [mid, cls.id]);
-  const out = [];
-  for (const { id } of rows) {
-    const d = await ex.examDetail(mid, id, null);
-    const r = d?.results[s.id];
-    if (!r || !r.marked) continue;
-    const mine = d.marks.filter(mk => mk.studentId === s.id);
-    const cm = d.comments.find(c => c.studentId === s.id) || {};
-    out.push({
-      id, name: d.exam.name, year: d.exam.year, heldOn: d.exam.heldOn, result: r,
-      papers: d.papers.filter(p => p.classId === cls.id).map(p => {
-        const mk = mine.find(x => x.paperId === p.id);
-        return { subject: p.subject, kitaab: p.kitaab, outOf: p.outOf, passMark: p.passMark, mark: mk ? mk.mark : null, absent: !!mk?.absent };
-      }),
-      teacherComment: cm.teacherComment || '', headComment: cm.headComment || '',
-    });
-  }
-  return out;
+  return require('./exams').studentExamCards(mid, s, { publishedOnly: true });
 }
 
 module.exports = async (req, res) => {

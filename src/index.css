@@ -806,3 +806,5 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .tt-week-day.on .tt-week-day-name { border-color: var(--teal); color: var(--teal-dark); }
 .tt-week-day.today .line-row-name { color: var(--teal-dark); }
 .tt-week-open { margin: 0 0 6px 10px; padding-left: 10px; border-left: 2px solid var(--teal-light); }
+.exam-no-comment { color: var(--amber-text); }
+.course-kitaab-main .line-row-sub { white-space: normal; overflow-wrap: anywhere; }

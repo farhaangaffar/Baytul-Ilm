@@ -87,8 +87,9 @@ const HEAD = {
     'Each class\'s papers start as its books on the Aalim course page. Tap the class box to switch class; "Add a paper" for anything else (e.g. Hifdh, Tajweed).',
     'Tap a paper to enter its marks — or Absent. Teachers enter marks for the papers they teach.',
     'Results show each child\'s percentage, grade, position and whether they passed. A failed or missed paper is a resit.',
-    'Tap a child to write your comment and download their report card. "Download all" makes the whole class\'s in one PDF.',
-    'When it\'s ready, tap "Publish to parents" — families then see the report card in the parent portal.',
+    'Tap a child to write the comments (the class teacher\'s and yours — they go on the report card) and download it.',
+    '"Print the whole class" makes one PDF of every child\'s report card, for printing. Parents never get that — only their own child\'s.',
+    'When it\'s ready, tap "Publish to parents" — each family then sees their child\'s report card in the parent portal. It\'s also on the child\'s Report tab in Daily records.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',

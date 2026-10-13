@@ -135,7 +135,9 @@ codebase (one codebase, not a fork).
   position (once every paper is marked; equal %s share), Passed or Resit (any failed — below the pass mark scaled to the
   paper — or absent paper). Comments (`du_exam_comments`): class teacher's (class teacher or head) and head's. Teachers see
   only their papers, plus results for the class they're class teacher of. "Publish to parents" puts the report card (marks,
-  result, comments, PDF) in the parent portal (`publishedExams()` in `server/routes/parent.js`). Note: Settings → Backup
+  result, comments, PDF) in the parent portal (`publishedExams()` in `server/routes/parent.js`). A child's report cards also show
+  on their Report tab in Daily records (`StudentExams`, `GET /api/exams?studentId=` — head or class teacher; both use
+  `studentExamCards()`). "Print the whole class" is one PDF for printing; parents only ever get their own child's. Note: Settings → Backup
   doesn't yet include the Darul Uloom tables (course, timetable, exams) — add before launch.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,

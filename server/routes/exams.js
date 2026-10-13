@@ -136,6 +136,34 @@ async function examDetail(mid, examId, reach) {
   };
 }
 
+// One child's report cards: each exam their class sat (only published ones for the parent portal) with
+// their marks, result and comments. Worked out with the whole class (for the position).
+async function studentExamCards(mid, student, { publishedOnly = false } = {}) {
+  await ensure();
+  const { rows: [cls] } = await query('SELECT id FROM classes WHERE name = $1 AND madrasah_id = $2', [student.class, mid]);
+  if (!cls) return [];
+  const { rows } = await query(
+    `SELECT id::text FROM du_exams WHERE madrasah_id = $1 AND $2 = ANY(class_ids) ${publishedOnly ? 'AND published' : ''}
+     ORDER BY held_on DESC NULLS LAST, id DESC`, [mid, cls.id]);
+  const out = [];
+  for (const { id } of rows) {
+    const d = await examDetail(mid, id, null);
+    const r = d?.results[student.id];
+    if (!r || !r.marked) continue;
+    const mine = d.marks.filter(mk => mk.studentId === student.id);
+    const cm = d.comments.find(c => c.studentId === student.id) || {};
+    out.push({
+      id, name: d.exam.name, year: d.exam.year, heldOn: d.exam.heldOn, published: d.exam.published, result: r,
+      papers: d.papers.filter(p => p.classId === cls.id).map(p => {
+        const mk = mine.find(x => x.paperId === p.id);
+        return { id: p.id, subject: p.subject, kitaab: p.kitaab, outOf: p.outOf, passMark: p.passMark, mark: mk ? mk.mark : null, absent: !!mk?.absent };
+      }),
+      teacherComment: cm.teacherComment || '', headComment: cm.headComment || '',
+    });
+  }
+  return out;
+}
+
 module.exports = requireAuth(async (req, res) => {
   const mid = req.user.madrasahId;
   const { action, id } = req.query;
@@ -144,6 +172,16 @@ module.exports = requireAuth(async (req, res) => {
   if (!(await isDarulUloom(mid))) { res.status(403).json({ error: 'This is only for a Darul Uloom.' }); return; }
   const reach = await teacherReach(req.user, mid);
   const isHead = !reach;
+
+  // A child's report cards (their Report tab in Daily records) — the head, or their class teacher.
+  if (req.method === 'GET' && req.query.studentId) {
+    const { rows: [s] } = await query(
+      `SELECT s.id, s.class, c.id AS "classId" FROM students s LEFT JOIN classes c ON c.name = s.class AND c.madrasah_id = s.madrasah_id
+       WHERE s.id = $1 AND s.madrasah_id = $2`, [String(req.query.studentId), mid]);
+    if (!s || (!isHead && !reach.classIds.has(s.classId))) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    res.status(200).json({ cards: await studentExamCards(mid, s) });
+    return;
+  }
 
   if (req.method === 'GET' && req.query.examId) {
     if (!isId(req.query.examId)) { res.status(404).json({ error: 'Exam not found' }); return; }
@@ -328,3 +366,4 @@ module.exports = requireAuth(async (req, res) => {
 
 module.exports.ensure = ensure;
 module.exports.examDetail = examDetail;
+module.exports.studentExamCards = studentExamCards;

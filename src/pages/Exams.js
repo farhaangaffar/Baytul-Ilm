@@ -180,7 +180,7 @@ export default function Exams() {
         {cls?.results && (
           <div className="card">
             <div className="card-title" style={{ marginBottom: 2 }}>Results — {cls.name}</div>
-            <div className="card-sub" style={{ marginBottom: 12 }}>Tap a child for their report card and comments</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>Tap a child to write their comments and get their report card</div>
             <div className="course-lines">
               {ranked.map(s => {
                 const r = results[s.id];
@@ -188,7 +188,8 @@ export default function Exams() {
                   <button key={s.id} type="button" className="line-row" onClick={() => setModal({ kind: 'card', student: s })}>
                     <span className="course-num">{r?.position ?? '–'}</span>
                     <span className="line-row-name">{s.forename} {s.surname}</span>
-                    <span className="line-row-sub">{r?.pct === null || !r ? 'No marks yet' : `${num(r.pct)}% · ${r.grade}`}</span>
+                    <span className="line-row-sub">{r?.pct === null || !r ? 'No marks yet' : `${num(r.pct)}% · ${r.grade}`}
+                      {!comments.some(c => c.studentId === s.id && c.teacherComment) && <span className="exam-no-comment"> · no comment yet</span>}</span>
                     {r?.result && <span className={`exam-tag ${r.result === 'Passed' ? 'green' : r.result === 'Resit' ? 'red' : ''}`}>{r.result === 'Not finished' ? `${r.marked}/${r.papers}` : r.result}</span>}
                   </button>
                 );
@@ -196,7 +197,7 @@ export default function Exams() {
               {!kids.length && <div className="card-sub">No children in {cls.name}.</div>}
               {kids.length > 0 && (
                 <button type="button" className="line-row add" disabled={!!busy} onClick={downloadAll}>
-                  <Download size={14} /> {busy === 'all' ? 'Making the PDF…' : `Download all ${kids.length} report cards`}
+                  <Download size={14} /> {busy === 'all' ? 'Making the PDF…' : `Print the whole class (one PDF of ${kids.length})`}
                 </button>
               )}
             </div>
