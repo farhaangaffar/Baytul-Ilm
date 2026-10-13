@@ -212,7 +212,7 @@ function demoSummary(st, type, r, unit = 'month') {
       `${he} is recognising the letters and harakaat more quickly and has moved on to new lessons.`,
     ]),
     alim: r.pick([
-      `${his[0].toUpperCase() + his.slice(1)} kitaab studies have gone well; ${he.toLowerCase()} prepares the ibarah before lessons and takes part in the takrar.`,
+      `${his[0].toUpperCase() + his.slice(1)} book studies have gone well; ${he.toLowerCase()} prepares the Arabic text before lessons and joins in well when the class revises together.`,
       `${he} has a sound grasp of the lessons covered, and ${his} Arabic reading and translation are becoming more confident.`,
     ]),
   }[type];
@@ -429,14 +429,14 @@ const DU_FORENAMES = ['Abdullah', 'Ahmad', 'Ammar', 'Anas', 'Bilal', 'Dawud', 'F
 const DU_SURNAMES = ['Ahmed', 'Khan', 'Hussain', 'Mahmood', 'Desai', 'Ali', 'Rahman', 'Iqbal', 'Chowdhury', 'Mirza', 'Bhatti', 'Shah',
   'Siddiqui', 'Malik', 'Akhtar', 'Mulla', 'Valli', 'Dadabhai', 'Kazi', 'Lunat', 'Hafejee', 'Ismail', 'Karim', 'Bux', 'Seedat'];
 const ALIM_COMMENTS = [
-  ['Prepared the Nahw lesson well and answered the questions in class.', 'Good participation in the takrar.', ''],
-  ['Found the irab of the passage difficult; went over it again after class.', 'Kept trying.', 'Revise the previous lesson before class.'],
-  ['Read the ibarah fluently and translated it accurately.', 'Excellent preparation.', ''],
+  ['Prepared the Nahw lesson well and answered the questions in class.', 'Joined in well when the class went over the lesson together.', ''],
+  ['Found the grammar of the passage difficult; went over it again after class.', 'Kept trying.', 'Revise the previous lesson before class.'],
+  ['Read the Arabic text fluently and translated it accurately.', 'Excellent preparation.', ''],
   ['Late to the first lesson after Fajr.', 'Helpful to the younger students.', 'Punctuality.'],
-  ['Good grasp of the masa\'il covered today.', 'Asks thoughtful questions.', ''],
+  ['Good grasp of the rulings covered today.', 'Asks thoughtful questions.', ''],
   ['Seemed tired in the afternoon lessons.', '', 'Needs to sleep earlier.'],
   ['Memorised the hadith of the day with its sanad.', 'Very diligent.', ''],
-  ['Mutala\'ah was done properly before the lesson.', 'Neat, organised notes.', ''],
+  ['Read ahead properly before the lesson.', 'Neat, organised notes.', ''],
 ];
 
 async function createDarulUloomDemo(ipHash) {

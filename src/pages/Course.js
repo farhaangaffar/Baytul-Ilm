@@ -46,7 +46,7 @@ export default function Course() {
   }
 
   const title = 'Aalim course';
-  const subtitle = 'Years, subjects and kitaabs';
+  const subtitle = 'Years, subjects and books';
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
   if (error) return <Layout title={title} subtitle={subtitle}><ErrorState error={error} onRetry={load} /></Layout>;
 
@@ -60,7 +60,7 @@ export default function Course() {
       {subjectsOf(c.id).map(s => (
         <button key={s.id} type="button" className="line-row course-kitaab" onClick={() => setModal({ kind: 'subject', subject: s, yearName: c.name })}>
           <span className="course-kitaab-subject">{s.subject}</span>
-          <span className="line-row-name">{s.kitaab || 'No kitaab yet'}</span>
+          <span className="line-row-name">{s.kitaab || 'No book yet'}</span>
           <span className="line-row-sub">{teacherName(s.teacherId) || 'No teacher yet'}</span>
         </button>
       ))}
@@ -82,7 +82,7 @@ export default function Course() {
         <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={() => setOpenId(on ? '' : c.id)}>
           {i !== undefined && <span className="course-num">{i + 1}</span>}
           <span className="line-row-name">{c.name}</span>
-          <span className="line-row-sub">{n} {n === 1 ? 'student' : 'students'}{i !== undefined ? ` · ${subjectsOf(c.id).length} kitaabs` : ''}</span>
+          <span className="line-row-sub">{n} {n === 1 ? 'student' : 'students'}{i !== undefined ? ` · ${subjectsOf(c.id).length} books` : ''}</span>
           {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
         {on && openPanel(c)}
@@ -97,12 +97,12 @@ export default function Course() {
           <div className="card">
             <div className="card-title" style={{ marginBottom: 6 }}><Library size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Set up your course years</div>
             <div className="card-sub" style={{ marginBottom: 14 }}>
-              Start from the usual Dars-e-Nizami years (1st year to Dawrah al-Hadith) with their kitaabs, or add your own years one by one.
+              Start from the usual Dars-e-Nizami years (1st year to Dawrah al-Hadith) with their books, or add your own years one by one.
             </div>
             <div className="course-lines">
               <button type="button" className="line-row on" disabled={busy} onClick={useStarter}>
                 <span className="line-row-name">{busy ? 'Adding…' : 'Use the Dars-e-Nizami years'}</span>
-                <span className="line-row-sub">7 years with their kitaabs</span>
+                <span className="line-row-sub">7 years with their books</span>
               </button>
               <button type="button" className="line-row add" onClick={newYear}><Plus size={14} /> Add a year</button>
             </div>
@@ -113,7 +113,7 @@ export default function Course() {
         {years.length > 0 && (
           <div className="card">
             <div className="card-title" style={{ marginBottom: 2 }}>Years</div>
-            <div className="card-sub" style={{ marginBottom: 12 }}>First year first · tap a year to see its kitaabs</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>First year first · tap a year to see its books</div>
             <div className="course-lines">
               {years.map((y, i) => line(y, i))}
               <button type="button" className="line-row add" onClick={newYear}><Plus size={14} /> Add a year</button>
@@ -229,7 +229,7 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
           <datalist id="course-subject-names">{subjectNames.map(s => <option key={s} value={s} />)}</datalist>
         </div>
         <div className="form-group">
-          <label>Kitaab</label>
+          <label>Book</label>
           <input value={f.kitaab} onChange={e => set('kitaab', e.target.value)} list="course-kitaabs" placeholder="Pick one, or type any book" />
           <datalist id="course-kitaabs">{suggestions.map(k => <option key={k} value={k} />)}</datalist>
         </div>
@@ -324,7 +324,7 @@ function YearModal({ initial, place, count, teachers, others = [], students, sub
           {students === 0 ? (
             <button type="button" className={`line-row ${sure ? 'danger' : ''}`} disabled={busy} onClick={() => (sure ? remove() : setSure(true))}>
               <Trash2 size={14} /><span className="line-row-name">{sure ? 'Tap again to delete' : 'Delete this year'}</span>
-              <span className="line-row-sub">{subjects ? `and its ${subjects} kitaabs` : 'It has no students'}</span>
+              <span className="line-row-sub">{subjects ? `and its ${subjects} books` : 'It has no students'}</span>
             </button>
           ) : (
             <div className="line-row" style={{ cursor: 'default', color: 'var(--text-muted)' }}>

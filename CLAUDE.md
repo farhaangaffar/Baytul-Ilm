@@ -162,8 +162,11 @@ codebase (one codebase, not a fork).
   with contact name/phone/WhatsApp/email. A new head's Dashboard shows "Getting started"
   (`src/components/GettingStarted.js`: teachers then classes → Settings (fees, days) → children → logins, with a
   choice of Teacher logins / Class logins (`/classes?tab=teachers|classes` opens that tab);
-  ticks itself, can be hidden). A Darul Uloom gets its own order: asatidha → Aalim years & kitaabs → other
-  classes (with "We don't have any") → Settings → students → logins.
+  ticks itself, can be hidden). A Darul Uloom gets its own order: Settings → teachers → classes (with "We don't
+  have any") → Aalim years & books → students → logins. The students step offers "Try it with 6 made-up students"
+  (notes start "Made-up student to try the app"; they don't tick the step; "Remove the made-up students" deletes them).
+  **Darul Uloom screens are in plain English** (teachers, books, Head — not asatidha/kitaabs/Muhtamim) so
+  non-Urdu-speaking Darul Ulooms follow them; subject names and "Aalim"/"Dars-e-Nizami" stay. Code names (`kitaab`) are unchanged.
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per

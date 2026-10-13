@@ -323,7 +323,7 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
             </div>
             {initial.courseOrder ? (
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', background: '#f3f4f6', borderRadius: 8, padding: '10px 12px' }}>
-                This is an Aalim year — its kitaabs are on the Aalim course page.
+                This is an Aalim year — its books are on the Aalim course page.
               </div>
             ) : (
             <div className="form-group">
