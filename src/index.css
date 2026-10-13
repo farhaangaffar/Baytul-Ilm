@@ -798,3 +798,11 @@ button.tt-line:hover { border-color: var(--teal-mid); }
   .exam-card-row .course-kitaab-subject { width: auto; flex: 1; }
   .exam-card-row .line-row-name { order: 5; width: 100%; flex: none; }
 }
+/* Timetable Week on phones: a line per day, the open one's lessons underneath. */
+.tt-week-days { display: grid; gap: 8px; }
+.tt-week-day { padding: 9px 12px; }
+.tt-week-day-name { display: flex; flex-direction: column; align-items: center; width: 44px; flex-shrink: 0; padding: 4px 0; border-radius: 8px; background: #fff; border: 1px solid #dfe3e8; font-weight: 700; font-size: 13px; line-height: 1.15; }
+.tt-week-day-name small { font-size: 10.5px; font-weight: 500; color: var(--text-muted); }
+.tt-week-day.on .tt-week-day-name { border-color: var(--teal); color: var(--teal-dark); }
+.tt-week-day.today .line-row-name { color: var(--teal-dark); }
+.tt-week-open { margin: 0 0 6px 10px; padding-left: 10px; border-left: 2px solid var(--teal-light); }

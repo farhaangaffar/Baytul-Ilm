@@ -8,7 +8,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getTimetable, addStarterPeriods, savePeriod, deletePeriod, saveLesson, copyTimetableDay, schoolDays, getLessonLogs, saveLessonLog, getBookLogs, niceDate } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
-import { Plus, X, Save, Trash2, ChevronDown, Check, Copy, Clock, PenLine, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Save, Trash2, ChevronDown, ChevronUp, Check, Copy, Clock, PenLine, CheckCircle2 } from 'lucide-react';
 
 const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY3 = DAY.map(d => d.slice(0, 3));
@@ -44,6 +44,7 @@ export default function Timetable() {
     return days.includes(today) ? today : days[0] ?? 1;
   });                                         // a day number, or 'week'
   const [picking, setPicking] = useState(false);
+  const [openDay, setOpenDay] = useState(() => new Date().getDay()); // the day opened in the phone Week view
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
   const [logs, setLogs] = useState([]);       // what this week's lessons covered (du_lesson_logs)
@@ -118,15 +119,45 @@ export default function Timetable() {
     return { main: l.subject, book: l.kitaab, who, room: l.room };
   };
 
-  const dayCard = d => {
+  // One day: its times and how many lessons, then a line per period.
+  const daySummary = d => {
     const ps = periods.filter(p => runsOn(p, d));
     const taught = ps.filter(p => slot(p, d).length).length;
+    return ps.length ? `${hm(ps[0].starts)}–${hm(ps[ps.length - 1].ends)} · ${taught} ${taught === 1 ? 'lesson' : 'lessons'}` : 'No periods on this day';
+  };
+  const dayCard = d => (
+    <div className="card" key={d}>
+      <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — {DAY[d]} {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
+      <div className="card-sub" style={{ marginBottom: 12 }}>{daySummary(d)}</div>
+      {dayLines(d)}
+    </div>
+  );
+  // On phones the week is one card with a line per day — tap one to open its lessons underneath.
+  const weekLines = () => (
+    <div className="card">
+      <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — the whole week</div>
+      <div className="card-sub" style={{ marginBottom: 12 }}>Tap a day to see its lessons</div>
+      <div className="tt-week-days">
+        {days.map(d => {
+          const on = openDay === d;
+          return (
+            <React.Fragment key={d}>
+              <button type="button" className={`line-row tt-week-day ${on ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => setOpenDay(on ? null : d)}>
+                <span className="tt-week-day-name">{DAY3[d]}<small>{niceDate(dateOf(d)).replace(/^\S+ /, '')}</small></span>
+                <span className="line-row-name">{dateOf(d) === TODAY ? 'Today' : DAY[d]}</span>
+                <span className="line-row-sub">{daySummary(d)}</span>
+                {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+              {on && <div className="tt-week-open">{dayLines(d)}</div>}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+  const dayLines = d => {
+    const ps = periods.filter(p => runsOn(p, d));
     return (
-      <div className="card" key={d}>
-        <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — {DAY[d]} {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>
-          {ps.length ? `${hm(ps[0].starts)}–${hm(ps[ps.length - 1].ends)} · ${taught} ${taught === 1 ? 'lesson' : 'lessons'}` : 'No periods on this day'}
-        </div>
         <div className="tt-lines">
           {ps.map(p => {
             if (p.isBreak) {
@@ -163,7 +194,6 @@ export default function Timetable() {
           })}
           {!ps.length && <div className="card-sub">Nothing on {DAY[d]}.</div>}
         </div>
-      </div>
     );
   };
 
@@ -234,7 +264,7 @@ export default function Timetable() {
             {day === 'week' ? <>
               <div className="tt-week-wide">{weekCard()}</div>
               {/* On phones the grid would be squashed — each day is its own card instead. */}
-              <div className="tt-week-narrow">{days.map(d => dayCard(d))}</div>
+              <div className="tt-week-narrow">{weekLines()}</div>
             </> : dayCard(day)}
           </>
         )}

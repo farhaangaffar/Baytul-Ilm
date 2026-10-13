@@ -118,7 +118,7 @@ codebase (one codebase, not a fork).
   (`du_periods`: name, times, break or lessons, which days — '' = every school day, e.g. no afternoon on Friday;
   "Use a typical day" = `STARTER_PERIODS`) and lessons (`du_lessons`, one per class/day/period: subject + book —
   usually one of the year's `du_subjects` — teacher, room). Viewed by class or teacher (Class ▾ box), a day at a
-  time or the Week (a grid on computers, a card per day on phones). The lesson pop-up warns when the teacher is
+  time or the Week (a grid on computers; on phones one card with a line per day — today open — that opens its lessons underneath). The lesson pop-up warns when the teacher is
   already with another class then; the same subject and book with two classes is one shared lesson. "Copy one
   day to other days" (`?action=copy-day`) fills the week. **What a lesson covered** is kept per class (an Aalim year
   moves through its books together — `du_lesson_logs`, one per class/date/subject/book): the teacher taps one of
