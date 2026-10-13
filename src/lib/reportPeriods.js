@@ -1,16 +1,24 @@
 // Report periods (Settings → "Reports are made"): monthly — the original system, one
-// report per school month (each month from its first Monday) — or termly, one per term
-// using the term dates in Settings. A saved report summary (ai_summaries.month) is
-// keyed 'YYYY-MM' for a month or 'term:<termId>' for a term.
+// report per school month (each month from its first Monday) — termly, one per term
+// using the term dates in Settings — or yearly, one per academic year (first Monday of
+// September to the next). A saved report summary (ai_summaries.month) is keyed 'YYYY-MM'
+// for a month, 'term:<termId>' for a term or 'year:<26-27>' for a year.
 import { getBranding } from './branding';
 import { ukToday } from './feePeriods';
-import { getCurrentSchoolMonth, currentSchoolMonthKey, academicYearOfMonth } from './store';
+import { getCurrentSchoolMonth, currentSchoolMonthKey, academicYearOfMonth, academicYearStartISO } from './store';
 
 export function reportPeriodSetting() {
-  return getBranding().reportPeriod === 'termly' ? 'termly' : 'monthly';
+  const p = getBranding().reportPeriod;
+  return p === 'termly' || p === 'yearly' ? p : 'monthly';
 }
-// "month" | "term" — for labels like "This term"
-export function reportUnit() { return reportPeriodSetting() === 'termly' ? 'term' : 'month'; }
+// "month" | "term" | "year" — for labels like "This term"
+export function reportUnit() { return { termly: 'term', yearly: 'year' }[reportPeriodSetting()] || 'month'; }
+
+const YEAR_PREFIX = 'year:';
+export const yearKey = y => `${YEAR_PREFIX}${y}`;
+export const isYearKey = key => String(key || '').startsWith(YEAR_PREFIX);
+// "26-27" → "27-28"
+const nextYearLabel = y => { const a = Number(y.slice(0, 2)) + 1; return `${String(a).padStart(2, '0')}-${String(a + 1).padStart(2, '0')}`; };
 
 const TERM_PREFIX = 'term:';
 export const termKey = t => `${TERM_PREFIX}${t.id}`;
@@ -29,8 +37,12 @@ export function termLabel(t) {
   return `${name} ${longYear(t.year)}`;
 }
 
-// { key, kind: 'month'|'term', start, endExclusive, label, yearLabel } for a saved key.
+// { key, kind: 'month'|'term'|'year', start, endExclusive, label, yearLabel } for a saved key.
 export function periodForKey(key, terms = []) {
+  if (isYearKey(key)) {
+    const y = key.slice(YEAR_PREFIX.length);
+    return { key, kind: 'year', start: academicYearStartISO(y), endExclusive: academicYearStartISO(nextYearLabel(y)), label: `${longYear(y)} academic year`, yearLabel: y };
+  }
   if (isTermKey(key)) {
     const t = terms.find(x => String(x.id) === key.slice(TERM_PREFIX.length));
     if (!t) return { key, kind: 'term', start: '0000-01-01', endExclusive: '0000-01-01', label: 'Term (dates removed)', yearLabel: '' };
@@ -45,10 +57,11 @@ export function periodForKey(key, terms = []) {
   };
 }
 
-// The period reports are currently being written for: this school month, or the term
+// The period reports are currently being written for: this school month, this academic year, or the term
 // containing today (else the latest one already started, else the first). Null when
 // reports are termly but no terms have been entered.
 export function currentReportPeriod(terms = [], refIso) {
+  if (reportPeriodSetting() === 'yearly') return periodForKey(yearKey(academicYearOfMonth(refIso ? getCurrentSchoolMonth(refIso).start.slice(0, 7) : currentSchoolMonthKey())), terms);
   if (reportPeriodSetting() !== 'termly') return periodForKey(refIso ? getCurrentSchoolMonth(refIso).start.slice(0, 7) : currentSchoolMonthKey(), terms);
   const ref = refIso || new Date().toISOString().slice(0, 10);
   const sorted = [...terms].sort((a, b) => a.startDate.localeCompare(b.startDate));

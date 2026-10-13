@@ -6,6 +6,7 @@ import Attendance      from './pages/Attendance';
 import Fees            from './pages/Fees';
 import DailyRecords    from './pages/DailyRecords';
 import ClassesTeachers from './pages/ClassesTeachers';
+import Course          from './pages/Course';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
@@ -16,6 +17,7 @@ import BackToExit, { ParentBackToExit } from './components/BackToExit';
 import Signup         from './pages/Signup';
 import { getSession, logout } from './lib/store';
 import { LegalPage, AcceptTerms } from './components/Legal';
+import { DemoScreen } from './components/Demo';
 import Landing from './pages/Landing';
 import { setMadrasahCode, getMadrasahCode } from './lib/madrasahCode';
 import { SettingsProvider } from './lib/SettingsContext';
@@ -93,6 +95,14 @@ export default function App() {
     return <div style={{ minHeight: '100vh', background: 'var(--page)' }} />;
   }
 
+  // A demo link while signed in: offer the demo (the made-up children) unless already in that kind of demo.
+  if (session.authenticated && params.has('demo')) {
+    const kind = params.get('demo') === 'darul-uloom' ? 'darul_uloom' : 'maktab';
+    if (!(session.user.demo && (session.user.madrasah?.kind || 'maktab') === kind)) {
+      return <DemoScreen kind={kind} signedInAs={session.user.demo ? '' : session.user.madrasah?.name} />;
+    }
+  }
+
   // "Start free": a madrasah signs itself up (pages/Signup.js), then it's straight in.
   if (!session.authenticated && !session.setupRequired && params.has('start')) {
     return <Signup onDone={refreshSession} />;
@@ -132,6 +142,7 @@ export default function App() {
               <Route path="/fees"       element={<Fees />} />
               <Route path="/records"    element={<DailyRecords />} />
               <Route path="/classes"    element={<ClassesTeachers />} />
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/course" element={<Course />} />}
               <Route path="/reports"    element={<Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />

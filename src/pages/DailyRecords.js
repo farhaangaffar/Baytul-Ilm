@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import Layout from '../components/Layout';
+import ClassBar from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { QuranEntryCard, QuranProgressCard, quranFactsForReport } from '../components/QuranCards';
 import { rangeLabel, upToLabel, effectiveQuranType } from '../lib/quran';
@@ -120,11 +121,8 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
 
   return (
     <div>
-      <div className="class-tabs">
-        {classNames.map(c=>(
-          <button key={c} className={`class-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
-        ))}
-      </div>
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} pills={['class-tabs', 'class-tab']}
+        notes={Object.fromEntries(classNames.map(c => { const n = students.filter(s => s.class === c && s.status === 'Active').length; return [c, `${n} ${n === 1 ? 'student' : 'students'}`]; }))} />
       <div className="grid-2">
         {classStudents.map(s=>{
           const counts=attendanceCountsFrom(attendance, s.id);
@@ -165,6 +163,11 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
           );
         })}
       </div>
+      {classStudents.length === 0 && (
+        <div className="card text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
+          {activeClass ? `No children in ${activeClass} yet — add them on the Students page.` : 'No classes yet — add one on Classes & Teachers.'}
+        </div>
+      )}
     </div>
   );
 }
@@ -226,6 +229,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   // Reports are monthly (school month) or termly (Settings) — the summary below is
   // written for, and saved against, the current month or term.
   const termly = reportPeriodSetting() === 'termly';
+  const yearly = reportPeriodSetting() === 'yearly';
   const [terms, setTerms] = useState([]);
   const [termsLoaded, setTermsLoaded] = useState(!termly);
   useEffect(() => {
@@ -236,7 +240,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   // A school month runs from its first Monday to the next month's (so 2 Oct can still be
   // September's), and a term between its dates — both carry start / endExclusive.
   const inPeriod = d => !!period && d >= period.start && d < period.endExclusive;
-  const unitWord = termly ? 'term' : 'month';
+  const unitWord = termly ? 'term' : yearly ? 'year' : 'month';
   const termlyNoTerms = termly && termsLoaded && !period;
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -355,13 +359,13 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
         return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
       }).join('\n\n');
       // Monthly: this year's attendance so far (as before). Termly: the term's own.
-      const year = termly ? period.yearLabel : await currentSchoolYear();
+      const year = termly || yearly ? period.yearLabel : await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
-      const counts = termly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
+      const counts = termly || yearly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
       // Qur'an progress for the period, as exact figures the summary can quote.
       const quranFacts = quranType ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
       // Lesson notes (in quranFacts) are the main source; behaviour records come second.
-      const prompt=`You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'an progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'an progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      const prompt=`You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : yearly ? 'end-of-year' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'an progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'an progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -671,7 +675,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
         </>)}
         {tab==='report'&&(<>
           <div className="card">
-            <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : 'Monthly summary'}</div>
+            <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : yearly ? 'Year summary' : 'Monthly summary'}</div>
             <div className="card-sub" style={{marginBottom:14}}>
               {period ? <>AI report paragraph for {student.forename} — {period.label}</> : (termlyNoTerms ? 'Add your term dates in Settings → Terms to write termly reports.' : 'Loading…')}
             </div>

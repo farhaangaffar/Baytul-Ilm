@@ -37,8 +37,11 @@ export function setBranding(s) {
 }
 
 // money(12.5) → "£12.50"; money(15, 0) → "£15"
+// "£250", "£13,250", "£12.50" — no ".00" on whole amounts, and commas in thousands.
 export function money(n, decimals = 2) {
-  return `${current.currencySymbol}${Number(n || 0).toFixed(decimals)}`;
+  const v = Number(n || 0);
+  const places = Math.round(v * 100) % 100 === 0 ? 0 : decimals;
+  return `${current.currencySymbol}${v.toLocaleString('en-GB', { minimumFractionDigits: places, maximumFractionDigits: places })}`;
 }
 
 export function currencySymbol() { return current.currencySymbol; }

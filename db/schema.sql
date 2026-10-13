@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS classes (
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
   name        TEXT NOT NULL,
   teacher_id  TEXT REFERENCES teachers(id) ON DELETE SET NULL,
-  quran_type  TEXT  -- 'hifz' | 'nazira' | 'qaida' | 'mixed' (set per student), or NULL: not tracked
+  quran_type  TEXT, -- 'hifz' | 'nazira' | 'qaida' | 'mixed' (set per student), or NULL: not tracked
+  course_order INTEGER -- a Darul Uloom's year groups: 1 = first year … (NULL = not a course year, e.g. Hifdh)
 );
 CREATE INDEX IF NOT EXISTS idx_classes_madrasah ON classes (madrasah_id);
 
@@ -300,3 +301,24 @@ INSERT INTO madaaris (id, name, code) VALUES (1, 'Madrasah', 'madrasah') ON CONF
 SELECT setval(pg_get_serial_sequence('madaaris', 'id'), (SELECT max(id) FROM madaaris));
 INSERT INTO settings (id, madrasah_id) VALUES (1, 1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO academic_years (madrasah_id, year) VALUES (1, '25-26') ON CONFLICT DO NOTHING;
+
+-- A Darul Uloom's subjects and kitaabs for each year group (server/routes/course.js).
+CREATE TABLE IF NOT EXISTS du_subjects (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  class_id    TEXT NOT NULL,
+  subject     TEXT NOT NULL,
+  kitaab      TEXT NOT NULL DEFAULT '',
+  teacher_id  TEXT,
+  sort_order  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_du_subjects_madrasah ON du_subjects (madrasah_id, class_id);
+
+-- Each "Move everyone up" at the end of a year, kept so the last one can be undone.
+CREATE TABLE IF NOT EXISTS du_year_moves (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  moved_at    TIMESTAMP NOT NULL DEFAULT now(),
+  undone      BOOLEAN NOT NULL DEFAULT false,
+  changes     JSONB NOT NULL -- [{ id, fromClass, toClass, fromStatus, toStatus, fromLeave, toLeave }]
+);

@@ -145,8 +145,10 @@ export default function Settings() {
   async function changeReportPeriod(next) {
     if (next === savedReportPeriod) return;
     const msg = next === 'termly'
-      ? 'Make reports termly?\n\nEach student gets one report (one AI summary and behaviour rating) per term, covering attendance and fees for the whole term. Monthly reports already saved stay as they are.\n\nA Terms section will appear below for your term dates.'
-      : 'Make reports monthly?\n\nEach student gets one report per month. Termly reports already saved stay as they are.';
+      ? 'Make reports termly?\n\nEach student gets one report (one AI summary and behaviour rating) per term, covering attendance and fees for the whole term. Reports already saved stay as they are.\n\nA Terms section will appear below for your term dates.'
+      : next === 'yearly'
+      ? 'Make reports yearly?\n\nEach student gets one report per academic year (September to August), covering attendance and fees for the whole year. Reports already saved stay as they are.'
+      : 'Make reports monthly?\n\nEach student gets one report per month. Reports already saved stay as they are.';
     if (!window.confirm(msg)) return;
     try {
       await updateSettings({ reportPeriod: next });
@@ -411,6 +413,7 @@ export default function Settings() {
             <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
               <option value="monthly">Monthly</option>
               <option value="termly">Termly</option>
+              <option value="yearly">Yearly</option>
             </select>
           </div>
           <div className="form-group">

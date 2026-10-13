@@ -162,7 +162,7 @@ export default function Reports() {
   const ready = s => !!currentSummaries[s.id]?.summary;
   const classStudents = current.filter(s => s.class === activeClass);
   const readyInClass = classStudents.filter(ready);
-  const unit = period?.kind === 'term' ? 'term' : 'month';
+  const unit = period?.kind === 'term' ? 'term' : period?.kind === 'year' ? 'year' : 'month';
   const reportName = s => `Report_${s.forename}_${s.surname}.pdf`;
 
   async function downloadReady() {

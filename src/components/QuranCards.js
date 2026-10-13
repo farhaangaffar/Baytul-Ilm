@@ -315,7 +315,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
 }
 
 // The student's Qur'an level — Hifdh / Naazhirah / Qaa'idah. Teachers change it as a child moves
-// up; in a mixed class it's chosen here the first time.
+// up; in a mixed class it's chosen here the first time. Not shown in a Hifdh class.
 function LevelPicker({ student, type, classType, data, onChanged, onError }) {
   const [busy, setBusy] = useState(false);
   const own = data?.quranType || null;
@@ -357,7 +357,8 @@ export function QuranEntryCard({ student, type, classType, data, onChanged }) {
     <div className="flex items-center gap-2" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
       <BookOpen size={15} style={{ color: 'var(--teal-dark)' }} />
       <div className="card-title" style={{ marginBottom: 0, flex: 1 }}>Input progress</div>
-      {data && <LevelPicker student={student} type={type} classType={classType} data={data} onChanged={onChanged} onError={setError} />}
+      {/* A Hifdh class is all Hifdh — no level to choose (unless a child already has another level set, so it can be put back). */}
+      {data && (classType !== 'hifz' || data.quranType) && <LevelPicker student={student} type={type} classType={classType} data={data} onChanged={onChanged} onError={setError} />}
     </div>
   );
   // Mixed class and no level chosen for this student yet.

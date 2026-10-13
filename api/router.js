@@ -12,6 +12,7 @@ const routes = {
   'ai-summary': require('../server/routes/ai-summary'),
   attendance: require('../server/routes/attendance'),
   classes: require('../server/routes/classes'),
+  course: require('../server/routes/course'),
   'daily-records': require('../server/routes/daily-records'),
   'days-off': require('../server/routes/days-off'),
   demo: require('../server/routes/demo'),

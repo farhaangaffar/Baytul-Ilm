@@ -147,6 +147,7 @@ export default function ClassesTeachers() {
                   <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
                     <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {c.name}
+                      {c.courseOrder && <span className="badge badge-blue">Aalim · year {c.courseOrder}</span>}
                       {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal">{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]}</span>}
                     </div>
                     <button className="btn btn-icon btn-sm" title="Edit class" onClick={() => setClassModal({ ...c })}><Pencil size={13} /></button>
@@ -320,6 +321,11 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
                 {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
+            {initial.courseOrder ? (
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', background: '#f3f4f6', borderRadius: 8, padding: '10px 12px' }}>
+                This is an Aalim year — its books are on the Aalim course page.
+              </div>
+            ) : (
             <div className="form-group">
               <label>Qur'an</label>
               <select value={form.quranType || ''} onChange={e => setForm({ ...form, quranType: e.target.value })}>
@@ -330,6 +336,7 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
                 Hifdh tracks Hifdh Jadeed (new lesson), Muraaja'ah Qareebah (recent revision) and Muraaja'ah (older revision); Naazhirah where they read to; Qaa'idah the lesson. Choose Mixed if the class has all three — each student's level is then set on Daily records (and can be changed for any student as they move up).
               </span>
             </div>
+            )}
           </div>
         </div>
         <div className="modal-footer">

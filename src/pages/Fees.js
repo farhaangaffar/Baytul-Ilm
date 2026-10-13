@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
+import ClassBar from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getFees, getStudents, markFeePaid, markFeeUnpaid, addFeeMonth, deleteFeeMonth,
@@ -332,7 +333,7 @@ function WeeklyFees() {
             <button className="back-pill" onClick={closeStudent}><ArrowLeft size={14}/> All students</button>
             <div>
               <div style={{fontWeight:600,fontSize:16}}>{selected.forename} {selected.surname}</div>
-              <div className="text-muted text-sm">{selected.class} · {currencySymbol()}{selected.weeklyFee}{feePer()} · {year}</div>
+              <div className="text-muted text-sm">{selected.class} · {money(selected.weeklyFee)}{feePer()} · {year}</div>
             </div>
           </div>
         </div>
@@ -395,15 +396,7 @@ function WeeklyFees() {
 
   return (
     <Layout title="Fees" subtitle={`${activeClass} · ${year}`}>
-      <div className="pill-tabs">
-        {classNames.map(c=>(
-          <button key={c} className={`pill-tab ${activeClass===c?'active':''}`} onClick={()=>setActiveClass(c)}>{c}</button>
-        ))}
-        <div className="pill-divider"/>
-        {years.map(y=>(
-          <button key={y} className={`pill-tab ${year===y?'year-active':''}`} onClick={()=>switchYear(y)}>{y}</button>
-        ))}
-      </div>
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear} />
 
       {/* This month only, for this class (the year's totals are on Stats). */}
       <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'0 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>{activeClass} · this month — {referenceMonthLabel}</div>
@@ -443,7 +436,7 @@ function WeeklyFees() {
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
-              <div className="entity-card-sub" style={{marginBottom:14}}>{currencySymbol()}{s.weeklyFee}{feePer()}</div>
+              <div className="entity-card-sub" style={{marginBottom:14}}>{money(s.weeklyFee)}{feePer()}</div>
               {/* Only the week buttons themselves stop a tap; the rest of the card opens the student. */}
               <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
                 <div className="week-pill-row" style={{justifyContent:'center'}}>

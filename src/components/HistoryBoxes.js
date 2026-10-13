@@ -53,5 +53,6 @@ export default function HistoryBoxes({ years, open, onToggle, items = [], active
 // Short box label for a report period: "Sept" for a month, the term's own name for a term.
 export function shortPeriodLabel(p) {
   if (p.kind === 'term') return p.label.replace(/\s*\d{2,4}-\d{2}$/, '');
+  if (p.kind === 'year') return 'Whole year';
   return new Date(p.start + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' });
 }

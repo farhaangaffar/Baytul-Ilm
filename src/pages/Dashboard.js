@@ -85,7 +85,7 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle={`Overview · ${year}`}>
-      <GettingStarted students={students} classes={classes} />
+      <GettingStarted students={students} classes={classes} onChanged={load} />
       <div className="card hero">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
           <div>

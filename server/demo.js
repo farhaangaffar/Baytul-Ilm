@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,12 +30,13 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off'];
+  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
     kind TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT now())`);
   await require('./platform').ensurePlatformTables();
+  await require('./newMadrasah').ensureSignupColumns(); // madaaris.kind, for the Darul Uloom demo
 }
 
 // Deletes expired demos (a few at a time, so starting a demo stays quick).
@@ -185,11 +186,12 @@ const LESSON_NOTES = {
 };
 
 // A finished report summary (the kind the AI writes from a child's records), made up.
-function demoSummary(st, type, r) {
+// unit: 'month' | 'term' | 'year' — what the report covers.
+function demoSummary(st, type, r, unit = 'month') {
   const he = st.g === 'm' ? 'He' : 'She', his = st.g === 'm' ? 'his' : 'her', him = st.g === 'm' ? 'him' : 'her';
   const open = r.pick([
-    `${st.f} has had a ${r.pick(['very positive', 'steady', 'good', 'productive'])} month at the madrasah.`,
-    `It has been a ${r.pick(['pleasure', 'joy'])} teaching ${st.f} this month.`,
+    `${st.f} has had a ${r.pick(['very positive', 'steady', 'good', 'productive'])} ${unit} at the madrasah.`,
+    `It has been a ${r.pick(['pleasure', 'joy'])} teaching ${st.f} this ${unit}.`,
   ]);
   const attitude = r.pick([
     `${he} arrives ready to learn, is respectful to ${his} teachers and gets on well with ${his} classmates.`,
@@ -209,11 +211,15 @@ function demoSummary(st, type, r) {
       `${he} has progressed well through the Qaa'idah and is now more confident joining letters.`,
       `${he} is recognising the letters and harakaat more quickly and has moved on to new lessons.`,
     ]),
+    alim: r.pick([
+      `${his[0].toUpperCase() + his.slice(1)} book studies have gone well; ${he.toLowerCase()} prepares the Arabic text before lessons and joins in well when the class revises together.`,
+      `${he} has a sound grasp of the lessons covered, and ${his} Arabic reading and translation are becoming more confident.`,
+    ]),
   }[type];
   const rec = r.pick([
     `We would encourage ${him} to revise for ten minutes at home each day to keep building on this progress.`,
     `Reading with ${him} at home a few times a week would help ${him} grow in confidence.`,
-    `Keep up the good work — we look forward to seeing ${him} continue to grow next month.`,
+    `Keep up the good work — we look forward to seeing ${him} continue to grow next ${unit}.`,
   ]);
   return `${open} ${attitude}\n\n${quran} ${rec} JazakAllahu khairan for your support.`;
 }
@@ -403,4 +409,189 @@ async function createDemo(ipHash) {
   });
 }
 
-module.exports = { DEMO_HOURS, TABLES, ensureAllTables, clearExpired, tooMany, createDemo, demoSummary, genderOf, rng };
+// ── The made-up Darul Uloom (a link ending ?demo=darul-uloom) ──
+// Full-time: the Dars-e-Nizami years (routes/course.js STARTER) with their kitaabs and asatidha,
+// a Hifdh class, made-up students in every year, attendance Monday to Friday, monthly fees,
+// behaviour records and last month's reports.
+const DU_TEACHERS = [
+  { key: 'rahman', name: 'Mufti Abdur Rahman Patel', subjects: ['Hadith', 'Usul-ul-Hadith'] },
+  { key: 'ismail', name: 'Maulana Ismail Desai', subjects: ['Fiqh', 'Usul-ul-Fiqh', 'Mirath'] },
+  { key: 'yusuf', name: 'Maulana Yusuf Mota', subjects: ['Nahw', 'Sarf', 'Mantiq'] },
+  { key: 'hamza', name: 'Maulana Hamza Ali', subjects: ['Arabic language', 'Arabic literature', 'Balaghah'] },
+  { key: 'zakariyya', name: 'Maulana Zakariyya Bhana', subjects: ['Tafsir', 'Usul-ut-Tafsir', "Tarjamat-ul-Qur'an", 'Aqeedah', 'Seerah'] },
+  { key: 'ibrahim', name: 'Qari Ibrahim Khan', subjects: ['Tajweed', 'Hifdh'] },
+];
+// Each year's class teacher, and how many students it has.
+const DU_YEARS = [['yusuf', 6], ['hamza', 6], ['ismail', 5], ['ismail', 5], ['zakariyya', 4], ['rahman', 4], ['rahman', 4]];
+const DU_FORENAMES = ['Abdullah', 'Ahmad', 'Ammar', 'Anas', 'Bilal', 'Dawud', 'Faisal', 'Hamzah', 'Harun', 'Hasan', 'Husain', 'Ibrahim',
+  'Idris', 'Ilyas', 'Imran', 'Isa', 'Ismail', 'Junaid', 'Khalid', 'Luqman', 'Mikail', 'Muadh', 'Muhammad', 'Musa', 'Mustafa', 'Nuh',
+  "Sa'd", 'Salman', 'Sulaiman', 'Talha', 'Tariq', 'Umar', 'Usamah', 'Uthman', 'Yahya', "Ya'qub", 'Yunus', 'Zaid', 'Zakariyya', 'Hudhaifah'];
+const DU_SURNAMES = ['Ahmed', 'Khan', 'Hussain', 'Mahmood', 'Desai', 'Ali', 'Rahman', 'Iqbal', 'Chowdhury', 'Mirza', 'Bhatti', 'Shah',
+  'Siddiqui', 'Malik', 'Akhtar', 'Mulla', 'Valli', 'Dadabhai', 'Kazi', 'Lunat', 'Hafejee', 'Ismail', 'Karim', 'Bux', 'Seedat'];
+const ALIM_COMMENTS = [
+  ['Prepared the Nahw lesson well and answered the questions in class.', 'Joined in well when the class went over the lesson together.', ''],
+  ['Found the grammar of the passage difficult; went over it again after class.', 'Kept trying.', 'Revise the previous lesson before class.'],
+  ['Read the Arabic text fluently and translated it accurately.', 'Excellent preparation.', ''],
+  ['Late to the first lesson after Fajr.', 'Helpful to the younger students.', 'Punctuality.'],
+  ['Good grasp of the rulings covered today.', 'Asks thoughtful questions.', ''],
+  ['Seemed tired in the afternoon lessons.', '', 'Needs to sleep earlier.'],
+  ['Memorised the hadith of the day with its sanad.', 'Very diligent.', ''],
+  ['Read ahead properly before the lesson.', 'Neat, organised notes.', ''],
+];
+
+async function createDarulUloomDemo(ipHash) {
+  const { STARTER } = require('./routes/course');
+  const r = rng(crypto.randomBytes(4).readUInt32LE(0));
+  const today = iso(new Date());
+  let startMonday = mondayOf(today);
+  for (let n = 0; n < 9; startMonday = plus(startMonday, -7)) if (!inAugust(plus(startMonday, -7))) n++;
+  const schoolDays = [1, 2, 3, 4, 5];
+  const days = [];
+  for (let d = startMonday; d < today; d = plus(d, 1)) if (schoolDays.includes(dow(d)) && !inAugust(d)) days.push(d);
+  // Calendar months for fees (the summer month off), and last month's reports.
+  const firstOf = s => `${s.slice(0, 7)}-01`;
+  const nextFirst = s => { const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`; };
+  const monthYear = s => { const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), st = m >= 9 ? y : y - 1; return `${String(st).slice(2)}-${String(st + 1).slice(2)}`; };
+  const months = [];
+  for (let mo = firstOf(startMonday); mo <= firstOf(today); mo = nextFirst(mo)) months.push(mo);
+  let reportMonth = months.length > 1 ? months[months.length - 2] : months[0];
+  if (reportMonth.slice(5, 7) === '08' && months.length > 2) reportMonth = months[months.length - 3];
+
+  return transaction(async c => {
+    const code = `demo-${crypto.randomBytes(5).toString('hex')}`;
+    const { rows: [m] } = await c.query(
+      `INSERT INTO madaaris (name, code, demo_until, demo_ip, kind) VALUES ('Demo Darul Uloom', $1, now() + interval '${DEMO_HOURS} hours', $2, 'darul_uloom') RETURNING id`,
+      [code, ipHash]);
+    const mid = m.id;
+    await c.query(
+      `INSERT INTO settings (id, madrasah_id, school_name, school_name_arabic, default_weekly_fee, fee_frequency, report_period,
+         currency_symbol, parent_portal, school_days, fee_auto, fee_auto_since)
+       VALUES ($1, $1, 'Demo Darul Uloom', 'دار العلوم', 250, 'monthly', 'monthly', '£', true, $2, true, $3)`,
+      [mid, schoolDays, startMonday]);
+    const years = [...new Set([...days.map(yearLabel), yearLabel(today)])];
+    await bulk(c, 'academic_years', ['madrasah_id', 'year'], years.map(y => [mid, y]));
+
+    const teacherIds = {};
+    await bulk(c, 'teachers', ['id', 'madrasah_id', 'name', 'phone', 'email', 'subjects', 'sort_order'],
+      DU_TEACHERS.map((t, i) => { teacherIds[t.key] = newId('T'); return [teacherIds[t.key], mid, t.name, `07700 90020${i}`, `${t.key}@example.com`, JSON.stringify(t.subjects), i]; }));
+    const subjectTeacher = subject => teacherIds[(DU_TEACHERS.find(t => t.subjects.includes(subject)) || DU_TEACHERS[0]).key];
+
+    // The years (with their kitaabs) and a Hifdh class.
+    const yearClasses = STARTER.map((y, i) => ({ id: newId('C'), name: y.name, teacher: DU_YEARS[i][0], size: DU_YEARS[i][1], order: i + 1, subjects: y.subjects }));
+    const hifdh = { id: newId('C'), name: 'Hifdh', teacher: 'ibrahim' };
+    await bulk(c, 'classes', ['id', 'madrasah_id', 'name', 'teacher_id', 'quran_type', 'course_order'],
+      [...yearClasses.map(y => [y.id, mid, y.name, teacherIds[y.teacher], null, y.order]), [hifdh.id, mid, hifdh.name, teacherIds.ibrahim, 'hifz', null]]);
+    await bulk(c, 'du_subjects', ['madrasah_id', 'class_id', 'subject', 'kitaab', 'teacher_id', 'sort_order'],
+      yearClasses.flatMap(y => y.subjects.map(([subject, kitaab], i) => [mid, y.id, subject, kitaab, subjectTeacher(subject), i])));
+
+    // Students: made-up names, no two the same; the Patel brothers (3rd year and Hifdh) share a parent login.
+    const used = new Set();
+    const name = () => { for (;;) { const f = r.pick(DU_FORENAMES), sn = r.pick(DU_SURNAMES); if (!used.has(f + sn)) { used.add(f + sn); return [f, sn]; } } };
+    const kids = [];
+    yearClasses.forEach((y, yi) => {
+      for (let i = 0; i < y.size; i++) {
+        const [f, sn] = yi === 2 && i === 0 ? ['Yusuf', 'Patel'] : name();
+        kids.push({ f, s: sn, g: 'm', cls: y.name, type: 'alim', age: 13 + yi, family: yi === 2 && i === 0 ? 'patel' : null,
+          arrears: r.chance(0.08), fee: 250 });
+      }
+    });
+    const hifdhStart = [[67, 1, [30]], [2, 1, [29, 30]], [36, 1, [30]], [78, 1, []], [18, 1, [1, 30]], [2, 142, [30]]];
+    hifdhStart.forEach(([su, ay, prior], i) => {
+      const [f, sn] = i === 0 ? ['Ibrahim', 'Patel'] : name();
+      kids.push({ f, s: sn, g: 'm', cls: hifdh.name, type: 'hifz', age: 11 + (i % 3), start: [su, ay], pace: 3 + (i % 3), prior,
+        family: i === 0 ? 'patel' : null, fee: 200 });
+    });
+    kids.forEach((k, i) => {
+      Object.assign(k, { id: newId('S'), order: i, enroll: plus(startMonday, -(200 + Math.floor(r() * 500))),
+        born: plus(today, -Math.round(k.age * 365 + r() * 300)), p1: k.family ? 'Abdullah' : r.pick(PARENT_NAMES.m), p2: k.family ? 'Amina' : r.pick(PARENT_NAMES.f) });
+    });
+    await bulk(c, 'students',
+      ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone',
+        'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order'],
+      kids.map(k => [k.id, mid, k.f, k.s, k.born, k.cls, `${k.p1} ${k.s}`, k.family ? '07700 900600' : `07700 9${String(20000 + k.order * 41).slice(-5)}`,
+        `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, null, 'Active', '', k.order]));
+
+    // Attendance and behaviour records for everyone; Qur'an progress for the Hifdh class.
+    const att = [], recs = [], quran = [];
+    const present = {};
+    const grade = () => { const g = r(); return g < 0.6 ? 'good' : g < 0.82 ? 'okay' : g < 0.94 ? 'weak' : 'repeat'; };
+    for (const k of kids) {
+      let p = k.start ? pos(...k.start) : 0;
+      const sabaqs = [];
+      const manzil = [...((k.prior || []).includes(30) ? MANZIL[30] : []), ...((k.prior || []).includes(29) ? MANZIL[29] : [])];
+      let manzilAt = Math.floor(r() * 8);
+      for (const d of days) {
+        const roll = r();
+        const status = roll < (k.arrears ? 0.1 : 0.03) ? 'A' : roll < 0.09 ? 'L' : 'P';
+        att.push([mid, yearLabel(d), k.id, d, status, status === 'L' ? `07:${String(5 + Math.floor(r() * 20)).padStart(2, '0')}` : null]);
+        if (status === 'A') continue;
+        (present[k.id] = present[k.id] || []).push(d);
+        if (r.chance(0.3)) {
+          const [comment, positive, negative] = r.pick(k.type === 'hifz' ? COMMENTS.hifz : ALIM_COMMENTS);
+          recs.push([mid, k.id, d, comment, positive, negative]);
+        }
+        if (k.type !== 'hifz') continue;
+        const note = (g) => (g === 'repeat' ? 'Repeat tomorrow.' : r.chance(0.4) ? r.pick(LESSON_NOTES.hifz[g]) : '');
+        const last = sabaqs[sabaqs.length - 1];
+        const from = last && last.grade === 'repeat' ? last.from : p;
+        const to = Math.min(from + k.pace - 1 + Math.floor(r() * 2), 6235);
+        const g = grade();
+        quran.push([mid, k.id, d, 'sabaq', ...at(from), ...at(to), '', g, note(g)]);
+        if (sabaqs.length) {
+          const back = sabaqs[Math.max(0, sabaqs.length - 5)].from;
+          if (back < from) { const gs = grade(); quran.push([mid, k.id, d, 'sabqi', ...at(back), ...at(from - 1), '', gs, note(gs)]); }
+        }
+        if (manzil.length && r.chance(0.8)) {
+          const [s1, s2] = manzil[manzilAt++ % manzil.length];
+          const gm = grade();
+          quran.push([mid, k.id, d, 'manzil', s1, 1, s2, AYAHS[s2 - 1], '', gm, note(gm)]);
+        }
+        sabaqs.push({ from, grade: g });
+        if (g !== 'repeat') p = to + 1;
+      }
+    }
+    await bulk(c, 'attendance', ['madrasah_id', 'year', 'student_id', 'date', 'status', 'late_time'], att);
+    await bulk(c, 'daily_records', ['madrasah_id', 'student_id', 'date', 'comment', 'positive', 'negative'], recs);
+    await bulk(c, 'quran_progress',
+      ['madrasah_id', 'student_id', 'date', 'kind', 'from_surah', 'from_ayah', 'to_surah', 'to_ayah', 'lesson', 'grade', 'note'], quran);
+    await bulk(c, 'quran_students', ['student_id', 'madrasah_id', 'prior_juz'], kids.filter(k => k.type === 'hifz').map(k => [k.id, mid, k.prior]));
+
+    // Monthly fees: earlier months mostly paid, this month part paid, a couple of families behind.
+    const off = months.filter(mo => mo.slice(5, 7) === '08');
+    if (off.length) await bulk(c, 'fee_months_off', ['madrasah_id', 'year', 'month_start'], off.map(mo => [mid, monthYear(mo), mo]));
+    const thisMonth = firstOf(today);
+    const fees = [];
+    for (const k of kids) {
+      for (const mo of months) {
+        if (mo.slice(5, 7) === '08') continue;
+        let paid = mo < thisMonth ? r.chance(0.96) : r.chance(0.55);
+        if (k.arrears && mo >= months[months.length - 2]) paid = false;
+        const paidDate = paid ? (mo < thisMonth ? plus(mo, Math.floor(r() * 6)) : (plus(mo, 2) > today ? today : plus(mo, 2))) : null;
+        fees.push([mid, monthYear(mo), k.id, 'month', mo, k.fee, paid ? 'Paid' : 'Pending', paidDate]);
+      }
+    }
+    await bulk(c, 'fees', ['madrasah_id', 'year', 'student_id', 'period', 'week_starting', 'amount', 'status', 'paid_date'], fees);
+
+    // Finished reports for last month.
+    const repEnd = nextFirst(reportMonth);
+    const sums = kids.filter(k => (present[k.id] || []).some(d => d >= reportMonth && d < repEnd))
+      .map(k => [mid, k.id, reportMonth.slice(0, 7), demoSummary(k, k.type, r), '', r.chance(0.6) ? 'Excellent' : 'Good']);
+    await bulk(c, 'ai_summaries', ['madrasah_id', 'student_id', 'month', 'summary', 'instructions', 'behavior'], sums);
+
+    // Logins: the head, Maulana Yusuf (1st year's class teacher), and the Patel family (two sons).
+    const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
+    await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);
+    await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'maulana.yusuf', $2, 'teacher', $3)`, [mid, pw(), teacherIds.yusuf]);
+    const { rows: [parent] } = await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'patel.family', $2, 'parent') RETURNING id`, [mid, pw()]);
+    const family = kids.filter(k => k.family === 'patel');
+    await bulk(c, 'parent_students', ['user_id', 'student_id', 'madrasah_id'], family.map(k => [parent.id, k.id, mid]));
+    let next = plus(today, 1);
+    while (!schoolDays.includes(dow(next))) next = plus(next, 1);
+    await c.query(
+      `INSERT INTO absence_reports (madrasah_id, student_id, date, reason, note, reported_by) VALUES ($1, $2, $3, 'Appointment', 'Hospital appointment in the morning — back after Zuhr.', $4)`,
+      [mid, family[0].id, next, parent.id]);
+    return mid;
+  });
+}
+
+module.exports = { DEMO_HOURS, createDarulUloomDemo, TABLES, ensureAllTables, clearExpired, tooMany, createDemo, demoSummary, genderOf, rng };

@@ -25,6 +25,16 @@ codebase (one codebase, not a fork).
 - If unsure whether a change is small or large, treat it as large.
 - After a PR is merged, start follow-up work on a fresh branch from the latest `main`.
 - Explain things in plain language — the owner isn't a developer.
+- **Every preview shows made-up data:** when giving the owner a preview link, give the demo link
+  too (`<preview>/?demo`, or `<preview>/?demo=darul-uloom` for Darul Uloom work) so they see the
+  change with realistic names, not an empty madrasah. If the change needs data the demo doesn't
+  make yet, add it to `server/demo.js` in the same PR.
+- **The owner's design style:** cards, with **single full-width lines** inside them to tap (`.line-row` —
+  the Course page, the class chooser) that open their details underneath, small grey boxes for figures and
+  quick choices (`BoxRow`, `.box-row-3`), and pop-ups for editing. Selected = light blue (`.line-row.on`,
+  `--teal-light`), never the dark ink fill. Keep the top of a page uncluttered: with more than 5 classes (and always in a Darul Uloom, head and
+  teachers alike) the class/year pills become `ClassBar`'s Class ▾ / Year ▾ boxes. Rows must keep one shape
+  whatever their content (e.g. Students' class rows: on phones, name then three equal boxes). Avoid squashed columns and walls of buttons.
 
 ## Project conventions
 
@@ -82,11 +92,32 @@ codebase (one codebase, not a fork).
 - **Darul Uloom** (`madaaris.kind`: 'maktab' — the original — or 'darul_uloom', a full-time
   Darul Uloom): one codebase; a Darul Uloom gets extra pages on top of everything a maktab has,
   built in stages (the owner's plan: year groups & kitaabs → timetable → exams & report cards →
-  boarding → fees & launch). Only the platform owner sets the kind (Madaaris page → Add / Edit details;
+  boarding → fees & launch). **Build for every Darul Uloom, not one:** Darul Uloom London is the first
+  user and its answers guide the design, but nothing may be fixed to one school — year names, periods and
+  times, exam marks and pass marks, fee amounts and instalments, rooms, home-weekend times are all set by
+  each madrasah (sensible defaults, everything changeable). Never put a real school's names or data in code
+  or the public demo. Only the platform owner sets the kind (Madaaris page → Add / Edit details;
   changing it resets that madrasah's plan and price). Price: a Darul Uloom £500 a year (`PRICES` in
   `server/newMadrasah.js`, `KIND_PRICES` in `src/lib/billing.js`). The front end checks
   `useAuth().isDarulUloom`; a maktab must never see a Darul Uloom page. Sign-up and the front page
   only offer it once the stages are done (the terms' Cost section and `TERMS_VERSION` change then).
+  **Aalim course page** (`/course`, menu "Aalim course", head only, `src/pages/Course.js`, `server/routes/course.js` — answers 403 for
+  a maktab): a year group is an ordinary class with `classes.course_order` (1 = first year; NULL = not a
+  course year, e.g. Hifdh), so attendance/fees/reports work unchanged. Each year's subjects & kitaabs are in
+  `du_subjects` (any kitaab can be typed; the starter list's and the madrasah's own are suggested). "Use the
+  Dars-e-Nizami years" adds the usual years and kitaabs (`STARTER`). "Move everyone up" moves each Active
+  child one year on (held-back ones stay); the last year are marked left (`Inactive`, leave date today);
+  each move is logged in `du_year_moves` so it can be undone (only children not changed since).
+  The page is single lines: year lines (tap to open its kitaab lines underneath), "Add a year" (`?action=year`: a new
+  class or an existing one; rename, move to another place, take out of the Aalim years; a year with no students can be
+  deleted). Only the Aalim years show there — Hifdh and other classes live on Classes & Teachers only. Classes
+  are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
+  year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
+  **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
+  with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
+  behaviour records, last month's reports; logins: head, Maulana Yusuf (1st year), the Patel family.
+  A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
+  (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own
@@ -133,7 +164,11 @@ codebase (one codebase, not a fork).
   with contact name/phone/WhatsApp/email. A new head's Dashboard shows "Getting started"
   (`src/components/GettingStarted.js`: teachers then classes → Settings (fees, days) → children → logins, with a
   choice of Teacher logins / Class logins (`/classes?tab=teachers|classes` opens that tab);
-  ticks itself, can be hidden).
+  ticks itself, can be hidden). A Darul Uloom gets its own order: Settings → teachers → classes (with "We don't
+  have any") → Aalim years & books → students → logins. The students step offers "Try it with 6 made-up students"
+  (notes start "Made-up student to try the app"; they don't tick the step; "Remove the made-up students" deletes them).
+  **Darul Uloom screens are in plain English** (teachers, books, Head — not asatidha/kitaabs/Muhtamim) so
+  non-Urdu-speaking Darul Ulooms follow them; subject names and "Aalim"/"Dars-e-Nizami" stay. Code names (`kitaab`) are unchanged.
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per
@@ -205,8 +240,9 @@ codebase (one codebase, not a fork).
   Head only: ✏️ amount, bin = take it off that child (`DELETE ?id=`, or `?action=skip` if not charged yet;
   "Put back" undoes). Taking a week/month off for everyone is only in Settings (Fee weeks / Fee months).
 - Report period (Settings): **monthly** (one report per school month — the original
-  system) or **termly** (one per term). A saved report summary (`ai_summaries.month`)
-  is keyed `'YYYY-MM'` or `'term:<terms.id>'`; use `src/lib/reportPeriods.js`
+  system), **termly** (one per term) or **yearly** (one per academic year, first Monday of
+  September to the next). A saved report summary (`ai_summaries.month`)
+  is keyed `'YYYY-MM'`, `'term:<terms.id>'` or `'year:<26-27>'`; use `src/lib/reportPeriods.js`
   (`currentReportPeriod()`, `periodForKey()`, `feesForReport()`) for ranges, labels and
   which fees belong on a report. The Terms section in Settings shows when fees or
   reports are termly.
