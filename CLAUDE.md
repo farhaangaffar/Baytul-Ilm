@@ -90,7 +90,11 @@ codebase (one codebase, not a fork).
 - **Darul Uloom** (`madaaris.kind`: 'maktab' — the original — or 'darul_uloom', a full-time
   Darul Uloom): one codebase; a Darul Uloom gets extra pages on top of everything a maktab has,
   built in stages (the owner's plan: year groups & kitaabs → timetable → exams & report cards →
-  boarding → fees & launch). Only the platform owner sets the kind (Madaaris page → Add / Edit details;
+  boarding → fees & launch). **Build for every Darul Uloom, not one:** Darul Uloom London is the first
+  user and its answers guide the design, but nothing may be fixed to one school — year names, periods and
+  times, exam marks and pass marks, fee amounts and instalments, rooms, home-weekend times are all set by
+  each madrasah (sensible defaults, everything changeable). Never put a real school's names or data in code
+  or the public demo. Only the platform owner sets the kind (Madaaris page → Add / Edit details;
   changing it resets that madrasah's plan and price). Price: a Darul Uloom £500 a year (`PRICES` in
   `server/newMadrasah.js`, `KIND_PRICES` in `src/lib/billing.js`). The front end checks
   `useAuth().isDarulUloom`; a maktab must never see a Darul Uloom page. Sign-up and the front page
