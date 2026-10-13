@@ -27,7 +27,7 @@ export const PRIVACY = [
   ]],
   ['Who else handles it', [
     'Vercel (the web hosting) and Neon (the database) store and serve Suhuf. They may keep data in the UK, the EU or the US, under the legal safeguards UK law requires for that.',
-    'When the head asks the app to write a report, that child\'s records for the period are sent to Anthropic (the AI company behind Claude) to draft it. Under Anthropic\'s business terms this data is not used to train its AI.',
+    'When the head (or, at a Darul Uloom, a class teacher writing an exam report) asks the app to write a report, that child\'s records for the period — at a Darul Uloom including their exam marks — are sent to Anthropic (the AI company behind Claude) to draft it. Under Anthropic\'s business terms this data is not used to train its AI.',
     'When a madrasah signs up, we\'re told by email through Resend (an email service), with the madrasah\'s name and the head\'s name, email and phone number.',
     'We don\'t pass information to anyone else unless the law requires it.',
   ]],

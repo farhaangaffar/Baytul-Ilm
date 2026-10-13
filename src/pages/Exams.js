@@ -11,12 +11,12 @@ import PickField from '../components/PickField';
 import BoxRow from '../components/BoxRow';
 import {
   getExams, getExam, saveExam, deleteExam, publishExam, saveExamPaper, deleteExamPaper, saveExamMarks, saveExamComment,
-  currentSchoolYear,
+  currentSchoolYear, draftExamComment,
 } from '../lib/store';
 import { downloadPdfBytes } from '../lib/reportPdf';
 import { buildReportCards } from '../lib/reportCardPdf';
 import { useAuth } from '../lib/AuthContext';
-import { Plus, X, Save, Trash2, ChevronLeft, Pencil, Download, Send, Check, ClipboardList } from 'lucide-react';
+import { Plus, X, Save, Trash2, ChevronLeft, Pencil, Download, Send, Check, ClipboardList, Sparkles } from 'lucide-react';
 
 const EXAM_NAMES = ['Monthly test', 'Mid-term exam', 'Half-yearly exam', 'Annual exam', 'End of year exam'];
 const num = v => (Number.isInteger(Number(v)) ? String(Number(v)) : Number(v).toFixed(1));
@@ -111,6 +111,7 @@ export default function Exams() {
     const cm = comments.find(c => c.studentId === s.id) || {};
     return {
       student: s, exam, result: results[s.id], teacherComment: cm.teacherComment || '', headComment: cm.headComment || '',
+      behavior: cm.behavior || '', attendance: detail.attendance[s.id] || { present: 0, late: 0, absent: 0 },
       teacherName: teacherName(classes.find(c => c.id === cls.id)?.teacherId),
       papers: classPapers.map(p => { const m = markOf(p.id, s.id); return { ...p, mark: m ? m.mark : null, absent: !!m?.absent }; }),
     };
@@ -364,24 +365,35 @@ function MarksModal({ paper, className, kids, markOf, onClose, onSaved }) {
   );
 }
 
-// One child's report card: their marks and result, the comments, and the PDF.
-function CardModal({ card, canTeacher, canHead, onClose, onSaved }) {
+// One child's report (a Darul Uloom's report is its exam report card): marks and result, the term's
+// attendance, behaviour, the class teacher's comment ("Write it for me" drafts it with AI) and the head's,
+// and the PDF. Used by the Exams page, the Reports page and the child's Report tab.
+export function CardModal({ card, canTeacher, canHead, onClose, onSaved }) {
   const { student: s, result: r, papers } = card;
   const [teacher, setTeacher] = useState(card.teacherComment);
   const [head, setHead] = useState(card.headComment);
+  const [behavior, setBehavior] = useState(card.behavior || '');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const changed = teacher !== card.teacherComment || head !== card.headComment;
+  const changed = teacher !== card.teacherComment || head !== card.headComment || behavior !== (card.behavior || '');
+  const a = card.attendance || { present: 0, late: 0, absent: 0 };
+  const days = a.present + a.late + a.absent;
   async function save() {
     setBusy('save'); setError('');
     try {
-      await saveExamComment({ examId: card.exam.id, studentId: s.id, teacherComment: teacher, ...(canHead ? { headComment: head } : {}) });
-      await onSaved('Comments saved');
+      await saveExamComment({ examId: card.exam.id, studentId: s.id, teacherComment: teacher, behavior, ...(canHead ? { headComment: head } : {}) });
+      await onSaved('Report saved');
     } catch (err) { setError(err.message || 'Something went wrong'); setBusy(''); }
+  }
+  async function draft() {
+    setBusy('draft'); setError('');
+    try { const d = await draftExamComment(card.exam.id, s.id); setTeacher(d.draft); }
+    catch (err) { setError(err.message || 'Could not write it just now'); }
+    setBusy('');
   }
   async function pdf() {
     setBusy('pdf');
-    try { downloadPdfBytes(await buildReportCards([{ ...card, teacherComment: teacher, headComment: head }]), `Report_card_${s.forename}_${s.surname}_${card.exam.name}.pdf`.replace(/\s+/g, '_')); }
+    try { downloadPdfBytes(await buildReportCards([{ ...card, teacherComment: teacher, headComment: head, behavior }]), `Report_${s.forename}_${s.surname}_${card.exam.name}.pdf`.replace(/\s+/g, '_')); }
     catch (err) { setError(err.message || 'Could not make the PDF'); }
     setBusy('');
   }
@@ -389,7 +401,7 @@ function CardModal({ card, canTeacher, canHead, onClose, onSaved }) {
     <ModalShell title={`${s.forename} ${s.surname}`} sub={`${card.exam.name} · ${s.class}`} onClose={onClose} width={520} footer={<>
       <button className="btn" style={{ marginRight: 'auto' }} disabled={!!busy} onClick={pdf}><Download size={13} /> {busy === 'pdf' ? 'Making…' : 'PDF'}</button>
       <button className="btn" onClick={onClose} disabled={!!busy}>Close</button>
-      {(canTeacher || canHead) && <button className="btn btn-teal" disabled={!!busy || !changed} onClick={save}><Save size={13} /> {busy === 'save' ? 'Saving…' : 'Save comments'}</button>}
+      {(canTeacher || canHead) && <button className="btn btn-teal" disabled={!!busy || !changed} onClick={save}><Save size={13} /> {busy === 'save' ? 'Saving…' : 'Save'}</button>}
     </>}>
       <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
         { label: true, text: r?.pct === null || !r ? '—' : `${num(r.pct)}%`, sub: 'Percentage' },
@@ -413,8 +425,30 @@ function CardModal({ card, canTeacher, canHead, onClose, onSaved }) {
       </div>
       <div className="form-grid">
         <div className="form-group">
-          <label>Class teacher's comment</label>
-          {canTeacher ? <textarea rows={3} value={teacher} onChange={e => setTeacher(e.target.value)} placeholder="How they've done, and what to work on" />
+          <label>Attendance this term</label>
+          <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
+            { text: a.present, sub: 'Present', tone: a.present ? 'green' : undefined },
+            { text: a.late, sub: 'Late', tone: a.late ? 'amber' : undefined },
+            { text: a.absent, sub: 'Absent', tone: a.absent ? 'red' : undefined },
+            { label: true, text: days ? `${Math.round(((a.present + a.late) / days) * 100)}%` : '—', sub: 'Attended' },
+          ]} />
+        </div>
+        <div className="form-group">
+          <label>Behaviour</label>
+          {canTeacher ? (
+            <div className="tt-days" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', marginBottom: 0 }}>
+              {['Excellent', 'Good', 'Fair', 'Poor'].map(b => (
+                <button key={b} type="button" className={`tt-day ${behavior === b ? 'on' : ''}`} onClick={() => setBehavior(behavior === b ? '' : b)}>{b}</button>
+              ))}
+            </div>
+          ) : <div className="card-sub">{behavior || '—'}</div>}
+        </div>
+        <div className="form-group">
+          <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Class teacher's comment</span>
+            {canTeacher && <button type="button" className="btn btn-sm" disabled={!!busy} onClick={draft}><Sparkles size={13} /> {busy === 'draft' ? 'Writing…' : teacher ? 'Write it again' : 'Write it for me'}</button>}
+          </label>
+          {canTeacher ? <textarea rows={4} value={teacher} onChange={e => setTeacher(e.target.value)} placeholder="How they've done, and what to work on — or tap Write it for me" />
             : <div className="card-sub">{teacher || '—'}</div>}
         </div>
         <div className="form-group">

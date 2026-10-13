@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Info } from 'lucide-react';
 import { pageHelp } from '../lib/pageHelp';
+import { useAuth } from '../lib/AuthContext';
 
 // "Page instructions": the button, and the pop-up it opens (the same one as the install
 // steps). The first time someone opens a page on a device it opens by itself; after that,
 // only from the button.
 export function usePageHelp(pathname, role) {
-  const help = role ? pageHelp(pathname, role) : null;
+  const { isDarulUloom } = useAuth();
+  const help = role ? pageHelp(pathname, role, isDarulUloom) : null;
   const [open, setOpen] = useState(false);
   const key = `help_seen:${role}:${pathname}`;
   useEffect(() => {

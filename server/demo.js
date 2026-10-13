@@ -450,14 +450,12 @@ async function createDarulUloomDemo(ipHash) {
   const schoolDays = [1, 2, 3, 4, 5];
   const days = [];
   for (let d = startMonday; d < today; d = plus(d, 1)) if (schoolDays.includes(dow(d)) && !inAugust(d)) days.push(d);
-  // Calendar months for fees (the summer month off), and last month's reports.
+  // Calendar months for fees (the summer month off).
   const firstOf = s => `${s.slice(0, 7)}-01`;
   const nextFirst = s => { const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`; };
   const monthYear = s => { const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), st = m >= 9 ? y : y - 1; return `${String(st).slice(2)}-${String(st + 1).slice(2)}`; };
   const months = [];
   for (let mo = firstOf(startMonday); mo <= firstOf(today); mo = nextFirst(mo)) months.push(mo);
-  let reportMonth = months.length > 1 ? months[months.length - 2] : months[0];
-  if (reportMonth.slice(5, 7) === '08' && months.length > 2) reportMonth = months[months.length - 3];
 
   return transaction(async c => {
     const code = `demo-${crypto.randomBytes(5).toString('hex')}`;
@@ -633,11 +631,7 @@ async function createDarulUloomDemo(ipHash) {
     }
     await bulk(c, 'fees', ['madrasah_id', 'year', 'student_id', 'period', 'week_starting', 'amount', 'status', 'paid_date'], fees);
 
-    // Finished reports for last month.
-    const repEnd = nextFirst(reportMonth);
-    const sums = kids.filter(k => (present[k.id] || []).some(d => d >= reportMonth && d < repEnd))
-      .map(k => [mid, k.id, reportMonth.slice(0, 7), demoSummary(k, k.type, r), '', r.chance(0.6) ? 'Excellent' : 'Good']);
-    await bulk(c, 'ai_summaries', ['madrasah_id', 'student_id', 'month', 'summary', 'instructions', 'behavior'], sums);
+    // No monthly reports: a Darul Uloom's reports are its exam report cards (below).
 
     // Exams: a monthly test two weeks ago, marked out of 50 (pass 17), with comments and published to parents;
     // and the half-yearly exam in December, its papers ready and no marks yet.
@@ -677,10 +671,14 @@ async function createDarulUloomDemo(ipHash) {
         if (r.chance(0.02)) { markRows.push([mid, test.id, p.id, k.id, null, true]); continue; }
         markRows.push([mid, test.id, p.id, k.id, Math.max(0, Math.min(50, Math.round(50 * (ability + (r() - 0.5) * 0.24)))), false]);
       }
-      commentRows.push([mid, test.id, k.id, ability < 0.5 ? T_COMMENTS[5] : r.pick(T_COMMENTS.slice(0, 5)), ability < 0.5 ? H_COMMENTS[2] : r.pick([H_COMMENTS[0], H_COMMENTS[1], H_COMMENTS[3]])]);
+      // Most reports written; a few left for the demo's "Write it for me".
+      if (r.chance(0.8)) {
+        commentRows.push([mid, test.id, k.id, ability < 0.5 ? T_COMMENTS[5] : r.pick(T_COMMENTS.slice(0, 5)),
+          ability < 0.5 ? H_COMMENTS[2] : r.pick([H_COMMENTS[0], H_COMMENTS[1], H_COMMENTS[3]]), ability > 0.75 ? 'Excellent' : ability > 0.55 ? 'Good' : 'Fair']);
+      }
     }
     await bulk(c, 'du_exam_marks', ['madrasah_id', 'exam_id', 'paper_id', 'student_id', 'mark', 'absent'], markRows);
-    await bulk(c, 'du_exam_comments', ['madrasah_id', 'exam_id', 'student_id', 'teacher_comment', 'head_comment'], commentRows);
+    await bulk(c, 'du_exam_comments', ['madrasah_id', 'exam_id', 'student_id', 'teacher_comment', 'head_comment', 'behavior'], commentRows);
 
     // Logins: the head, Maulana Yusuf (1st year's class teacher), and the Patel family (two sons).
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));

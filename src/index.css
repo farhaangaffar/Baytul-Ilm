@@ -808,3 +808,5 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .tt-week-open { margin: 0 0 6px 10px; padding-left: 10px; border-left: 2px solid var(--teal-light); }
 .exam-no-comment { color: var(--amber-text); }
 .course-kitaab-main .line-row-sub { white-space: normal; overflow-wrap: anywhere; }
+.exam-tag.amber { background: var(--amber-light); color: var(--amber-text); }
+.settings-fixed { padding: 10px 14px; border-radius: var(--r-md); background: #f3f4f6; font-size: 13px; font-weight: 600; color: var(--ink); }

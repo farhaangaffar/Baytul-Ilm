@@ -59,20 +59,25 @@ function drawCard(doc, f, logo, card) {
   top += 17;
   centre(`${exam.name} · ${exam.year ? `20${exam.year.replace('-', '–20')}` : ''}${exam.heldOn ? ` · ${dmy(exam.heldOn)}` : ''}`, W / 2, top, 9.5, f.reg, C.muted);
 
-  // Details.
+  // Details: who, and the term at a glance — position, attendance, behaviour.
   top += 18;
-  box(M, top, W - 2 * M, 54, C.band);
-  const half = (W - 2 * M) / 2;
-  const detail = (label, value, cx, ty) => { text(label, cx, ty, 8, f.reg, C.muted); text(fit(value, f.semi, 11, half - 30), cx, ty + 14, 11, f.semi); };
-  detail('Name', `${student.forename} ${student.surname}`, M + 14, top + 12);
-  detail('Class', student.class || '—', M + half + 14, top + 12);
-  top += 54;
-  const pos = r.complete && r.position ? `${ordinal(r.position)} of ${r.of}` : '—';
-  box(M, top + 6, W - 2 * M, 30, C.band);
-  text('Position in class', M + 14, top + 25, 8, f.reg, C.muted);
-  text(pos, M + 100, top + 25, 11, f.semi);
-  if (card.teacherName) { text('Class teacher', M + half + 14, top + 25, 8, f.reg, C.muted); text(fit(card.teacherName, f.semi, 11, half - 100), M + half + 84, top + 25, 11, f.semi); }
-  top += 52;
+  const third = (W - 2 * M) / 3;
+  const cell = (label, value, i, ty) => {
+    text(label, M + 14 + i * third, ty, 8, f.reg, C.muted);
+    text(fit(value || '—', f.semi, 11, third - 24), M + 14 + i * third, ty + 14, 11, f.semi);
+  };
+  box(M, top, W - 2 * M, 44, C.band);
+  cell('Name', `${student.forename} ${student.surname}`, 0, top + 12);
+  cell('Class', student.class, 1, top + 12);
+  cell('Class teacher', card.teacherName, 2, top + 12);
+  top += 50;
+  const a = card.attendance;
+  const days = a ? a.present + a.late + a.absent : 0;
+  box(M, top, W - 2 * M, 44, C.band);
+  cell('Position in class', r.complete && r.position ? `${ordinal(r.position)} of ${r.of}` : '—', 0, top + 12);
+  cell('Attendance this term', days ? `${Math.round(((a.present + a.late) / days) * 100)}% · ${a.present + a.late} of ${days} days` : '—', 1, top + 12);
+  cell('Behaviour', card.behavior, 2, top + 12);
+  top += 60;
 
   // Marks: subject, book, mark, out of, result.
   const cols = { subject: M + 10, book: M + 128, mark: M + 345, outOf: M + 395, result: M + 452 };

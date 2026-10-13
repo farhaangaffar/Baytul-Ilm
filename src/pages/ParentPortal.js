@@ -132,6 +132,7 @@ function AbsenceForm({ child, reasons, onSent }) {
 }
 
 function ChildView({ child, reasons }) {
+  const { isDarulUloom } = useAuth(); // a Darul Uloom's reports are its exam report cards
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState('');
@@ -180,7 +181,7 @@ function ChildView({ child, reasons }) {
     setDownloading(`exam-${e.id}`);
     try {
       const bytes = await buildReportCards([{ student: data.student, exam: e, papers: e.papers, result: e.result,
-        teacherComment: e.teacherComment, headComment: e.headComment, teacherName: data.teacherName }]);
+        teacherComment: e.teacherComment, headComment: e.headComment, behavior: e.behavior, attendance: e.attendance, teacherName: e.teacherName || data.teacherName }]);
       downloadPdfBytes(bytes, `Report_card_${child.forename}_${child.surname}_${e.name}.pdf`.replace(/\s+/g, '_'));
     } catch (err) { setError(err.message || 'Could not make the report card'); }
     setDownloading('');
@@ -245,7 +246,7 @@ function ChildView({ child, reasons }) {
 
       {data.quranType && <QuranProgressCard student={data.student} type={data.quranType} data={data.quran} />}
 
-      <Section title="Reports">
+      {(!isDarulUloom || data.reports.length > 0) && <Section title={isDarulUloom ? 'Earlier reports' : 'Reports'}>
         {data.reports.length === 0 && <div className="text-muted text-sm">No reports yet — they'll appear here once the madrasah has written one.</div>}
         {data.reports.map(r => {
           const p = periodForKey(r.month, data.terms);
@@ -261,10 +262,11 @@ function ChildView({ child, reasons }) {
             </div>
           );
         })}
-      </Section>
+      </Section>}
 
-      {data.exams?.length > 0 && (
-        <Section title="Exam results">
+      {(data.exams?.length > 0 || isDarulUloom) && (
+        <Section title={isDarulUloom ? 'Reports' : 'Exam results'}>
+          {!data.exams?.length && <div className="text-muted text-sm">No reports yet — they'll appear here after each exam, once the madrasah publishes them.</div>}
           {data.exams.map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border)' }}>
               <div style={{ minWidth: 0 }}>

@@ -131,7 +131,7 @@ codebase (one codebase, not a fork).
   name, date, academic year, each paper's out of and the pass mark — each madrasah's own, e.g. out of 50 pass 17 — and the
   classes sitting it); each class's papers (`du_exam_papers`) start as its books (`du_subjects`) and can be added to (e.g.
   Hifdh, Tajweed) or changed. Marks (`du_exam_marks`, a mark or Absent) are entered per paper by its teacher, the class
-  teacher or the head. Results per class: total, %, grade (Excellent 80+ / Very good 65+ / Good 50+ / Pass / Below pass),
+  teacher or the head. Results per class: total, %, grade (Excellent 80+ / Very good 65+ / Good 50+ / Satisfactory to the pass mark / Needs improvement),
   position (once every paper is marked; equal %s share), Passed or Resit (any failed — below the pass mark scaled to the
   paper — or absent paper). Comments (`du_exam_comments`): class teacher's (class teacher or head) and head's. Teachers see
   only their papers, plus results for the class they're class teacher of. "Publish to parents" puts the report card (marks,

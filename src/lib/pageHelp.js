@@ -137,9 +137,25 @@ const PARENT = { title: 'How to use this page', steps: [
   'Report an absence at the bottom to let the teacher know.',
 ] };
 
+// A Darul Uloom head's pages that work differently: reports are each exam's report card.
+const DU_HEAD = {
+  '/reports': { title: 'Reports', steps: [
+    'A Darul Uloom\'s report is each exam\'s report card: marks, attendance for the term, behaviour and comments.',
+    'Choose the exam and the class at the top. "Ready" means every paper is marked and the class teacher\'s comment is written.',
+    'Tap a child to choose their behaviour, write the comments — "Write it for me" drafts the class teacher\'s — and get the PDF.',
+    '"Print the whole class" makes one PDF for printing. Publish the exam on the Exams page and each family sees their own child\'s.',
+  ] },
+  '/records': { title: 'Daily records', steps: [
+    'Pick a class, then tap a child.',
+    'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Behaviour: write a comment, positives and concerns for the day — they go into the report\'s comment.',
+    'Report: one per exam — tap one to write it and get the PDF.',
+  ] },
+};
+
 // → { title, steps: [...] } for this page and person, or null.
-export function pageHelp(pathname, role) {
-  const h = role === 'parent' ? PARENT : (role === 'owner' ? HEAD : TEACHER)[pathname];
+export function pageHelp(pathname, role, darulUloom = false) {
+  const h = role === 'parent' ? PARENT : ((darulUloom && role === 'owner' && DU_HEAD[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };
 }

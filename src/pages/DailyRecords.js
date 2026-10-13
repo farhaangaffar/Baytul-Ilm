@@ -674,7 +674,9 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
             })()}
           </div>
         </>)}
-        {tab==='report'&&(<>
+        {/* A Darul Uloom's report is its exam report card; a maktab writes monthly/termly/yearly summaries. */}
+        {tab==='report'&&isDarulUloom&&<StudentExams student={student}/>}
+        {tab==='report'&&!isDarulUloom&&(<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : yearly ? 'Year summary' : 'Monthly summary'}</div>
             <div className="card-sub" style={{marginBottom:14}}>
@@ -742,7 +744,6 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
             )}
             </>)}
           </div>
-          {isDarulUloom&&<StudentExams student={student}/>}
           {previousSummaries.length>0&&(
             <div className="card">
               <div className="card-title" style={{marginBottom:10}}>Previous summaries</div>

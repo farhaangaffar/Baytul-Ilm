@@ -16,7 +16,12 @@ const { classResults, paperPass } = require('../examResults');
 // POST ?action=publish {id, published}                                     (head)
 // POST ?action=paper {id?, examId, classId, subject, kitaab, teacherId, outOf} · DELETE ?action=paper&id=  (head)
 // POST ?action=marks {paperId, marks: [{studentId, mark, absent}]}  → the paper's teacher, its class teacher or the head
-// POST ?action=comment {examId, studentId, teacherComment?, headComment?} → class teacher (theirs) / head (both)
+// POST ?action=comment {examId, studentId, teacherComment?, headComment?, behavior?} → class teacher (theirs + behaviour) / head (all)
+// POST ?action=draft {examId, studentId} → a draft of the class teacher's comment, written by AI from the term's
+//                                         marks, attendance, behaviour records, lessons covered and Qur'an notes
+//
+// For a Darul Uloom the exam report card is the child's report (no monthly summaries): marks, the term's
+// attendance (from the previous exam, or 1 September, to this exam), behaviour, and the comments.
 
 let ready = false;
 async function ensure() {
@@ -63,6 +68,7 @@ async function ensure() {
     head_comment    TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (exam_id, student_id)
   )`);
+  await query("ALTER TABLE du_exam_comments ADD COLUMN IF NOT EXISTS behavior TEXT NOT NULL DEFAULT ''");
   ready = true;
 }
 
@@ -70,6 +76,19 @@ const clean = (v, max = 120) => String(v ?? '').trim().replace(/\s+/g, ' ').slic
 const isId = v => /^\d+$/.test(String(v || ''));
 const EXAM_COLS = `id::text, name, year, to_char(held_on, 'YYYY-MM-DD') AS "heldOn", out_of AS "outOf", pass_mark::float AS "passMark",
   class_ids AS "classIds", published`;
+const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+const BEHAVIOURS = ['Excellent', 'Good', 'Fair', 'Poor'];
+
+// The term a report covers: the day after the previous exam this academic year (or 1 September) up to
+// this exam's date (or today, before it's been held).
+async function termOf(mid, exam) {
+  const to = exam.heldOn && exam.heldOn < ukToday() ? exam.heldOn : ukToday();
+  const { rows: [prev] } = await query(
+    `SELECT to_char(max(held_on) + 1, 'YYYY-MM-DD') AS d FROM du_exams WHERE madrasah_id = $1 AND year = $2 AND held_on < $3`,
+    [mid, exam.year, to]);
+  return { from: prev?.d || `20${exam.year.slice(0, 2)}-09-01`, to };
+}
+
 const PAPER_COLS = `id::text, exam_id::text AS "examId", class_id AS "classId", subject, kitaab, teacher_id AS "teacherId", out_of AS "outOf"`;
 
 async function isDarulUloom(mid) {
@@ -109,7 +128,9 @@ async function examDetail(mid, examId, reach) {
   const { rows: [exam] } = await query(`SELECT ${EXAM_COLS} FROM du_exams WHERE id = $1 AND madrasah_id = $2`, [examId, mid]);
   if (!exam) return null;
   const { rows: allPapers } = await query(`SELECT ${PAPER_COLS} FROM du_exam_papers WHERE exam_id = $1 AND madrasah_id = $2 ORDER BY sort_order, id`, [examId, mid]);
-  const { rows: classes } = await query('SELECT id, name FROM classes WHERE madrasah_id = $1 AND id = ANY($2)', [mid, exam.classIds]);
+  const { rows: classes } = await query(
+    `SELECT c.id, c.name, t.name AS "teacherName" FROM classes c LEFT JOIN teachers t ON t.id = c.teacher_id AND t.madrasah_id = c.madrasah_id
+     WHERE c.madrasah_id = $1 AND c.id = ANY($2)`, [mid, exam.classIds]);
   const papers = allPapers.filter(p => canSeePaper(reach, p));
   const visibleClasses = classes.filter(c => !reach || reach.classIds.has(c.id) || papers.some(p => p.classId === c.id));
   const { rows: students } = await query(
@@ -118,7 +139,16 @@ async function examDetail(mid, examId, reach) {
   const { rows: marks } = await query(
     `SELECT paper_id::text AS "paperId", student_id AS "studentId", mark::float AS mark, absent FROM du_exam_marks WHERE exam_id = $1 AND madrasah_id = $2`, [examId, mid]);
   const { rows: comments } = await query(
-    `SELECT student_id AS "studentId", teacher_comment AS "teacherComment", head_comment AS "headComment" FROM du_exam_comments WHERE exam_id = $1 AND madrasah_id = $2`, [examId, mid]);
+    `SELECT student_id AS "studentId", teacher_comment AS "teacherComment", head_comment AS "headComment", behavior
+     FROM du_exam_comments WHERE exam_id = $1 AND madrasah_id = $2`, [examId, mid]);
+  // Each child's attendance over the term the report covers.
+  const term = await termOf(mid, exam);
+  const { rows: att } = await query(
+    `SELECT student_id AS id, count(*) FILTER (WHERE status = 'P')::int AS present, count(*) FILTER (WHERE status = 'L')::int AS late,
+            count(*) FILTER (WHERE status = 'A')::int AS absent
+     FROM attendance WHERE madrasah_id = $1 AND student_id = ANY($2) AND date BETWEEN $3 AND $4 GROUP BY student_id`,
+    [mid, students.map(s => s.id), term.from, term.to]);
+  const attendance = Object.fromEntries(att.map(a => [a.id, { present: a.present, late: a.late, absent: a.absent }]));
   // Results only for classes whose whole set of papers this login can see (class teacher, or the head).
   const results = {};
   for (const c of visibleClasses) {
@@ -130,7 +160,7 @@ async function examDetail(mid, examId, reach) {
   return {
     exam, papers: papers.map(p => ({ ...p, passMark: paperPass(exam, p) })),
     classes: visibleClasses.map(c => ({ ...c, results: resultClassIds.has(c.id) })),
-    students, results,
+    students, results, term, attendance,
     marks: marks.filter(m => paperIds.has(m.paperId)),
     comments: comments.filter(cm => students.some(s => s.id === cm.studentId)),
   };
@@ -154,11 +184,13 @@ async function studentExamCards(mid, student, { publishedOnly = false } = {}) {
     const cm = d.comments.find(c => c.studentId === student.id) || {};
     out.push({
       id, name: d.exam.name, year: d.exam.year, heldOn: d.exam.heldOn, published: d.exam.published, result: r,
+      teacherName: d.classes.find(c => c.id === cls.id)?.teacherName || '',
       papers: d.papers.filter(p => p.classId === cls.id).map(p => {
         const mk = mine.find(x => x.paperId === p.id);
         return { id: p.id, subject: p.subject, kitaab: p.kitaab, outOf: p.outOf, passMark: p.passMark, mark: mk ? mk.mark : null, absent: !!mk?.absent };
       }),
-      teacherComment: cm.teacherComment || '', headComment: cm.headComment || '',
+      teacherComment: cm.teacherComment || '', headComment: cm.headComment || '', behavior: cm.behavior || '',
+      term: d.term, attendance: d.attendance[student.id] || { present: 0, late: 0, absent: 0 },
     });
   }
   return out;
@@ -258,12 +290,74 @@ module.exports = requireAuth(async (req, res) => {
     if (!isHead && !reach.classIds.has(st.classId)) { res.status(403).json({ error: "Only the class teacher or the head can write this." }); return; }
     const teacher = b.teacherComment !== undefined ? String(b.teacherComment).trim().slice(0, 1500) : null;
     const head = isHead && b.headComment !== undefined ? String(b.headComment).trim().slice(0, 1500) : null;
+    const behavior = b.behavior !== undefined ? (BEHAVIOURS.includes(b.behavior) ? b.behavior : '') : null;
     await query(
-      `INSERT INTO du_exam_comments (madrasah_id, exam_id, student_id, teacher_comment, head_comment) VALUES ($1,$2,$3,COALESCE($4,''),COALESCE($5,''))
+      `INSERT INTO du_exam_comments (madrasah_id, exam_id, student_id, teacher_comment, head_comment, behavior)
+       VALUES ($1,$2,$3,COALESCE($4,''),COALESCE($5,''),COALESCE($6,''))
        ON CONFLICT (exam_id, student_id) DO UPDATE SET teacher_comment = COALESCE($4, du_exam_comments.teacher_comment),
-         head_comment = COALESCE($5, du_exam_comments.head_comment)`,
-      [mid, b.examId, String(b.studentId), teacher, head]);
+         head_comment = COALESCE($5, du_exam_comments.head_comment), behavior = COALESCE($6, du_exam_comments.behavior)`,
+      [mid, b.examId, String(b.studentId), teacher, head, behavior]);
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'draft') {
+    const b = req.body || {};
+    if (!isId(b.examId)) { res.status(400).json({ error: 'Exam not found' }); return; }
+    const { rows: [st] } = await query(
+      `SELECT s.id, s.forename, s.surname, s.class, c.id AS "classId", c.quran_type AS "quranType" FROM students s
+       LEFT JOIN classes c ON c.name = s.class AND c.madrasah_id = s.madrasah_id WHERE s.id = $1 AND s.madrasah_id = $2`,
+      [String(b.studentId || ''), mid]);
+    if (!st || (!isHead && !reach.classIds.has(st.classId))) { res.status(403).json({ error: "Only the class teacher or the head can write this." }); return; }
+    const [card] = (await studentExamCards(mid, st)).filter(c => c.id === String(b.examId));
+    if (!card) { res.status(400).json({ error: 'There are no marks for this child in this exam yet.' }); return; }
+    const r = card.result;
+    const papers = card.papers.map(p => `${p.subject}${p.kitaab && p.kitaab !== p.subject ? ` (${p.kitaab})` : ''}: ${p.absent ? 'absent' : p.mark === null ? 'not marked' : `${p.mark} out of ${p.outOf}${p.mark < p.passMark ? ' — below the pass mark' : ''}`}`);
+    const a = card.attendance;
+    if (req.user.demo) {
+      // The demo writes a ready-made comment from the marks (no AI cost).
+      const best = card.papers.filter(p => p.mark !== null).sort((x, y) => y.mark / y.outOf - x.mark / x.outOf)[0];
+      const draft = `${st.forename} has ${r.pct >= 65 ? 'done well' : r.pct >= 50 ? 'made steady progress' : 'found this term challenging'} in the ${card.name}, with ${r.pct}% overall`
+        + `${best ? ` and a particularly good result in ${best.subject}` : ''}. `
+        + `${r.resits.length ? `He will need to prepare well for the resit in ${r.resits.join(' and ')}. ` : 'He has passed every paper. '}`
+        + `${a.absent > 2 ? 'Better attendance would help him keep up with the lessons. ' : 'His attendance has been good. '}`
+        + 'Regular revision of each day\'s lesson will help him build on this.';
+      res.status(200).json({ draft });
+      return;
+    }
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) { res.status(500).json({ error: 'Server is not configured (no ANTHROPIC_API_KEY set)' }); return; }
+    const t = card.term;
+    const [{ rows: recs }, { rows: books }, { rows: quran }, { rows: [school] }] = await Promise.all([
+      query(`SELECT to_char(date, 'DD Mon') AS d, comment, positive, negative FROM daily_records
+             WHERE student_id = $1 AND madrasah_id = $2 AND date BETWEEN $3 AND $4 AND (comment <> '' OR positive <> '' OR negative <> '') ORDER BY date`,
+        [st.id, mid, t.from, t.to]).catch(() => ({ rows: [] })),
+      query(`SELECT DISTINCT ON (subject, kitaab) subject, kitaab, covered FROM du_lesson_logs
+             WHERE class_id = $1 AND madrasah_id = $2 AND date BETWEEN $3 AND $4 ORDER BY subject, kitaab, date DESC`,
+        [st.classId, mid, t.from, t.to]).catch(() => ({ rows: [] })),
+      query(`SELECT to_char(date, 'DD Mon') AS d, kind, lesson, grade FROM quran_progress
+             WHERE student_id = $1 AND madrasah_id = $2 AND date BETWEEN $3 AND $4 AND lesson <> '' ORDER BY date DESC LIMIT 15`,
+        [st.id, mid, t.from, t.to]).catch(() => ({ rows: [] })),
+      query('SELECT school_name FROM settings WHERE madrasah_id = $1 LIMIT 1', [mid]),
+    ]);
+    const prompt = `You are helping the class teacher at ${school?.school_name || 'a Darul Uloom'} write the class teacher's comment on ${st.forename} ${st.surname}'s report card for the ${card.name} (${st.class}).`
+      + `\n\nEXAM RESULTS:\n${papers.join('\n')}\nOverall: ${r.pct === null ? 'not yet marked' : `${r.pct}%`}${r.grade ? `, grade ${r.grade}` : ''}${r.position ? `, ${r.position} of ${r.of} in the class` : ''}. ${r.result === 'Resit' ? `Needs to resit: ${r.resits.join(', ')}.` : r.result === 'Passed' ? 'Passed every paper.' : ''}`
+      + `\n\nATTENDANCE this term: ${a.present} present, ${a.late} late, ${a.absent} absent.`
+      + (books.length ? `\n\nWHAT THE CLASS COVERED this term (latest in each book):\n${books.map(x => `${x.subject}${x.kitaab ? ` (${x.kitaab})` : ''}: up to ${x.covered}`).join('\n')}` : '')
+      + (quran.length ? `\n\nQUR'AN LESSON NOTES:\n${quran.map(q => `${q.d}: ${q.lesson}${q.grade ? ` (${q.grade})` : ''}`).join('\n')}` : '')
+      + (recs.length ? `\n\nBEHAVIOUR RECORDS:\n${recs.map(x => `${x.d}: ${[x.comment, x.positive && `Positive: ${x.positive}`, x.negative && `Concern: ${x.negative}`].filter(Boolean).join(' · ')}`).join('\n')}` : '')
+      + `\n\nWrite a warm, honest class teacher's comment of 3 to 5 sentences (under 600 characters) for this report card. Mention their strongest subjects and what to work on, refer to the exam results accurately, and end with encouragement. Use the student's first name. Don't invent anything that isn't above. British English, plain text only — no headings, bullet points or Markdown.`;
+    await query('INSERT INTO ai_usage (madrasah_id, kind) VALUES ($1, $2)', [mid, 'exam-comment']).catch(() => {});
+    const ai = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!ai.ok) { res.status(502).json({ error: 'The AI could not write it just now — please try again.' }); return; }
+    const data = await ai.json();
+    const draft = (data.content || []).map(c => c.text || '').join('').trim();
+    if (!draft) { res.status(502).json({ error: 'The AI could not write it just now — please try again.' }); return; }
+    res.status(200).json({ draft });
     return;
   }
 

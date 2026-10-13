@@ -636,3 +636,4 @@ export async function deleteExamPaper(id) { return apiFetch(`/api/exams?action=p
 export async function saveExamMarks(paperId, marks) { return apiFetch('/api/exams?action=marks', { method: 'POST', body: JSON.stringify({ paperId, marks }) }); }
 export async function saveExamComment(data) { return apiFetch('/api/exams?action=comment', { method: 'POST', body: JSON.stringify(data) }); }
 export async function getStudentExams(studentId) { return apiFetch(`/api/exams?studentId=${encodeURIComponent(studentId)}`); }
+export async function draftExamComment(examId, studentId) { return apiFetch('/api/exams?action=draft', { method: 'POST', body: JSON.stringify({ examId, studentId }) }); }

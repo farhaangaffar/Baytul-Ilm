@@ -8,6 +8,8 @@ import { shortPeriodLabel } from '../components/HistoryBoxes';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
 import { FileText, Download, X } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
+import ExamReports from '../components/ExamReports';
 
 // Box styles shared with Daily records' history boxes: plain grey, dark when chosen,
 // light green when done.
@@ -21,7 +23,13 @@ const greenBox = { background: 'var(--green-light)', borderColor: 'var(--green)'
 const boxSub = { fontSize: 10.5, fontWeight: 500, opacity: 0.8, marginTop: 1 };
 
 
+// A Darul Uloom's reports are its exam report cards (components/ExamReports.js); a maktab's are monthly/termly/yearly.
 export default function Reports() {
+  const { isDarulUloom } = useAuth();
+  return isDarulUloom ? <ExamReports /> : <PeriodReports />;
+}
+
+function PeriodReports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);

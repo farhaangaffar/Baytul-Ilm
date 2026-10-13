@@ -5,7 +5,7 @@
 // A child passes when every paper is passed; an absent or failed paper is a resit. Percentage and
 // grade come from the papers marked so far; the position is only given once every paper is marked.
 
-const GRADES = [[80, 'Excellent'], [65, 'Very good'], [50, 'Good']]; // then 'Pass' down to the pass mark, else 'Below pass'
+const GRADES = [[80, 'Excellent'], [65, 'Very good'], [50, 'Good']]; // then 'Satisfactory' down to the pass mark, else 'Needs improvement'
 
 function paperPass(exam, paper) {
   return Math.round((Number(exam.passMark) / Number(exam.outOf)) * Number(paper.outOf) * 10) / 10;
@@ -14,7 +14,7 @@ function paperPass(exam, paper) {
 function gradeFor(pct, passPct) {
   if (pct === null) return '';
   for (const [min, name] of GRADES) if (pct >= min) return name;
-  return pct >= passPct ? 'Pass' : 'Below pass';
+  return pct >= passPct ? 'Satisfactory' : 'Needs improvement';
 }
 
 // exam: { outOf, passMark } · papers: one class's [{ id, subject, outOf }] · students: [{ id }]
