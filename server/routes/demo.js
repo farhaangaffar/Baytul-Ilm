@@ -33,6 +33,11 @@ module.exports = async (req, res) => {
     const { rows: [cur] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
     if ((cur?.kind || 'maktab') !== (req.body.kind === 'darul_uloom' ? 'darul_uloom' : 'maktab')) mid = null;
   }
+  // A Darul Uloom demo made before the timetable existed has none — start a fresh one instead.
+  if (mid && (req.body || {}).kind === 'darul_uloom') {
+    const { rows: has } = await query('SELECT 1 FROM du_periods WHERE madrasah_id = $1 LIMIT 1', [mid]);
+    if (!has.length) mid = null;
+  }
   if (!mid) {
     // Demos are only offered once the site is set up (its first owner exists).
     const { rows: real } = await query(

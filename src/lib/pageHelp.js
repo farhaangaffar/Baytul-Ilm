@@ -68,10 +68,19 @@ const HEAD = {
   '/course': { title: 'Aalim course', steps: [
     'The Aalim years, first year first. Tap a year to open its books underneath.',
     'New? Tap "Use the Dars-e-Nizami years" to start from the usual years and books — or "Add a year" (a new class, or one you already have).',
-    'Tap a book to change it or its teacher. Any book can be typed in — it\'s then suggested next time. "Add a subject" adds another.',
+    'Tap a book to change it or its teacher, and to see how far the class has got (what teachers record on the Timetable). Any book can be typed in. "Add a subject" adds another.',
     '"Edit" under an open year renames it, moves it to another place, takes it out of the Aalim years, or deletes it if it has no students.',
     'Hifdh and any other classes are on Classes & Teachers.',
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
+  ] },
+  '/timetable': { title: 'Timetable', steps: [
+    'Pick a class or a teacher at the top, then a day — or Week for the whole week.',
+    'New? Under "Periods & times", tap "Use a typical day" (then change any times), or add your own periods and breaks.',
+    'Tap a period to add or change its lesson: pick one of that year\'s books (or "Something else"), the teacher and the days it\'s on.',
+    'A red note means that teacher is already teaching another class then. Same book with two classes? It\'s one shared lesson.',
+    'Fill one day, then "Copy one day to other days" to save typing.',
+    'A period can be on some days only — e.g. no afternoon periods on Friday.',
+    'Once a lesson has happened, tap it then "Record what this lesson covered" — teachers do this for their own lessons.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
@@ -96,6 +105,13 @@ const TEACHER = {
     'Pick your class, then tap a child.',
     'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
     'Behaviour: write a comment, positives and concerns for the day.',
+  ] },
+  '/timetable': { title: 'Timetable', steps: [
+    'It opens on your own lessons today.',
+    'After each lesson, tap it (or "Record") and write what the class covered — e.g. Pages 34–36. It shows what you covered last time.',
+    'Tap a day — or Week for the whole week. You can fill in any day this week that\'s gone by.',
+    'Tap the box at the top to see any class or teacher. Changes are made by the head.',
+    'Covering for someone who\'s off? Tap their lesson and fill it in — it\'s saved under your name.',
   ] },
 };
 

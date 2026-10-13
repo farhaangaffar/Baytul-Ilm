@@ -7,6 +7,7 @@ import Fees            from './pages/Fees';
 import DailyRecords    from './pages/DailyRecords';
 import ClassesTeachers from './pages/ClassesTeachers';
 import Course          from './pages/Course';
+import Timetable       from './pages/Timetable';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
@@ -143,6 +144,7 @@ export default function App() {
               <Route path="/records"    element={<DailyRecords />} />
               <Route path="/classes"    element={<ClassesTeachers />} />
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/course" element={<Course />} />}
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               <Route path="/reports"    element={<Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />
@@ -154,6 +156,7 @@ export default function App() {
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/fees"       element={<Fees />} />
               <Route path="/records"    element={<DailyRecords />} />
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               <Route path="*"           element={<Navigate to="/attendance" replace />} />
             </Routes>
           )}

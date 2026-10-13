@@ -18,9 +18,9 @@ const ROLES = [
 // The made-up Darul Uloom (?demo=darul-uloom, server/demo.js createDarulUloomDemo).
 const DU_ROLES = [
   { role: 'head', icon: LayoutDashboard, title: 'Head', who: 'Demo Darul Uloom',
-    text: 'Everything: the Aalim years and books, students, attendance, fees, reports and settings.' },
+    text: 'Everything: the Aalim years and books, the timetable, students, attendance, fees, reports and settings.' },
   { role: 'teacher', icon: BookOpen, title: 'Teacher', who: 'Maulana Yusuf · 1st year',
-    text: 'His own year: the register, daily records and ticking fees paid.' },
+    text: 'His lessons today, his own year\'s register, daily records and ticking fees paid.' },
   { role: 'parent', icon: Users, title: 'Parent', who: 'The Patel family · two sons',
     text: 'Their sons\' attendance, fees, reports and Hifdh progress; reporting an absence.' },
 ];

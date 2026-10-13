@@ -5,9 +5,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
+import PickField from '../components/PickField';
 import {
   getCourse, addStarterCourse, saveCourseYear, addCourseSubject, updateCourseSubject, deleteCourseSubject,
-  moveCourseUp, undoCourseMove, getTeachers, getStudents, deleteClass, formatDateGB,
+  moveCourseUp, undoCourseMove, getTeachers, getStudents, deleteClass, formatDateGB, getBookLogs, niceDate,
 } from '../lib/store';
 import { Plus, X, Save, Trash2, ChevronsUp, Undo2, Library, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -50,7 +51,8 @@ export default function Course() {
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
   if (error) return <Layout title={title} subtitle={subtitle}><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const { years, others, subjects, lastMove } = course;
+  const { years, others, subjects, lastMove, progress = [] } = course;
+  const progressOf = s => progress.find(p => p.classId === s.classId && p.subject === s.subject && p.kitaab === s.kitaab);
   const subjectsOf = id => subjects.filter(s => s.classId === id);
   const newYear = () => setModal({ kind: 'year', year: { name: '', teacherId: '' }, place: years.length + 1 });
 
@@ -60,7 +62,10 @@ export default function Course() {
       {subjectsOf(c.id).map(s => (
         <button key={s.id} type="button" className="line-row course-kitaab" onClick={() => setModal({ kind: 'subject', subject: s, yearName: c.name })}>
           <span className="course-kitaab-subject">{s.subject}</span>
-          <span className="line-row-name">{s.kitaab || 'No book yet'}</span>
+          <span className="course-kitaab-main">
+            <span className="line-row-name">{s.kitaab || 'No book yet'}</span>
+            {progressOf(s) && <span className="course-progress">Last: {progressOf(s).covered} · {niceDate(progressOf(s).date)}</span>}
+          </span>
           <span className="line-row-sub">{teacherName(s.teacherId) || 'No teacher yet'}</span>
         </button>
       ))}
@@ -193,6 +198,11 @@ function ModalShell({ title, onClose, children, footer, width = 460 }) {
 // Adds or changes one subject. Any kitaab can be typed; the usual ones for that subject (and any
 // this madrasah has typed before) are suggested.
 function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }) {
+  // What the class has covered in this book, newest first (recorded on the Timetable page).
+  const [history, setHistory] = useState(null);
+  useEffect(() => {
+    if (initial.id) getBookLogs(initial.classId, initial.subject, initial.kitaab).then(r => setHistory(r.logs)).catch(() => setHistory([]));
+  }, [initial.id, initial.classId, initial.subject, initial.kitaab]);
   const [f, setF] = useState({ subject: initial.subject || '', kitaab: initial.kitaab || '', teacherId: initial.teacherId || '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -225,13 +235,11 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
       <div className="form-grid">
         <div className="form-group">
           <label>Subject <span className="required">*</span></label>
-          <input value={f.subject} onChange={e => set('subject', e.target.value)} list="course-subject-names" placeholder="e.g. Nahw, Fiqh, Hadith" autoFocus={isNew} />
-          <datalist id="course-subject-names">{subjectNames.map(s => <option key={s} value={s} />)}</datalist>
+          <PickField value={f.subject} onChange={v => set('subject', v)} options={subjectNames} placeholder="e.g. Nahw, Fiqh, Hadith" autoFocus={isNew} />
         </div>
         <div className="form-group">
           <label>Book</label>
-          <input value={f.kitaab} onChange={e => set('kitaab', e.target.value)} list="course-kitaabs" placeholder="Pick one, or type any book" />
-          <datalist id="course-kitaabs">{suggestions.map(k => <option key={k} value={k} />)}</datalist>
+          <PickField value={f.kitaab} onChange={v => set('kitaab', v)} options={suggestions} placeholder={suggestions.length ? "Type any book, or tap one below" : "Type the book"} />
         </div>
         <div className="form-group">
           <label>Taught by</label>
@@ -241,6 +249,24 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
           </select>
         </div>
       </div>
+      {!isNew && (
+        <div className="form-group" style={{ marginTop: 14 }}>
+          <label>How far {yearName} has got</label>
+          {history === null ? <div className="card-sub">Loading…</div>
+            : !history.length ? <div className="card-sub">Nothing recorded yet — teachers fill it in on the Timetable page after each lesson.</div>
+            : <div className="course-history">
+                {history.slice(0, 12).map(h => (
+                  <div key={h.id} className="course-history-row">
+                    <span className="course-history-date">{niceDate(h.date)}</span>
+                    <span className="course-history-text">{h.covered}
+                      {h.teacherId && h.teacherId !== initial.teacherId && <span className="course-history-notes">Recorded by {teachers.find(t => t.id === h.teacherId)?.name || 'another teacher'} (cover)</span>}
+                      {h.notes && <span className="course-history-notes">{h.notes}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>}
+        </div>
+      )}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );

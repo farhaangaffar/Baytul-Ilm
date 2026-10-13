@@ -7,7 +7,7 @@ const { requireAuth } = require('../auth');
 // attendance, fees, logins and reports all work for it as they do for any class; classes
 // outside the course (e.g. Hifdh) have no course_order. Only for a Darul Uloom (madaaris.kind).
 //
-// GET                         → { years, others, subjects, starter, kitaabs, lastMove }
+// GET                         → { years, others, subjects, progress, starter, kitaabs, lastMove }
 // POST ?action=starter        → adds the usual Dars-e-Nizami years (those not there yet) and their kitaabs
 // POST ?action=years {ids}    → these classes, in this order, are the course years (the rest aren't)
 // POST ?action=year {classId?, name, teacherId, position} → adds a year (a new class) or changes one —
@@ -113,6 +113,11 @@ module.exports = requireAuth(async (req, res) => {
       `SELECT s.id::text, s.class_id AS "classId", s.subject, s.kitaab, s.teacher_id AS "teacherId"
        FROM du_subjects s JOIN classes c ON c.id = s.class_id AND c.madrasah_id = s.madrasah_id
        WHERE s.madrasah_id = $1 ORDER BY s.sort_order, s.id`, [mid]);
+    // How far each year has got in each book: the latest lesson recorded on the Timetable page.
+    await require('./timetable').ensure();
+    const { rows: progress } = await query(
+      `SELECT DISTINCT ON (class_id, subject, kitaab) class_id AS "classId", subject, kitaab, covered, to_char(date, 'YYYY-MM-DD') AS date
+       FROM du_lesson_logs WHERE madrasah_id = $1 ORDER BY class_id, subject, kitaab, date DESC`, [mid]);
     const { rows: [move] } = await query(
       `SELECT id::text, to_char(moved_at, 'YYYY-MM-DD') AS "movedOn", jsonb_array_length(changes) AS count
        FROM du_year_moves WHERE madrasah_id = $1 AND NOT undone ORDER BY id DESC LIMIT 1`, [mid]);
@@ -125,6 +130,7 @@ module.exports = requireAuth(async (req, res) => {
       years: classes.filter(c => c.courseOrder !== null),
       others: classes.filter(c => c.courseOrder === null),
       subjects,
+      progress,
       starter: STARTER.map(y => y.name),
       kitaabs: Object.fromEntries(Object.entries(kitaabs).map(([s, set]) => [s, [...set].sort()])),
       lastMove: move ? { ...move, count: Number(move.count) } : null,
