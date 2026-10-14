@@ -10,8 +10,8 @@ function feesForHead() {
   const auto = getBranding().feeAuto !== false;
   const where = frequency === 'weekly' ? 'Settings → Fee weeks' : frequency === 'monthly' ? 'Settings → Fee months' : 'Settings → Terms';
   const dueLine = frequency === 'weekly'
-    ? 'A green light means paid; a grey light (off) means owed — every week in a month that’s started counts as owed straight away, not just the ones that have individually arrived. Tap one to mark it paid, or tap again to undo a mistake.'
-    : `A green light means paid; a grey light (off) means owed. ${unit[0].toUpperCase() + unit.slice(1)}s still to come say "Not due yet" — they're never counted as owed. Tap one to mark it paid, or tap again to undo a mistake.`;
+    ? 'A green light means paid, red means owed and grey means not due yet — every week in a month that’s started counts as owed straight away, not just the ones that have individually arrived. Tap one to mark it paid, or tap again to undo a mistake.'
+    : `A green light means paid, red means owed and grey means not due yet. ${unit[0].toUpperCase() + unit.slice(1)}s still to come say "Not due yet" — they're never counted as owed. Tap one to mark it paid, or tap again to undo a mistake.`;
   return [
     'Pick the class at the top.',
     dueLine,
@@ -110,7 +110,7 @@ const TEACHER = {
   '/fees': { title: 'Fees', steps: [
     'Pick your class at the top.',
     'Tap a fee to mark it paid. Tap it again if it was a mistake.',
-    'A green light is paid, a grey light is owed. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
+    'Green is paid, red is owed and grey is not due yet. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
     'Tap a child to see their whole year. Amounts and removing fees are done by the head.',
   ] },
   '/records': { title: 'Daily records', steps: [
