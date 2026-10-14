@@ -802,13 +802,6 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .exam-card-mark small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
 
 /* Timetable Week on phones: a line per day, the open one's lessons underneath. */
-.tt-week-days { display: grid; gap: 8px; }
-.tt-week-day { padding: 9px 12px; }
-.tt-week-day-name { display: flex; flex-direction: column; align-items: center; width: 44px; flex-shrink: 0; padding: 4px 0; border-radius: 8px; background: #fff; border: 1px solid #dfe3e8; font-weight: 700; font-size: 13px; line-height: 1.15; }
-.tt-week-day-name small { font-size: 10.5px; font-weight: 500; color: var(--text-muted); }
-.tt-week-day.on .tt-week-day-name { border-color: var(--teal); color: var(--teal-dark); }
-.tt-week-day.today .line-row-name { color: var(--teal-dark); }
-.tt-week-open { margin: 0 0 6px 10px; padding-left: 10px; border-left: 2px solid var(--teal-light); }
 .exam-no-comment { color: var(--amber-text); }
 .course-kitaab-main .line-row-sub { white-space: normal; overflow-wrap: anywhere; }
 .exam-tag.amber { background: var(--amber-light); color: var(--amber-text); }
@@ -838,3 +831,11 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .tt-view-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #f6f7f9; font-size: 13.5px; }
 .tt-view-row span { color: var(--text-muted); }
 .tt-view-row b { text-align: right; font-weight: 600; }
+/* Timetable Week on phones: day boxes with dates, one day's lessons underneath. */
+.tt-week-boxes { gap: 6px; margin-bottom: 14px; }
+.tt-week-box { display: flex; flex-direction: column; align-items: center; padding: 8px 0; border-radius: 10px; border: 1px solid #dfe3e8; background: var(--surface); font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer; min-width: 0; }
+.tt-week-box small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.tt-week-box.today small { color: var(--teal-dark); font-weight: 700; }
+.tt-week-box.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.tt-next-day { display: none; width: 100%; margin-top: 10px; padding: 8px; border: none; background: none; font-family: var(--font); font-size: 12px; color: var(--text-muted); cursor: pointer; }
+@media (max-width: 700px) { .tt-week-boxes.tt-week-narrow { display: grid; } .tt-next-day { display: block; } }

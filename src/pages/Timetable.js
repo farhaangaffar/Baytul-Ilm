@@ -8,7 +8,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getTimetable, addStarterPeriods, savePeriod, deletePeriod, saveLesson, copyTimetableDay, schoolDays, getLessonLogs, saveLessonLog, getBookLogs, niceDate } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
-import { Plus, X, Save, Trash2, ChevronDown, ChevronUp, Check, Copy, Clock, PenLine, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Save, Trash2, ChevronDown, Check, Copy, Clock, PenLine, CheckCircle2 } from 'lucide-react';
 
 const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY3 = DAY.map(d => d.slice(0, 3));
@@ -48,7 +48,6 @@ export default function Timetable() {
     return days.includes(today) ? today : days[0] ?? 1;
   });                                         // a day number, or 'week'
   const [picking, setPicking] = useState(false);
-  const [openDay, setOpenDay] = useState(() => new Date().getDay()); // the day opened in the phone Week view
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
   const [logs, setLogs] = useState([]);       // what this week's lessons covered (du_lesson_logs)
@@ -74,6 +73,7 @@ export default function Timetable() {
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000); }
   const after = async msg => { setModal(null); await load(); if (msg) showToast(msg); };
 
+  const phoneDay = days.includes(new Date().getDay()) ? new Date().getDay() : days[0]; // Week on a phone shows today
   const title = 'Timetable';
   const subtitle = 'Periods, lessons and who teaches them';
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
@@ -139,38 +139,18 @@ export default function Timetable() {
     const taught = ps.filter(p => slot(p, d).length).length;
     return ps.length ? `${hm(ps[0].starts)}–${hm(ps[ps.length - 1].ends)} · ${taught} ${taught === 1 ? 'lesson' : 'lessons'}` : 'No periods on this day';
   };
-  const daySubjects = d => {
-    const subs = periods.filter(p => runsOn(p, d) && !p.isBreak).map(p => slot(p, d)[0]?.subject).filter(Boolean);
-    return subs.length ? [...new Set(subs)].join(' · ') : 'No lessons';
-  };
+  // A day's card. On phones, swipe it sideways for the next or previous day.
+  const step = (d, dir) => { const i = days.indexOf(d) + dir; if (i >= 0 && i < days.length) setDay(days[i]); };
+  let touchX = null;
   const dayCard = d => (
-    <div className="card" key={d}>
-      <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — {DAY[d]} {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
-      <div className="card-sub" style={{ marginBottom: 12 }}>{daySummary(d)}</div>
+    <div className="card" key={d} onTouchStart={e => { touchX = e.touches[0].clientX; }}
+      onTouchEnd={e => { if (touchX === null) return; const dx = e.changedTouches[0].clientX - touchX; touchX = null; if (Math.abs(dx) > 60) step(d, dx < 0 ? 1 : -1); }}>
+      <div className="card-title" style={{ marginBottom: 2 }}>{dateOf(d) === TODAY ? 'Today' : DAY[d]} · {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
+      <div className="card-sub" style={{ marginBottom: 12 }}>{viewName} · {daySummary(d)}</div>
       {dayLines(d)}
-    </div>
-  );
-  // On phones the week is one card with a line per day — tap one to open its lessons underneath.
-  const weekLines = () => (
-    <div className="card">
-      <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — the whole week</div>
-      <div className="card-sub" style={{ marginBottom: 12 }}>Tap a day to see its lessons</div>
-      <div className="tt-week-days">
-        {days.map(d => {
-          const on = openDay === d;
-          return (
-            <React.Fragment key={d}>
-              <button type="button" className={`line-row tt-week-day ${on ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => setOpenDay(on ? null : d)}>
-                <span className="tt-week-day-name">{DAY3[d]}<small>{niceDate(dateOf(d)).replace(/^\S+ /, '')}</small></span>
-                <span className="line-row-name">{dateOf(d) === TODAY ? 'Today' : DAY[d]}</span>
-                <span className="line-row-sub tt-week-subjects">{daySubjects(d)}</span>
-                {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-              {on && <div className="tt-week-open">{dayLines(d)}</div>}
-            </React.Fragment>
-          );
-        })}
-      </div>
+      {days.indexOf(d) < days.length - 1 && (
+        <button type="button" className="tt-next-day" onClick={() => step(d, 1)}>Swipe for {DAY[days[days.indexOf(d) + 1]]} →</button>
+      )}
     </div>
   );
   // A day: a calm line per lesson — time, subject in its colour, the book small underneath. The
@@ -278,16 +258,23 @@ export default function Timetable() {
                 <span className="class-bar-value">{viewName}<ChevronDown size={15} /></span>
               </button>
             </div>
-            <div className="tt-days" style={{ gridTemplateColumns: `repeat(${days.length + 1}, minmax(0, 1fr))` }}>
+            {/* Computers: the days and Week (the colour grid). Phones: day boxes with dates, one day at a time. */}
+            <div className="tt-days tt-week-wide" style={{ gridTemplateColumns: `repeat(${days.length + 1}, minmax(0, 1fr))` }}>
               {days.map(d => (
                 <button key={d} type="button" className={`tt-day ${day === d ? 'on' : ''}`} onClick={() => setDay(d)}>{DAY3[d]}</button>
               ))}
               <button type="button" className={`tt-day ${day === 'week' ? 'on' : ''}`} onClick={() => setDay('week')}>Week</button>
             </div>
+            <div className="tt-week-boxes tt-week-narrow" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+              {days.map(d => (
+                <button key={d} type="button" className={`tt-week-box ${day === d || (day === 'week' && d === phoneDay) ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => setDay(d)}>
+                  {DAY3[d]}<small>{niceDate(dateOf(d)).replace(/^\S+ /, '').replace(/ .*/, '')}</small>
+                </button>
+              ))}
+            </div>
             {day === 'week' ? <>
               <div className="tt-week-wide">{weekCard()}</div>
-              {/* On phones the grid would be squashed — each day is its own card instead. */}
-              <div className="tt-week-narrow">{weekLines()}</div>
+              <div className="tt-week-narrow">{dayCard(phoneDay)}</div>
             </> : dayCard(day)}
           </>
         )}

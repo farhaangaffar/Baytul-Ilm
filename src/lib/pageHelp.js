@@ -74,7 +74,7 @@ const HEAD = {
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
-    'Pick a class or a teacher at the top, then a day — or Week for the whole week.',
+    'Pick a class or a teacher at the top, then a day (on a phone, swipe sideways for the next) — or Week on a computer for the whole week.',
     'New? Under "Periods & times", tap "Use a typical day" (then change any times), or add your own periods and breaks.',
     'Tap a period to add or change its lesson: pick one of that year\'s books (or "Something else"), the teacher and the days it\'s on.',
     'A red note means that teacher is already teaching another class then. Same book with two classes? It\'s one shared lesson.',
@@ -116,7 +116,7 @@ const TEACHER = {
   '/timetable': { title: 'Timetable', steps: [
     'It opens on your own lessons today — the one on now is marked Now. Each subject has its own colour.',
     'Tap a lesson to see its book, teacher and room. After the lesson, tap "Record what was covered" — e.g. Pages 34–36. It shows what you covered last time.',
-    'Tap a day — or Week for the whole week. You can fill in any day this week that\'s gone by.',
+    'Tap a day (on a phone, swipe sideways for the next one) — or Week on a computer for the whole week. You can fill in any day this week that\'s gone by.',
     'Tap the box at the top to see any class or teacher. Changes are made by the head.',
     'Covering for someone who\'s off? Tap their lesson and fill it in — it\'s saved under your name.',
   ] },
