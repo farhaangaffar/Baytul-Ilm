@@ -7,11 +7,12 @@ import { money } from '../lib/branding';
 // haven't started yet are "Not due yet" and never count as owed. Used by weekly fees (a card
 // per school month) and monthly/termly fees (one card for the year).
 //
-// rows: [{ key, label, now, future, fee, planned, removed, offNote, canAdd }]
-//   fee      — the fee record (stored), or null
-//   planned  — { amount }: will be charged when it comes (shown, not stored yet) — "show, don't store"
-//   removed  — taken off this child on purpose (head can put it back)
-//   offNote  — why there's nothing ("Week off", "Not charged")
+// rows: [{ key, label, now, future, fee, planned, removed, offNote, canAdd, notDueYet }]
+//   fee        — the fee record (stored), or null
+//   planned    — { amount }: will be charged when it comes (shown, not stored yet) — "show, don't store"
+//   removed    — taken off this child on purpose (head can put it back)
+//   offNote    — why there's nothing ("Week off", "Not charged")
+//   notDueYet  — a stored record whose own period hasn't started yet (added ahead of time)
 export function FeeRowList({ title, rows, isOwner, editCell, setEditCell, saveEdit, onToggle, onPayAhead, onAdd, onRemove, onPutBack, nowLabel = 'Now', cardProps }) {
   const tag = r => r.now && <span className="att-today">{nowLabel}</span>;
   return (
@@ -48,7 +49,7 @@ export function FeeRowList({ title, rows, isOwner, editCell, setEditCell, saveEd
           );
         }
         const paid = f.status === 'Paid';
-        const notDue = !paid && r.future;
+        const notDue = !paid && r.notDueYet;
         const editing = editCell?.feeId === f.id;
         return (
           <div key={r.key} className={`att-day fee-row ${paid ? 'paid' : notDue ? 'due' : 'owed'}`}>

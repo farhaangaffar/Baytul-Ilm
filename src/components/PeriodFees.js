@@ -49,7 +49,7 @@ export default function PeriodFees({ frequency }) {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
   // Months switched off and months/terms removed for a child or class — so the rest of the
-  // year can be shown before it's charged ("Not due yet").
+  // year can be shown before it's charged ("Not added yet").
   const [plan, setPlan] = useState({ monthsOff: new Set(), skips: [] });
   const [confirmRemove, setConfirmRemove] = useState(null); // a row of the child's list
 
@@ -216,7 +216,7 @@ export default function PeriodFees({ frequency }) {
       return { key: p.key, label: p.label, p, now: !!current && p.start === current.start, future, fee, removed,
         planned: !fee && willCharge(selected, p) ? { amount: selected.weeklyFee } : null,
         offNote: monthOff(p) ? 'Month off' : classRemoved(selected, p) ? 'Not charged for the class' : 'Not charged',
-        canAdd: isOwner && auto && !monthOff(p) };
+        canAdd: isOwner && auto && !monthOff(p), notDueYet: !!fee && !isDue(fee) };
     });
     const sFees = rows.map(r => r.fee).filter(Boolean);
     const paidSum = sFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);

@@ -12,7 +12,7 @@ import { useBackToClose } from '../lib/useBackToClose';
 import { X, Pencil, Check, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
 import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
-import { feePer, feeFrequency, isDue } from '../lib/feePeriods';
+import { feePer, feeFrequency, periodStarted } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
 import { FeeRowList, FeeTotals, shortDate } from '../components/FeeRows';
 
@@ -99,7 +99,7 @@ function WeeklyFees() {
 
   async function refresh(y2) { setFees(await getFees(y2||year)); }
   // Weeks switched off and weeks removed for a child or class, for the year on screen — so the
-  // rest of the year can be shown before it's charged ("Not due yet").
+  // rest of the year can be shown before it's charged ("Not added yet").
   const [skips, setSkips] = useState([]);
   const [showRest, setShowRest] = useState(false);
   const loadPlan = useCallback(() => {
@@ -222,7 +222,7 @@ function WeeklyFees() {
   const schoolMonth = getCurrentSchoolMonth(referenceDate);
   const classMonthFees = classFees.filter(f=>f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
   const monthTotalPaid = classMonthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
+  const monthTotalOwed = classMonthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const schoolMonthWeeks = getWeekStartsForMonth(schoolMonth.start.slice(0,7));
   const thisWeekMonday = getMondayOf(referenceDate);
   // schoolMonth.label follows the "first Monday" school-month boundary, which for a
@@ -303,7 +303,7 @@ function WeeklyFees() {
       return { key: w, week: w, label: `Week of ${shortDate(w)}`, now: w === thisMonday, future, fee, removed,
         planned: !fee && !removed && autoWeeks && future && chargeable(w) ? { amount: selected.weeklyFee } : null,
         offNote: offWeeks.has(w) ? 'Week off' : classRemoved(w) ? 'Not charged for the class' : autoWeeks ? 'Not charged' : 'Not added',
-        canAdd: canAddWeek(w) };
+        canAdd: canAddWeek(w), notDueYet: !!fee && !periodStarted(fee) };
     });
     // The academic year, a card per school month; later months fold away until asked for.
     const start = academicYearStartISO(year).slice(0, 7);
@@ -312,7 +312,7 @@ function WeeklyFees() {
     const months = isCurrentYear && !showRest ? allMonths.filter(m => m <= shiftMonth(nowMonth, 1)) : allMonths;
     const yearFees = studentFees.filter(f => f.period === 'week');
     const paidSum = yearFees.filter(f => f.status === 'Paid').reduce((t, f) => t + Number(f.amount), 0);
-    const owedSum = yearFees.filter(f => f.status !== 'Paid' && isDue(f)).reduce((t, f) => t + Number(f.amount), 0);
+    const owedSum = yearFees.filter(f => f.status !== 'Paid' && periodStarted(f)).reduce((t, f) => t + Number(f.amount), 0);
     const rowHandlers = {
       isOwner, editCell, setEditCell, saveEdit, nowLabel: 'This week',
       onToggle: f => canToggle(f) && setConfirmToggle(f),
@@ -403,7 +403,7 @@ function WeeklyFees() {
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--green-text)'}}>{money(monthTotalPaid)}</div><div className="l">Collected</div></div>
         <div className="stat-card-v2"><div className="n" style={{color:'var(--red-text)'}}>{money(monthTotalOwed)}</div><div className="l">Outstanding</div></div>
-        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid'&&isDue(f)).length}</div><div className="l">Unpaid weeks</div></div>
+        <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid weeks</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
 
@@ -432,7 +432,7 @@ function WeeklyFees() {
         {classStudents.map(s=>{
           const monthFees = fees.filter(f=>f.studentId===s.id && f.weekStarting>=schoolMonth.start && f.weekStarting<schoolMonth.endExclusive);
           const monthPaid = monthFees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-          const monthOwed = monthFees.filter(f=>f.status!=='Paid'&&isDue(f)).reduce((s,f)=>s+Number(f.amount),0);
+          const monthOwedTotal = monthFees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
           return (
             <div className="entity-card" key={s.id} onClick={()=>openStudent(s.id)}>
               <div className="entity-card-name">{s.forename} {s.surname}</div>
@@ -455,17 +455,16 @@ function WeeklyFees() {
                       );
                     }
                     const paid = f.status==='Paid';
-                    const notDue = !paid && !isDue(f);
                     return (
-                      <button key={w} className={`week-pill ${paid?'paid':notDue?'not-due':'unpaid'} ${isCurrent?'is-current':''}`}
-                        title={`Week of ${dateLabel} — ${paid?'Paid':notDue?'Not due yet':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
+                      <button key={w} className={`week-pill ${paid?'paid':'unpaid'} ${isCurrent?'is-current':''}`}
+                        title={`Week of ${dateLabel} — ${paid?'Paid':'Unpaid'}${canToggle(f)?' (click to toggle)':''}`}
                         onClick={e=>{ e.stopPropagation(); if (canToggle(f)) setConfirmToggle(f); }}>
                         <span className="d">{dayNum}</span><span className="dot"></span>
                       </button>
                     );
                   })}
                 </div>
-                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: {money(monthPaid)} paid · {money(monthOwed)} due</span>
+                <span style={{fontSize:11,color:'var(--text-soft)',textAlign:'center'}}>This month: {money(monthPaid)} paid · {money(monthOwedTotal)} owed</span>
               </div>
             </div>
           );

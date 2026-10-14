@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import GettingStarted from '../components/GettingStarted';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
-import { feeFrequency, currentFeePeriod, FREQUENCIES, countedFees } from '../lib/feePeriods';
+import { feeFrequency, currentFeePeriod, FREQUENCIES } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -71,8 +71,7 @@ export default function Dashboard() {
   const frequency = feeFrequency();
   const unit = FREQUENCIES[frequency].unit;
   const feePeriod = currentFeePeriod(frequency, terms) || { start: '9999-12-31', endExclusive: '9999-12-31', label: 'no term dates set' };
-  // Unpaid fees for weeks still to come this month aren't owed yet.
-  const monthFees = countedFees(fees.filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive));
+  const monthFees = fees.filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive);
   const monthCollected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthOutstanding = monthFees.filter(f => f.status !== 'Paid').reduce((s, f) => s + Number(f.amount), 0);
   const monthBilled = monthCollected + monthOutstanding;
