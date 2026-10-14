@@ -51,6 +51,7 @@ const HEAD = {
     '"Ready" means the summary is written. "Not written" takes you to write it.',
     'PDF downloads this month\'s report. History shows older ones.',
     '"Download all ready" gets the whole class at once.',
+    'More than one academic year? A Year box appears — tap it to browse an earlier year.',
   ] },
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
