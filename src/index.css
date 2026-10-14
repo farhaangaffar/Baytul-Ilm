@@ -678,7 +678,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .pay-manage .btn { justify-content: center; }
 
 /* Darul Uloom course (pages/Course.js): single lines (.line-row) — a year opens its kitaabs underneath. */
-.course-page > .card { margin-bottom: 14px; }
+.course-page > .card, .course-page > .tt-week-wide > .card, .course-page > .tt-week-narrow > .card { margin-bottom: 14px; }
 .course-lines { display: grid; gap: 6px; }
 .course-num { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid #dfe3e8; font-weight: 700; font-size: 11.5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .line-row.on .course-num { border-color: var(--teal); color: var(--teal-dark); }
@@ -746,15 +746,17 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .tt-week-wrap { overflow-x: auto; }
 .tt-week-narrow { display: none; }
 @media (max-width: 700px) { .tt-week-wide { display: none; } .tt-week-narrow { display: block; } }
-.tt-week { width: 100%; border-collapse: separate; border-spacing: 4px; min-width: 560px; table-layout: fixed; }
-.tt-week th { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px; }
-.tt-week tbody th { text-align: left; width: 96px; }
+.tt-week { width: 100%; border-collapse: separate; border-spacing: 6px; min-width: 560px; table-layout: fixed; }
+.tt-week col.tt-week-periods { width: 104px; }
+.tt-week th { font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px; }
+.tt-week tbody th { text-align: left; padding-left: 0; }
 .tt-week-name { display: block; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tt-week-time { display: block; font-weight: 500; font-variant-numeric: tabular-nums; }
-.tt-week td { background: #fafbfc; border: 1px dashed #dfe3e8; border-radius: 8px; padding: 6px; font-size: 11.5px; line-height: 1.3; text-align: center; vertical-align: middle; height: 44px; overflow: hidden; }
-.tt-week td.on { border: none; font-size: 12px; }
+.tt-week td { background: #fafbfc; border: 1px dashed #dfe3e8; border-radius: 8px; padding: 8px; font-size: 11.5px; line-height: 1.3; text-align: center; vertical-align: middle; height: 64px; overflow: hidden; }
+.tt-week td.on { border: none; font-size: 14.5px; border-radius: 12px; }
+.tt-week tr.break td { height: 30px; }
 .tt-week td b, .tt-week td span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tt-week td span { opacity: 0.8; font-size: 11px; }
+.tt-week td span { opacity: 0.8; font-size: 12px; margin-top: 2px; }
 .tt-week td.off { background: transparent; border: none; }
 .tt-week tr.break td.off { background: #f3f4f6; border-radius: 6px; }
 @media (max-width: 640px) {
@@ -839,3 +841,5 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .tt-week-box.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
 .tt-next-day { display: none; width: 100%; margin-top: 10px; padding: 8px; border: none; background: none; font-family: var(--font); font-size: 12px; color: var(--text-muted); cursor: pointer; }
 @media (max-width: 700px) { .tt-week-boxes.tt-week-narrow { display: grid; } .tt-next-day { display: block; } }
+.tt-week td b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (max-width: 1100px) { .tt-week td { padding: 6px 3px; } .tt-week td.on { font-size: 13px; } }

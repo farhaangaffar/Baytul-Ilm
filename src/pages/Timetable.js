@@ -207,6 +207,7 @@ export default function Timetable() {
       <div className="card-sub" style={{ marginBottom: 12 }}>{isOwner ? 'Tap any lesson to change it' : 'Tap a lesson for its book, teacher and room'}</div>
       <div className="tt-week-wrap">
         <table className="tt-week">
+          <colgroup><col className="tt-week-periods" />{days.map(d => <col key={d} />)}</colgroup>
           <thead><tr><th />{days.map(d => <th key={d}>{DAY3[d]}</th>)}</tr></thead>
           <tbody>
             {periods.map(p => (
