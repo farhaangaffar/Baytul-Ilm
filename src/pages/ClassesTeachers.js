@@ -432,7 +432,7 @@ function suggestUsername(name) {
 // can sign in. The owner sets a username (or email address) and a password and passes
 // them on, with the madrasah's code for the first sign-in on each device.
 function LoginModal({ kind, item, login, classNames, onClose, onChanged }) {
-  const { user } = useAuth();
+  const { user, isDarulUloom } = useAuth();
   const madrasahCode = user?.madrasah?.code;
   const [loginName, setLoginName] = useState(login?.login || (kind === 'class' ? suggestUsername(item.name) : (item.email || '')));
   const [password, setPassword] = useState('');
@@ -469,7 +469,9 @@ function LoginModal({ kind, item, login, classNames, onClose, onChanged }) {
         </div>
         <div className="modal-body">
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>
-            {kind === 'class'
+            {kind !== 'class' && isDarulUloom
+              ? <>They'll see their timetable and exam papers, and take attendance and behaviour for the Aalim years they teach{classNames.length ? <> and <strong>{classNames.join(', ')}</strong></> : ''}.</>
+              : kind === 'class'
               ? <>One login for <strong>{item.name}</strong>, shared by whoever is teaching it — handy when a teacher is off. It sees Attendance, Daily records and Fees for this class only, and can mark fees as paid but not change amounts.</>
               : classNames.length
                 ? <>They'll see Attendance, Daily records and Fees for <strong>{classNames.join(', ')}</strong> only, and can mark fees as paid but not change amounts.</>

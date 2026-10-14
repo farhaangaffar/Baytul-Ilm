@@ -50,7 +50,7 @@ module.exports = requireAuth(async (req, res) => {
   // Teachers can only list their own classes' current students; every change is owner-only.
   if (!isOwner(req)) {
     if (action || id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
-    const scope = await teacherScope(req);
+    const scope = await teacherScope(req, { teaching: true }); // + a Darul Uloom teacher's Aalim years
     const { rows } = await query(
       `SELECT * FROM students WHERE madrasah_id = $1 AND class = ANY($2) AND status <> 'Inactive' ORDER BY sort_order NULLS LAST, forename, surname`,
       [mid, scope.classNames]

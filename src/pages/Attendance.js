@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from
 import Layout from '../components/Layout';
 import ClassBar, { MANY_CLASSES } from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay, getSpecialDays } from '../lib/store';
+import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLateTimes, getMarkedBy, setAttendance, getClassNames, getWeekDates, getWeekStartsForMonth, getAcademicYears, currentSchoolYear, getCurrentSchoolMonth, academicYearStartISO, academicYearOfMonth, formatDayMonthGB, hasEnrolledBy, isSchoolDay, getSpecialDays } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 // A "month" runs from its first Monday to the day before the next month's first Monday
@@ -26,6 +27,9 @@ export default function Attendance() {
   const [currentYear, setCurrentYear] = useState('');
   const [attData, setAttData] = useState({});
   const [lateTimes, setLateTimes] = useState({}); // { studentId: { date: 'HH:MM' } }
+  // In a Darul Uloom several teachers take a year's register, so it shows who took each mark.
+  const { isDarulUloom } = useAuth();
+  const [markedBy, setMarkedBy] = useState({});   // { studentId: { date: 'Maulana Yusuf' } }
   const [reported, setReported] = useState([]);   // absences parents have reported, today onwards
   const [selectedId, setSelectedId] = useState(null);
   const [monthAnchor, setMonthAnchor] = useState(isoToday().slice(0,7));
@@ -46,11 +50,12 @@ export default function Attendance() {
       getReportedAbsences().then(setReported).catch(() => {});
       // Closed days and extra days; extra days also join the week/month views once loaded.
       getSpecialDays().then(d => setDaysOff(d.off)).catch(() => {});
+      if (isDarulUloom) getMarkedBy(y).then(setMarkedBy).catch(() => {});
     } catch (err) {
       setError(err);
     }
     setLoading(false);
-  }, []);
+  }, [isDarulUloom]);
 
   useEffect(() => { load(); }, [load]);
   const closeStudent = useBackToClose(!!selectedId, () => setSelectedId(null));
@@ -81,6 +86,7 @@ export default function Attendance() {
   async function loadYear(y) {
     const [att, times] = await Promise.all([getAttendance(y), getLateTimes(y)]);
     setAttData(att); setLateTimes(times);
+    if (isDarulUloom) getMarkedBy(y).then(setMarkedBy).catch(() => {});
   }
 
   // Saves one day's mark. Marking someone Late on the day itself stamps the time.
@@ -92,6 +98,7 @@ export default function Attendance() {
     // failures get a message.
     setAttData(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: next } }));
     setLateTimes(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: time } }));
+    setMarkedBy(prev => ({ ...prev, [studentId]: { ...prev[studentId], [date]: next ? 'You' : undefined } }));
     try {
       await setAttendance(studentId, date, next, year, time);
       // Marking the day settles any absence the parent reported for it — they see "Seen".
@@ -216,7 +223,7 @@ export default function Attendance() {
                       <span className="att-stripe"/>
                       <div className="att-day-main">
                         <div className="att-day-date">{label}{date===TODAY && <span className="att-today">Today</span>}</div>
-                        <div className="att-day-status">{status ? STATUS_LABELS[status] : 'Not marked'}{late ? ` · ${late}` : ''}</div>
+                        <div className="att-day-status">{status ? STATUS_LABELS[status] : 'Not marked'}{late ? ` · ${late}` : ''}{status && markedBy[selected.id]?.[date] ? ` · ${markedBy[selected.id][date]}` : ''}</div>
                       </div>
                       {['P','L','A'].map(k=>(
                         <button key={k} type="button" className={`att-mark ${status===k ? 'on '+k : ''}`} aria-pressed={status===k} aria-label={`${STATUS_LABELS[k]} on ${label}`}
@@ -273,6 +280,11 @@ export default function Attendance() {
             })}
           </div>
         );
+      })()}
+
+      {isDarulUloom && isCurrentYear && (() => {
+        const who = [...new Set(classStudents.map(s => attData[s.id]?.[TODAY] && markedBy[s.id]?.[TODAY]).filter(Boolean))];
+        return who.length ? <div className="text-muted text-sm" style={{marginBottom:10}}>Today's register taken by {who.join(', ')}</div> : null;
       })()}
 
       <div className="entity-grid">

@@ -475,6 +475,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
 
             {editExists?(
               <>
+                {isDarulUloom && records[editDate]?.by && <div className="text-muted text-sm" style={{marginBottom:8}}>Last written by {records[editDate].by} — add to it rather than replace it.</div>}
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
                   <CommentBox
@@ -623,6 +624,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                           {part('Daily comment', r.comment, '#f3f4f6', 'var(--text-muted)')}
                           {part('⭐ Positives', r.positive, 'var(--green-light)', 'var(--green-text)')}
                           {part('⚑ Concerns', r.negative, 'var(--red-light)', 'var(--red-text)')}
+                          {isDarulUloom && r.by && <div className="text-muted text-sm" style={{margin:'2px 0 8px'}}>Last written by {r.by}</div>}
                           <div style={{display:'flex',gap:8,marginTop:4}}>
                             {back}
                             <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>setDayEditing(true)}>

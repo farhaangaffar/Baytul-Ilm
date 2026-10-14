@@ -238,6 +238,8 @@ export async function setAttendance(studentId, date, status, year, time) {
 }
 // { studentId: { date: 'HH:MM' } } — when each Late mark was made, where known.
 export async function getLateTimes(year) { return apiFetch(`/api/attendance?year=${encodeURIComponent(year)}&times`); }
+// Who took each mark ({ studentId: { date: name } }) — shown in a Darul Uloom.
+export async function getMarkedBy(year) { return apiFetch(`/api/attendance?year=${encodeURIComponent(year)}&by`); }
 export async function getStudentAttendance(studentId, year) {
   const all = await getAttendance(year);
   return all[studentId] || {};

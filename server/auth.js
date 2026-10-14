@@ -193,17 +193,47 @@ async function teacherClassNames(user) {
   return rows.map(r => r.name);
 }
 
+// A Darul Uloom's Aalim years have no one class teacher — every book has its own — so a teacher
+// also takes attendance and behaviour for the Aalim years they teach: a year with a timetable
+// lesson or a book of theirs on the Aalim course page. Hifdh and other classes stay with their own
+// teacher. Only routes that ask with { teaching: true } (Attendance, Daily records' behaviour) get
+// these; Qur'an, fees and reports never do.
+async function teachingClassNames(user) {
+  if (user.classId || !user.teacherId) return [];
+  try {
+    const { rows } = await query(
+      `SELECT c.name FROM classes c JOIN madaaris m ON m.id = c.madrasah_id AND m.kind = 'darul_uloom'
+       WHERE c.madrasah_id = $1 AND c.course_order IS NOT NULL AND (
+         EXISTS (SELECT 1 FROM du_lessons l WHERE l.madrasah_id = c.madrasah_id AND l.class_id = c.id AND l.teacher_id = $2)
+         OR EXISTS (SELECT 1 FROM du_subjects s WHERE s.madrasah_id = c.madrasah_id AND s.class_id = c.id AND s.teacher_id = $2))
+       ORDER BY c.course_order`, [user.madrasahId, user.teacherId]);
+    return rows.map(r => r.name);
+  } catch { return []; } // a madrasah that has never used the Darul Uloom tables
+}
+
+// Who did something, for "Taken by …": the teacher's name, "Head" for the owner, else the login.
+async function whoName(user) {
+  if (user.role === 'owner') return 'Head';
+  if (user.teacherId) {
+    const { rows } = await query('SELECT name FROM teachers WHERE id = $1 AND madrasah_id = $2', [user.teacherId, user.madrasahId]);
+    if (rows[0]) return rows[0].name;
+  }
+  return user.login;
+}
+
 // Which students the signed-in person may touch. Owners: every student in their
-// madrasah (current or left). Teachers: their own classes' current students. Any
+// madrasah (current or left). Teachers: their own classes' current students (and, with
+// { teaching: true }, the Aalim years they teach — see teachingClassNames). Any
 // student id that arrives in a request must be checked against studentIds — that's
 // what stops one madrasah reaching another's records by id.
-async function accessScope(req) {
+async function accessScope(req, { teaching = false } = {}) {
   const mid = req.user.madrasahId;
   if (isOwner(req)) {
     const { rows } = await query('SELECT id FROM students WHERE madrasah_id = $1', [mid]);
     return { classNames: null, studentIds: new Set(rows.map(r => r.id)) };
   }
-  const classNames = await teacherClassNames(req.user);
+  const own = await teacherClassNames(req.user);
+  const classNames = teaching ? [...new Set([...own, ...await teachingClassNames(req.user)])] : own;
   const { rows } = classNames.length
     ? await query(`SELECT id FROM students WHERE madrasah_id = $1 AND class = ANY($2) AND status <> 'Inactive'`, [mid, classNames])
     : { rows: [] };
@@ -211,12 +241,12 @@ async function accessScope(req) {
 }
 
 // For teacher-permitted routes that need the teacher's restriction only; owners get null.
-async function teacherScope(req) {
-  return isOwner(req) ? null : accessScope(req);
+async function teacherScope(req, opts) {
+  return isOwner(req) ? null : accessScope(req, opts);
 }
 
 module.exports = {
   COOKIE_NAME, ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual,
   normalizeLogin, validateLogin, validateNewCredentials, setSessionCookie, clearSessionCookie,
-  getUser, requireAuth, isOwner, teacherClassNames, accessScope, teacherScope,
+  getUser, requireAuth, isOwner, teacherClassNames, teachingClassNames, whoName, accessScope, teacherScope,
 };
