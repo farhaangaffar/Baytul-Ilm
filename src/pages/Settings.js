@@ -53,7 +53,7 @@ function logoImages(blob) {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, isDarulUloom } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
@@ -288,7 +288,7 @@ export default function Settings() {
   if (loading) return <Layout title="Settings"><LoadingState /></Layout>;
   if (error) return <Layout title="Settings"><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const showTerms = years.length > 0 && (savedFrequency === 'termly' || savedReportPeriod === 'termly');
+  const showTerms = years.length > 0 && (savedFrequency === 'termly' || (!isDarulUloom && savedReportPeriod === 'termly'));
 
   return (
     <Layout title="Settings" subtitle="Your madrasah, fees, classes and backups">
@@ -410,11 +410,17 @@ export default function Settings() {
           </div>
           <div className="form-group">
             <Label k="reports">Reports are made</Label>
+            {isDarulUloom ? (
+              // A Darul Uloom's report is each exam's report card — set up on the Exams page.
+              <><div className="settings-fixed">With each exam</div>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>One report per exam, written on Exams &amp; reports.</span></>
+            ) : (
             <select value={savedReportPeriod} onChange={e=>changeReportPeriod(e.target.value)}>
               <option value="monthly">Monthly</option>
               <option value="termly">Termly</option>
               <option value="yearly">Yearly</option>
             </select>
+            )}
           </div>
           <div className="form-group">
             <Label k="portal">Parent portal</Label>

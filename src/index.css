@@ -284,9 +284,12 @@ tbody tr:hover td { background: #f9fafb; }
 .week-pill .dot { width: 9px; height: 9px; border-radius: 50%; }
 .week-pill.is-current { box-shadow: 0 0 0 2px var(--blue); }
 .week-pill.paid .dot { background: var(--green); }
-.week-pill.unpaid .dot { background: var(--red); }
-.week-pill.not-added .dot { background: #d1d5db; }
-.week-pill.not-due .dot { background: #fff; box-shadow: inset 0 0 0 2px #f3c1bb; }
+/* Like Attendance's buttons: paid is a lit green light; owed is the light off (grey). Not due yet is an empty
+   ring, and a week with no fee added has no light at all. */
+.week-pill.unpaid .dot { background: #d1d5db; }
+.week-pill.not-added .dot { background: transparent; }
+.week-pill.not-added { opacity: 0.6; }
+.week-pill.not-due .dot { background: #fff; box-shadow: inset 0 0 0 2px #d1d5db; }
 
 @media (max-width: 768px) {
   .week-pill-row { gap: 10px; }
@@ -678,7 +681,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 .pay-manage .btn { justify-content: center; }
 
 /* Darul Uloom course (pages/Course.js): single lines (.line-row) — a year opens its kitaabs underneath. */
-.course-page > .card { margin-bottom: 14px; }
+.course-page > .card, .course-page > .tt-week-wide > .card, .course-page > .tt-week-narrow > .card { margin-bottom: 14px; }
 .course-lines { display: grid; gap: 6px; }
 .course-num { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid #dfe3e8; font-weight: 700; font-size: 11.5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .line-row.on .course-num { border-color: var(--teal); color: var(--teal-dark); }
@@ -746,15 +749,17 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .tt-week-wrap { overflow-x: auto; }
 .tt-week-narrow { display: none; }
 @media (max-width: 700px) { .tt-week-wide { display: none; } .tt-week-narrow { display: block; } }
-.tt-week { width: 100%; border-collapse: separate; border-spacing: 4px; min-width: 560px; table-layout: fixed; }
-.tt-week th { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px; }
-.tt-week tbody th { text-align: left; width: 96px; }
+.tt-week { width: 100%; border-collapse: separate; border-spacing: 6px; min-width: 560px; table-layout: fixed; }
+.tt-week col.tt-week-periods { width: 104px; }
+.tt-week th { font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px; }
+.tt-week tbody th { text-align: left; padding-left: 0; }
 .tt-week-name { display: block; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tt-week-time { display: block; font-weight: 500; font-variant-numeric: tabular-nums; }
-.tt-week td { background: #fafbfc; border: 1px dashed #dfe3e8; border-radius: 8px; padding: 6px; font-size: 11.5px; line-height: 1.3; text-align: center; vertical-align: middle; height: 44px; overflow: hidden; }
-.tt-week td.on { background: var(--surface); border: 1px solid #dfe3e8; border-top: 3px solid var(--teal); }
+.tt-week td { background: #fafbfc; border: 1px dashed #dfe3e8; border-radius: 8px; padding: 8px; font-size: 11.5px; line-height: 1.3; text-align: center; vertical-align: middle; height: 64px; overflow: hidden; }
+.tt-week td.on { border: none; font-size: 14.5px; border-radius: 12px; }
+.tt-week tr.break td { height: 30px; }
 .tt-week td b, .tt-week td span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tt-week td span { color: var(--text-muted); }
+.tt-week td span { opacity: 0.8; font-size: 12px; margin-top: 2px; }
 .tt-week td.off { background: transparent; border: none; }
 .tt-week tr.break td.off { background: #f3f4f6; border-radius: 6px; }
 @media (max-width: 640px) {
@@ -772,10 +777,72 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .tt-record { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 5px 9px; border-radius: 8px; background: var(--teal-light); color: var(--teal-dark); font-size: 12px; font-weight: 600; }
 .course-kitaab-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .course-kitaab-main .line-row-name { flex: none; }
-.course-progress { font-size: 12px; color: var(--green-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-progress { display: inline-block; align-self: flex-start; max-width: 100%; margin-top: 6px; padding: 3px 8px; border-radius: 6px; background: var(--green-light); font-size: 11.5px; color: var(--green-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .course-history { display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
 .course-history-row { display: flex; gap: 10px; padding: 7px 10px; border-radius: 8px; background: #f6f7f9; font-size: 12.5px; }
 .course-history-date { width: 82px; flex-shrink: 0; color: var(--text-muted); }
 .course-history-text { flex: 1; min-width: 0; }
 .course-history-notes { display: block; color: var(--text-muted); font-size: 12px; }
 .tt-note.amber { background: var(--amber-light); color: var(--amber-text); }
+
+/* Darul Uloom exams (pages/Exams.js). */
+.exam-tag { flex-shrink: 0; padding: 3px 8px; border-radius: 8px; background: #eef0f3; color: var(--text-muted); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.exam-tag.green { background: var(--green-light); color: var(--green-text); }
+.exam-tag.red { background: var(--red-light); color: var(--red-text); }
+.exam-classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.exam-mark-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 10px; background: #f6f7f9; border: 1px solid #e3e7ec; min-width: 0; }
+.exam-mark-row.bad { border-color: var(--red); }
+.exam-mark-row input { width: 76px; flex-shrink: 0; padding: 8px 10px; border: 1px solid #dfe3e8; border-radius: 8px; font-family: var(--font); font-size: 14px; font-weight: 600; text-align: center; background: #fff; color: var(--ink); }
+.exam-mark-row input.fail { color: var(--red-text); border-color: var(--red); }
+.exam-mark-row input:disabled { background: #eef0f3; }
+.exam-absent { flex-shrink: 0; padding: 8px 10px; font-size: 12px; }
+.exam-card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #f6f7f9; border-left: 4px solid #dfe3e8; min-width: 0; }
+.exam-card-row.pass { border-left-color: var(--green); }
+.exam-card-row.resit { border-left-color: var(--red); background: var(--red-light); }
+.exam-card-what { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.exam-card-subject { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.exam-card-book { font-size: 14px; font-weight: 600; color: var(--ink); }
+.exam-card-result { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex-shrink: 0; min-width: 64px; }
+.exam-card-mark { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+.exam-card-mark small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+/* Timetable Week on phones: a line per day, the open one's lessons underneath. */
+.exam-no-comment { color: var(--amber-text); }
+.course-kitaab-main .line-row-sub { white-space: normal; overflow-wrap: anywhere; }
+.exam-tag.amber { background: var(--amber-light); color: var(--amber-text); }
+.settings-fixed { padding: 10px 14px; border-radius: var(--r-md); background: #f3f4f6; font-size: 13px; font-weight: 600; color: var(--ink); }
+.exam-step-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 2px; }
+.exam-step { width: 22px; height: 22px; border-radius: 50%; background: var(--teal-light); color: var(--teal-dark); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* Timetable day (Timetable.js dayLines): a roomy line per lesson in its subject's colour; breaks are a thin divider. */
+.tt-lesson { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 12px 14px; border-radius: 14px; border: 1px solid transparent; font-family: var(--font); text-align: left; min-width: 0; }
+button.tt-lesson { cursor: pointer; }
+button.tt-lesson:hover { filter: brightness(0.97); }
+.tt-lesson.free { background: #fff; border: 1px dashed #dfe3e8; color: var(--text-soft); min-height: 48px; }
+.tt-lesson.now { border: 2px solid var(--teal); box-shadow: 0 2px 10px rgba(47, 128, 237, 0.15); }
+.tt-lesson-time { width: 42px; flex-shrink: 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tt-lesson-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tt-lesson-subject { font-size: 15.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-lesson.free .tt-lesson-subject { font-size: 14px; font-weight: 600; }
+.tt-lesson-book { font-size: 12.5px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-now { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--teal); color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 2px; }
+.tt-done { flex-shrink: 0; color: var(--green-text); }
+.tt-lesson .tt-record { background: rgba(255, 255, 255, 0.75); }
+.tt-break { display: flex; align-items: center; gap: 10px; padding: 2px 4px; font-size: 12px; color: var(--text-muted); }
+.tt-break::before, .tt-break::after { content: ''; flex: 1; height: 1px; background: #dfe3e8; }
+.tt-lines { gap: 8px; }
+.tt-week-subjects { white-space: normal !important; line-height: 1.45; }
+.tt-view { display: grid; gap: 8px; }
+.tt-view-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #f6f7f9; font-size: 13.5px; }
+.tt-view-row span { color: var(--text-muted); }
+.tt-view-row b { text-align: right; font-weight: 600; }
+/* Timetable Week on phones: day boxes with dates, one day's lessons underneath. */
+.tt-week-boxes { gap: 6px; margin-bottom: 14px; }
+.tt-week-box { display: flex; flex-direction: column; align-items: center; padding: 8px 0; border-radius: 10px; border: 1px solid #dfe3e8; background: var(--surface); font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer; min-width: 0; }
+.tt-week-box small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.tt-week-box.today small { color: var(--teal-dark); font-weight: 700; }
+.tt-week-box.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.tt-next-day { display: none; width: 100%; margin-top: 10px; padding: 8px; border: none; background: none; font-family: var(--font); font-size: 12px; color: var(--text-muted); cursor: pointer; }
+@media (max-width: 700px) { .tt-week-boxes.tt-week-narrow { display: grid; } .tt-next-day { display: block; } }
+.tt-week td b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (max-width: 1100px) { .tt-week td { padding: 6px 3px; } .tt-week td.on { font-size: 13px; } }

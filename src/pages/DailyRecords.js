@@ -10,6 +10,7 @@ import { checkSummaryFit } from '../lib/summaryFit';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, X, Pencil } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import StudentExams from '../components/StudentExams';
 import HistoryBoxes, { YearBox, shortPeriodLabel } from '../components/HistoryBoxes';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -176,7 +177,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
 function StudentRecords({ student, settings, classType, initialQuran, onQuranChanged, onBack, onRecordsChanged }) {
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
-  const { isOwner } = useAuth();
+  const { isOwner, isDarulUloom } = useAuth();
   // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
   // Their level is their own if set, else their class's.
   const hasQuran = !!classType;
@@ -673,7 +674,9 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
             })()}
           </div>
         </>)}
-        {tab==='report'&&(<>
+        {/* A Darul Uloom's report is its exam report card; a maktab writes monthly/termly/yearly summaries. */}
+        {tab==='report'&&isDarulUloom&&<StudentExams student={student}/>}
+        {tab==='report'&&!isDarulUloom&&(<>
           <div className="card">
             <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : yearly ? 'Year summary' : 'Monthly summary'}</div>
             <div className="card-sub" style={{marginBottom:14}}>

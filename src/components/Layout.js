@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { appNavigate } from './BackToExit';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -16,11 +16,13 @@ const navItems = [
   { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
   { label:'Students',           path:'/students',   icon:Users,         section:'Management' },
   { label:'Attendance',         path:'/attendance', icon:CheckSquare,   teacher:true },
-  { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true },
+  { label:'Fees',               path:'/fees',       icon:Coins,         teacher:true, duOffice:true }, // a Darul Uloom's office takes fees, not its teachers
   { label:'Daily records',      path:'/records',    icon:BookOpen,      teacher:true },
   { label:'Timetable',          path:'/timetable',  icon:CalendarClock, teacher:true, darulUloom:true },
-  { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup' },
-  { label:'Aalim course',       path:'/course',     icon:Library,       darulUloom:true },
+  { label:'Exams & reports',    path:'/exams',      icon:ClipboardList, teacher:true, darulUloom:true },
+  // A Darul Uloom's reports are on Exams & reports, so it has no separate Reports page.
+  { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup', maktab:true },
+  { label:'Aalim course',       path:'/course',     icon:Library,       darulUloom:true, duSection:'Setup' },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
@@ -45,8 +47,9 @@ export default function Layout({ children, title, subtitle }) {
   const pageHelp = usePageHelp(pathname, user?.role);
   // Teachers only get their own pages (and no section headings).
   const visibleNav = isOwner
-    ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom))
-    : navItems.filter(i => i.teacher && (!i.darulUloom || isDarulUloom)).map(i => ({ ...i, section: undefined }));
+    ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom))
+      .map(i => (isDarulUloom && i.duSection ? { ...i, section: i.duSection } : i))
+    : navItems.filter(i => i.teacher && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 

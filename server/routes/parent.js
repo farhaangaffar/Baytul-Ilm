@@ -7,11 +7,18 @@ const { ensureParentTables, childIds, portalOn, ABSENCE_REASONS } = require('../
 // name or records, nor the class list, teachers' details or anything else staff use.
 //   GET               → { children: [...], absenceReasons }
 //   GET ?studentId=   → one child's attendance, fees, finished reports, Qur'an
-//                       progress and the absences this family has reported
+//                       progress, published exam results (a Darul Uloom) and the absences this family has reported
 //   POST ?action=absence {studentId, date, reason, note} → tell the madrasah
 // When the madrasah has the portal switched off (Settings), every call says so.
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+// A Darul Uloom's published exams this child sat — their own report cards only.
+async function publishedExams(mid, s) {
+  const { rows: [m] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
+  if (m?.kind !== 'darul_uloom') return [];
+  return require('./exams').studentExamCards(mid, s, { publishedOnly: true });
+}
 
 module.exports = async (req, res) => {
   const user = await getUser(req);
@@ -52,6 +59,7 @@ module.exports = async (req, res) => {
     ]);
     const s = st.rows[0];
     if (!s) { res.status(404).json({ error: 'Not found' }); return; }
+    const exams = await publishedExams(mid, s).catch(() => []);
     res.status(200).json({
       student: {
         id: s.id, forename: s.forename, surname: s.surname, class: s.class, status: s.status,
@@ -70,6 +78,7 @@ module.exports = async (req, res) => {
         priorJuz: prior.rows[0]?.prior_juz || [],
       },
       absences: absences.rows,
+      exams,
     });
     return;
   }

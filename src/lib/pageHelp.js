@@ -10,8 +10,8 @@ function feesForHead() {
   const auto = getBranding().feeAuto !== false;
   const where = frequency === 'weekly' ? 'Settings → Fee weeks' : frequency === 'monthly' ? 'Settings → Fee months' : 'Settings → Terms';
   const dueLine = frequency === 'weekly'
-    ? 'Green means paid, red means owed — every week in a month that’s started counts as owed straight away, not just the ones that have individually arrived. Tap one to mark it paid, or tap again to undo a mistake.'
-    : `Green means paid, red means owed. ${unit[0].toUpperCase() + unit.slice(1)}s still to come say "Not due yet" — they're never counted as owed. Tap one to mark it paid, or tap again to undo a mistake.`;
+    ? 'A green light means paid; a grey light (off) means owed — every week in a month that’s started counts as owed straight away, not just the ones that have individually arrived. Tap one to mark it paid, or tap again to undo a mistake.'
+    : `A green light means paid; a grey light (off) means owed. ${unit[0].toUpperCase() + unit.slice(1)}s still to come say "Not due yet" — they're never counted as owed. Tap one to mark it paid, or tap again to undo a mistake.`;
   return [
     'Pick the class at the top.',
     dueLine,
@@ -78,13 +78,20 @@ const HEAD = {
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
-    'Pick a class or a teacher at the top, then a day — or Week for the whole week.',
+    'Pick a class or a teacher at the top, then a day (on a phone, swipe sideways for the next) — or Week on a computer for the whole week.',
     'New? Under "Periods & times", tap "Use a typical day" (then change any times), or add your own periods and breaks.',
     'Tap a period to add or change its lesson: pick one of that year\'s books (or "Something else"), the teacher and the days it\'s on.',
     'A red note means that teacher is already teaching another class then. Same book with two classes? It\'s one shared lesson.',
     'Fill one day, then "Copy one day to other days" to save typing.',
     'A period can be on some days only — e.g. no afternoon periods on Friday.',
     'Once a lesson has happened, tap it then "Record what this lesson covered" — teachers do this for their own lessons.',
+  ] },
+  '/exams': { title: 'Exams & reports', steps: [
+    'Tap "Add an exam": its name, date, maximum marks and pass mark for each paper, and which classes sit it.',
+    'Open an exam and pick a class at the top. Then work down the three steps.',
+    '1 · Marks: tap a paper to enter its marks (or Absent). Papers start as the year\'s books — "Add a paper" for anything else. "Edit paper" gives one its own maximum and pass mark (e.g. Hifdh heard aloud) or a guest examiner.',
+    '2 · Reports: tap a child — choose their behaviour, write the comments ("Write it for me" drafts the class teacher\'s) and get the PDF. "Print the whole class" makes one PDF.',
+    '3 · Send to parents: tap Publish when the reports are ready — each family sees only their own child\'s.',
   ] },
   '/madaaris': { title: 'Madaaris', steps: [
     'Every madrasah using the app — you only see counts, never their children.',
@@ -102,7 +109,7 @@ const TEACHER = {
   '/fees': { title: 'Fees', steps: [
     'Pick your class at the top.',
     'Tap a fee to mark it paid. Tap it again if it was a mistake.',
-    'Red is owed. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
+    'A green light is paid, a grey light is owed. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
     'Tap a child to see their whole year. Amounts and removing fees are done by the head.',
   ] },
   '/records': { title: 'Daily records', steps: [
@@ -111,11 +118,16 @@ const TEACHER = {
     'Behaviour: write a comment, positives and concerns for the day.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
-    'It opens on your own lessons today.',
-    'After each lesson, tap it (or "Record") and write what the class covered — e.g. Pages 34–36. It shows what you covered last time.',
-    'Tap a day — or Week for the whole week. You can fill in any day this week that\'s gone by.',
+    'It opens on your own lessons today — the one on now is marked Now. Each subject has its own colour.',
+    'Tap a lesson to see its book, teacher and room. After the lesson, tap "Record what was covered" — e.g. Pages 34–36. It shows what you covered last time.',
+    'Tap a day (on a phone, swipe sideways for the next one) — or Week on a computer for the whole week. You can fill in any day this week that\'s gone by.',
     'Tap the box at the top to see any class or teacher. Changes are made by the head.',
     'Covering for someone who\'s off? Tap their lesson and fill it in — it\'s saved under your name.',
+  ] },
+  '/exams': { title: 'Exams & reports', steps: [
+    'Tap an exam, then choose a class at the top.',
+    '1 · Marks: tap one of your papers to enter its marks (or Absent) and Save.',
+    '2 · Reports (class teachers): tap a child to choose their behaviour and write your comment — "Write it for me" drafts it.',
   ] },
 };
 
@@ -127,9 +139,19 @@ const PARENT = { title: 'How to use this page', steps: [
   'Report an absence at the bottom to let the teacher know.',
 ] };
 
+// A Darul Uloom head's pages that work differently: reports are each exam's report card.
+const DU_HEAD = {
+  '/records': { title: 'Daily records', steps: [
+    'Pick a class, then tap a child.',
+    'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Behaviour: write a comment, positives and concerns for the day — they go into the report\'s comment.',
+    'Report: their reports, one per exam, to download — they\'re written on Exams & reports.',
+  ] },
+};
+
 // → { title, steps: [...] } for this page and person, or null.
-export function pageHelp(pathname, role) {
-  const h = role === 'parent' ? PARENT : (role === 'owner' ? HEAD : TEACHER)[pathname];
+export function pageHelp(pathname, role, darulUloom = false) {
+  const h = role === 'parent' ? PARENT : ((darulUloom && role === 'owner' && DU_HEAD[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };
 }

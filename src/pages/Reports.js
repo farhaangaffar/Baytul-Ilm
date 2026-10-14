@@ -21,6 +21,7 @@ const greenBox = { background: 'var(--green-light)', borderColor: 'var(--green)'
 const boxSub = { fontSize: 10.5, fontWeight: 500, opacity: 0.8, marginTop: 1 };
 
 
+// (A Darul Uloom has no Reports page — its reports are on Exams & reports.)
 export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

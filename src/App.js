@@ -8,6 +8,7 @@ import DailyRecords    from './pages/DailyRecords';
 import ClassesTeachers from './pages/ClassesTeachers';
 import Course          from './pages/Course';
 import Timetable       from './pages/Timetable';
+import Exams           from './pages/Exams';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
@@ -145,18 +146,20 @@ export default function App() {
               <Route path="/classes"    element={<ClassesTeachers />} />
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/course" element={<Course />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
-              <Route path="/reports"    element={<Reports />} />
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
+              <Route path="/reports"    element={session.user.madrasah?.kind === 'darul_uloom' ? <Navigate to="/exams" replace /> : <Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />
               {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}
             </Routes>
           ) : (
-            // Teachers: their own classes' attendance, daily records and fees only.
+            // Teachers: their own classes' attendance, daily records and fees only (a Darul Uloom's office takes fees).
             <Routes>
               <Route path="/attendance" element={<Attendance />} />
-              <Route path="/fees"       element={<Fees />} />
+              {session.user.madrasah?.kind !== 'darul_uloom' && <Route path="/fees" element={<Fees />} />}
               <Route path="/records"    element={<DailyRecords />} />
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
               <Route path="*"           element={<Navigate to="/attendance" replace />} />
             </Routes>
           )}

@@ -624,3 +624,16 @@ export async function getBookLogs(classId, subject, kitaab) {
   return apiFetch(`/api/timetable?action=logs&classId=${encodeURIComponent(classId)}&subject=${encodeURIComponent(subject)}&kitaab=${encodeURIComponent(kitaab || '')}`);
 }
 export async function saveLessonLog(data) { return apiFetch('/api/timetable?action=log', { method: 'POST', body: JSON.stringify(data) }); }
+
+// ── Exams & report cards (Darul Uloom; server/routes/exams.js) ──
+export async function getExams() { return apiFetch('/api/exams'); }
+export async function getExam(examId) { return apiFetch(`/api/exams?examId=${encodeURIComponent(examId)}`); }
+export async function saveExam(data) { return apiFetch('/api/exams?action=exam', { method: 'POST', body: JSON.stringify(data) }); }
+export async function deleteExam(id) { return apiFetch(`/api/exams?action=exam&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+export async function publishExam(id, published) { return apiFetch('/api/exams?action=publish', { method: 'POST', body: JSON.stringify({ id, published }) }); }
+export async function saveExamPaper(data) { return apiFetch('/api/exams?action=paper', { method: 'POST', body: JSON.stringify(data) }); }
+export async function deleteExamPaper(id) { return apiFetch(`/api/exams?action=paper&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+export async function saveExamMarks(paperId, marks) { return apiFetch('/api/exams?action=marks', { method: 'POST', body: JSON.stringify({ paperId, marks }) }); }
+export async function saveExamComment(data) { return apiFetch('/api/exams?action=comment', { method: 'POST', body: JSON.stringify(data) }); }
+export async function getStudentExams(studentId) { return apiFetch(`/api/exams?studentId=${encodeURIComponent(studentId)}`); }
+export async function draftExamComment(examId, studentId) { return apiFetch('/api/exams?action=draft', { method: 'POST', body: JSON.stringify({ examId, studentId }) }); }

@@ -124,7 +124,10 @@ codebase (one codebase, not a fork).
   (`du_periods`: name, times, break or lessons, which days — '' = every school day, e.g. no afternoon on Friday;
   "Use a typical day" = `STARTER_PERIODS`) and lessons (`du_lessons`, one per class/day/period: subject + book —
   usually one of the year's `du_subjects` — teacher, room). Viewed by class or teacher (Class ▾ box), a day at a
-  time or the Week (a grid on computers, a card per day on phones). The lesson pop-up warns when the teacher is
+  time or the Week (on computers a colour grid; on phones there's no Week box — day boxes with dates, one day at a time, swipe sideways).
+  Calm look (the owner found it too wordy): each subject has its own soft colour (`COLOURS`, shared out among the viewed
+  class's/teacher's subjects); a lesson line is just start time, subject and book (teacher and room are one tap away —
+  teachers get a details pop-up, `ViewModal`, with Record); today's current lesson is marked Now; Record shows once a lesson has started. The lesson pop-up warns when the teacher is
   already with another class then; the same subject and book with two classes is one shared lesson. "Copy one
   day to other days" (`?action=copy-day`) fills the week. **What a lesson covered** is kept per class (an Aalim year
   moves through its books together — `du_lesson_logs`, one per class/date/subject/book): the teacher taps one of
@@ -132,9 +135,35 @@ codebase (one codebase, not a fork).
   shows last time's. The lesson's own teacher has a Record button; the head and the class's login can record too; any other teacher can, as **cover** (tapping someone else's lesson opens it with a "Covering for …" note) — the record keeps who wrote it, and the book's history shows "Recorded by … (cover)" (`mayLog`). Not for Hifdh / Naazhirah / Qaa'idah (a Qur'an class, or that subject — `QURAN_SUBJECT`): those are recorded child by child in Daily records.
   The Aalim course page shows each book's latest ("Last: …") and its history in the book's pop-up.
   Typed fields with suggestions use `PickField` (a plain box + small grey suggestion boxes) — never `<datalist>`.
+  **Exams & reports** (`/exams`, menu "Exams & reports", head + teachers; `src/pages/Exams.js`, `server/routes/exams.js`, results
+  worked out in `server/examResults.js`, PDF `src/lib/reportCardPdf.js`; 403 for a maktab): the head adds an exam (`du_exams`:
+  name, date, academic year, each paper's out of and the pass mark — each madrasah's own, e.g. out of 50 pass 17 — and the
+  classes sitting it); each class's papers (`du_exam_papers`) start as its books (`du_subjects`) and can be added to (e.g.
+  Hifdh, Tajweed) or changed (head: tap a paper → Edit paper). A paper can have its own maximum and pass mark
+  (`du_exam_papers.pass_mark`, NULL = the exam's scaled — e.g. Hifdh heard aloud, 100 pass 60) and be marked by a
+  **guest examiner** (`examiner` name instead of a teacher; head/class teacher enter the marks; shown on the card and PDF). Marks (`du_exam_marks`, a mark or Absent) are entered per paper by its teacher, the class
+  teacher or the head. Results per class: total, %, grade (Excellent 80+ / Very good 65+ / Good 50+ / Satisfactory to the pass mark / Needs improvement),
+  position (once every paper is marked; equal %s share), Passed or Resit (any failed — below the pass mark scaled to the
+  paper — or absent paper). Comments (`du_exam_comments`): class teacher's (class teacher or head) and head's. Teachers see
+  only their papers, plus results for the class they're class teacher of. "Publish to parents" puts the report card (marks,
+  result, comments, PDF) in the parent portal (`publishedExams()` in `server/routes/parent.js`). A child's report cards also show
+  on their Report tab in Daily records (`StudentExams`, `GET /api/exams?studentId=` — head or class teacher; both use
+  `studentExamCards()`). "Print the whole class" is one PDF for printing; parents only ever get their own child's. The PDF has no
+  signature lines and shows the head's comment only when there is one. A Darul Uloom's teachers have no Fees page (the office takes fees).
+  **A Darul Uloom's report IS its exam report card** — no monthly/termly summaries: the card adds the term's attendance
+  (from the previous exam this year, or 1 September, to the exam — `termOf()`), a behaviour rating
+  (`du_exam_comments.behavior`, Excellent/Good/Fair/Poor) and the comments; "Write it for me" (`?action=draft`, head or
+  class teacher; demo = ready-made) drafts the class teacher's comment with AI from the term's marks, attendance,
+  behaviour records, lessons covered and Qur'an notes. **One place to do it all** (the owner found two pages confusing): an
+  exam opens to Class ▾ then three numbered steps — 1 Marks (papers), 2 Reports (each child: Ready = every paper marked +
+  teacher's comment / Marks missing / Not written; tap → `CardModal`; Print the whole class), 3 Send to parents (Publish,
+  head only). A Darul Uloom has **no Reports page** (menu hidden, `/reports` → `/exams`); the child's Report tab
+  (`StudentExams`) only lists their reports to download; Settings says "Reports are made: With each exam"; the parent
+  portal's "Reports" are the exam cards; page help has `DU_HEAD` overrides. Note: Settings → Backup
+  doesn't yet include the Darul Uloom tables (course, timetable, exams) — add before launch.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students, Mon–Fri attendance, monthly fees,
-  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; logins: head, Maulana Yusuf (1st year), the Patel family.
+  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; logins: head, Maulana Yusuf (1st year), the Patel family.
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their

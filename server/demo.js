@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable'];
+  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -450,14 +450,12 @@ async function createDarulUloomDemo(ipHash) {
   const schoolDays = [1, 2, 3, 4, 5];
   const days = [];
   for (let d = startMonday; d < today; d = plus(d, 1)) if (schoolDays.includes(dow(d)) && !inAugust(d)) days.push(d);
-  // Calendar months for fees (the summer month off), and last month's reports.
+  // Calendar months for fees (the summer month off).
   const firstOf = s => `${s.slice(0, 7)}-01`;
   const nextFirst = s => { const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`; };
   const monthYear = s => { const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), st = m >= 9 ? y : y - 1; return `${String(st).slice(2)}-${String(st + 1).slice(2)}`; };
   const months = [];
   for (let mo = firstOf(startMonday); mo <= firstOf(today); mo = nextFirst(mo)) months.push(mo);
-  let reportMonth = months.length > 1 ? months[months.length - 2] : months[0];
-  if (reportMonth.slice(5, 7) === '08' && months.length > 2) reportMonth = months[months.length - 3];
 
   return transaction(async c => {
     const code = `demo-${crypto.randomBytes(5).toString('hex')}`;
@@ -633,11 +631,59 @@ async function createDarulUloomDemo(ipHash) {
     }
     await bulk(c, 'fees', ['madrasah_id', 'year', 'student_id', 'period', 'week_starting', 'amount', 'status', 'paid_date'], fees);
 
-    // Finished reports for last month.
-    const repEnd = nextFirst(reportMonth);
-    const sums = kids.filter(k => (present[k.id] || []).some(d => d >= reportMonth && d < repEnd))
-      .map(k => [mid, k.id, reportMonth.slice(0, 7), demoSummary(k, k.type, r), '', r.chance(0.6) ? 'Excellent' : 'Good']);
-    await bulk(c, 'ai_summaries', ['madrasah_id', 'student_id', 'month', 'summary', 'instructions', 'behavior'], sums);
+    // No monthly reports: a Darul Uloom's reports are its exam report cards (below).
+
+    // Exams: a monthly test two weeks ago, marked out of 50 (pass 17), with comments and published to parents;
+    // and the half-yearly exam in December, its papers ready and no marks yet.
+    const testDay = days[Math.max(0, days.length - 10)];
+    const yl = yearLabel(today);
+    const examClasses = [...yearClasses, hifdh];
+    const { rows: [test] } = await c.query(
+      `INSERT INTO du_exams (madrasah_id, name, year, held_on, out_of, pass_mark, class_ids, published) VALUES ($1, 'Monthly test', $2, $3, 50, 17, $4, true) RETURNING id`,
+      [mid, yl, testDay, examClasses.map(y => y.id)]);
+    const { rows: [half] } = await c.query(
+      `INSERT INTO du_exams (madrasah_id, name, year, held_on, out_of, pass_mark, class_ids) VALUES ($1, 'Half-yearly exam', $2, $3, 100, 35, $4) RETURNING id`,
+      [mid, yl, `20${yl.slice(0, 2)}-12-07`, examClasses.map(y => y.id)]);
+    const paperRows = [];
+    for (const y of yearClasses) {
+      subs.filter(x => x.class_id === y.id).forEach((x, i) => {
+        paperRows.push([mid, test.id, y.id, x.subject, x.kitaab, x.teacher_id, 50, i]);
+        paperRows.push([mid, half.id, y.id, x.subject, x.kitaab, x.teacher_id, 100, i]);
+      });
+    }
+    paperRows.forEach(row => row.push(null, ''));
+    // Hifdh is heard aloud by a guest examiner, with its own maximum and pass mark.
+    const GUEST = 'Qari Abdullah Mansoor';
+    paperRows.push([mid, test.id, hifdh.id, 'Hifdh', 'This month\'s juz', null, 100, 0, 60, GUEST], [mid, test.id, hifdh.id, 'Tajweed', '', teacherIds.ibrahim, 50, 1, null, ''],
+      [mid, half.id, hifdh.id, 'Hifdh', 'Juz 1–5', null, 100, 0, 60, GUEST], [mid, half.id, hifdh.id, 'Tajweed', '', teacherIds.ibrahim, 100, 1, null, '']);
+    await bulk(c, 'du_exam_papers', ['madrasah_id', 'exam_id', 'class_id', 'subject', 'kitaab', 'teacher_id', 'out_of', 'sort_order', 'pass_mark', 'examiner'], paperRows);
+    const { rows: testPapers } = await c.query('SELECT id, class_id, out_of FROM du_exam_papers WHERE exam_id = $1', [test.id]);
+    const markRows = [], commentRows = [];
+    const T_COMMENTS = [
+      'A very good test. He has worked hard and it shows — keep revising the earlier lessons.',
+      'Good progress this month. More care is needed with the grammar questions.',
+      'Excellent effort and a strong set of marks. Well done.',
+      'He understands the lessons but needs to learn the definitions by heart.',
+      'A steady result. Revising for ten minutes after each lesson will help him move up.',
+      'He found this test difficult; he should go over the resit subjects with his teacher.',
+    ];
+    const H_COMMENTS = ['Well done — keep it up.', 'A good start to the year.', 'Please make sure the resits are prepared for.', ''];
+    for (const k of kids) {
+      const cls = examClasses.find(y => y.name === k.cls);
+      const ability = 0.42 + r() * 0.52;
+      for (const p of testPapers.filter(x => x.class_id === cls.id)) {
+        if (r.chance(0.02)) { markRows.push([mid, test.id, p.id, k.id, null, true]); continue; }
+        const most = p.out_of, lift = most === 100 ? 0.12 : 0; // Hifdh marks run a little higher
+        markRows.push([mid, test.id, p.id, k.id, Math.max(0, Math.min(most, Math.round(most * (ability + lift + (r() - 0.5) * 0.24)))), false]);
+      }
+      // Most reports written; a few left for the demo's "Write it for me".
+      if (r.chance(0.8)) {
+        commentRows.push([mid, test.id, k.id, ability < 0.5 ? T_COMMENTS[5] : r.pick(T_COMMENTS.slice(0, 5)),
+          ability < 0.5 ? H_COMMENTS[2] : r.pick([H_COMMENTS[0], H_COMMENTS[1], H_COMMENTS[3]]), ability > 0.75 ? 'Excellent' : ability > 0.55 ? 'Good' : 'Fair']);
+      }
+    }
+    await bulk(c, 'du_exam_marks', ['madrasah_id', 'exam_id', 'paper_id', 'student_id', 'mark', 'absent'], markRows);
+    await bulk(c, 'du_exam_comments', ['madrasah_id', 'exam_id', 'student_id', 'teacher_comment', 'head_comment', 'behavior'], commentRows);
 
     // Logins: the head, Maulana Yusuf (1st year's class teacher), and the Patel family (two sons).
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
