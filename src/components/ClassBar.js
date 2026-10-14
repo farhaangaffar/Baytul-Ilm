@@ -3,18 +3,19 @@ import { ChevronDown, Check, X } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 
 // The class (and academic year) chooser at the top of Attendance, Fees and Daily records.
-// A few classes stay as the row of pills; with more (a Darul Uloom's seven years and a
-// Hifdh class), the row becomes two boxes — Class ▾ and Year ▾ — each opening a pop-up with
-// one line per choice, so the top of the page doesn't fill up with buttons. A Darul Uloom always
-// gets the boxes (head and teachers alike), so its pages look the same for everyone.
+// A single class (and a single year) stays as the row of pills; with 2 or more of either,
+// the row becomes two boxes — Class ▾ and Year ▾ — each opening a pop-up with one line per
+// choice, so the top of the page doesn't fill up with buttons. A Darul Uloom always gets the
+// boxes (head and teachers alike), so its pages look the same for everyone.
 //   classes: names · active / onPick · notes: { name: 'e.g. 4 / 6 present' } shown on each line
 //   years / year / onYear: optional · pills: the row's and each pill's class names when there are few
-export const MANY_CLASSES = 5;
+export const MANY_CLASSES = 5; // unrelated to this bar — Attendance's own "today" chip row
 
 export default function ClassBar({ classes, active, onPick, notes = {}, years, year, onYear, pills = ['pill-tabs', 'pill-tab'] }) {
   const [open, setOpen] = useState(''); // '' | 'class' | 'year'
   const { isDarulUloom } = useAuth();
-  if (classes.length <= MANY_CLASSES && !isDarulUloom) {
+  const dropdown = isDarulUloom || classes.length > 1 || (years && years.length > 1);
+  if (!dropdown) {
     return (
       <div className={pills[0]}>
         {classes.map(c => (
