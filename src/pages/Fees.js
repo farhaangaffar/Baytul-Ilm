@@ -396,8 +396,6 @@ function WeeklyFees() {
 
   return (
     <Layout title="Fees" subtitle={`${activeClass} · ${year}`}>
-      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear} />
-
       {/* This month only, for this class (the year's totals are on Stats). */}
       <div style={{fontSize:11.5,fontWeight:600,color:'var(--text-muted)',margin:'0 0 8px',textTransform:'uppercase',letterSpacing:'.03em'}}>{activeClass} · this month — {referenceMonthLabel}</div>
       <div className="stat-grid-v2" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
@@ -406,6 +404,8 @@ function WeeklyFees() {
         <div className="stat-card-v2"><div className="n">{classMonthFees.filter(f=>f.status!=='Paid').length}</div><div className="l">Unpaid weeks</div></div>
         <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
       </div>
+
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear} />
 
       <div className="flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
         <div className="text-muted text-sm">
