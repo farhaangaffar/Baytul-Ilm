@@ -284,9 +284,10 @@ tbody tr:hover td { background: #f9fafb; }
 .week-pill .dot { width: 9px; height: 9px; border-radius: 50%; }
 .week-pill.is-current { box-shadow: 0 0 0 2px var(--blue); }
 .week-pill.paid .dot { background: var(--green); }
-/* Like Attendance's buttons: paid is a lit green light; owed is the light off (grey). Not due yet is an empty
-   ring, and a week with no fee added has no light at all. */
-.week-pill.unpaid .dot { background: #d1d5db; }
+/* Paid is green, owed is red — same as every other paid/owed signal in the app
+   (FeeRows, Dashboard, Students). Not due yet is an empty ring, and a week with no
+   fee added has no light at all. */
+.week-pill.unpaid .dot { background: var(--red); }
 .week-pill.not-added .dot { background: transparent; }
 .week-pill.not-added { opacity: 0.6; }
 .week-pill.not-due .dot { background: #fff; box-shadow: inset 0 0 0 2px #d1d5db; }
