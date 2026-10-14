@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { useNavigate } from 'react-router-dom';
-import { getStudents, getClassNames, getAttendance, getFees, currentSchoolYear, getAiSummariesForMonth, getAiSummaries, getTerms } from '../lib/store';
+import { getStudents, getClassNames, getAttendance, getFees, currentSchoolYear, getAcademicYears, academicYearStartISO, getAiSummariesForMonth, getAiSummaries, getTerms } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { shortPeriodLabel } from '../components/HistoryBoxes';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
-import { FileText, Download, X } from 'lucide-react';
+import { FileText, Download, X, ChevronDown, Check } from 'lucide-react';
+
+function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 // Box styles shared with Daily records' history boxes: plain grey, dark when chosen,
 // light green when done.
@@ -33,6 +35,9 @@ export default function Reports() {
   // older saved report) can belong to a different year than the current one.
   const yearData = useRef({});
   const [currentYear, setCurrentYear] = useState('');
+  const [academicYears, setAcademicYears] = useState([]);
+  const [browseYear, setBrowseYear] = useState('');
+  const [yearPickerOpen, setYearPickerOpen] = useState(false);
   const [terms, setTerms] = useState([]);
   const [period, setPeriod] = useState(null); // the month or term reports are being made for now
   const [currentSummaries, setCurrentSummaries] = useState({}); // studentId -> {summary, behavior} for this month, used for bulk download + "Add new report"
@@ -54,11 +59,11 @@ export default function Reports() {
       const y = await currentSchoolYear();
       const termsData = reportPeriodSetting() === 'termly' ? await getTerms() : [];
       const p = currentReportPeriod(termsData);
-      const [studentsData, classNamesData, attendanceData, feesData, savedSummaries] = await Promise.all([
-        getStudents(), getClassNames(), getAttendance(y), getFees(y), p ? getAiSummariesForMonth(p.key).catch(()=>[]) : Promise.resolve([]),
+      const [studentsData, classNamesData, attendanceData, feesData, savedSummaries, yearsData] = await Promise.all([
+        getStudents(), getClassNames(), getAttendance(y), getFees(y), p ? getAiSummariesForMonth(p.key).catch(()=>[]) : Promise.resolve([]), getAcademicYears(),
       ]);
       yearData.current = { [y]: { attendance: attendanceData, fees: feesData } };
-      setCurrentYear(y); setTerms(termsData); setPeriod(p);
+      setCurrentYear(y); setBrowseYear(y); setAcademicYears(yearsData); setTerms(termsData); setPeriod(p);
       setStudents(studentsData); setClassNames(classNamesData);
       // The class last opened on this device, or the only class there is.
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData.length === 1 ? classNamesData[0] : ''));
@@ -116,6 +121,25 @@ export default function Reports() {
   function pickClass(c) {
     setActiveClass(c);
     try { localStorage.setItem('reports_class', c); } catch { /* fine */ }
+  }
+
+  // Switch which academic year's "ready" grid is shown — the current year's period as
+  // of today, or a past year's first period (its own History still reaches every year).
+  // Attendance/fees for that year are only fetched lazily, when a report is generated.
+  async function switchYear(y) {
+    setYearPickerOpen(false);
+    setBrowseYear(y);
+    const referenceDate = y === currentYear ? isoToday() : academicYearStartISO(y);
+    const p = currentReportPeriod(terms, referenceDate);
+    setPeriod(p);
+    try {
+      const savedSummaries = p ? await getAiSummariesForMonth(p.key).catch(() => []) : [];
+      const map = {};
+      savedSummaries.forEach(s => { map[s.studentId] = { summary: s.summary, behavior: s.behavior }; });
+      setCurrentSummaries(map);
+    } catch (err) {
+      showToast(err.message || 'Could not load that year');
+    }
   }
 
   // A child's report history, in a pop-up (the phone's back button closes it).
@@ -186,10 +210,24 @@ export default function Reports() {
   return (
     <Layout title="Reports" subtitle={period ? `${period.label} reports` : 'PDF progress reports'}>
       {/* Classes as boxes (any number fit) — each shows how many of this month's or
-          term's reports are written. Tap one for its children. */}
+          term's reports are written. Tap one for its children. A Year box appears once
+          there's more than one academic year, to browse an earlier year's ready counts. */}
       <div className="card mb-4">
-        <div className="card-title" style={{ marginBottom: 2 }}>Classes</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>{period ? `Reports ready for ${period.label}` : 'Add your term dates in Settings → Terms first.'}</div>
+        <div className="flex justify-between items-start" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 2 }}>Classes</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>
+              {period ? `Reports ready for ${period.label}` : 'Add your term dates in Settings → Terms first.'}
+              {browseYear !== currentYear && ` — browsing ${browseYear}`}
+            </div>
+          </div>
+          {academicYears.length > 1 && (
+            <button type="button" className="class-bar-box" style={{ maxWidth: 150 }} onClick={() => setYearPickerOpen(true)}>
+              <span className="class-bar-label">Year</span>
+              <span className="class-bar-value">{browseYear}<ChevronDown size={15} /></span>
+            </button>
+          )}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 6 }}>
           {classNames.map(c => {
             const kids = current.filter(s => s.class === c);
@@ -308,6 +346,24 @@ export default function Reports() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {yearPickerOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setYearPickerOpen(false)}>
+          <div className="modal" style={{ maxWidth: 360 }}>
+            <div className="modal-header">
+              <div className="modal-title">Choose a year</div>
+              <button className="btn btn-icon" onClick={() => setYearPickerOpen(false)}><X size={16} /></button>
+            </div>
+            <div className="modal-body" style={{ display: 'grid', gap: 6 }}>
+              {academicYears.map(y => (
+                <button key={y} type="button" className={`line-row ${y === browseYear ? 'on' : ''}`} onClick={() => switchYear(y)}>
+                  <span className="line-row-name">{y}</span>
+                  {y === browseYear && <Check size={15} />}
+                </button>
+              ))}
             </div>
           </div>
         </div>
