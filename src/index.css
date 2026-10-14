@@ -752,9 +752,9 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .tt-week-name { display: block; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tt-week-time { display: block; font-weight: 500; font-variant-numeric: tabular-nums; }
 .tt-week td { background: #fafbfc; border: 1px dashed #dfe3e8; border-radius: 8px; padding: 6px; font-size: 11.5px; line-height: 1.3; text-align: center; vertical-align: middle; height: 44px; overflow: hidden; }
-.tt-week td.on { background: var(--surface); border: 1px solid #dfe3e8; border-top: 3px solid var(--teal); }
+.tt-week td.on { border: none; font-size: 12px; }
 .tt-week td b, .tt-week td span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tt-week td span { color: var(--text-muted); }
+.tt-week td span { opacity: 0.8; font-size: 11px; }
 .tt-week td.off { background: transparent; border: none; }
 .tt-week tr.break td.off { background: #f3f4f6; border-radius: 6px; }
 @media (max-width: 640px) {
@@ -815,3 +815,26 @@ button.tt-line:hover { border-color: var(--teal-mid); }
 .settings-fixed { padding: 10px 14px; border-radius: var(--r-md); background: #f3f4f6; font-size: 13px; font-weight: 600; color: var(--ink); }
 .exam-step-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 2px; }
 .exam-step { width: 22px; height: 22px; border-radius: 50%; background: var(--teal-light); color: var(--teal-dark); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* Timetable day (Timetable.js dayLines): a roomy line per lesson in its subject's colour; breaks are a thin divider. */
+.tt-lesson { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 12px 14px; border-radius: 14px; border: 1px solid transparent; font-family: var(--font); text-align: left; min-width: 0; }
+button.tt-lesson { cursor: pointer; }
+button.tt-lesson:hover { filter: brightness(0.97); }
+.tt-lesson.free { background: #fff; border: 1px dashed #dfe3e8; color: var(--text-soft); min-height: 48px; }
+.tt-lesson.now { border: 2px solid var(--teal); box-shadow: 0 2px 10px rgba(47, 128, 237, 0.15); }
+.tt-lesson-time { width: 42px; flex-shrink: 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tt-lesson-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tt-lesson-subject { font-size: 15.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-lesson.free .tt-lesson-subject { font-size: 14px; font-weight: 600; }
+.tt-lesson-book { font-size: 12.5px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-now { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--teal); color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 2px; }
+.tt-done { flex-shrink: 0; color: var(--green-text); }
+.tt-lesson .tt-record { background: rgba(255, 255, 255, 0.75); }
+.tt-break { display: flex; align-items: center; gap: 10px; padding: 2px 4px; font-size: 12px; color: var(--text-muted); }
+.tt-break::before, .tt-break::after { content: ''; flex: 1; height: 1px; background: #dfe3e8; }
+.tt-lines { gap: 8px; }
+.tt-week-subjects { white-space: normal !important; line-height: 1.45; }
+.tt-view { display: grid; gap: 8px; }
+.tt-view-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; background: #f6f7f9; font-size: 13.5px; }
+.tt-view-row span { color: var(--text-muted); }
+.tt-view-row b { text-align: right; font-weight: 600; }

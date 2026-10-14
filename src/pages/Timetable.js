@@ -18,6 +18,10 @@ const iso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '
 const TODAY = iso(new Date());
 const dateOf = d => { const t = new Date(); t.setDate(t.getDate() - ((t.getDay() + 6) % 7) + ((d + 6) % 7)); return iso(t); };
 const QURAN_SUBJECT = /^(hifdh|hifz|hifzh|naazhirah|nazira|nazirah|nazarah|qaa'?idah|qaida|qaidah)\b/i;
+// Each subject has its own soft colour (in name order; after eight they repeat).
+const COLOURS = [['#e3eefc', '#174a8f'], ['#efe7fb', '#5b2d9c'], ['#e5f4e0', '#2e6b1f'], ['#fdecdc', '#8a4512'],
+  ['#dff3f1', '#1d6660'], ['#fbe4ee', '#8c2350'], ['#fdf5d7', '#7a5a00'], ['#e8ebf0', '#3d4654']];
+const nowHM = () => { const t = new Date(); return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`; };
 const runsOn = (p, d) => !p.days.length || p.days.includes(d);
 const sameLesson = (a, b) => a && b && a.subject === b.subject && a.kitaab === b.kitaab && (a.teacherId || '') === (b.teacherId || '');
 // "Every day", or the days in Monday-first order with runs joined: "Mon–Thu", "Mon, Wed, Fri".
@@ -102,14 +106,24 @@ export default function Timetable() {
   const open = (p, d, found) => {
     if (p.isBreak) return;
     // Teachers tap a lesson that's happened (today or earlier this week) to fill in what it covered.
+    // Everyone else taps a lesson to see its book, teacher and room — and record it from there.
     if (!isOwner) {
-      if (found.length && dateOf(d) <= TODAY && (mayRecord(found[0]) || mayCover(found[0]))) record(found, d, !mayRecord(found[0]));
+      if (found.length) setModal({ kind: 'view', period: p, day: d, found });
       return;
     }
     const l = found[0];
     setModal({ kind: 'lesson', period: p, day: d, classId: l ? l.classId : view.kind === 'class' ? view.id : '', lesson: l || null,
       teacherId: l ? l.teacherId : view.kind === 'teacher' ? view.id : '' });
   };
+  // Colours are shared out among the subjects of the class or teacher being viewed, so each one differs.
+  const subjectNames = [...new Set(lessons.filter(l => view && (view.kind === 'class' ? l.classId === view.id : l.teacherId === view.id))
+    .map(l => l.subject))].sort((a, b) => a.localeCompare(b));
+  const colour = subject => {
+    const [bg, fg] = COLOURS[Math.max(0, subjectNames.indexOf(subject)) % COLOURS.length];
+    return { background: bg, color: fg };
+  };
+  // A lesson can be recorded once it has started: earlier this week, or today from its start time.
+  const started = (p, d) => dateOf(d) < TODAY || (dateOf(d) === TODAY && p.starts <= nowHM());
   const lessonText = found => {
     if (!found.length) return null;
     const l = found[0];
@@ -124,6 +138,10 @@ export default function Timetable() {
     const ps = periods.filter(p => runsOn(p, d));
     const taught = ps.filter(p => slot(p, d).length).length;
     return ps.length ? `${hm(ps[0].starts)}–${hm(ps[ps.length - 1].ends)} · ${taught} ${taught === 1 ? 'lesson' : 'lessons'}` : 'No periods on this day';
+  };
+  const daySubjects = d => {
+    const subs = periods.filter(p => runsOn(p, d) && !p.isBreak).map(p => slot(p, d)[0]?.subject).filter(Boolean);
+    return subs.length ? [...new Set(subs)].join(' · ') : 'No lessons';
   };
   const dayCard = d => (
     <div className="card" key={d}>
@@ -145,7 +163,7 @@ export default function Timetable() {
               <button type="button" className={`line-row tt-week-day ${on ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => setOpenDay(on ? null : d)}>
                 <span className="tt-week-day-name">{DAY3[d]}<small>{niceDate(dateOf(d)).replace(/^\S+ /, '')}</small></span>
                 <span className="line-row-name">{dateOf(d) === TODAY ? 'Today' : DAY[d]}</span>
-                <span className="line-row-sub">{daySummary(d)}</span>
+                <span className="line-row-sub tt-week-subjects">{daySubjects(d)}</span>
                 {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
               {on && <div className="tt-week-open">{dayLines(d)}</div>}
@@ -155,41 +173,46 @@ export default function Timetable() {
       </div>
     </div>
   );
+  // A day: a calm line per lesson — time, subject in its colour, the book small underneath. The
+  // teacher and room are one tap away. Today's lesson that's on right now is marked Now.
   const dayLines = d => {
     const ps = periods.filter(p => runsOn(p, d));
+    const now = dateOf(d) === TODAY ? nowHM() : null;
     return (
         <div className="tt-lines">
           {ps.map(p => {
-            if (p.isBreak) {
-              return (
-                <div key={p.id} className="tt-line break">
-                  <span className="tt-time">{hm(p.starts)}<br />{hm(p.ends)}</span>
-                  <span className="tt-body"><span className="tt-main">{p.name}</span></span>
+            if (p.isBreak) return <div key={p.id} className="tt-break"><span>{p.name} · {hm(p.starts)}</span></div>;
+            const found = slot(p, d);
+            const t = lessonText(found);
+            const isNow = now && p.starts <= now && now < p.ends;
+            if (!t) {
+              return isOwner ? (
+                <button key={p.id} type="button" className="tt-lesson free" onClick={() => open(p, d, found)}>
+                  <span className="tt-lesson-time">{hm(p.starts)}</span>
+                  <span className="tt-lesson-body"><span className="tt-lesson-subject">Free</span><span className="tt-lesson-book">Tap to add a lesson</span></span>
+                  <Plus size={15} className="tt-plus" />
+                </button>
+              ) : (
+                <div key={p.id} className="tt-lesson free">
+                  <span className="tt-lesson-time">{hm(p.starts)}</span>
+                  <span className="tt-lesson-body"><span className="tt-lesson-subject">Free</span></span>
                 </div>
               );
             }
-            const found = slot(p, d);
-            const t = lessonText(found);
-            const happened = t && dateOf(d) <= TODAY;
+            const happened = started(p, d);
             const log = happened ? logOf(found[0], dateOf(d)) : null;
             const canRecord = happened && mayRecord(found[0]);
-            const Row = isOwner || canRecord || (happened && mayCover(found[0])) ? 'button' : 'div';
+            const under = view.kind === 'teacher' ? [t.who, t.book !== t.main ? t.book : ''] : [t.book !== t.main ? t.book : ''];
             return (
-              <Row key={p.id} type={Row === 'button' ? 'button' : undefined} className={`tt-line ${t ? 'on' : 'free'}`} onClick={() => open(p, d, found)}>
-                <span className="tt-time">{hm(p.starts)}<br />{hm(p.ends)}</span>
-                <span className="tt-body">
-                  {t ? <>
-                    <span className="tt-main">{t.main}{t.book && t.book !== t.main ? <span className="tt-book"> · {t.book}</span> : null}</span>
-                    <span className="tt-sub">{[t.who || (view.kind === 'class' ? 'No teacher yet' : ''), t.room].filter(Boolean).join(' · ')}{found.length > 1 ? ' · shared' : ''}</span>
-                    {log && <span className="tt-covered"><CheckCircle2 size={12} /> {log.covered}</span>}
-                  </> : <>
-                    <span className="tt-main tt-free">{isOwner ? 'Free — tap to add a lesson' : 'Free'}</span>
-                    <span className="tt-sub">{p.name}</span>
-                  </>}
+              <button key={p.id} type="button" className={`tt-lesson ${isNow ? 'now' : ''}`} style={colour(t.main)} onClick={() => open(p, d, found)}>
+                <span className="tt-lesson-time">{hm(p.starts)}</span>
+                <span className="tt-lesson-body">
+                  <span className="tt-lesson-subject">{t.main}{isNow && <span className="tt-now">Now</span>}</span>
+                  {under.some(Boolean) && <span className="tt-lesson-book">{under.filter(Boolean).join(' · ')}</span>}
                 </span>
-                {isOwner && !t && <Plus size={15} className="tt-plus" />}
-                {canRecord && !log && !isOwner && <span className="tt-record"><PenLine size={13} /> Record</span>}
-              </Row>
+                {log ? <CheckCircle2 size={17} className="tt-done" />
+                  : canRecord && !isOwner ? <span className="tt-record"><PenLine size={13} /> Record</span> : null}
+              </button>
             );
           })}
           {!ps.length && <div className="card-sub">Nothing on {DAY[d]}.</div>}
@@ -201,7 +224,7 @@ export default function Timetable() {
   const weekCard = () => (
     <div className="card">
       <div className="card-title" style={{ marginBottom: 2 }}>{viewName} — the whole week</div>
-      <div className="card-sub" style={{ marginBottom: 12 }}>{isOwner ? 'Tap any lesson to change it' : 'Every period, every day'}</div>
+      <div className="card-sub" style={{ marginBottom: 12 }}>{isOwner ? 'Tap any lesson to change it' : 'Tap a lesson for its book, teacher and room'}</div>
       <div className="tt-week-wrap">
         <table className="tt-week">
           <thead><tr><th />{days.map(d => <th key={d}>{DAY3[d]}</th>)}</tr></thead>
@@ -215,8 +238,8 @@ export default function Timetable() {
                   const found = slot(p, d);
                   const t = lessonText(found);
                   return (
-                    <td key={d} className={t ? 'on' : ''} onClick={() => open(p, d, found)} style={{ cursor: isOwner ? 'pointer' : 'default' }}>
-                      {t ? <><b>{t.main}</b><span>{t.who}</span></> : <span className="tt-free">{isOwner ? '+' : ''}</span>}
+                    <td key={d} className={t ? 'on' : ''} onClick={() => open(p, d, found)} style={{ cursor: isOwner || t ? 'pointer' : 'default', ...(t ? colour(t.main) : {}) }}>
+                      {t ? <><b>{t.main}</b>{view.kind === 'teacher' && <span>{t.who}</span>}</> : <span className="tt-free">{isOwner ? '+' : ''}</span>}
                     </td>
                   );
                 })}
@@ -327,6 +350,15 @@ export default function Timetable() {
           onRecord={() => record(sharedWith(modal.lesson), modal.day)}
           onClose={() => setModal(null)} onSaved={after} />
       )}
+      {modal?.kind === 'view' && (() => {
+        const l = modal.found[0];
+        const happened = started(modal.period, modal.day);
+        return (
+          <ViewModal {...modal} className={className} teacherName={teacherName} log={happened ? logOf(l, dateOf(modal.day)) : null}
+            canRecord={happened && mayRecord(l)} canCover={happened && mayCover(l)}
+            onRecord={cover => record(modal.found, modal.day, cover)} onClose={() => setModal(null)} />
+        );
+      })()}
       {modal?.kind === 'log' && (
         <LogModal {...modal} className={className} onClose={() => setModal(null)} onSaved={after} />
       )}
@@ -354,6 +386,31 @@ function ModalShell({ title, onClose, children, footer, width = 460 }) {
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>
+  );
+}
+
+// A lesson's details for teachers: time, book, teacher, room — and Record (or Record as cover).
+function ViewModal({ period, day, found, log, canRecord, canCover, className, teacherName, onRecord, onClose }) {
+  const l = found[0];
+  const rows = [
+    ['When', `${DAY[day]} · ${hm(period.starts)}–${hm(period.ends)}`],
+    ['Book', l.kitaab && l.kitaab !== l.subject ? l.kitaab : ''],
+    [found.length > 1 ? 'Classes' : 'Class', found.map(x => className(x.classId)).join(' & ')],
+    ['Teacher', teacherName(l.teacherId) || 'Not chosen yet'],
+    ['Room', l.room],
+  ].filter(r => r[1]);
+  return (
+    <ModalShell title={l.subject} onClose={onClose} width={420}>
+      <div className="tt-view">
+        {rows.map(([k, v]) => <div key={k} className="tt-view-row"><span>{k}</span><b>{v}</b></div>)}
+      </div>
+      {log && <div className="tt-note blue" style={{ marginTop: 14 }}>Covered: {log.covered}</div>}
+      {(canRecord || canCover) && (
+        <button type="button" className="btn btn-teal" style={{ width: '100%', marginTop: 14, justifyContent: 'center' }} onClick={() => onRecord(!canRecord)}>
+          <PenLine size={14} /> {log ? 'Change what was covered' : canRecord ? 'Record what was covered' : 'Record as cover'}
+        </button>
+      )}
+    </ModalShell>
   );
 }
 
