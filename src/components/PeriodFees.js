@@ -250,8 +250,6 @@ export default function PeriodFees({ frequency }) {
   return (
     <Layout title="Fees" subtitle={`${activeClass} · ${year} · charged ${freq.adjective.toLowerCase()}`}>
       {childPage || <>
-      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear} />
-
       {noTerms ? (
         <div className="card" style={{ textAlign: 'center', padding: 32 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No terms set for {year} yet</div>
@@ -271,7 +269,13 @@ export default function PeriodFees({ frequency }) {
             <div className="stat-card-v2"><div className="n">{current ? classFees.filter(f => f.status !== 'Paid' && f.weekStarting >= current.start && f.weekStarting < current.endExclusive).length : 0}</div><div className="l">Unpaid fees</div></div>
             <div className="stat-card-v2"><div className="n">{classStudents.length}</div><div className="l">Active children</div></div>
           </div>
+        </>
+      )}
 
+      <ClassBar classes={classNames} active={activeClass} onPick={setActiveClass} years={years} year={year} onYear={switchYear} />
+
+      {!noTerms && (
+        <>
           <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
             <div className="text-muted text-sm">Tap a {unit} to mark it paid · tap a student for their full year</div>
             {/* Fees added automatically: Settings → Fee months / Terms choose the periods; one child's is added from their grey box. */}

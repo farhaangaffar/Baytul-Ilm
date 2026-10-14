@@ -38,8 +38,9 @@ codebase (one codebase, not a fork).
 - **The owner's design style:** cards, with **single full-width lines** inside them to tap (`.line-row` —
   the Course page, the class chooser) that open their details underneath, small grey boxes for figures and
   quick choices (`BoxRow`, `.box-row-3`), and pop-ups for editing. Selected = light blue (`.line-row.on`,
-  `--teal-light`), never the dark ink fill. Keep the top of a page uncluttered: with more than 5 classes (and always in a Darul Uloom, head and
-  teachers alike) the class/year pills become `ClassBar`'s Class ▾ / Year ▾ boxes. Rows must keep one shape
+  `--teal-light`), never the dark ink fill. Keep the top of a page uncluttered: with 2 or more classes or
+  academic years (and always in a Darul Uloom, head and teachers alike) the class/year pills become
+  `ClassBar`'s Class ▾ / Year ▾ boxes. Rows must keep one shape
   whatever their content (e.g. Students' class rows: on phones, name then three equal boxes). Avoid squashed columns and walls of buttons.
 
 ## Project conventions
@@ -325,8 +326,9 @@ codebase (one codebase, not a fork).
   summaries) — each one centred column (`.student-page`), last tab remembered per device.
   Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).
   The owner disliked squashed side-by-side cards: give things room rather than more columns.
-- Reports page: class boxes ("8 of 12 ready" for the current month/term — any number of
-  classes) → one card per child with boxes Ready/Not written · PDF · History; "Not written"
+- Reports page: `ClassBar` (same chooser as Attendance/Fees/Daily records, with the "N of M
+  ready" count per class in its pop-up, and a Year box once there's more than one academic
+  year) → one card per child with boxes Ready/Not written · PDF · History; "Not written"
   opens that child's Report tab (`/records?student=<id>`); history and the PDF preview are
   in a pop-up (year boxes → month/term boxes → preview).
 - History anywhere (Records, Previous summaries, a left child's Previous reports) uses
