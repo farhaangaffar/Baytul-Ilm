@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   date        DATE NOT NULL,
   status      TEXT NOT NULL CHECK (status IN ('P','L','A')),
   late_time   TEXT,  -- 'HH:MM' a student was marked Late, stamped on the day
+  marked_by   TEXT,  -- who took it (a teacher's name, or 'Head')
   UNIQUE (year, student_id, date)
 );
 CREATE INDEX IF NOT EXISTS idx_attendance_year_date ON attendance (year, date);
@@ -188,6 +189,7 @@ CREATE TABLE IF NOT EXISTS daily_records (
   comment     TEXT NOT NULL DEFAULT '',
   positive    TEXT NOT NULL DEFAULT '',
   negative    TEXT NOT NULL DEFAULT '',
+  updated_by  TEXT,  -- who last wrote it (a teacher's name, or 'Head')
   UNIQUE (student_id, date)
 );
 CREATE INDEX IF NOT EXISTS idx_daily_records_madrasah ON daily_records (madrasah_id);

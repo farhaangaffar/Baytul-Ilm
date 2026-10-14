@@ -134,6 +134,13 @@ codebase (one codebase, not a fork).
   today's (or this week's past) lessons → "What did the class cover?" (e.g. Pages 34–36) + notes for the head; it
   shows last time's. The lesson's own teacher has a Record button; the head and the class's login can record too; any other teacher can, as **cover** (tapping someone else's lesson opens it with a "Covering for …" note) — the record keeps who wrote it, and the book's history shows "Recorded by … (cover)" (`mayLog`). Not for Hifdh / Naazhirah / Qaa'idah (a Qur'an class, or that subject — `QURAN_SUBJECT`): those are recorded child by child in Daily records.
   The Aalim course page shows each book's latest ("Last: …") and its history in the book's pop-up.
+  **Aalim years have no one class teacher:** a teacher also gets Attendance and Daily records' Behaviour for every
+  Aalim year they teach (a `du_lessons` or `du_subjects` row of theirs — `teachingClassNames()` in `server/auth.js`,
+  asked for with `accessScope(req, { teaching: true })` by attendance, daily-records, absences, and the students/classes
+  lists). Qur'an, fees, reports and exams stay with the class's own teacher; Hifdh and other classes are unchanged.
+  Who did it is kept: `attendance.marked_by` ("Today's register taken by …", and on a child's day line, DU only) and
+  `daily_records.updated_by` ("Last written by …"), via `whoName()`. An Aalim year's class teacher is shown as its
+  **Report writer** on the Aalim course page (blank = the head).
   Typed fields with suggestions use `PickField` (a plain box + small grey suggestion boxes) — never `<datalist>`.
   **Exams & reports** (`/exams`, menu "Exams & reports", head + teachers; `src/pages/Exams.js`, `server/routes/exams.js`, results
   worked out in `server/examResults.js`, PDF `src/lib/reportCardPdf.js`; 403 for a maktab): the head adds an exam (`du_exams`:

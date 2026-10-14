@@ -149,9 +149,22 @@ const DU_HEAD = {
   ] },
 };
 
+// A Darul Uloom teacher: attendance and behaviour for every Aalim year they teach.
+const DU_TEACHER = {
+  '/attendance': { title: 'Attendance', steps: [
+    'Tap Class at the top and pick the year you\'re with — every Aalim year you teach is there.',
+    'Tap P, L or A for each student. It\'s saved under your name ("Today\'s register taken by …").',
+    'Tap a student to see or change any day this month.',
+  ] },
+  '/records': { title: 'Daily records', steps: [
+    'Pick the year, then tap a student.',
+    'Behaviour: write a comment, positives and concerns for the day. Another teacher may have written today already — add to it rather than replace it.',
+  ] },
+};
+
 // → { title, steps: [...] } for this page and person, or null.
 export function pageHelp(pathname, role, darulUloom = false) {
-  const h = role === 'parent' ? PARENT : ((darulUloom && role === 'owner' && DU_HEAD[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
+  const h = role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };
 }

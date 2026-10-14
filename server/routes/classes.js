@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { requireAuth, isOwner, teacherClassNames } = require('../auth');
+const { requireAuth, isOwner, teacherClassNames, teachingClassNames } = require('../auth');
 
 // quran_type: what the class studies — 'hifz' | 'nazira' | 'qaida', 'mixed' (each
 // student's level is set individually), or null for none. It decides the Qur'an
@@ -31,7 +31,7 @@ module.exports = requireAuth(async (req, res) => {
   // Teachers (and class logins) only see their own classes, and can't change any.
   if (!isOwner(req)) {
     if (id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
-    const names = await teacherClassNames(req.user);
+    const names = [...await teacherClassNames(req.user), ...await teachingClassNames(req.user)]; // + a Darul Uloom teacher's Aalim years
     const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY course_order NULLS LAST, name`, [mid, names]);
     res.status(200).json(rows);
     return;

@@ -332,11 +332,12 @@ function YearModal({ initial, place, count, teachers, others = [], students, sub
           </select>
         </div>
         <div className="form-group">
-          <label>Class teacher</label>
+          <label>Report writer</label>
           <select value={f.teacherId} onChange={e => set('teacherId', e.target.value)}>
-            <option value="">— Not chosen yet —</option>
+            <option value="">The head</option>
             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
+          <div className="card-sub" style={{ marginTop: 6 }}>Writes this year's report comments. Every teacher of the year takes its attendance and behaviour.</div>
         </div>
       </div>
       {!isNew && (

@@ -1,20 +1,29 @@
 const { query } = require('../db');
-const { requireAuth, accessScope } = require('../auth');
+const { requireAuth, accessScope, whoName } = require('../auth');
+
+// updated_by: who last wrote the day's record (in a Darul Uloom several teachers may add to it).
+let ready = false;
+async function ensureColumns() {
+  if (ready) return;
+  await query('ALTER TABLE daily_records ADD COLUMN IF NOT EXISTS updated_by TEXT');
+  ready = true;
+}
 
 // Limited to the signed-in person's madrasah; teachers only reach their own classes'
-// current students (see accessScope).
+// current students — in a Darul Uloom, also the Aalim years they teach (see accessScope).
 module.exports = requireAuth(async (req, res) => {
+  await ensureColumns();
   const mid = req.user.madrasahId;
-  const scope = await accessScope(req);
+  const scope = await accessScope(req, { teaching: true });
   const outOfScope = sid => !scope.studentIds.has(sid);
 
   if (req.method === 'GET') {
     const { studentId } = req.query;
     if (studentId) {
       if (outOfScope(studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
-      const { rows } = await query('SELECT date, comment, positive, negative FROM daily_records WHERE student_id = $1 AND madrasah_id = $2', [studentId, mid]);
+      const { rows } = await query('SELECT date, comment, positive, negative, updated_by FROM daily_records WHERE student_id = $1 AND madrasah_id = $2', [studentId, mid]);
       const out = {};
-      rows.forEach(r => { out[r.date] = { comment: r.comment, positive: r.positive, negative: r.negative }; });
+      rows.forEach(r => { out[r.date] = { comment: r.comment, positive: r.positive, negative: r.negative, by: r.updated_by || '' }; });
       res.status(200).json(out);
       return;
     }
@@ -36,13 +45,14 @@ module.exports = requireAuth(async (req, res) => {
     // Fields omitted from the body come through as null here, so a fresh INSERT falls back
     // to '' (satisfying the NOT NULL columns) while an UPDATE preserves the existing value.
     await query(
-      `INSERT INTO daily_records (madrasah_id, student_id, date, comment, positive, negative)
-       VALUES ($6, $1, $2, COALESCE($3,''), COALESCE($4,''), COALESCE($5,''))
+      `INSERT INTO daily_records (madrasah_id, student_id, date, comment, positive, negative, updated_by)
+       VALUES ($6, $1, $2, COALESCE($3,''), COALESCE($4,''), COALESCE($5,''), $7)
        ON CONFLICT (student_id, date) DO UPDATE SET
          comment = COALESCE($3, daily_records.comment),
          positive = COALESCE($4, daily_records.positive),
-         negative = COALESCE($5, daily_records.negative)`,
-      [studentId, date, comment ?? null, positive ?? null, negative ?? null, mid]
+         negative = COALESCE($5, daily_records.negative),
+         updated_by = $7`,
+      [studentId, date, comment ?? null, positive ?? null, negative ?? null, mid, await whoName(req.user)]
     );
     res.status(200).json({ ok: true });
     return;
