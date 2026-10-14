@@ -386,6 +386,8 @@ CREATE TABLE IF NOT EXISTS du_exam_papers (
   kitaab      TEXT NOT NULL DEFAULT '',
   teacher_id  TEXT,                          -- who enters its marks
   out_of      INTEGER NOT NULL,
+  pass_mark   NUMERIC,                       -- its own pass mark; NULL = the exam's, scaled
+  examiner    TEXT NOT NULL DEFAULT '',      -- a guest examiner's name (then no teacher)
   sort_order  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_du_exam_papers ON du_exam_papers (madrasah_id, exam_id);

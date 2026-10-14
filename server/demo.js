@@ -643,7 +643,7 @@ async function createDarulUloomDemo(ipHash) {
       [mid, yl, testDay, examClasses.map(y => y.id)]);
     const { rows: [half] } = await c.query(
       `INSERT INTO du_exams (madrasah_id, name, year, held_on, out_of, pass_mark, class_ids) VALUES ($1, 'Half-yearly exam', $2, $3, 100, 35, $4) RETURNING id`,
-      [mid, yl, `20${yl.slice(0, 2)}-12-07`, yearClasses.map(y => y.id)]);
+      [mid, yl, `20${yl.slice(0, 2)}-12-07`, examClasses.map(y => y.id)]);
     const paperRows = [];
     for (const y of yearClasses) {
       subs.filter(x => x.class_id === y.id).forEach((x, i) => {
@@ -651,9 +651,13 @@ async function createDarulUloomDemo(ipHash) {
         paperRows.push([mid, half.id, y.id, x.subject, x.kitaab, x.teacher_id, 100, i]);
       });
     }
-    paperRows.push([mid, test.id, hifdh.id, 'Hifdh', 'This month\'s juz', teacherIds.ibrahim, 50, 0], [mid, test.id, hifdh.id, 'Tajweed', '', teacherIds.ibrahim, 50, 1]);
-    await bulk(c, 'du_exam_papers', ['madrasah_id', 'exam_id', 'class_id', 'subject', 'kitaab', 'teacher_id', 'out_of', 'sort_order'], paperRows);
-    const { rows: testPapers } = await c.query('SELECT id, class_id FROM du_exam_papers WHERE exam_id = $1', [test.id]);
+    paperRows.forEach(row => row.push(null, ''));
+    // Hifdh is heard aloud by a guest examiner, with its own maximum and pass mark.
+    const GUEST = 'Qari Abdullah Mansoor';
+    paperRows.push([mid, test.id, hifdh.id, 'Hifdh', 'This month\'s juz', null, 100, 0, 60, GUEST], [mid, test.id, hifdh.id, 'Tajweed', '', teacherIds.ibrahim, 50, 1, null, ''],
+      [mid, half.id, hifdh.id, 'Hifdh', 'Juz 1–5', null, 100, 0, 60, GUEST], [mid, half.id, hifdh.id, 'Tajweed', '', teacherIds.ibrahim, 100, 1, null, '']);
+    await bulk(c, 'du_exam_papers', ['madrasah_id', 'exam_id', 'class_id', 'subject', 'kitaab', 'teacher_id', 'out_of', 'sort_order', 'pass_mark', 'examiner'], paperRows);
+    const { rows: testPapers } = await c.query('SELECT id, class_id, out_of FROM du_exam_papers WHERE exam_id = $1', [test.id]);
     const markRows = [], commentRows = [];
     const T_COMMENTS = [
       'A very good test. He has worked hard and it shows — keep revising the earlier lessons.',
@@ -669,7 +673,8 @@ async function createDarulUloomDemo(ipHash) {
       const ability = 0.42 + r() * 0.52;
       for (const p of testPapers.filter(x => x.class_id === cls.id)) {
         if (r.chance(0.02)) { markRows.push([mid, test.id, p.id, k.id, null, true]); continue; }
-        markRows.push([mid, test.id, p.id, k.id, Math.max(0, Math.min(50, Math.round(50 * (ability + (r() - 0.5) * 0.24)))), false]);
+        const most = p.out_of, lift = most === 100 ? 0.12 : 0; // Hifdh marks run a little higher
+        markRows.push([mid, test.id, p.id, k.id, Math.max(0, Math.min(most, Math.round(most * (ability + lift + (r() - 0.5) * 0.24)))), false]);
       }
       // Most reports written; a few left for the demo's "Write it for me".
       if (r.chance(0.8)) {

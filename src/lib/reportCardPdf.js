@@ -1,6 +1,6 @@
 // A Darul Uloom exam report card (Exams page, parent portal): one A4 page per child — the school's
 // name and logo, the child's details and position, each paper's mark and result, the percentage,
-// grade and overall result, the class teacher's and head's comments, and places to sign. Drawn from
+// grade and overall result, and the class teacher's comment (and the head's, if written). Drawn from
 // scratch with pdf-lib (the monthly report uses a fixed template; this one has to fit any number of papers).
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
@@ -90,7 +90,8 @@ function drawCard(doc, f, logo, card) {
     if (i % 2) box(M, top, W - 2 * M, rowH, rgb(0.985, 0.987, 0.99));
     const mid = top + rowH / 2 + 3.5;
     text(fit(p.subject, f.semi, 10, 112), cols.subject, mid, 10, f.semi);
-    text(fit(p.kitaab && p.kitaab !== p.subject ? p.kitaab : '', f.reg, 9.5, 205), cols.book, mid, 9.5);
+    const book = [p.kitaab && p.kitaab !== p.subject ? p.kitaab : '', p.examiner ? `Examined by ${p.examiner}` : ''].filter(Boolean).join(' · ');
+    text(fit(book, f.reg, 9.5, 205), cols.book, mid, 9.5);
     const done = p.absent || (p.mark !== null && p.mark !== undefined);
     text(p.absent ? 'Absent' : done ? num(p.mark) : '—', cols.mark, mid, 10, f.semi, p.absent ? C.red : C.ink);
     text(String(p.outOf), cols.outOf, mid, 10, f.reg, C.muted);
@@ -147,7 +148,7 @@ function drawCard(doc, f, logo, card) {
   centre(fit(foot, f.reg, 8, W - 2 * M), W / 2, H - 28, 8, f.reg, C.muted);
 }
 
-// cards: [{ student, exam, papers: [{subject, kitaab, outOf, passMark, mark, absent}], result, teacherComment, headComment, teacherName }]
+// cards: [{ student, exam, papers: [{subject, kitaab, examiner, outOf, passMark, mark, absent}], result, teacherComment, headComment, teacherName }]
 export async function buildReportCards(cards) {
   const [reg, semi, bold, logoFile] = await Promise.all([
     bytesOf('/fonts/Comfortaa-Regular.ttf'), bytesOf('/fonts/Comfortaa-SemiBold.ttf'), bytesOf('/fonts/Comfortaa-Bold.ttf'), logoOf(),

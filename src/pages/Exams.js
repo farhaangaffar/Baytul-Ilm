@@ -133,7 +133,7 @@ export default function Exams() {
         <div className="card">
           <div className="card-title" style={{ marginBottom: 2 }}>{exam.name}</div>
           <div className="card-sub" style={{ marginBottom: isOwner ? 12 : 0 }}>
-            {[exam.heldOn && monthYear(exam.heldOn), `Marked out of ${exam.outOf}`, `pass mark ${num(exam.passMark)}`].filter(Boolean).join(' · ')}
+            {[exam.heldOn && monthYear(exam.heldOn), `Maximum marks ${exam.outOf}`, `pass mark ${num(exam.passMark)}`].filter(Boolean).join(' · ')}
           </div>
           {isOwner && <button type="button" className="line-row add" onClick={() => setModal({ kind: 'exam', exam })}><Pencil size={13} /> Edit exam</button>}
         </div>
@@ -162,7 +162,7 @@ export default function Exams() {
               })}
               {!classPapers.length && <div className="card-sub">No papers yet{isOwner ? ' — add one below.' : '.'}</div>}
               {isOwner && (
-                <button type="button" className="line-row add" onClick={() => setModal({ kind: 'paper', paper: { examId: exam.id, classId: cls.id, subject: '', kitaab: '', teacherId: '', outOf: exam.outOf } })}>
+                <button type="button" className="line-row add" onClick={() => setModal({ kind: 'paper', paper: { examId: exam.id, classId: cls.id, subject: '', kitaab: '', teacherId: '', examiner: '', outOf: exam.outOf, ownPass: null, examPass: num(exam.passMark), examOutOf: exam.outOf } })}>
                   <Plus size={14} /> Add a paper
                 </button>
               )}
@@ -217,7 +217,8 @@ export default function Exams() {
       {modal?.kind === 'exam' && <ExamModal initial={modal.exam} classes={classes} onClose={() => setModal(null)}
         onSaved={async (msg, id, deleted) => { setModal(null); if (deleted) { setExamId(''); setDetail(null); } await load(); showToast(msg); }} />}
       {modal?.kind === 'paper' && <PaperModal initial={modal.paper} teachers={teachers} onClose={() => setModal(null)} onSaved={after} />}
-      {modal?.kind === 'marks' && <MarksModal paper={modal.paper} className={cls.name} kids={kids} markOf={markOf} onClose={() => setModal(null)} onSaved={after} />}
+      {modal?.kind === 'marks' && <MarksModal paper={modal.paper} className={cls.name} kids={kids} markOf={markOf} onClose={() => setModal(null)} onSaved={after}
+        onEdit={isOwner ? () => setModal({ kind: 'paper', paper: { ...modal.paper, examPass: num(exam.passMark), examOutOf: exam.outOf } }) : null} />}
       {modal?.kind === 'card' && <CardModal card={cardFor(modal.student)} canTeacher={!!cls.results} canHead={isOwner}
         onClose={() => setModal(null)} onSaved={after} />}
       {toast && <div className="toast">✓ {toast}</div>}
@@ -278,7 +279,7 @@ function ExamModal({ initial, year, classes, onClose, onSaved }) {
         </div>
         <div className="form-group"><label>Date</label><input type="date" value={f.heldOn} onChange={e => set('heldOn', e.target.value)} /></div>
         <div className="tt-two">
-          <div className="form-group"><label>Each paper out of</label><input type="number" inputMode="numeric" min="1" value={f.outOf} onChange={e => set('outOf', e.target.value)} /></div>
+          <div className="form-group"><label>Maximum marks</label><input type="number" inputMode="numeric" min="1" value={f.outOf} onChange={e => set('outOf', e.target.value)} /></div>
           <div className="form-group"><label>Pass mark</label><input type="number" inputMode="decimal" min="0" value={f.passMark} onChange={e => set('passMark', e.target.value)} /></div>
         </div>
         <div className="form-group">
@@ -290,7 +291,8 @@ function ExamModal({ initial, year, classes, onClose, onSaved }) {
           </div>
         </div>
       </div>
-      {isNew && <div className="tt-note blue">Each class's papers start as its books on the Aalim course page — add or change them after.</div>}
+      <div className="tt-note blue">{isNew ? 'Each class\'s papers start as its books on the Aalim course page — add or change them after. ' : ''}
+        A paper marked differently (e.g. Hifdh or Tajweed heard aloud) can have its own maximum and pass mark — tap it, then Edit paper.</div>
       {dropped.length > 0 && <div className="tt-note red">Taking a class out removes its papers and any marks entered for them.</div>}
       <Err text={error} />
     </ModalShell>
@@ -299,29 +301,55 @@ function ExamModal({ initial, year, classes, onClose, onSaved }) {
 
 function PaperModal({ initial, teachers, onClose, onSaved }) {
   const isNew = !initial.id;
-  const [f, setF] = useState({ subject: initial.subject, kitaab: initial.kitaab, teacherId: initial.teacherId || '', outOf: String(initial.outOf) });
+  const GUEST = 'guest';
+  const [f, setF] = useState({
+    subject: initial.subject, kitaab: initial.kitaab, teacherId: initial.examiner ? GUEST : initial.teacherId || '',
+    examiner: initial.examiner || '', outOf: String(initial.outOf), passMark: initial.ownPass === null || initial.ownPass === undefined ? '' : String(initial.ownPass),
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const set = (k, v) => { setError(''); setF(prev => ({ ...prev, [k]: v })); };
+  const guest = f.teacherId === GUEST;
+  // With no pass mark of its own, a paper uses the exam's, scaled to its maximum.
+  const scaled = initial.examOutOf ? Math.round((Number(initial.examPass) / Number(initial.examOutOf)) * Number(f.outOf || 0) * 10) / 10 : '';
   async function run(fn, msg) { setBusy(true); setError(''); try { await fn(); await onSaved(msg); } catch (err) { setError(err.message || 'Something went wrong'); setBusy(false); } }
+  const save = () => run(() => saveExamPaper({
+    ...initial, subject: f.subject, kitaab: f.kitaab, teacherId: guest ? '' : f.teacherId, examiner: guest ? f.examiner : '',
+    outOf: Number(f.outOf), passMark: f.passMark === '' ? null : Number(f.passMark),
+  }), isNew ? 'Paper added' : 'Saved');
   return (
     <ModalShell title={isNew ? 'Add a paper' : `Edit — ${initial.subject}`} onClose={onClose} footer={<>
       {!isNew && <button className="btn" style={{ marginRight: 'auto', color: 'var(--red)' }} disabled={busy} onClick={() => run(() => deleteExamPaper(initial.id), 'Paper removed')}><Trash2 size={13} /> Remove</button>}
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
-      <button className="btn btn-teal" disabled={busy || !f.subject.trim()} onClick={() => run(() => saveExamPaper({ ...initial, ...f, outOf: Number(f.outOf) }), isNew ? 'Paper added' : 'Saved')}>
+      <button className="btn btn-teal" disabled={busy || !f.subject.trim() || (guest && !f.examiner.trim())} onClick={save}>
         <Save size={13} /> {busy ? 'Saving…' : 'Save'}
       </button>
     </>}>
       <div className="form-grid">
-        <div className="form-group"><label>Subject <span className="required">*</span></label><input value={f.subject} onChange={e => setF({ ...f, subject: e.target.value })} placeholder="e.g. Hifdh, Tajweed, Nahw" autoFocus={isNew} /></div>
-        <div className="form-group"><label>Book or part</label><input value={f.kitaab} onChange={e => setF({ ...f, kitaab: e.target.value })} placeholder="Optional, e.g. Juz 1–5" /></div>
+        <div className="form-group"><label>Subject <span className="required">*</span></label><input value={f.subject} onChange={e => set('subject', e.target.value)} placeholder="e.g. Hifdh, Tajweed, Nahw" autoFocus={isNew} /></div>
+        <div className="form-group"><label>Book or part</label><input value={f.kitaab} onChange={e => set('kitaab', e.target.value)} placeholder="Optional, e.g. Juz 1–5" /></div>
         <div className="form-group">
           <label>Marked by</label>
-          <select value={f.teacherId} onChange={e => setF({ ...f, teacherId: e.target.value })}>
+          <select value={f.teacherId} onChange={e => set('teacherId', e.target.value)}>
             <option value="">— Not chosen yet —</option>
             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <option value={GUEST}>A guest examiner</option>
           </select>
         </div>
-        <div className="form-group"><label>Out of</label><input type="number" inputMode="numeric" min="1" value={f.outOf} onChange={e => setF({ ...f, outOf: e.target.value })} /></div>
+        {guest && (
+          <div className="form-group">
+            <label>Guest examiner's name <span className="required">*</span></label>
+            <input value={f.examiner} onChange={e => set('examiner', e.target.value)} placeholder="e.g. Qari Ahmed from another madrasah" autoFocus />
+          </div>
+        )}
+        <div className="tt-two">
+          <div className="form-group"><label>Maximum marks</label><input type="number" inputMode="numeric" min="1" value={f.outOf} onChange={e => set('outOf', e.target.value)} /></div>
+          <div className="form-group"><label>Pass mark</label><input type="number" inputMode="decimal" min="0" value={f.passMark} onChange={e => set('passMark', e.target.value)} placeholder={scaled !== '' ? String(scaled) : ''} /></div>
+        </div>
+      </div>
+      <div className="tt-note blue">
+        {f.passMark === '' ? `Pass mark: ${scaled}, the exam's own scaled to this paper — type one to set its own (e.g. Hifdh: 100, pass 60).` : 'This paper has its own pass mark.'}
+        {guest ? ' The head or class teacher enters the guest\'s marks.' : ''}
       </div>
       <Err text={error} />
     </ModalShell>
@@ -329,7 +357,7 @@ function PaperModal({ initial, teachers, onClose, onSaved }) {
 }
 
 // One paper's marks for the whole class: a box per child, or Absent.
-function MarksModal({ paper, className, kids, markOf, onClose, onSaved }) {
+function MarksModal({ paper, className, kids, markOf, onClose, onSaved, onEdit }) {
   const [rows, setRows] = useState(() => Object.fromEntries(kids.map(s => {
     const m = markOf(paper.id, s.id);
     return [s.id, { mark: m && m.mark !== null ? String(m.mark) : '', absent: !!m?.absent }];
@@ -349,9 +377,11 @@ function MarksModal({ paper, className, kids, markOf, onClose, onSaved }) {
   return (
     <ModalShell title={`${paper.subject}${paper.kitaab && paper.kitaab !== paper.subject ? ` · ${paper.kitaab}` : ''}`}
       sub={`${className} · out of ${paper.outOf} · pass ${num(paper.passMark)} · ${done} of ${kids.length} entered`} onClose={onClose} width={480} footer={<>
+      {onEdit && <button className="btn" style={{ marginRight: 'auto' }} disabled={busy} onClick={onEdit}><Pencil size={13} /> Edit paper</button>}
       <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
       <button className="btn btn-teal" disabled={busy || bad.length > 0} onClick={save}><Save size={13} /> {busy ? 'Saving…' : 'Save marks'}</button>
     </>}>
+      {paper.examiner && <div className="tt-note blue" style={{ marginTop: 0, marginBottom: 12 }}>Examined by {paper.examiner} (guest)</div>}
       <div className="course-lines">
         {kids.map(s => {
           const r = rows[s.id];
@@ -426,6 +456,7 @@ export function CardModal({ card, canTeacher, canHead, onClose, onSaved }) {
               <span className="exam-card-what">
                 <span className="exam-card-subject">{p.subject}</span>
                 {p.kitaab && p.kitaab !== p.subject && <span className="exam-card-book">{p.kitaab}</span>}
+                {p.examiner && <span className="exam-card-book">Examined by {p.examiner}</span>}
               </span>
               <span className="exam-card-result">
                 <span className="exam-card-mark">{p.absent ? 'Absent' : done ? <>{num(p.mark)}<small> / {p.outOf}</small></> : '—'}</span>

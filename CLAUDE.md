@@ -133,7 +133,9 @@ codebase (one codebase, not a fork).
   worked out in `server/examResults.js`, PDF `src/lib/reportCardPdf.js`; 403 for a maktab): the head adds an exam (`du_exams`:
   name, date, academic year, each paper's out of and the pass mark — each madrasah's own, e.g. out of 50 pass 17 — and the
   classes sitting it); each class's papers (`du_exam_papers`) start as its books (`du_subjects`) and can be added to (e.g.
-  Hifdh, Tajweed) or changed. Marks (`du_exam_marks`, a mark or Absent) are entered per paper by its teacher, the class
+  Hifdh, Tajweed) or changed (head: tap a paper → Edit paper). A paper can have its own maximum and pass mark
+  (`du_exam_papers.pass_mark`, NULL = the exam's scaled — e.g. Hifdh heard aloud, 100 pass 60) and be marked by a
+  **guest examiner** (`examiner` name instead of a teacher; head/class teacher enter the marks; shown on the card and PDF). Marks (`du_exam_marks`, a mark or Absent) are entered per paper by its teacher, the class
   teacher or the head. Results per class: total, %, grade (Excellent 80+ / Very good 65+ / Good 50+ / Satisfactory to the pass mark / Needs improvement),
   position (once every paper is marked; equal %s share), Passed or Resit (any failed — below the pass mark scaled to the
   paper — or absent paper). Comments (`du_exam_comments`): class teacher's (class teacher or head) and head's. Teachers see

@@ -14,7 +14,7 @@ const { classResults, paperPass } = require('../examResults');
 // POST ?action=exam {id?, name, year, heldOn, outOf, passMark, classIds}  → adds or changes an exam (head)
 // DELETE ?action=exam&id=   → removes it with its marks (head)
 // POST ?action=publish {id, published}                                     (head)
-// POST ?action=paper {id?, examId, classId, subject, kitaab, teacherId, outOf} · DELETE ?action=paper&id=  (head)
+// POST ?action=paper {id?, examId, classId, subject, kitaab, teacherId, examiner, outOf, passMark} · DELETE ?action=paper&id=  (head)
 // POST ?action=marks {paperId, marks: [{studentId, mark, absent}]}  → the paper's teacher, its class teacher or the head
 // POST ?action=comment {examId, studentId, teacherComment?, headComment?, behavior?} → class teacher (theirs + behaviour) / head (all)
 // POST ?action=draft {examId, studentId} → a draft of the class teacher's comment, written by AI from the term's
@@ -69,6 +69,10 @@ async function ensure() {
     PRIMARY KEY (exam_id, student_id)
   )`);
   await query("ALTER TABLE du_exam_comments ADD COLUMN IF NOT EXISTS behavior TEXT NOT NULL DEFAULT ''");
+  // A paper's own pass mark (e.g. a Hifdh exam heard aloud, out of 100 pass 60) — NULL = the exam's, scaled —
+  // and a guest examiner's name when someone from outside marks it (common for Hifdh).
+  await query('ALTER TABLE du_exam_papers ADD COLUMN IF NOT EXISTS pass_mark NUMERIC');
+  await query("ALTER TABLE du_exam_papers ADD COLUMN IF NOT EXISTS examiner TEXT NOT NULL DEFAULT ''");
   ready = true;
 }
 
@@ -89,7 +93,8 @@ async function termOf(mid, exam) {
   return { from: prev?.d || `20${exam.year.slice(0, 2)}-09-01`, to };
 }
 
-const PAPER_COLS = `id::text, exam_id::text AS "examId", class_id AS "classId", subject, kitaab, teacher_id AS "teacherId", out_of AS "outOf"`;
+const PAPER_COLS = `id::text, exam_id::text AS "examId", class_id AS "classId", subject, kitaab, teacher_id AS "teacherId", out_of AS "outOf",
+  pass_mark::float AS "ownPass", examiner`;
 
 async function isDarulUloom(mid) {
   const { rows } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
@@ -187,7 +192,7 @@ async function studentExamCards(mid, student, { publishedOnly = false } = {}) {
       teacherName: d.classes.find(c => c.id === cls.id)?.teacherName || '',
       papers: d.papers.filter(p => p.classId === cls.id).map(p => {
         const mk = mine.find(x => x.paperId === p.id);
-        return { id: p.id, subject: p.subject, kitaab: p.kitaab, outOf: p.outOf, passMark: p.passMark, mark: mk ? mk.mark : null, absent: !!mk?.absent };
+        return { id: p.id, subject: p.subject, kitaab: p.kitaab, examiner: p.examiner, outOf: p.outOf, passMark: p.passMark, mark: mk ? mk.mark : null, absent: !!mk?.absent };
       }),
       teacherComment: cm.teacherComment || '', headComment: cm.headComment || '', behavior: cm.behavior || '',
       term: d.term, attendance: d.attendance[student.id] || { present: 0, late: 0, absent: 0 },
@@ -425,24 +430,29 @@ module.exports = requireAuth(async (req, res) => {
     const b = req.body || {};
     const subject = clean(b.subject, 80), kitaab = clean(b.kitaab, 120), outOf = Math.round(Number(b.outOf));
     if (!subject) { res.status(400).json({ error: 'Enter the subject.' }); return; }
-    if (!(outOf >= 1 && outOf <= 1000)) { res.status(400).json({ error: 'Marks out of must be a number.' }); return; }
+    if (!(outOf >= 1 && outOf <= 1000)) { res.status(400).json({ error: 'Maximum marks must be a number.' }); return; }
+    // Its own pass mark, or none (= the exam's, scaled). A guest examiner marks it instead of a teacher.
+    const own = b.passMark === '' || b.passMark === null || b.passMark === undefined ? null : Number(b.passMark);
+    if (own !== null && !(own >= 0 && own <= outOf)) { res.status(400).json({ error: `The pass mark must be between 0 and ${outOf}.` }); return; }
+    const examiner = clean(b.examiner, 80);
+    if (examiner) b.teacherId = '';
     if (b.teacherId) {
       const { rows } = await query('SELECT 1 FROM teachers WHERE id = $1 AND madrasah_id = $2', [b.teacherId, mid]);
       if (!rows.length) { res.status(400).json({ error: 'Teacher not found' }); return; }
     }
     if (b.id) {
       if (!isId(b.id)) { res.status(404).json({ error: 'Paper not found' }); return; }
-      await query('UPDATE du_exam_papers SET subject = $1, kitaab = $2, teacher_id = $3, out_of = $4 WHERE id = $5 AND madrasah_id = $6',
-        [subject, kitaab, b.teacherId || null, outOf, b.id, mid]);
+      await query('UPDATE du_exam_papers SET subject = $1, kitaab = $2, teacher_id = $3, out_of = $4, pass_mark = $5, examiner = $6 WHERE id = $7 AND madrasah_id = $8',
+        [subject, kitaab, b.teacherId || null, outOf, own, examiner, b.id, mid]);
       res.status(200).json({ ok: true, id: String(b.id) });
       return;
     }
     const { rows: [exam] } = await query('SELECT class_ids FROM du_exams WHERE id = $1 AND madrasah_id = $2', [String(b.examId || '0').replace(/\D/g, '') || '0', mid]);
     if (!exam || !exam.class_ids.includes(String(b.classId))) { res.status(400).json({ error: 'Class not found in this exam' }); return; }
     const { rows: [row] } = await query(
-      `INSERT INTO du_exam_papers (madrasah_id, exam_id, class_id, subject, kitaab, teacher_id, out_of, sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,(SELECT COALESCE(max(sort_order), -1) + 1 FROM du_exam_papers WHERE madrasah_id = $1 AND exam_id = $2 AND class_id = $3))
-       RETURNING id::text`, [mid, b.examId, String(b.classId), subject, kitaab, b.teacherId || null, outOf]);
+      `INSERT INTO du_exam_papers (madrasah_id, exam_id, class_id, subject, kitaab, teacher_id, out_of, pass_mark, examiner, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,(SELECT COALESCE(max(sort_order), -1) + 1 FROM du_exam_papers WHERE madrasah_id = $1 AND exam_id = $2 AND class_id = $3))
+       RETURNING id::text`, [mid, b.examId, String(b.classId), subject, kitaab, b.teacherId || null, outOf, own, examiner]);
     res.status(201).json({ ok: true, id: row.id });
     return;
   }

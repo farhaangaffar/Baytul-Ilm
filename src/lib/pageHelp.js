@@ -83,9 +83,9 @@ const HEAD = {
     'Once a lesson has happened, tap it then "Record what this lesson covered" — teachers do this for their own lessons.',
   ] },
   '/exams': { title: 'Exams & reports', steps: [
-    'Tap "Add an exam": its name, date, what each paper is out of, the pass mark, and which classes sit it.',
+    'Tap "Add an exam": its name, date, maximum marks and pass mark for each paper, and which classes sit it.',
     'Open an exam and pick a class at the top. Then work down the three steps.',
-    '1 · Marks: tap a paper to enter its marks (or Absent). Papers start as the year\'s books — "Add a paper" for anything else.',
+    '1 · Marks: tap a paper to enter its marks (or Absent). Papers start as the year\'s books — "Add a paper" for anything else. "Edit paper" gives one its own maximum and pass mark (e.g. Hifdh heard aloud) or a guest examiner.',
     '2 · Reports: tap a child — choose their behaviour, write the comments ("Write it for me" drafts the class teacher\'s) and get the PDF. "Print the whole class" makes one PDF.',
     '3 · Send to parents: tap Publish when the reports are ready — each family sees only their own child\'s.',
   ] },
