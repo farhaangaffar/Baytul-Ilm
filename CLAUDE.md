@@ -210,7 +210,8 @@ codebase (one codebase, not a fork).
   taken from the demo as "Madrasatul Huda"): shown at `/about`, and at `/` to anyone not signed
   in on a device with no madrasah code (no `?m=`, `?demo`, `?signin`) — staff and parents never
   see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then
-  £20 a month or £200 a year" (one price per madrasah; also in the terms' Cost section). When a feature changes a lot, retake its screenshot. The parent portal and
+  £20 a month or £200 a year" for up to 200 children — more than 200: "message us" (also in the terms' Cost
+  section and on the sign-up page; size bands for larger madaaris to come). When a feature changes a lot, retake its screenshot. The parent portal and
   PDF reports carry a small "Made with Suhuf" credit (`MadeWith` in `Legal.js`, `footerText` in
   `src/lib/reportPdf.js`) linking to `/about`. Visitor counts (Vercel Web Analytics, no cookies,
   `src/lib/analytics.js` `countVisit()`, live site only): the front page, /privacy, /terms, `/demo` and
