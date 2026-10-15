@@ -112,7 +112,8 @@ codebase (one codebase, not a fork).
   a maktab): a year group is an ordinary class with `classes.course_order` (1 = first year; NULL = not a
   course year, e.g. Hifdh), so attendance/fees/reports work unchanged. Each year's subjects & kitaabs are in
   `du_subjects` (any kitaab can be typed; the starter list's and the madrasah's own are suggested). "Use the
-  Dars-e-Nizami years" adds the usual years and kitaabs (`STARTER`). "Move everyone up" moves each Active
+  usual Aalim years" adds the usual years and their classical Islamic core texts (`STARTER`); an open year
+  missing some of its usual texts has "Add the classical core texts" (`?action=starter-books`, matched by name, else place). "Move everyone up" moves each Active
   child one year on (held-back ones stay); the last year are marked left (`Inactive`, leave date today);
   each move is logged in `du_year_moves` so it can be undone (only children not changed since).
   The page is single lines: year lines (tap to open its kitaab lines underneath), "Add a year" (`?action=year`: a new
@@ -229,7 +230,7 @@ codebase (one codebase, not a fork).
   have any") → Aalim years & books → timetable → students → logins. The students step offers "Try it with 6 made-up students"
   (notes start "Made-up student to try the app"; they don't tick the step; "Remove the made-up students" deletes them).
   **Darul Uloom screens are in plain English** (teachers, books, Head — not asatidha/kitaabs/Muhtamim) so
-  non-Urdu-speaking Darul Ulooms follow them; subject names and "Aalim"/"Dars-e-Nizami" stay. Code names (`kitaab`) are unchanged.
+  non-Urdu-speaking Darul Ulooms follow them; subject names and "Aalim" stay; say "classical Islamic core texts", not the subcontinental "Dars-e-Nizami". Code names (`kitaab`) are unchanged.
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;
   `src/components/Legal.js`): `/privacy` and `/terms` open for anyone; links on sign-in, Settings
   and the parent portal. A head (not the platform owner, not a demo) agrees once per

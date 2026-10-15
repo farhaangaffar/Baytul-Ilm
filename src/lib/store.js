@@ -418,6 +418,7 @@ export function getWeekStartsForMonth(yearMonth) {
 // A Darul Uloom's course: year groups in order, subjects & kitaabs, moving up (server/routes/course.js).
 export async function getCourse() { return apiFetch('/api/course'); }
 export async function addStarterCourse() { return apiFetch('/api/course?action=starter', { method: 'POST' }); }
+export async function addStarterBooks(classId, starter) { return apiFetch('/api/course?action=starter-books', { method: 'POST', body: JSON.stringify({ classId, starter }) }); }
 export async function saveCourseYear(data) { return apiFetch('/api/course?action=year', { method: 'POST', body: JSON.stringify(data) }); }
 export async function addCourseSubject(data) { return apiFetch('/api/course', { method: 'POST', body: JSON.stringify(data) }); }
 export async function updateCourseSubject(id, data) { return apiFetch(`/api/course?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }

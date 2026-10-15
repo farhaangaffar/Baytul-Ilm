@@ -8,7 +8,8 @@ const { requireAuth } = require('../auth');
 // outside the course (e.g. Hifdh) have no course_order. Only for a Darul Uloom (madaaris.kind).
 //
 // GET                         → { years, others, subjects, progress, starter, kitaabs, lastMove }
-// POST ?action=starter        → adds the usual Dars-e-Nizami years (those not there yet) and their kitaabs
+// POST ?action=starter        → adds the usual Aalim years (those not there yet) and their classical core texts
+// POST ?action=starter-books {classId, starter} → adds one starter year's texts a year doesn't have yet
 // POST ?action=years {ids}    → these classes, in this order, are the course years (the rest aren't)
 // POST ?action=year {classId?, name, teacherId, position} → adds a year (a new class) or changes one —
 //                               its name, teacher and place (1 = first year); 0 takes it out of the course
@@ -42,7 +43,8 @@ async function ensure() {
   ready = true;
 }
 
-// The usual Dars-e-Nizami years and kitaabs — a starting point each Darul Uloom changes to suit itself.
+// The usual Aalim years and their classical Islamic core texts — a starting point each Darul Uloom
+// changes to suit itself.
 const STARTER = [
   { name: '1st year', subjects: [
     ['Nahw', 'Nahw Meer'], ['Sarf', 'Ilm-us-Sarf'], ['Arabic language', "Durus-ul-Lughah al-'Arabiyyah"],
@@ -132,9 +134,31 @@ module.exports = requireAuth(async (req, res) => {
       subjects,
       progress,
       starter: STARTER.map(y => y.name),
+      starterBooks: STARTER.map(y => y.subjects),
       kitaabs: Object.fromEntries(Object.entries(kitaabs).map(([s, set]) => [s, [...set].sort()])),
       lastMove: move ? { ...move, count: Number(move.count) } : null,
     });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'starter-books') {
+    // One year's usual texts (from the starter year chosen for it), skipping any it already has.
+    const b = req.body || {};
+    const y = STARTER[Number(b.starter)];
+    const { rows: cls } = await query('SELECT 1 FROM classes WHERE id = $1 AND madrasah_id = $2', [String(b.classId || ''), mid]);
+    if (!y || !cls.length) { res.status(400).json({ error: 'Year not found' }); return; }
+    const added = await transaction(async c => {
+      const { rows: have } = await c.query('SELECT subject, kitaab FROM du_subjects WHERE madrasah_id = $1 AND class_id = $2', [mid, b.classId]);
+      const { rows: [{ max }] } = await c.query('SELECT COALESCE(max(sort_order), -1) AS max FROM du_subjects WHERE madrasah_id = $1 AND class_id = $2', [mid, b.classId]);
+      let order = Number(max), n = 0;
+      for (const [subject, kitaab] of y.subjects) {
+        if (have.some(h => h.subject.toLowerCase() === subject.toLowerCase() && h.kitaab.toLowerCase() === kitaab.toLowerCase())) continue;
+        await c.query('INSERT INTO du_subjects (madrasah_id, class_id, subject, kitaab, sort_order) VALUES ($1,$2,$3,$4,$5)', [mid, b.classId, subject, kitaab, ++order]);
+        n++;
+      }
+      return n;
+    });
+    res.status(200).json({ ok: true, added });
     return;
   }
 

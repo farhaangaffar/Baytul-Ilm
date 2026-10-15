@@ -8,7 +8,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import PickField from '../components/PickField';
 import { guessPlace } from '../lib/courseYears';
 import {
-  getCourse, addStarterCourse, saveCourseYear, addCourseSubject, updateCourseSubject, deleteCourseSubject,
+  getCourse, addStarterCourse, addStarterBooks, saveCourseYear, addCourseSubject, updateCourseSubject, deleteCourseSubject,
   moveCourseUp, undoCourseMove, getTeachers, getStudents, deleteClass, formatDateGB, getBookLogs, niceDate,
 } from '../lib/store';
 import { Plus, X, Save, Trash2, ChevronsUp, Undo2, Library, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
@@ -42,7 +42,7 @@ export default function Course() {
 
   async function useStarter() {
     setBusy(true);
-    try { await addStarterCourse(); await load(); showToast('Dars-e-Nizami years added — change anything you like'); }
+    try { await addStarterCourse(); await load(); showToast('The usual Aalim years added — change anything you like'); }
     catch (err) { showToast(err.message || 'Could not add them'); }
     setBusy(false);
   }
@@ -52,7 +52,26 @@ export default function Course() {
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
   if (error) return <Layout title={title} subtitle={subtitle}><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const { years, others, subjects, lastMove, progress = [] } = course;
+  const { years, others, subjects, lastMove, progress = [], starter = [], starterBooks = [] } = course;
+  // Which of the usual years a year matches — by its name, else by its place (the last of a full
+  // course is Dawrah al-Hadith) — and that year's classical core texts it doesn't have yet.
+  const starterOf = c => {
+    const byName = starter.findIndex(n => n.toLowerCase() === c.name.toLowerCase());
+    if (byName >= 0) return byName;
+    const i = years.indexOf(c);
+    if (i === years.length - 1 && years.length >= starter.length) return starter.length - 1;
+    return i >= 0 && i < starter.length - 1 ? i : -1;
+  };
+  const missingTexts = c => {
+    const k = starterOf(c);
+    if (k < 0 || !starterBooks[k]) return [];
+    const have = subjects.filter(s => s.classId === c.id);
+    return starterBooks[k].filter(([subject, kitaab]) => !have.some(h => h.subject.toLowerCase() === subject.toLowerCase() && (h.kitaab || '').toLowerCase() === kitaab.toLowerCase()));
+  };
+  async function addTexts(c) {
+    try { const r = await addStarterBooks(c.id, starterOf(c)); await load(); showToast(`${r.added} ${r.added === 1 ? 'text' : 'texts'} added to ${c.name}`); }
+    catch (err) { showToast(err.message || 'Could not add them'); }
+  }
   const progressOf = s => progress.find(p => p.classId === s.classId && p.subject === s.subject && p.kitaab === s.kitaab);
   const subjectsOf = id => subjects.filter(s => s.classId === id);
   const newYear = () => setModal({ kind: 'year', year: { name: '', teacherId: '' }, place: years.length + 1 });
@@ -74,6 +93,11 @@ export default function Course() {
         <button type="button" className="line-row add" onClick={() => setModal({ kind: 'subject', subject: { classId: c.id, subject: '', kitaab: '', teacherId: '' }, yearName: c.name })}>
           <Plus size={14} /> Add a subject
         </button>
+        {missingTexts(c).length > 0 && (
+          <button type="button" className="line-row add" onClick={() => addTexts(c)}>
+            <Library size={13} /> Add the classical core texts ({missingTexts(c).length})
+          </button>
+        )}
         <button type="button" className="line-row add" onClick={() => setModal({ kind: 'year', year: c, place: years.indexOf(c) + 1 })}>
           <Pencil size={13} /> Edit {c.name}
         </button>
@@ -103,11 +127,11 @@ export default function Course() {
           <div className="card">
             <div className="card-title" style={{ marginBottom: 6 }}><Library size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Set up your course years</div>
             <div className="card-sub" style={{ marginBottom: 14 }}>
-              Start from the usual Dars-e-Nizami years (1st year to Dawrah al-Hadith) with their books, or add your own years one by one.
+              Start from the usual Aalim years (1st year to Dawrah al-Hadith) with their classical Islamic core texts, or add your own years one by one.
             </div>
             <div className="course-lines">
               <button type="button" className="line-row on" disabled={busy} onClick={useStarter}>
-                <span className="line-row-name">{busy ? 'Adding…' : 'Use the Dars-e-Nizami years'}</span>
+                <span className="line-row-name">{busy ? 'Adding…' : 'Use the usual Aalim years'}</span>
                 <span className="line-row-sub">7 years with their books</span>
               </button>
               <button type="button" className="line-row add" onClick={newYear}><Plus size={14} /> Add a year</button>
