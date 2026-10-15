@@ -1,4 +1,4 @@
-const { query } = require('../db');
+const { query, transaction } = require('../db');
 const { requireAuth, isOwner, teacherClassNames, teachingClassNames } = require('../auth');
 
 // quran_type: what the class studies — 'hifz' | 'nazira' | 'qaida', 'mixed' (each
@@ -21,6 +21,23 @@ async function teacherOk(teacherId, mid) {
   const { rows } = await query('SELECT 1 FROM teachers WHERE id = $1 AND madrasah_id = $2', [teacherId, mid]);
   return rows.length > 0;
 }
+
+// A Darul Uloom's class can be one of its Aalim years (Classes & Teachers → Course: Aalim): coursePlace
+// puts it at that place in the years (1 = first), 0 takes it out; the other years shift round it.
+async function placeInCourse(mid, classId, at) {
+  const { rows: [m] } = await query("SELECT kind = 'darul_uloom' AS du FROM madaaris WHERE id = $1", [mid]);
+  if (!m?.du) return;
+  await transaction(async c => {
+    const { rows } = await c.query(
+      'SELECT id FROM classes WHERE madrasah_id = $1 AND course_order IS NOT NULL AND id <> $2 ORDER BY course_order, name', [mid, classId]);
+    const ids = rows.map(r => r.id);
+    if (at > 0) ids.splice(Math.min(at, ids.length + 1) - 1, 0, classId);
+    await c.query('UPDATE classes SET course_order = NULL WHERE madrasah_id = $1 AND (id = $2 OR course_order IS NOT NULL)', [mid, classId]);
+    for (const [i, x] of ids.entries()) await c.query('UPDATE classes SET course_order = $1 WHERE id = $2 AND madrasah_id = $3', [i + 1, x, mid]);
+    if (at > 0) await c.query('UPDATE classes SET quran_type = NULL WHERE id = $1 AND madrasah_id = $2', [classId, mid]);
+  });
+}
+const placeOf = b => (b.coursePlace === undefined || b.coursePlace === null ? null : Math.max(0, Math.round(Number(b.coursePlace)) || 0));
 
 // Single flat file, dispatching on ?id= for item ops — see students.js for why.
 module.exports = requireAuth(async (req, res) => {
@@ -53,6 +70,7 @@ module.exports = requireAuth(async (req, res) => {
         `INSERT INTO classes (id, madrasah_id, name, teacher_id, quran_type) VALUES ($1,$2,$3,$4,$5) RETURNING ${COLS}`,
         [newId, mid, b.name, b.teacherId || null, QURAN_TYPES.includes(b.quranType) ? b.quranType : null]
       );
+      if (placeOf(b)) await placeInCourse(mid, newId, placeOf(b));
       res.status(201).json(rows[0]);
       return;
     }
@@ -77,9 +95,12 @@ module.exports = requireAuth(async (req, res) => {
     if (b.quranType !== undefined) {
       values.push(QURAN_TYPES.includes(b.quranType) ? b.quranType : null); sets.push(`quran_type = $${values.length}`);
     }
-    if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }
-    values.push(id, mid);
-    await query(`UPDATE classes SET ${sets.join(', ')} WHERE id = $${values.length - 1} AND madrasah_id = $${values.length}`, values);
+    if (!sets.length && placeOf(b) === null) { res.status(400).json({ error: 'No valid fields to update' }); return; }
+    if (sets.length) {
+      values.push(id, mid);
+      await query(`UPDATE classes SET ${sets.join(', ')} WHERE id = $${values.length - 1} AND madrasah_id = $${values.length}`, values);
+    }
+    if (placeOf(b) !== null) await placeInCourse(mid, id, placeOf(b));
 
     // students.class stores the class name as plain text, not a foreign key, so a
     // rename has to be cascaded manually or every student in that class becomes

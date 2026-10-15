@@ -121,7 +121,10 @@ codebase (one codebase, not a fork).
   Qur'an type that isn't a year (e.g. "1st year" deleted and re-made on Classes & Teachers) gets an "Add … to the years"
   line. A new year's place follows its name until picked by hand (`guessPlace()`: "1st year" → first, else last). Classes
   are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
-  year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
+  year shows "Aalim · year N". In a Darul Uloom the class pop-up's Qur'an box is a **Course** box (Aalim / Hifdh /
+  Naazhirah / Qaa'idah / Mixed Qur'an levels / Something else — later secondary-school years); Aalim shows "Place in
+  the Aalim years" and sends `coursePlace` (`placeInCourse()` in `server/routes/classes.js`: 0 = take out), and the
+  teacher box becomes "Report writer". A new class starts as Aalim, its place guessed from its name (`src/lib/courseYears.js`).
   **Timetable** (`/timetable`, menu "Timetable", head edits, teachers read — it opens on their own lessons
   today; `src/pages/Timetable.js`, `server/routes/timetable.js`, 403 for a maktab): each madrasah's own periods
   (`du_periods`: name, times, break or lessons, which days — '' = every school day, e.g. no afternoon on Friday;

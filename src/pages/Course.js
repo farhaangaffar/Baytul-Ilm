@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import PickField from '../components/PickField';
+import { guessPlace } from '../lib/courseYears';
 import {
   getCourse, addStarterCourse, saveCourseYear, addCourseSubject, updateCourseSubject, deleteCourseSubject,
   moveCourseUp, undoCourseMove, getTeachers, getStudents, deleteClass, formatDateGB, getBookLogs, niceDate,
@@ -280,18 +281,6 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
 
 // Adds a year, or changes one: its name, teacher and place in the course. A year can be
 // taken out of the course (it stays a class), or deleted when it has no students.
-// Where a new year most likely goes, from its name: "1st year" / "Year 3" / "second year" → that place,
-// "Dawrah al-Hadith" → last. Anything else → last.
-const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'];
-function guessPlace(name, count) {
-  const n = String(name || '').toLowerCase();
-  const m = n.match(/^\s*(\d+)\s*(st|nd|rd|th)?\b/) || n.match(/\byear\s*(\d+)/);
-  const word = ORDINALS.findIndex(w => new RegExp(`\\b${w}\\b`).test(n));
-  const at = m ? Number(m[1]) : word >= 0 ? word + 1 : null;
-  if (at) return Math.max(1, Math.min(at, count + 1));
-  return count + 1;
-}
-
 function YearModal({ initial, place, count, teachers, others = [], initialExisting = '', students, subjects, onClose, onSaved }) {
   const isNew = !initial.id;
   // A new year can be a brand-new class, or a class that already exists (e.g. made before on Classes & Teachers).
