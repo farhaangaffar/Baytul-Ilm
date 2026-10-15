@@ -3,7 +3,7 @@
 // that year's books from the Aalim course page, or anything typed — and its teacher. It can be seen
 // by class or by teacher, a day at a time or the whole week. Teachers see it too (read-only), opening
 // on their own lessons today.
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getTimetable, addStarterPeriods, savePeriod, deletePeriod, saveLesson, copyTimetableDay, schoolDays, getLessonLogs, saveLessonLog, getBookLogs, niceDate } from '../lib/store';
@@ -50,6 +50,9 @@ export default function Timetable() {
   const [picking, setPicking] = useState(false);
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
+  // A swipe: where the finger started, and whether it's turned out to be a sideways swipe or a scroll.
+  const touch = useRef(null);
+  const [slide, setSlide] = useState(''); // which side the next day's card slides in from: 'right' | 'left'
   const [logs, setLogs] = useState([]);       // what this week's lessons covered (du_lesson_logs)
   const days = schoolDays().slice().sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)); // Monday first
 
@@ -139,12 +142,46 @@ export default function Timetable() {
     const taught = ps.filter(p => slot(p, d).length).length;
     return ps.length ? `${hm(ps[0].starts)}–${hm(ps[ps.length - 1].ends)} · ${taught} ${taught === 1 ? 'lesson' : 'lessons'}` : 'No periods on this day';
   };
-  // A day's card. On phones, swipe it sideways for the next or previous day.
-  const step = (d, dir) => { const i = days.indexOf(d) + dir; if (i >= 0 && i < days.length) setDay(days[i]); };
-  let touchX = null;
+  // A day's card. On phones, swipe it sideways for the next or previous day: the card follows the
+  // finger, slides off, and the new day slides in from the side (tapping a day box slides too).
+  const goDay = next => {
+    if (typeof day === 'number' && typeof next === 'number' && next !== day) setSlide(days.indexOf(next) > days.indexOf(day) ? 'right' : 'left');
+    setDay(next);
+  };
+  const step = (d, dir) => { const i = days.indexOf(d) + dir; if (i >= 0 && i < days.length) goDay(days[i]); };
+  // Only a clearly sideways swipe changes the day: the first bit of movement decides — mostly up or
+  // down is a scroll and never turns into a swipe — and it has to travel a good way across.
+  const onTouchStart = e => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY, mode: null }; };
+  const onTouchMove = d => e => {
+    const g = touch.current; if (!g) return;
+    const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y;
+    if (!g.mode) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      g.mode = Math.abs(dx) > Math.abs(dy) * 2 ? 'swipe' : 'scroll';
+    }
+    if (g.mode !== 'swipe') return;
+    // Follow the finger; at the first or last day it only gives a little.
+    const i = days.indexOf(d), edge = (dx > 0 && i === 0) || (dx < 0 && i === days.length - 1);
+    const el = e.currentTarget;
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${edge ? dx * 0.25 : dx}px)`;
+  };
+  const snapBack = el => { el.style.transition = 'transform .2s ease'; el.style.transform = ''; };
+  const onTouchEnd = d => e => {
+    const g = touch.current, el = e.currentTarget; touch.current = null;
+    if (!g || g.mode !== 'swipe') return;
+    const t = e.changedTouches[0], dx = t.clientX - g.x, dy = t.clientY - g.y;
+    const i = days.indexOf(d) + (dx < 0 ? 1 : -1);
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 2 && i >= 0 && i < days.length) {
+      el.style.transition = 'transform .16s ease-in, opacity .16s ease-in';
+      el.style.transform = `translateX(${dx < 0 ? -110 : 110}%)`;
+      el.style.opacity = '0';
+      setTimeout(() => step(d, dx < 0 ? 1 : -1), 150);
+    } else snapBack(el);
+  };
   const dayCard = d => (
-    <div className="card" key={d} onTouchStart={e => { touchX = e.touches[0].clientX; }}
-      onTouchEnd={e => { if (touchX === null) return; const dx = e.changedTouches[0].clientX - touchX; touchX = null; if (Math.abs(dx) > 60) step(d, dx < 0 ? 1 : -1); }}>
+    <div className={`card ${slide ? `tt-slide-${slide}` : ''}`} key={d} onTouchStart={onTouchStart} onTouchMove={onTouchMove(d)}
+      onTouchEnd={onTouchEnd(d)} onTouchCancel={e => { touch.current = null; snapBack(e.currentTarget); }}>
       <div className="card-title" style={{ marginBottom: 2 }}>{dateOf(d) === TODAY ? 'Today' : DAY[d]} · {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
       <div className="card-sub" style={{ marginBottom: 12 }}>{viewName} · {daySummary(d)}</div>
       {dayLines(d)}
@@ -262,13 +299,13 @@ export default function Timetable() {
             {/* Computers: the days and Week (the colour grid). Phones: day boxes with dates, one day at a time. */}
             <div className="tt-days tt-week-wide" style={{ gridTemplateColumns: `repeat(${days.length + 1}, minmax(0, 1fr))` }}>
               {days.map(d => (
-                <button key={d} type="button" className={`tt-day ${day === d ? 'on' : ''}`} onClick={() => setDay(d)}>{DAY3[d]}</button>
+                <button key={d} type="button" className={`tt-day ${day === d ? 'on' : ''}`} onClick={() => goDay(d)}>{DAY3[d]}</button>
               ))}
               <button type="button" className={`tt-day ${day === 'week' ? 'on' : ''}`} onClick={() => setDay('week')}>Week</button>
             </div>
             <div className="tt-week-boxes tt-week-narrow" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
               {days.map(d => (
-                <button key={d} type="button" className={`tt-week-box ${day === d || (day === 'week' && d === phoneDay) ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => setDay(d)}>
+                <button key={d} type="button" className={`tt-week-box ${day === d || (day === 'week' && d === phoneDay) ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => goDay(d)}>
                   {DAY3[d]}<small>{niceDate(dateOf(d)).replace(/^\S+ /, '').replace(/ .*/, '')}</small>
                 </button>
               ))}
@@ -276,7 +313,7 @@ export default function Timetable() {
             {day === 'week' ? <>
               <div className="tt-week-wide">{weekCard()}</div>
               <div className="tt-week-narrow">{dayCard(phoneDay)}</div>
-            </> : dayCard(day)}
+            </> : <div className="tt-swipe">{dayCard(day)}</div>}
           </>
         )}
 

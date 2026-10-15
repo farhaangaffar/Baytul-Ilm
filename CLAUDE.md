@@ -117,7 +117,9 @@ codebase (one codebase, not a fork).
   each move is logged in `du_year_moves` so it can be undone (only children not changed since).
   The page is single lines: year lines (tap to open its kitaab lines underneath), "Add a year" (`?action=year`: a new
   class or an existing one; rename, move to another place, take out of the Aalim years; a year with no students can be
-  deleted). Only the Aalim years show there — Hifdh and other classes live on Classes & Teachers only. Classes
+  deleted). Only the Aalim years show there — Hifdh and other classes live on Classes & Teachers only; a class with no
+  Qur'an type that isn't a year (e.g. "1st year" deleted and re-made on Classes & Teachers) gets an "Add … to the years"
+  line. A new year's place follows its name until picked by hand (`guessPlace()`: "1st year" → first, else last). Classes
   are listed in course order everywhere (`classes.course_order` sorts first); on Classes & Teachers a course
   year shows "Aalim · year N" and its edit pop-up has no Qur'an option.
   **Timetable** (`/timetable`, menu "Timetable", head edits, teachers read — it opens on their own lessons

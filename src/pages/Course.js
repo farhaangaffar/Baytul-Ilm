@@ -122,6 +122,12 @@ export default function Course() {
             <div className="course-lines">
               {years.map((y, i) => line(y, i))}
               <button type="button" className="line-row add" onClick={newYear}><Plus size={14} /> Add a year</button>
+              {/* Classes that aren't one of the years (e.g. a year re-made on Classes & Teachers) — one tap to put back. */}
+              {others.filter(c => !c.quranType).map(c => (
+                <button key={c.id} type="button" className="line-row add" onClick={() => setModal({ kind: 'year', year: { name: '', teacherId: '' }, place: years.length + 1, existing: c.id })}>
+                  <Plus size={14} /> Add {c.name} to the years
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -153,7 +159,7 @@ export default function Course() {
           onSaved={async msg => { setModal(null); await load(); showToast(msg); }} />
       )}
       {modal?.kind === 'year' && (
-        <YearModal initial={modal.year} place={modal.place} count={years.length} teachers={teachers} others={others.filter(c => !c.quranType)}
+        <YearModal initial={modal.year} place={modal.place} initialExisting={modal.existing} count={years.length} teachers={teachers} others={others.filter(c => !c.quranType)}
           students={childrenIn(modal.year.name || '\u0000').length} subjects={modal.year.id ? subjectsOf(modal.year.id).length : 0}
           onClose={() => setModal(null)}
           onSaved={async (msg, id) => { setModal(null); if (id) setOpenId(id); await load(); showToast(msg); }} />
@@ -274,15 +280,36 @@ function SubjectModal({ initial, yearName, teachers, kitaabs, onClose, onSaved }
 
 // Adds a year, or changes one: its name, teacher and place in the course. A year can be
 // taken out of the course (it stays a class), or deleted when it has no students.
-function YearModal({ initial, place, count, teachers, others = [], students, subjects, onClose, onSaved }) {
+// Where a new year most likely goes, from its name: "1st year" / "Year 3" / "second year" → that place,
+// "Dawrah al-Hadith" → last. Anything else → last.
+const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'];
+function guessPlace(name, count) {
+  const n = String(name || '').toLowerCase();
+  const m = n.match(/^\s*(\d+)\s*(st|nd|rd|th)?\b/) || n.match(/\byear\s*(\d+)/);
+  const word = ORDINALS.findIndex(w => new RegExp(`\\b${w}\\b`).test(n));
+  const at = m ? Number(m[1]) : word >= 0 ? word + 1 : null;
+  if (at) return Math.max(1, Math.min(at, count + 1));
+  return count + 1;
+}
+
+function YearModal({ initial, place, count, teachers, others = [], initialExisting = '', students, subjects, onClose, onSaved }) {
   const isNew = !initial.id;
   // A new year can be a brand-new class, or a class that already exists (e.g. made before on Classes & Teachers).
-  const [existing, setExisting] = useState('');
-  const [f, setF] = useState({ name: initial.name || '', teacherId: initial.teacherId || '', position: isNew ? count + 1 : place });
+  const start = others.find(o => o.id === initialExisting);
+  const [existing, setExisting] = useState(start ? start.id : '');
+  const [f, setF] = useState({
+    name: start ? start.name : initial.name || '', teacherId: start ? start.teacherId || '' : initial.teacherId || '',
+    position: isNew ? guessPlace(start ? start.name : '', count) : place,
+  });
+  // Until the place is picked by hand, a new year's place follows its name (so "1st year" goes first).
+  const [placePicked, setPlacePicked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sure, setSure] = useState(false);
-  const set = (k, v) => { setError(''); setF(prev => ({ ...prev, [k]: v })); };
+  const set = (k, v) => {
+    setError('');
+    setF(prev => ({ ...prev, [k]: v, ...(k === 'name' && isNew && !placePicked ? { position: guessPlace(v, count) } : {}) }));
+  };
   const places = isNew || !place ? count + 1 : count; // how many places it could take (0 = not one of the years)
 
   async function run(fn) {
@@ -313,7 +340,8 @@ function YearModal({ initial, place, count, teachers, others = [], students, sub
             <select value={existing} onChange={e => {
               const c = others.find(o => o.id === e.target.value);
               setExisting(e.target.value); setError('');
-              setF(prev => ({ ...prev, name: c ? c.name : '', teacherId: c ? c.teacherId || '' : prev.teacherId }));
+              setF(prev => ({ ...prev, name: c ? c.name : '', teacherId: c ? c.teacherId || '' : prev.teacherId,
+                position: placePicked ? prev.position : guessPlace(c ? c.name : '', count) }));
             }}>
               <option value="">A new class</option>
               {others.map(o => <option key={o.id} value={o.id}>{o.name} (already a class)</option>)}
@@ -326,7 +354,7 @@ function YearModal({ initial, place, count, teachers, others = [], students, sub
         </div>
         <div className="form-group">
           <label>Place in the course</label>
-          <select value={f.position} onChange={e => set('position', e.target.value)}>
+          <select value={f.position} onChange={e => { setPlacePicked(true); set('position', e.target.value); }}>
             {Array.from({ length: places }, (_, i) => <option key={i} value={i + 1}>Year {i + 1}{i === 0 ? ' (first)' : i === places - 1 ? ' (last)' : ''}</option>)}
             {!isNew && <option value={0}>Not an Aalim year (stays as a class)</option>}
           </select>
