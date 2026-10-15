@@ -66,7 +66,7 @@ export default function Signup({ onDone }) {
         <div style={{ textAlign: 'center', marginBottom: 18 }}>
           <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)' }}>{APP_NAME_ARABIC}</div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Start {APP_NAME} free</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Free for 6 months, then £20 a month. No card needed.</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Free for 6 months, then £20 a month (up to 200 children). No card needed.</div>
         </div>
         {field("Your madrasah's name", 'madrasahName', { placeholder: 'e.g. Madrasatul Huda', autoFocus: true, maxLength: 80 })}
         {field('Your name', 'headName', { placeholder: 'The head or person in charge', autoComplete: 'name', maxLength: 80 })}

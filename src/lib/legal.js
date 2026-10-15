@@ -54,7 +54,7 @@ export const TERMS = [
     `These terms are between ${PROVIDER.name} ("we") and the madrasah using Suhuf (suhuf.uk). The head agrees to them on the madrasah's behalf when signing up, or when they first sign in.`,
   ]],
   ['Cost', [
-    'Suhuf is free for the madrasah\'s first 6 months. After that it costs £20 a month, or £200 a year, for the whole madrasah, paid by standing order. If the price ever changes we\'ll tell you at least a month beforehand. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',
+    'Suhuf is free for the madrasah\'s first 6 months. After that it costs £20 a month, or £200 a year, for a madrasah of up to 200 children, paid by standing order; for more than 200 children we\'ll agree a price with you. If the price ever changes we\'ll tell you at least a month beforehand. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',
   ]],
   ['Your side', [
     'Keep your logins private and give staff and parents only the access they need.',
