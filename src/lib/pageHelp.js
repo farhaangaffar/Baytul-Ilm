@@ -79,7 +79,7 @@ const HEAD = {
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
-    'Pick a class or a teacher at the top, then a day (on a phone, swipe sideways for the next) — or Week on a computer for the whole week.',
+    'Pick a class or a teacher at the top, then a day (on a phone, swipe the card sideways for the next day) — or Week on a computer for the whole week.',
     'New? Under "Periods & times", tap "Use a typical day" (then change any times), or add your own periods and breaks.',
     'Tap a period to add or change its lesson: pick one of that year\'s books (or "Something else"), the teacher and the days it\'s on.',
     'A red note means that teacher is already teaching another class then. Same book with two classes? It\'s one shared lesson.',
