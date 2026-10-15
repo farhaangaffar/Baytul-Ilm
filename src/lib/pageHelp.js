@@ -142,6 +142,11 @@ const PARENT = { title: 'How to use this page', steps: [
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
 const DU_HEAD = {
+  '/classes': { title: 'Classes & Teachers', steps: [
+    'Add classes and teachers with the + buttons.',
+    'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'an levels.',
+    'Give a teacher, or a whole class, a login so they can sign in.',
+  ] },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
     'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',

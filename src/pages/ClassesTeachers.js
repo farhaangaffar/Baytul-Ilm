@@ -11,6 +11,7 @@ import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, 
 import ReorderableGrid from '../components/ReorderableGrid';
 import { useAuth } from '../lib/AuthContext';
 import { CLASS_QURAN_OPTIONS } from '../lib/quran';
+import { guessPlace } from '../lib/courseYears';
 
 export default function ClassesTeachers() {
   const [loading, setLoading] = useState(true);
@@ -249,6 +250,7 @@ export default function ClassesTeachers() {
         <ClassModal
           initial={classModal}
           teachers={teachers}
+          yearCount={classes.filter(c => c.courseOrder).length}
           onClose={() => setClassModal(null)}
           onSave={saveClass}
         />
@@ -291,10 +293,25 @@ export default function ClassesTeachers() {
   );
 }
 
-function ClassModal({ initial, teachers, onClose, onSave }) {
+// A Darul Uloom picks each class's course — one of the Aalim years (placed in order), Hifdh,
+// Naazhirah, Qaa'idah, mixed Qur'an levels, or none. A maktab picks its Qur'an level as before.
+const DU_COURSES = [['aalim', 'Aalim'], ['hifz', 'Hifdh'], ['nazira', 'Naazhirah'], ['qaida', "Qaa'idah"], ['mixed', "Mixed Qur'an levels — set each student"]];
+
+function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
+  const { isDarulUloom } = useAuth();
   const [form, setForm] = useState({ ...initial });
+  const wasYear = !!initial.courseOrder;
+  const [course, setCourse] = useState(wasYear ? 'aalim' : initial.quranType || (initial.id ? '' : 'aalim')); // a new class starts as an Aalim year
+  const [place, setPlace] = useState(initial.courseOrder || guessPlace(initial.name, yearCount));
+  const [placePicked, setPlacePicked] = useState(wasYear);
   const isNew = !form.id;
   const isValid = form.name && form.name.trim().length > 0;
+  const aalim = isDarulUloom && course === 'aalim';
+  const places = wasYear ? yearCount : yearCount + 1; // the places it could take in the Aalim years
+  const setName = name => { setForm({ ...form, name }); if (!placePicked) setPlace(guessPlace(name, yearCount)); };
+  const save = () => onSave(isDarulUloom
+    ? { ...form, quranType: aalim ? '' : course, coursePlace: aalim ? Number(place) : wasYear ? 0 : undefined }
+    : form);
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -309,23 +326,39 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
               <label>Class name <span className="required">*</span></label>
               <input
                 value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. Class 1, Class 3, Beginners…"
+                onChange={e => setName(e.target.value)}
+                placeholder={isDarulUloom ? 'e.g. 1st year, Hifdh, Qaa\'idah' : 'e.g. Class 1, Class 3, Beginners…'}
                 autoFocus
               />
             </div>
+            {isDarulUloom ? <>
+              <div className="form-group">
+                <label>Course</label>
+                <select value={course} onChange={e => setCourse(e.target.value)}>
+                  {DU_COURSES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                  <option value="">Something else</option>
+                </select>
+              </div>
+              {aalim && (
+                <div className="form-group">
+                  <label>Place in the Aalim years</label>
+                  <select value={place} onChange={e => { setPlacePicked(true); setPlace(e.target.value); }}>
+                    {Array.from({ length: Math.max(1, places) }, (_, i) => (
+                      <option key={i} value={i + 1}>Year {i + 1}{i === 0 ? ' (first)' : i === places - 1 ? ' (last)' : ''}</option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Its books are on the Aalim course page.</span>
+                </div>
+              )}
+            </> : null}
             <div className="form-group">
-              <label>Assigned teacher (optional)</label>
+              <label>{aalim ? 'Report writer' : 'Assigned teacher (optional)'}</label>
               <select value={form.teacherId || ''} onChange={e => setForm({ ...form, teacherId: e.target.value })}>
-                <option value="">— Unassigned —</option>
+                <option value="">{aalim ? 'The head' : '— Unassigned —'}</option>
                 {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
-            {initial.courseOrder ? (
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', background: '#f3f4f6', borderRadius: 8, padding: '10px 12px' }}>
-                This is an Aalim year — its books are on the Aalim course page.
-              </div>
-            ) : (
+            {!isDarulUloom && (
             <div className="form-group">
               <label>Qur'an</label>
               <select value={form.quranType || ''} onChange={e => setForm({ ...form, quranType: e.target.value })}>
@@ -341,7 +374,7 @@ function ClassModal({ initial, teachers, onClose, onSave }) {
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-teal" disabled={!isValid} onClick={() => onSave(form)}>
+          <button className="btn btn-teal" disabled={!isValid} onClick={save}>
             <Save size={13} /> {isNew ? 'Add class' : 'Save changes'}
           </button>
         </div>
