@@ -79,7 +79,7 @@ export default function GettingStarted({ students, classes, onChanged }) {
     { label: 'Add your teachers', sub: 'First, so each class, year and book can be given its teacher', path: '/classes?tab=teachers', done: teacherCount > 0 },
     { label: 'Add your classes', sub: 'Hifz, Nazarah, Qaa\'idah… — any class that isn\'t an Aalim year', path: '/classes?tab=classes', done: noOthers || classes.some(c => !c.courseOrder),
       extra: { label: "We don't have any", onClick: () => { write(key(code, 'no_other_classes'), '1'); setNoOthers(true); } } },
-    { label: 'Set up your Aalim years and books', sub: 'Your own year names and books — or start from the usual Dars-e-Nizami list and change it', path: '/course', done: classes.some(c => c.courseOrder) },
+    { label: 'Set up your Aalim years and books', sub: 'Your own year names and books — or start from the usual years and classical Islamic core texts and change them', path: '/course', done: classes.some(c => c.courseOrder) },
     { label: 'Make your timetable', sub: 'Your periods and times, then which book each class has when — fill one day and copy it', path: '/timetable', done: hasTimetable },
     studentsStep, loginsStep,
   ] : [

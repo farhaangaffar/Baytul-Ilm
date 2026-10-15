@@ -410,7 +410,7 @@ async function createDemo(ipHash) {
 }
 
 // ── The made-up Darul Uloom (a link ending ?demo=darul-uloom) ──
-// Full-time: the Dars-e-Nizami years (routes/course.js STARTER) with their kitaabs and asatidha,
+// Full-time: the usual Aalim years (routes/course.js STARTER) with their kitaabs and asatidha,
 // a Hifdh class, made-up students in every year, attendance Monday to Friday, monthly fees,
 // behaviour records and last month's reports.
 const DU_TEACHERS = [

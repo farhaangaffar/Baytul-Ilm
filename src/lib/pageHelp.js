@@ -72,7 +72,7 @@ const HEAD = {
   ] },
   '/course': { title: 'Aalim course', steps: [
     'The Aalim years, first year first. Tap a year to open its books underneath.',
-    'New? Tap "Use the Dars-e-Nizami years" to start from the usual years and books — or "Add a year" (a new class, or one you already have).',
+    'New? Tap "Use the usual Aalim years" to start from the usual years and their classical Islamic core texts — or "Add a year" (a new class, or one you already have). A year missing its usual texts has "Add the classical core texts".',
     'Tap a book to change it or its teacher, and to see how far the class has got (what teachers record on the Timetable). Any book can be typed in. "Add a subject" adds another.',
     '"Edit" under an open year renames it, moves it to another place, takes it out of the Aalim years, or deletes it if it has no students.',
     'Hifdh and any other classes are on Classes & Teachers. A class there that should be a year (e.g. a 1st year made again) shows here as "Add … to the years".',
