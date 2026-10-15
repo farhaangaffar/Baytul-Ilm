@@ -3,7 +3,7 @@
 // that year's books from the Aalim course page, or anything typed — and its teacher. It can be seen
 // by class or by teacher, a day at a time or the whole week. Teachers see it too (read-only), opening
 // on their own lessons today.
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getTimetable, addStarterPeriods, savePeriod, deletePeriod, saveLesson, copyTimetableDay, schoolDays, getLessonLogs, saveLessonLog, getBookLogs, niceDate } from '../lib/store';
@@ -50,6 +50,8 @@ export default function Timetable() {
   const [picking, setPicking] = useState(false);
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
+  // A swipe: where the finger started, and whether it's turned out to be a sideways swipe or a scroll.
+  const touch = useRef(null);
   const [logs, setLogs] = useState([]);       // what this week's lessons covered (du_lesson_logs)
   const days = schoolDays().slice().sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)); // Monday first
 
@@ -141,10 +143,23 @@ export default function Timetable() {
   };
   // A day's card. On phones, swipe it sideways for the next or previous day.
   const step = (d, dir) => { const i = days.indexOf(d) + dir; if (i >= 0 && i < days.length) setDay(days[i]); };
-  let touchX = null;
+  // Only a clearly sideways swipe changes the day: the first bit of movement decides — mostly up or
+  // down is a scroll and never turns into a swipe — and it has to travel a good way across.
+  const onTouchStart = e => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY, mode: null }; };
+  const onTouchMove = e => {
+    const g = touch.current; if (!g || g.mode) return;
+    const t = e.touches[0], dx = Math.abs(t.clientX - g.x), dy = Math.abs(t.clientY - g.y);
+    if (dx < 10 && dy < 10) return;
+    g.mode = dx > dy * 2 ? 'swipe' : 'scroll';
+  };
+  const onTouchEnd = d => e => {
+    const g = touch.current; touch.current = null;
+    if (!g || g.mode !== 'swipe') return;
+    const t = e.changedTouches[0], dx = t.clientX - g.x, dy = t.clientY - g.y;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 2) step(d, dx < 0 ? 1 : -1);
+  };
   const dayCard = d => (
-    <div className="card" key={d} onTouchStart={e => { touchX = e.touches[0].clientX; }}
-      onTouchEnd={e => { if (touchX === null) return; const dx = e.changedTouches[0].clientX - touchX; touchX = null; if (Math.abs(dx) > 60) step(d, dx < 0 ? 1 : -1); }}>
+    <div className="card" key={d} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd(d)}>
       <div className="card-title" style={{ marginBottom: 2 }}>{dateOf(d) === TODAY ? 'Today' : DAY[d]} · {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
       <div className="card-sub" style={{ marginBottom: 12 }}>{viewName} · {daySummary(d)}</div>
       {dayLines(d)}

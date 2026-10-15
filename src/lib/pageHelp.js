@@ -75,7 +75,7 @@ const HEAD = {
     'New? Tap "Use the Dars-e-Nizami years" to start from the usual years and books — or "Add a year" (a new class, or one you already have).',
     'Tap a book to change it or its teacher, and to see how far the class has got (what teachers record on the Timetable). Any book can be typed in. "Add a subject" adds another.',
     '"Edit" under an open year renames it, moves it to another place, takes it out of the Aalim years, or deletes it if it has no students.',
-    'Hifdh and any other classes are on Classes & Teachers.',
+    'Hifdh and any other classes are on Classes & Teachers. A class there that should be a year (e.g. a 1st year made again) shows here as "Add … to the years".',
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
