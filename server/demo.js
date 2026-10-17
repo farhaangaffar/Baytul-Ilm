@@ -560,15 +560,18 @@ async function createDarulUloomDemo(ipHash) {
       kids.push({ f, s: sn, g: 'm', cls: hifdh.name, type: 'hifz', age: 11 + (i % 3), start: [su, ay], pace: 3 + (i % 3), prior,
         family: i === 0 ? 'patel' : null, fee: 200 });
     });
+    // Two who have left (for Students → "Students who have left"): a 2nd year three weeks ago, a Hifdh boy five weeks ago.
+    { const [f, sn] = name(); kids.push({ f, s: sn, g: 'm', cls: yearClasses[1].name, type: 'alim', age: 14, fee: 250, left: 21 }); }
+    { const [f, sn] = name(); kids.push({ f, s: sn, g: 'm', cls: hifdh.name, type: 'hifz', age: 12, start: [78, 1], pace: 3, prior: [30], fee: 200, left: 35 }); }
     kids.forEach((k, i) => {
-      Object.assign(k, { id: newId('S'), order: i, enroll: plus(startMonday, -(200 + Math.floor(r() * 500))),
+      Object.assign(k, { id: newId('S'), order: i, enroll: plus(startMonday, -(200 + Math.floor(r() * 500))), leave: k.left ? plus(today, -k.left) : null,
         born: plus(today, -Math.round(k.age * 365 + r() * 300)), p1: k.family ? 'Abdullah' : r.pick(PARENT_NAMES.m), p2: k.family ? 'Amina' : r.pick(PARENT_NAMES.f) });
     });
     await bulk(c, 'students',
       ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone',
         'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order'],
       kids.map(k => [k.id, mid, k.f, k.s, k.born, k.cls, `${k.p1} ${k.s}`, k.family ? '07700 900600' : `07700 9${String(20000 + k.order * 41).slice(-5)}`,
-        `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, null, 'Active', '', k.order]));
+        `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order]));
 
     // Attendance and behaviour records for everyone; Qur'an progress for the Hifdh class.
     const att = [], recs = [], quran = [];
@@ -580,6 +583,7 @@ async function createDarulUloomDemo(ipHash) {
       const manzil = [...((k.prior || []).includes(30) ? MANZIL[30] : []), ...((k.prior || []).includes(29) ? MANZIL[29] : [])];
       let manzilAt = Math.floor(r() * 8);
       for (const d of days) {
+        if (k.leave && d >= k.leave) break;
         const roll = r();
         const status = roll < (k.arrears ? 0.1 : 0.03) ? 'A' : roll < 0.09 ? 'L' : 'P';
         att.push([mid, yearLabel(d), k.id, d, status, status === 'L' ? `07:${String(5 + Math.floor(r() * 20)).padStart(2, '0')}` : null]);
@@ -623,6 +627,7 @@ async function createDarulUloomDemo(ipHash) {
     for (const k of kids) {
       for (const mo of months) {
         if (mo.slice(5, 7) === '08') continue;
+        if (k.leave && mo > k.leave) break;
         let paid = mo < thisMonth ? r.chance(0.96) : r.chance(0.55);
         if (k.arrears && mo >= months[months.length - 2]) paid = false;
         const paidDate = paid ? (mo < thisMonth ? plus(mo, Math.floor(r() * 6)) : (plus(mo, 2) > today ? today : plus(mo, 2))) : null;
@@ -668,7 +673,7 @@ async function createDarulUloomDemo(ipHash) {
       'He found this test difficult; he should go over the resit subjects with his teacher.',
     ];
     const H_COMMENTS = ['Well done — keep it up.', 'A good start to the year.', 'Please make sure the resits are prepared for.', ''];
-    for (const k of kids) {
+    for (const k of kids.filter(x => !x.leave)) {
       const cls = examClasses.find(y => y.name === k.cls);
       const ability = 0.42 + r() * 0.52;
       for (const p of testPapers.filter(x => x.class_id === cls.id)) {
