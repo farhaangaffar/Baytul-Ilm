@@ -20,7 +20,7 @@ export function ParentInputs({ form, set, errors = {}, required = false }) {
   const star = n => required && n === 1 && <span className="required">*</span>;
   return [1, 2].map(n => (
     <div key={n}>
-      <div className="form-section-title" style={{ marginBottom: 12 }}>Parent {n}{n === 2 ? ' (if there is one)' : ''}</div>
+      <div className="form-section-title" style={{ marginBottom: 12 }}>Contact {n}{n === 2 ? ' (if there is one)' : ''}</div>
       <div className="form-grid form-grid-2 mb-5">
         <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>They are the child's</label>
           <ChoiceBoxes options={RELATIONS} value={form[`parent${n}Relation`] || ''} onChange={v => set(`parent${n}Relation`, v)} /></div>

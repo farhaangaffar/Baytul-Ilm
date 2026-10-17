@@ -155,12 +155,12 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                 {field('Surname', 'surname', 'text', true)}
                 {field('Date of birth', 'dob', 'date', true)}
                 {field('Enrolment date', 'enrollDate', 'date')}
-                <div className="form-group"><label>Boy or girl</label><ChoiceBoxes options={['Boy', 'Girl']} value={form.gender || ''} onChange={v => set('gender', v)} /></div>
+                <div className="form-group"><label>Gender</label><ChoiceBoxes options={['Boy', 'Girl']} value={form.gender || ''} onChange={v => set('gender', v)} /></div>
               </div>
             </div>
           ) : step === 1 ? (
             <div>
-              <div className="form-section-title" style={{ marginBottom: 14 }}><Phone size={14} />Parent / guardian contacts</div>
+              <div className="form-section-title" style={{ marginBottom: 14 }}><Phone size={14} />Contacts</div>
               <ParentInputs form={form} set={set} errors={errors} required />
             </div>
           ) : step === 2 ? (

@@ -240,7 +240,7 @@ codebase (one codebase, not a fork).
   who handles it changes (a new table of personal data, a new outside service), update the
   privacy policy too.
 - **A child's details** (`src/lib/studentDetails.js` — the one list; columns in `DETAILS`, `server/routes/students.js`,
-  plain text '' when blank, added by the API, `db/migrate-031-student-details.sql`): boy or girl; each parent's relation
+  plain text '' when blank, added by the API, `db/migrate-031-student-details.sql`): gender (Boy/Girl); contacts shown as "Contact 1 / Contact 2" (stored as parent1_/parent2_); each one's relation
   (Mother/Father/…) and email, who to contact first, home address & postcode; an emergency contact (if not a parent);
   allergies, medical conditions, medication; can go home alone, who else may collect them; Darul Uloom only: boarder or day
   student, school year, previous madrasah/school, Hifdh completed. No GP, no photo consent (the owner's choice). Edited in the

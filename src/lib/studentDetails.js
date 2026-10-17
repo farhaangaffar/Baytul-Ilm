@@ -7,12 +7,12 @@ export const RELATIONS = ['Mother', 'Father', 'Guardian', 'Grandparent', 'Other'
 
 // [key, label, { section, options, du (Darul Uloom only), wide (full-width box), type }]
 export const DETAIL_FIELDS = [
-  ['gender', 'Boy or girl', { section: 'about', options: ['Boy', 'Girl'] }],
-  ['parent1Relation', 'Parent 1 is', { section: 'parents', options: RELATIONS }],
-  ['parent1Email', 'Parent 1 email', { section: 'parents', type: 'email' }],
-  ['parent2Relation', 'Parent 2 is', { section: 'parents', options: RELATIONS }],
-  ['parent2Email', 'Parent 2 email', { section: 'parents', type: 'email' }],
-  ['mainContact', 'Contact first', { section: 'family', options: ['Parent 1', 'Parent 2'] }],
+  ['gender', 'Gender', { section: 'about', options: ['Boy', 'Girl'] }],
+  ['parent1Relation', 'Contact 1 is', { section: 'parents', options: RELATIONS }],
+  ['parent1Email', 'Contact 1 email', { section: 'parents', type: 'email' }],
+  ['parent2Relation', 'Contact 2 is', { section: 'parents', options: RELATIONS }],
+  ['parent2Email', 'Contact 2 email', { section: 'parents', type: 'email' }],
+  ['mainContact', 'Contact first', { section: 'family', options: ['Contact 1', 'Contact 2'] }],
   ['address', 'Home address', { section: 'family', wide: true }],
   ['postcode', 'Postcode', { section: 'family' }],
   ['emergencyName', 'Name', { section: 'emergency' }],

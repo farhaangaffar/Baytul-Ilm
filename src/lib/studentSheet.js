@@ -6,11 +6,11 @@
 // order); a child's extra details (lib/studentDetails.js) follow, the Darul Uloom ones last.
 export const SHEET_COLUMNS = [
   ['forename', 'Forename'], ['surname', 'Surname'], ['class', 'Class'], ['dob', 'Date of birth'],
-  ['parent1Name', 'Parent 1 name'], ['parent1Phone', 'Parent 1 phone'],
-  ['parent2Name', 'Parent 2 name'], ['parent2Phone', 'Parent 2 phone'],
+  ['parent1Name', 'Contact 1 name'], ['parent1Phone', 'Contact 1 phone'],
+  ['parent2Name', 'Contact 2 name'], ['parent2Phone', 'Contact 2 phone'],
   ['weeklyFee', 'Fee'], ['enrollDate', 'Enrolled'], ['leaveDate', 'Left'], ['status', 'Status'], ['notes', 'Notes'],
-  ['gender', 'Boy or girl'], ['parent1Relation', 'Parent 1 relation'], ['parent1Email', 'Parent 1 email'],
-  ['parent2Relation', 'Parent 2 relation'], ['parent2Email', 'Parent 2 email'], ['mainContact', 'Contact first'],
+  ['gender', 'Gender'], ['parent1Relation', 'Contact 1 relation'], ['parent1Email', 'Contact 1 email'],
+  ['parent2Relation', 'Contact 2 relation'], ['parent2Email', 'Contact 2 email'], ['mainContact', 'Contact first'],
   ['address', 'Address'], ['postcode', 'Postcode'],
   ['emergencyName', 'Emergency contact'], ['emergencyRelation', 'Emergency relation'], ['emergencyPhone', 'Emergency phone'],
   ['allergies', 'Allergies'], ['medical', 'Medical conditions'], ['medication', 'Medication'],
@@ -70,7 +70,7 @@ function splitRows(text) {
 }
 
 // Heading words → field. Checked in order, so "parent 2 phone" wins over "phone", and the
-// extra details ("Emergency phone", "Parent 1 email", "School year") before the usual ones.
+// extra details ("Emergency phone", "Contact 1 email", "School year") before the usual ones.
 const HEADINGS = [
   [/^(full\s*)?name$|^(student|child|pupil)('?s)?\s*name$/, 'fullName'],
   [/emergency.*(phone|mobile|tel|number)/, 'emergencyPhone'], [/emergency.*relat/, 'emergencyRelation'], [/emergency/, 'emergencyName'],
@@ -88,7 +88,7 @@ const HEADINGS = [
   [/(parent|guardian|mother|father|contact)?\s*2.*(phone|mobile|tel|number)|(phone|mobile|tel).*2/, 'parent2Phone'],
   [/(parent|guardian|mother|father|contact)?\s*2/, 'parent2Name'],
   [/phone|mobile|tel|number|contact\s*no/, 'parent1Phone'],
-  [/parent|guardian|carer|mother|mum|mom|father|dad/, 'parent1Name'],
+  [/parent|guardian|carer|mother|mum|mom|father|dad|contact/, 'parent1Name'],
   [/fee|amount|price/, 'weeklyFee'], [/enrol|start|joined/, 'enrollDate'], [/left|leav/, 'leaveDate'],
   [/status/, 'status'], [/note|comment/, 'notes'],
 ];
@@ -164,7 +164,7 @@ const WORDS = {
   gender: [[/^(b|m|boy|male)$/i, 'Boy'], [/^(g|f|girl|female)$/i, 'Girl']],
   walksHome: [[/^(y|yes|true)$/i, 'Yes'], [/^(n|no|false)$/i, 'No']],
   boarding: [[/board/i, 'Boarder'], [/day/i, 'Day student']],
-  mainContact: [[/1|first|one/i, 'Parent 1'], [/2|second|two/i, 'Parent 2']],
+  mainContact: [[/1|first|one/i, 'Contact 1'], [/2|second|two/i, 'Contact 2']],
   relation: [[/^(mother|mum|mom|mam|ammi)$/i, 'Mother'], [/^(father|dad|abbu|abba)$/i, 'Father'], [/guardian|carer/i, 'Guardian'], [/grand|nan|nana|nani|dada|dadi/i, 'Grandparent']],
 };
 function tidyDetails(o) {

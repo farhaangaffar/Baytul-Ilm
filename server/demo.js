@@ -143,7 +143,7 @@ const HEALTH = [['Peanuts and tree nuts', '', 'EpiPen in his/her bag'], ['', 'As
 function demoDetails(k, i, du) {
   const h = i % 7 === 3 ? HEALTH[(i / 7 | 0) % HEALTH.length] : ['', '', ''];
   const pronoun = k.g === 'f' ? 'her' : 'his';
-  return [k.g === 'f' ? 'Girl' : 'Boy', 'Father', 'Mother', i % 3 === 0 ? 'Parent 1' : 'Parent 2',
+  return [k.g === 'f' ? 'Girl' : 'Boy', 'Father', 'Mother', i % 3 === 0 ? 'Contact 1' : 'Contact 2',
     `${12 + (i * 7) % 180} ${STREETS[i % STREETS.length]}, Demo Town`, `DT${1 + (i % 9)} ${1 + (i % 8)}AB`,
     i % 4 === 0 ? `Yasmin ${k.s}` : '', i % 4 === 0 ? 'Aunt' : '', i % 4 === 0 ? `07700 9${String(30000 + i * 53).slice(-5)}` : '',
     h[0], h[1], h[2].replace('his/her', pronoun),

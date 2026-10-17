@@ -400,7 +400,7 @@ export default function Students() {
                   <div className="form-section-title" style={{marginBottom:10}}>Student</div>
                   {[
                     ['Date of birth',formatDateGB(selected.dob)],
-                    ...(selected.gender?[['Boy or girl',selected.gender]]:[]),
+                    ...(selected.gender?[['Gender',selected.gender]]:[]),
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
                     [`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`],
@@ -466,13 +466,13 @@ export default function Students() {
                   </div>
                 </>
               )}
-              <div className="form-section-title" style={{marginBottom:10}}>Parent contacts</div>
+              <div className="form-section-title" style={{marginBottom:10}}>Contacts</div>
               <div className="grid-2 mb-4">
                 {[1,2].filter(n=>n===1||selected.parent2Name||selected.parent2Phone).map(n=>(
                   <div key={n} style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13}}>
                     <div style={{fontWeight:600,marginBottom:4}}>
-                      {selected[`parent${n}Relation`]||`Parent ${n}`}
-                      {selected.mainContact===`Parent ${n}`&&<span style={{fontWeight:500,color:'var(--teal-dark)'}}> · contact first</span>}
+                      {selected[`parent${n}Relation`]||`Contact ${n}`}
+                      {selected.mainContact===`Contact ${n}`&&<span style={{fontWeight:500,color:'var(--teal-dark)'}}> · contact first</span>}
                     </div>
                     <div>{selected[`parent${n}Name`]||'—'}</div>
                     <div className="text-muted">{selected[`parent${n}Phone`]||'—'}</div>
@@ -508,7 +508,7 @@ export default function Students() {
                   <div className="form-group" key={k}><label>{l}</label><input value={editForm[k]} onChange={e=>setEditForm({...editForm,[k]:e.target.value})}/></div>
                 ))}
                 <div className="form-group"><label>Date of birth</label><input type="date" value={editForm.dob} onChange={e=>setEditForm({...editForm,dob:e.target.value})}/></div>
-                <div className="form-group"><label>Boy or girl</label><ChoiceBoxes options={['Boy','Girl']} value={editForm.gender||''} onChange={v=>setEditForm(f=>({...f,gender:v}))}/></div>
+                <div className="form-group"><label>Gender</label><ChoiceBoxes options={['Boy','Girl']} value={editForm.gender||''} onChange={v=>setEditForm(f=>({...f,gender:v}))}/></div>
                 <div className="form-group"><label>Enrolment date</label><input type="date" value={editForm.enrollDate||''} onChange={e=>setEditForm({...editForm,enrollDate:e.target.value})}/></div>
                 <div className="form-group"><label>Status</label>
                   <select value={editForm.status} onChange={e=>{
