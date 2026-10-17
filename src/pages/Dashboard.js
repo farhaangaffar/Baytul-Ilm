@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import GettingStarted from '../components/GettingStarted';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
-import { feeFrequency, currentFeePeriod, FREQUENCIES } from '../lib/feePeriods';
+import { feeFrequency, currentFeePeriod, periodStarted } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -61,6 +61,15 @@ export default function Dashboard() {
   const weekMarked = weekPresent + weekLate + weekAbsent;
   const weekAttPct = weekMarked ? Math.round(((weekPresent + weekLate) / weekMarked) * 100) : 0;
   const weekLabel = `${formatDayMonthGB(weekDates[0])} – ${formatDayMonthGB(weekDates[weekDates.length - 1])}`;
+  // ── The whole academic year so far (the cards on top; the charts below show this week / this month) ──
+  let yearPL = 0, yearMarked = 0;
+  for (const days of Object.values(attendance)) {
+    for (const st of Object.values(days)) {
+      if (st === 'P' || st === 'L') { yearPL++; yearMarked++; } else if (st === 'A') yearMarked++;
+    }
+  }
+  const yearAttPct = yearMarked ? Math.round((yearPL / yearMarked) * 100) : 0;
+  const yearOutstanding = fees.filter(f => f.status !== 'Paid' && periodStarted(f)).reduce((s, f) => s + Number(f.amount), 0);
   function shiftWeek(dir) {
     const d = new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate() + dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);
@@ -69,7 +78,8 @@ export default function Dashboard() {
   // ── This period's fees: the school month (weekly), calendar month (monthly) or
   // current term (termly), per Settings → fee frequency ──
   const frequency = feeFrequency();
-  const unit = FREQUENCIES[frequency].unit;
+  // Weekly fees are grouped by school month, so their period is a month too.
+  const unit = frequency === 'termly' ? 'term' : 'month';
   const feePeriod = currentFeePeriod(frequency, terms) || { start: '9999-12-31', endExclusive: '9999-12-31', label: 'no term dates set' };
   const monthFees = fees.filter(f => f.weekStarting >= feePeriod.start && f.weekStarting < feePeriod.endExclusive);
   const monthCollected = monthFees.filter(f => f.status === 'Paid').reduce((s, f) => s + Number(f.amount), 0);
@@ -107,13 +117,13 @@ export default function Dashboard() {
           <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/classes')}>View all →</div>
         </div>
         <div className="stat-card-v2">
-          <div className="n">{weekAttPct}%</div>
-          <div className="l">Attendance this week</div>
+          <div className="n">{yearAttPct}%</div>
+          <div className="l">Attendance this year</div>
           <div className="view-all" style={{color:'var(--green-text)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/attendance')}>View all →</div>
         </div>
         <div className="stat-card-v2">
-          <div className="n">{money(monthOutstanding)}</div>
-          <div className="l">Outstanding this {unit}</div>
+          <div className="n">{money(yearOutstanding)}</div>
+          <div className="l">Outstanding this year</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/fees')}>View all →</div>
         </div>
       </div>
