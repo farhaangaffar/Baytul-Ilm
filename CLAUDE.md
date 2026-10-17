@@ -131,7 +131,7 @@ codebase (one codebase, not a fork).
   (`du_periods`: name, times, break or lessons, which days — '' = every school day, e.g. no afternoon on Friday;
   "Use a typical day" = `STARTER_PERIODS`) and lessons (`du_lessons`, one per class/day/period: subject + book —
   usually one of the year's `du_subjects` — teacher, room). Viewed by class or teacher (Class ▾ box), a day at a
-  time or the Week (on computers a colour grid; on phones there's no Week box — day boxes with dates, one day at a time, swipe sideways).
+  time or the Week (on computers a colour grid; on phones day boxes with dates, one day at a time, swipe sideways — and Week, every day's card one under another).
   Calm look (the owner found it too wordy): each subject has its own soft colour (`COLOURS`, shared out among the viewed
   class's/teacher's subjects); a lesson line is just start time, subject and book (teacher and room are one tap away —
   teachers get a details pop-up, `ViewModal`, with Record); today's current lesson is marked Now; Record shows once a lesson has started. The lesson pop-up warns when the teacher is
