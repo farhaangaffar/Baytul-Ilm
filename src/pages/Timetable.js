@@ -76,7 +76,6 @@ export default function Timetable() {
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000); }
   const after = async msg => { setModal(null); await load(); if (msg) showToast(msg); };
 
-  const phoneDay = days.includes(new Date().getDay()) ? new Date().getDay() : days[0]; // Week on a phone shows today
   const title = 'Timetable';
   const subtitle = 'Periods, lessons and who teaches them';
   if (loading) return <Layout title={title} subtitle={subtitle}><LoadingState /></Layout>;
@@ -179,13 +178,14 @@ export default function Timetable() {
       setTimeout(() => step(d, dx < 0 ? 1 : -1), 150);
     } else snapBack(el);
   };
-  const dayCard = d => (
-    <div className={`card ${slide ? `tt-slide-${slide}` : ''}`} key={d} onTouchStart={onTouchStart} onTouchMove={onTouchMove(d)}
-      onTouchEnd={onTouchEnd(d)} onTouchCancel={e => { touch.current = null; snapBack(e.currentTarget); }}>
+  // One day's card. In the phone Week (stacked: every day one under another) it doesn't swipe.
+  const dayCard = (d, stacked) => (
+    <div className={`card ${slide && !stacked ? `tt-slide-${slide}` : ''}`} key={d} {...(stacked ? {} : { onTouchStart, onTouchMove: onTouchMove(d),
+      onTouchEnd: onTouchEnd(d), onTouchCancel: e => { touch.current = null; snapBack(e.currentTarget); } })}>
       <div className="card-title" style={{ marginBottom: 2 }}>{dateOf(d) === TODAY ? 'Today' : DAY[d]} · {niceDate(dateOf(d)).replace(/^\S+ /, '')}</div>
       <div className="card-sub" style={{ marginBottom: 12 }}>{viewName} · {daySummary(d)}</div>
       {dayLines(d)}
-      {days.indexOf(d) < days.length - 1 && (
+      {!stacked && days.indexOf(d) < days.length - 1 && (
         <button type="button" className="tt-next-day" onClick={() => step(d, 1)}>Swipe for {DAY[days[days.indexOf(d) + 1]]} →</button>
       )}
     </div>
@@ -296,23 +296,25 @@ export default function Timetable() {
                 <span className="class-bar-value">{viewName}<ChevronDown size={15} /></span>
               </button>
             </div>
-            {/* Computers: the days and Week (the colour grid). Phones: day boxes with dates, one day at a time. */}
+            {/* Computers: the days and Week (the colour grid). Phones: day boxes with dates, one day at a time,
+                and Week (every day's card, one under another). */}
             <div className="tt-days tt-week-wide" style={{ gridTemplateColumns: `repeat(${days.length + 1}, minmax(0, 1fr))` }}>
               {days.map(d => (
                 <button key={d} type="button" className={`tt-day ${day === d ? 'on' : ''}`} onClick={() => goDay(d)}>{DAY3[d]}</button>
               ))}
               <button type="button" className={`tt-day ${day === 'week' ? 'on' : ''}`} onClick={() => setDay('week')}>Week</button>
             </div>
-            <div className="tt-week-boxes tt-week-narrow" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+            <div className="tt-week-boxes tt-week-narrow" style={{ gridTemplateColumns: `repeat(${days.length + 1}, minmax(0, 1fr))` }}>
               {days.map(d => (
-                <button key={d} type="button" className={`tt-week-box ${day === d || (day === 'week' && d === phoneDay) ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => goDay(d)}>
+                <button key={d} type="button" className={`tt-week-box ${day === d ? 'on' : ''} ${dateOf(d) === TODAY ? 'today' : ''}`} onClick={() => goDay(d)}>
                   {DAY3[d]}<small>{niceDate(dateOf(d)).replace(/^\S+ /, '').replace(/ .*/, '')}</small>
                 </button>
               ))}
+              <button type="button" className={`tt-week-box ${day === 'week' ? 'on' : ''}`} onClick={() => setDay('week')}>Week</button>
             </div>
             {day === 'week' ? <>
               <div className="tt-week-wide">{weekCard()}</div>
-              <div className="tt-week-narrow">{dayCard(phoneDay)}</div>
+              <div className="tt-week-narrow">{days.map(d => dayCard(d, true))}</div>
             </> : <div className="tt-swipe">{dayCard(day)}</div>}
           </>
         )}

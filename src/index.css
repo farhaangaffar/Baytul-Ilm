@@ -840,7 +840,7 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .tt-view-row b { text-align: right; font-weight: 600; }
 /* Timetable Week on phones: day boxes with dates, one day's lessons underneath. */
 .tt-week-boxes { gap: 6px; margin-bottom: 14px; }
-.tt-week-box { display: flex; flex-direction: column; align-items: center; padding: 8px 0; border-radius: 10px; border: 1px solid #dfe3e8; background: var(--surface); font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer; min-width: 0; }
+.tt-week-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; border-radius: 10px; border: 1px solid #dfe3e8; background: var(--surface); font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer; min-width: 0; }
 .tt-week-box small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
 .tt-week-box.today small { color: var(--teal-dark); font-weight: 700; }
 .tt-week-box.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
