@@ -22,9 +22,9 @@ function feesForHead() {
 
 const HEAD = {
   '/': { title: 'Dashboard', steps: [
-    'A quick look at today: children, classes, attendance and fees.',
+    'The boxes on top: children, classes, and this year\'s attendance and fees still owed.',
     'Tap "View all" on a box to go to that page.',
-    'The charts show this week\'s attendance and this month\'s fees.',
+    'The charts show this week\'s attendance and this month\'s (or term\'s) fees.',
   ] },
   '/students': { title: 'Students', steps: [
     'Children are grouped by class — tap a class to open it.',
