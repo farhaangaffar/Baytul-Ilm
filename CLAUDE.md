@@ -239,6 +239,15 @@ codebase (one codebase, not a fork).
   the same version string is in `server/routes/session.js` — change both). If what's stored or
   who handles it changes (a new table of personal data, a new outside service), update the
   privacy policy too.
+- **A child's details** (`src/lib/studentDetails.js` — the one list; columns in `DETAILS`, `server/routes/students.js`,
+  plain text '' when blank, added by the API, `db/migrate-031-student-details.sql`): boy or girl; each parent's relation
+  (Mother/Father/…) and email, who to contact first, home address & postcode; an emergency contact (if not a parent);
+  allergies, medical conditions, medication; can go home alone, who else may collect them; Darul Uloom only: boarder or day
+  student, school year, previous madrasah/school, Hifdh completed. No GP, no photo consent (the owner's choice). Edited in the
+  Students edit pop-up and the new-student form's "More details" step (`DetailInputs`, `ParentInputs`, `ChoiceBoxes` in
+  `src/components/StudentDetails.js`); a health note shows in red on the child's profile, Attendance and Daily records
+  (`HealthNote`) and a red heart by the name on lists (`HealthDot`). Teachers get health, emergency and collection, never the
+  address, emails or previous school (`TEACHER_HIDDEN`). In the spreadsheet too. Later, parents fill these in themselves (online sign-up).
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
   an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`), and

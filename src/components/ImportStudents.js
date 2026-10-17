@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { X, Upload, Download, FileSpreadsheet, ArrowLeft } from 'lucide-react';
 import { importStudents, getDefaultWeeklyFee } from '../lib/store';
 import { parseSheet, parseDate, SHEET_COLUMNS, SHEET_LEFT } from '../lib/studentSheet';
+import { DETAIL_FIELDS } from '../lib/studentDetails';
 import { xlsxBlob, downloadBlob, xlsxToText } from '../lib/xlsx';
 
 // Students → Import: paste rows copied from Excel / Google Sheets (or choose a .csv), check
@@ -76,6 +77,7 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
           enrollDate: parseDate(r.enrollDate) || today(),
           status: left ? 'Inactive' : 'Active', leaveDate: parseDate(r.leaveDate) || (left ? today() : ''),
           notes: r.notes,
+          ...Object.fromEntries(DETAIL_FIELDS.map(([k]) => [k, r[k] || ''])),
         };
       });
       const res = await importStudents(list, newClasses);

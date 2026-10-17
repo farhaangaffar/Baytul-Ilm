@@ -13,12 +13,15 @@ import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight,
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer, ownedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
+import { DetailInputs, DetailLines, HealthNote, ChoiceBoxes, ParentInputs } from '../components/StudentDetails';
+import { useAuth } from '../lib/AuthContext';
 
 const WAITING_LIST = 'Waiting list';
 
 function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
 
 export default function Students() {
+  const { isDarulUloom } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
@@ -391,11 +394,13 @@ export default function Students() {
               <button className="btn btn-icon" onClick={closeSelected}><X size={16}/></button>
             </div>
             <div className="modal-body">
+              <HealthNote student={selected}/>
               <div className="grid-2 mb-4">
                 <div>
                   <div className="form-section-title" style={{marginBottom:10}}>Student</div>
                   {[
                     ['Date of birth',formatDateGB(selected.dob)],
+                    ...(selected.gender?[['Boy or girl',selected.gender]]:[]),
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
                     [`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`],
@@ -463,19 +468,19 @@ export default function Students() {
               )}
               <div className="form-section-title" style={{marginBottom:10}}>Parent contacts</div>
               <div className="grid-2 mb-4">
-                <div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13}}>
-                  <div style={{fontWeight:600,marginBottom:4}}>Parent 1</div>
-                  <div>{selected.parent1Name||'—'}</div>
-                  <div className="text-muted">{selected.parent1Phone||'—'}</div>
-                </div>
-                {(selected.parent2Name||selected.parent2Phone)&&(
-                  <div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13}}>
-                    <div style={{fontWeight:600,marginBottom:4}}>Parent 2</div>
-                    <div>{selected.parent2Name||'—'}</div>
-                    <div className="text-muted">{selected.parent2Phone||'—'}</div>
+                {[1,2].filter(n=>n===1||selected.parent2Name||selected.parent2Phone).map(n=>(
+                  <div key={n} style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13}}>
+                    <div style={{fontWeight:600,marginBottom:4}}>
+                      {selected[`parent${n}Relation`]||`Parent ${n}`}
+                      {selected.mainContact===`Parent ${n}`&&<span style={{fontWeight:500,color:'var(--teal-dark)'}}> · contact first</span>}
+                    </div>
+                    <div>{selected[`parent${n}Name`]||'—'}</div>
+                    <div className="text-muted">{selected[`parent${n}Phone`]||'—'}</div>
+                    {selected[`parent${n}Email`]&&<div className="text-muted" style={{overflowWrap:'anywhere'}}>{selected[`parent${n}Email`]}</div>}
                   </div>
-                )}
+                ))}
               </div>
+              <DetailLines student={selected} isDarulUloom={isDarulUloom} skip={['mainContact']}/>
               <ParentLogin student={selected} students={students} />
               {selected.notes&&<div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>
@@ -503,6 +508,7 @@ export default function Students() {
                   <div className="form-group" key={k}><label>{l}</label><input value={editForm[k]} onChange={e=>setEditForm({...editForm,[k]:e.target.value})}/></div>
                 ))}
                 <div className="form-group"><label>Date of birth</label><input type="date" value={editForm.dob} onChange={e=>setEditForm({...editForm,dob:e.target.value})}/></div>
+                <div className="form-group"><label>Boy or girl</label><ChoiceBoxes options={['Boy','Girl']} value={editForm.gender||''} onChange={v=>setEditForm(f=>({...f,gender:v}))}/></div>
                 <div className="form-group"><label>Enrolment date</label><input type="date" value={editForm.enrollDate||''} onChange={e=>setEditForm({...editForm,enrollDate:e.target.value})}/></div>
                 <div className="form-group"><label>Status</label>
                   <select value={editForm.status} onChange={e=>{
@@ -521,12 +527,8 @@ export default function Students() {
                   <div className="form-group"><label>Leave date</label><input type="date" value={editForm.leaveDate||''} onChange={e=>setEditForm({...editForm,leaveDate:e.target.value})}/></div>
                 )}
               </div>
-              <div className="form-section-title" style={{marginBottom:12}}>Parent contacts</div>
-              <div className="form-grid form-grid-2 mb-5">
-                {[['Parent 1 name','parent1Name'],['Parent 1 phone','parent1Phone'],['Parent 2 name','parent2Name'],['Parent 2 phone','parent2Phone']].map(([l,k])=>(
-                  <div className="form-group" key={k}><label>{l}</label><input value={editForm[k]||''} onChange={e=>setEditForm({...editForm,[k]:e.target.value})}/></div>
-                ))}
-              </div>
+              <ParentInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))}/>
+              <DetailInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))} isDarulUloom={isDarulUloom} only={['family','emergency','health','home','du']}/>
               <div className="form-section-title" style={{marginBottom:12}}>Class & fees</div>
               <div className="form-grid form-grid-2 mb-5">
                 <div className="form-group"><label>Class</label>
@@ -592,3 +594,4 @@ export default function Students() {
     </Layout>
   );
 }
+

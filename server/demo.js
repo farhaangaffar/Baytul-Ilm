@@ -133,6 +133,25 @@ const STUDENTS = [
 ];
 const PARENT_NAMES = { m: ['Abdullah', 'Mohammed', 'Ahmed', 'Imran', 'Tariq', 'Faisal'], f: ['Amina', 'Sarah', 'Nadia', 'Saima', 'Rukhsana', 'Huda'] };
 
+// A child's extra details for the demo (made up; a few with allergies or a condition so the red
+// health note shows). Columns: DETAIL_COLS.
+const DETAIL_COLS = ['gender', 'parent1_relation', 'parent2_relation', 'main_contact', 'address', 'postcode',
+  'emergency_name', 'emergency_relation', 'emergency_phone', 'allergies', 'medical', 'medication', 'walks_home', 'collectors',
+  'boarding', 'previous_school', 'hifdh_completed'];
+const STREETS = ['Orchard Road', 'Mill Lane', 'Station Road', 'Park Avenue', 'Church Street', 'Victoria Road', 'Elm Grove', 'Albert Street'];
+const HEALTH = [['Peanuts and tree nuts', '', 'EpiPen in his/her bag'], ['', 'Asthma', 'Blue inhaler when needed'], ['Dairy', '', ''], ['', 'Eczema', 'Cream at home only']];
+function demoDetails(k, i, du) {
+  const h = i % 7 === 3 ? HEALTH[(i / 7 | 0) % HEALTH.length] : ['', '', ''];
+  const pronoun = k.g === 'f' ? 'her' : 'his';
+  return [k.g === 'f' ? 'Girl' : 'Boy', 'Father', 'Mother', i % 3 === 0 ? 'Parent 1' : 'Parent 2',
+    `${12 + (i * 7) % 180} ${STREETS[i % STREETS.length]}, Demo Town`, `DT${1 + (i % 9)} ${1 + (i % 8)}AB`,
+    i % 4 === 0 ? `Yasmin ${k.s}` : '', i % 4 === 0 ? 'Aunt' : '', i % 4 === 0 ? `07700 9${String(30000 + i * 53).slice(-5)}` : '',
+    h[0], h[1], h[2].replace('his/her', pronoun),
+    du ? '' : (k.age || 0) >= 11 || k.c === 'hifz' ? 'Yes' : 'No', du || i % 5 ? '' : 'Grandparents (Nana and Nani)',
+    du ? (i % 3 === 0 ? 'Boarder' : 'Day student') : '', du && i % 4 === 1 ? 'Madrasah Taleem-ul-Islam, Demo Town' : '',
+    du && k.type === 'alim' && i % 6 === 0 ? String(2020 + (i % 5)) : ''];
+}
+
 // Seeded random numbers, so each demo differs a little but every list is consistent.
 function rng(seed) {
   let a = seed >>> 0;
@@ -295,9 +314,10 @@ async function createDemo(ipHash) {
     });
     await bulk(c, 'students',
       ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone',
-        'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order'],
+        'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order', ...DETAIL_COLS],
       kids.map(k => [k.id, mid, k.f, k.s, k.born, className[k.c], `${k.p1} ${k.s}`, k.family ? '07700 900500' : `07700 9${String(10000 + k.order * 37).slice(-5)}`,
-        `${k.p2} ${k.s}`, k.family ? '07700 900501' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order]));
+        `${k.p2} ${k.s}`, k.family ? '07700 900501' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
+        ...demoDetails(k, k.order, false)]));
 
     // Attendance, daily records and Qur'an progress, day by day.
     const att = [], recs = [], quran = [];
@@ -569,9 +589,10 @@ async function createDarulUloomDemo(ipHash) {
     });
     await bulk(c, 'students',
       ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone',
-        'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order'],
+        'weekly_fee', 'enroll_date', 'leave_date', 'status', 'notes', 'sort_order', ...DETAIL_COLS],
       kids.map(k => [k.id, mid, k.f, k.s, k.born, k.cls, `${k.p1} ${k.s}`, k.family ? '07700 900600' : `07700 9${String(20000 + k.order * 41).slice(-5)}`,
-        `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order]));
+        `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
+        ...demoDetails(k, k.order, true)]));
 
     // Attendance and behaviour records for everyone; Qur'an progress for the Hifdh class.
     const att = [], recs = [], quran = [];
