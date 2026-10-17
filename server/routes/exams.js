@@ -135,7 +135,7 @@ async function examDetail(mid, examId, reach) {
   const { rows: allPapers } = await query(`SELECT ${PAPER_COLS} FROM du_exam_papers WHERE exam_id = $1 AND madrasah_id = $2 ORDER BY sort_order, id`, [examId, mid]);
   const { rows: classes } = await query(
     `SELECT c.id, c.name, t.name AS "teacherName" FROM classes c LEFT JOIN teachers t ON t.id = c.teacher_id AND t.madrasah_id = c.madrasah_id
-     WHERE c.madrasah_id = $1 AND c.id = ANY($2)`, [mid, exam.classIds]);
+     WHERE c.madrasah_id = $1 AND c.id = ANY($2) ORDER BY c.course_order NULLS LAST, c.name`, [mid, exam.classIds]); // first year first
   const papers = allPapers.filter(p => canSeePaper(reach, p));
   const visibleClasses = classes.filter(c => !reach || reach.classIds.has(c.id) || papers.some(p => p.classId === c.id));
   const { rows: students } = await query(

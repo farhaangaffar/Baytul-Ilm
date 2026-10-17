@@ -93,7 +93,7 @@ export function FeeTotals({ paid, owed, label }) {
     <div className="summary-row-v2" style={{ marginBottom: 14 }}>
       <div className="summary-box-v2" style={{ background: 'var(--green-light)' }}><div className="n">{money(paid)}</div><div className="l">Paid</div></div>
       <div className="summary-box-v2" style={{ background: 'var(--red-light)' }}><div className="n">{money(owed)}</div><div className="l">Owed</div></div>
-      <div className="summary-box-v2" style={{ background: '#f0f2f6' }}><div className="n">{billed ? Math.round(paid / billed * 100) : 0}%</div><div className="l">Collected {label}</div></div>
+      <div className="summary-box-v2" style={{ background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px #dfe3e8' }}><div className="n">{billed ? Math.round(paid / billed * 100) : 0}%</div><div className="l">Collected {label}</div></div>
     </div>
   );
 }
