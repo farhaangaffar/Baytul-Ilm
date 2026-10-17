@@ -343,6 +343,10 @@ codebase (one codebase, not a fork).
   centred) → month/term boxes → the chosen one shown in the same card.
 - Dates are plain `YYYY-MM-DD` strings; "school month" follows the first-Monday rule
   in `src/lib/store.js`.
+- **Big madaaris stay quick** (tested with 800 children and a full year: every page under 3 s on a
+  throttled phone): `getCurrentSchoolMonth()` is remembered per date (it's called for every fee); Stats
+  counts a year's attendance in one pass (`attendanceStatsByMonth`); attendance and fees have
+  `(madrasah_id, year)` indexes. Don't loop over every record once per month/class/student — group in one pass.
 - **Install as an app:** on phones not running the installed app, a slim "Get the app on your
   home screen" bar (`src/components/InstallBanner.js`, staff and parents; hidden 30 days on ✕).
   Android/Chrome installs straight away; iPhone shows the Share → Add to Home Screen steps

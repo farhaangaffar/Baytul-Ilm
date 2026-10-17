@@ -164,6 +164,7 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 CREATE INDEX IF NOT EXISTS idx_attendance_year_date ON attendance (year, date);
 CREATE INDEX IF NOT EXISTS idx_attendance_madrasah ON attendance (madrasah_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_madrasah_year ON attendance (madrasah_id, year);
 
 CREATE TABLE IF NOT EXISTS fees (
   id            BIGSERIAL PRIMARY KEY,
@@ -180,6 +181,7 @@ CREATE TABLE IF NOT EXISTS fees (
 CREATE UNIQUE INDEX IF NOT EXISTS fees_year_student_period_start_key ON fees (year, student_id, period, week_starting);
 CREATE INDEX IF NOT EXISTS idx_fees_year_week ON fees (year, week_starting);
 CREATE INDEX IF NOT EXISTS idx_fees_madrasah ON fees (madrasah_id);
+CREATE INDEX IF NOT EXISTS idx_fees_madrasah_year ON fees (madrasah_id, year);
 
 CREATE TABLE IF NOT EXISTS daily_records (
   id          BIGSERIAL PRIMARY KEY,

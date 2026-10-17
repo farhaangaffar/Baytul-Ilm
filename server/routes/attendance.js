@@ -8,6 +8,8 @@ async function ensureColumns() {
   if (ready) return;
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS late_time TEXT');
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS marked_by TEXT'); // who took it, e.g. a teacher's name
+  // Every read is one madrasah's year — this finds it straight away however many madaaris share the table.
+  await query('CREATE INDEX IF NOT EXISTS idx_attendance_madrasah_year ON attendance (madrasah_id, year)');
   ready = true;
 }
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;

@@ -13,6 +13,8 @@ async function ensurePeriodColumn() {
   // collide with a week record on a Monday the 1st after a frequency switch.
   await query(`ALTER TABLE fees DROP CONSTRAINT IF EXISTS fees_year_student_id_week_starting_key`);
   await query(`CREATE UNIQUE INDEX IF NOT EXISTS fees_year_student_period_start_key ON fees (year, student_id, period, week_starting)`);
+  // Every list is one madrasah's year — found straight away however many madaaris share the table.
+  await query('CREATE INDEX IF NOT EXISTS idx_fees_madrasah_year ON fees (madrasah_id, year)');
   // Periods someone removed on purpose (e.g. an August with no classes) — for a whole
   // class or one student — so adding fees automatically never puts them back.
   await query(`CREATE TABLE IF NOT EXISTS fee_skips (
