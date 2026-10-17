@@ -201,7 +201,7 @@ export default function Attendance() {
           <div className="summary-box-v2" style={{background:'var(--green-light)'}}><div className="n">{counts.P}</div><div className="l">Present</div></div>
           <div className="summary-box-v2" style={{background:'var(--amber-light)'}}><div className="n">{counts.L}</div><div className="l">Late</div></div>
           <div className="summary-box-v2" style={{background:'var(--red-light)'}}><div className="n">{counts.A}</div><div className="l">Absent</div></div>
-          <div className="summary-box-v2" style={{background:'#f0f2f6'}}><div className="n">{pct}%</div><div className="l">This month</div></div>
+          <div className="summary-box-v2" style={{background:'var(--surface)',boxShadow:'inset 0 0 0 1px #dfe3e8'}}><div className="n">{pct}%</div><div className="l">This month</div></div>
         </div>
         <div className="att-weeks">
           {monthWeeks.map(w=>{
