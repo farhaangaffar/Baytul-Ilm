@@ -4,7 +4,7 @@ import { X, User, Phone, BookOpen, ChevronRight, CheckCircle, HeartPulse } from 
 import { addStudent, getClassNames, getDefaultWeeklyFee } from '../lib/store';
 import { currencySymbol, money } from '../lib/branding';
 import { feeUnit } from '../lib/feePeriods';
-import { ChoiceBoxes, ParentInputs, DetailInputs } from './StudentDetails';
+import { ChoiceBoxes, ParentInputs, DetailInputs, GrowingText } from './StudentDetails';
 import { useAuth } from '../lib/AuthContext';
 
 function emptyForm(defaultWeeklyFee) {
@@ -184,7 +184,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
               <div className="form-grid" style={{ marginTop: 14 }}>
                 <div className="form-group">
                   <label>Notes (optional)</label>
-                  <textarea rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any notes about this student…" style={{ resize: 'vertical' }} />
+                  <GrowingText minRows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any notes about this student…" />
                 </div>
               </div>
               {submitError && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 12 }}>{submitError}</div>}

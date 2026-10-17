@@ -1,6 +1,18 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { HeartPulse } from 'lucide-react';
 import { DETAIL_SECTIONS, RELATIONS, detailFields, hasHealthNote } from '../lib/studentDetails';
+
+// A writing box that grows with what's written (no handle to drag it bigger or smaller).
+export function GrowingText({ value, onChange, minRows = 1, ...rest }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [value]);
+  return <textarea ref={ref} rows={minRows} value={value} onChange={onChange} {...rest} style={{ resize: 'none', overflow: 'hidden', ...rest.style }} />;
+}
 
 // Small boxes for a quick choice (Boy / Girl, Yes / No…). Tap the chosen one again to clear it.
 export function ChoiceBoxes({ options, value, onChange }) {
@@ -47,7 +59,7 @@ export function DetailInputs({ form, set, isDarulUloom, only, before = {} }) {
             {o.options
               ? <ChoiceBoxes options={o.options} value={form[key] || ''} onChange={v => set(key, v)} />
               : o.wide && id === 'health'
-                ? <textarea rows={2} value={form[key] || ''} onChange={e => set(key, e.target.value)} style={{ resize: 'vertical' }} placeholder="None" />
+                ? <GrowingText value={form[key] || ''} onChange={e => set(key, e.target.value)} placeholder="None" />
                 : <input type={o.type || 'text'} value={form[key] || ''} onChange={e => set(key, e.target.value)} />}
           </div>
         ))}

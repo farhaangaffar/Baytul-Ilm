@@ -13,7 +13,7 @@ import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight,
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer, ownedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
-import { DetailInputs, DetailLines, HealthNote, ChoiceBoxes, ParentInputs } from '../components/StudentDetails';
+import { DetailInputs, DetailLines, HealthNote, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
 import { useAuth } from '../lib/AuthContext';
 
 const WAITING_LIST = 'Waiting list';
@@ -539,7 +539,7 @@ export default function Students() {
                 </div>
                 <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
               </div>
-              <div className="form-group"><label>Notes</label><textarea rows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})} style={{resize:'vertical'}}/></div>
+              <div className="form-group"><label>Notes</label><GrowingText minRows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})}/></div>
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={()=>setEditing(null)}>Cancel</button>
