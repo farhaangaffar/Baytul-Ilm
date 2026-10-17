@@ -178,8 +178,16 @@ function firstMondayOfMonthISO(year, monthIndex0) {
   d.setDate(d.getDate() + (1 - d.getDay() + 7) % 7);
   return d.toISOString().split('T')[0];
 }
+// Remembered per date: fee and attendance lists ask this for every record, and working it
+// out (dates + the month's name) thousands of times made big madaaris' pages slow.
+const schoolMonthCache = new Map();
 export function getCurrentSchoolMonth(refIso) {
   const ref = refIso || new Date().toISOString().split('T')[0];
+  let hit = schoolMonthCache.get(ref);
+  if (!hit) { hit = schoolMonthOf(ref); schoolMonthCache.set(ref, hit); }
+  return { ...hit };
+}
+function schoolMonthOf(ref) {
   const refDate = new Date(ref + 'T12:00:00');
   const y = refDate.getFullYear(), m = refDate.getMonth();
   const thisFirstMon = firstMondayOfMonthISO(y, m);

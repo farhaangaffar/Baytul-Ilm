@@ -37,6 +37,24 @@ function attendanceStatsForRange(attendance, studentIds, start, endExclusive) {
   return { P, L, A, total, pct: total ? Math.round(((P + L) / total) * 100) : 0 };
 }
 
+// The same counts for every month of the year in one pass over the marks (a big madrasah
+// has well over 100,000 a year — going through them once per month was slow on phones).
+function attendanceStatsByMonth(attendance, studentIds, months) {
+  const counts = months.map(() => ({ P: 0, L: 0, A: 0 }));
+  const first = months[0].start, last = months[months.length - 1].endExclusive;
+  for (const sid of studentIds) {
+    const byDate = attendance[sid] || {};
+    for (const date in byDate) {
+      if (date < first || date >= last) continue;
+      let i = 0;
+      while (i < months.length - 1 && date >= months[i].endExclusive) i++;
+      const status = byDate[date], c = counts[i];
+      if (status === 'P') c.P++; else if (status === 'L') c.L++; else if (status === 'A') c.A++;
+    }
+  }
+  return counts.map(({ P, L, A }) => { const total = P + L + A; return { P, L, A, total, pct: total ? Math.round(((P + L) / total) * 100) : 0 }; });
+}
+
 // Fee buckets for the chart/table: school months (weekly — as before), calendar
 // months (monthly) or the year's terms (termly). For monthly/termly the year's totals
 // cover every record fetched for that academic year rather than a date window, since
@@ -121,8 +139,13 @@ export default function Stats() {
 }
 
 function AttendanceStats({ months, attendance, allStudentIds, students, classNames, years, dataByYear }) {
-  const yearRange = attendanceStatsForRange(attendance, allStudentIds, months[0].start, months[11].endExclusive);
-  const monthly = months.map(m => ({ ...m, ...attendanceStatsForRange(attendance, allStudentIds, m.start, m.endExclusive) }));
+  const byMonth = attendanceStatsByMonth(attendance, allStudentIds, months);
+  const monthly = months.map((m, i) => ({ ...m, ...byMonth[i] }));
+  const yearRange = (() => {
+    const P = byMonth.reduce((t, c) => t + c.P, 0), L = byMonth.reduce((t, c) => t + c.L, 0), A = byMonth.reduce((t, c) => t + c.A, 0);
+    const total = P + L + A;
+    return { P, L, A, total, pct: total ? Math.round(((P + L) / total) * 100) : 0 };
+  })();
   const yMax = Math.max(5, ...monthly.map(m => m.P + m.L + m.A));
 
   const classRows = classNames.map(c => {
