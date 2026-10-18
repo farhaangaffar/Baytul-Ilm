@@ -108,7 +108,13 @@ CREATE TABLE IF NOT EXISTS students (
   boarding           TEXT NOT NULL DEFAULT '',
   school_year        TEXT NOT NULL DEFAULT '',
   previous_school    TEXT NOT NULL DEFAULT '',
-  hifdh_completed    TEXT NOT NULL DEFAULT ''
+  hifdh_completed    TEXT NOT NULL DEFAULT '',
+  -- online applications (/join/<code>) and parents' own updates
+  added_at           TIMESTAMP DEFAULT now(),
+  applied_online     BOOLEAN NOT NULL DEFAULT false,
+  applied_new        BOOLEAN NOT NULL DEFAULT false,
+  applied_ip         TEXT,
+  parent_updated_at  TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_students_madrasah ON students (madrasah_id);
 
@@ -133,7 +139,8 @@ CREATE TABLE IF NOT EXISTS settings (
   parent_portal       BOOLEAN NOT NULL DEFAULT false,
   school_days         INTEGER[] NOT NULL DEFAULT '{1,2,3,4}', -- days classes meet (0 Sun … 6 Sat)
   fee_auto            BOOLEAN NOT NULL DEFAULT true, -- add fees by themselves (monthly/termly periods; weekly fee weeks)
-  fee_auto_since      DATE -- Monday automatic weekly fees began; earlier weeks are never filled in
+  fee_auto_since      DATE, -- Monday automatic weekly fees began; earlier weeks are never filled in
+  join_message        TEXT NOT NULL DEFAULT '' -- shown at the top of the online application form (/join/<code>)
 );
 
 -- Fee periods removed on purpose (e.g. an August with no classes), for a whole class

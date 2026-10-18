@@ -17,6 +17,8 @@ async function ensureColumns() {
   // Monthly/termly fees added by themselves at the start of each period; weekly fees
   // start for a class the first time a week is marked paid.
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_auto BOOLEAN NOT NULL DEFAULT true`);
+  // The madrasah's own words at the top of its online application form (/join/<code>).
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS join_message TEXT NOT NULL DEFAULT ''`);
   columnsReady = true;
 }
 
@@ -39,7 +41,7 @@ async function loadSettings(mid) {
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
             default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
             fee_frequency AS "feeFrequency", report_period AS "reportPeriod", parent_portal AS "parentPortal",
-            school_days AS "schoolDays", fee_auto AS "feeAuto",
+            school_days AS "schoolDays", fee_auto AS "feeAuto", join_message AS "joinMessage",
             logo IS NOT NULL AS "hasLogo", left(md5(icon), 8) AS "iconVersion"
      FROM settings WHERE madrasah_id = $1`,
     [mid]
@@ -145,6 +147,7 @@ module.exports = async (req, res) => {
     }
     if (b.parentPortal !== undefined) { values.push(!!b.parentPortal); sets.push(`parent_portal = $${values.length}`); }
     if (b.feeAuto !== undefined) { values.push(!!b.feeAuto); sets.push(`fee_auto = $${values.length}`); }
+    if (b.joinMessage !== undefined) { values.push(String(b.joinMessage || '').slice(0, 1500)); sets.push(`join_message = $${values.length}`); }
     if (b.schoolDays !== undefined) {
       const days = Array.isArray(b.schoolDays) ? [...new Set(b.schoolDays.map(Number))].filter(d => Number.isInteger(d) && d >= 0 && d <= 6).sort() : [];
       if (!days.length) { res.status(400).json({ error: 'Choose at least one school day' }); return; }

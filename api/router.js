@@ -18,6 +18,7 @@ const routes = {
   demo: require('../server/routes/demo'),
   exams: require('../server/routes/exams'),
   fees: require('../server/routes/fees'),
+  join: require('../server/routes/join'),
   login: require('../server/routes/login'),
   madaaris: require('../server/routes/madaaris'),
   parent: require('../server/routes/parent'),

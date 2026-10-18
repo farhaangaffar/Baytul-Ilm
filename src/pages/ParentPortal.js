@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LegalLinks, MadeWith } from '../components/Legal';
-import { getParentHome, getParentChild, reportAbsence, logout, formatDateGB } from '../lib/store';
+import { getParentHome, getParentChild, reportAbsence, updateMyChildDetails, logout, formatDateGB } from '../lib/store';
+import { ParentInputs, DetailInputs, HealthNote } from '../components/StudentDetails';
 import { periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { buildReportCards } from '../lib/reportCardPdf';
@@ -15,7 +16,7 @@ import { usePageHelp, PageHelpButton } from '../components/PageHelp';
 import { DemoBar, leaveDemo } from '../components/Demo';
 import { useAuth } from '../lib/AuthContext';
 import BoxRow from '../components/BoxRow';
-import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react';
 
 // The parent portal: one page, made for a phone. A family login sees each of their
 // children's attendance, fees, finished reports and Qur'an progress, and can tell the
@@ -131,7 +132,54 @@ function AbsenceForm({ child, reasons, onSent }) {
   );
 }
 
-function ChildView({ child, reasons }) {
+// The details the madrasah holds for this child that the family can keep up to date:
+// contacts, home, emergency contact, health and going home (POST /api/parent?action=details).
+function YourDetails({ child, details, onSaved, many }) {
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const contact = n => [details[`parent${n}Name`], details[`parent${n}Phone`]].filter(Boolean).join(' · ');
+  async function save() {
+    setBusy(true); setError('');
+    try { await updateMyChildDetails({ studentId: child.id, ...form }); setForm(null); setSaved(true); await onSaved(); }
+    catch (err) { setError(err.message || 'Could not save'); }
+    setBusy(false);
+  }
+  return (
+    <Section title="Your details" right={<button className="btn btn-sm" onClick={() => { setForm({ ...details }); setSaved(false); }}><Pencil size={12} />Check &amp; update</button>}>
+      {saved && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Saved — the madrasah will see the changes.{many ? ' Contacts and address are the same for all your children.' : ''}</div>}
+      <HealthNote student={details} />
+      {[['Contact 1', contact(1)], ['Contact 2', contact(2)], ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Address', [details.address, details.postcode].filter(Boolean).join(', ')]]
+        .filter(([, v]) => v).map(([l, v]) => (
+          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderTop: '1px solid var(--border)', fontSize: 12.5 }}>
+            <span className="text-muted">{l}</span><span style={{ textAlign: 'right', overflowWrap: 'anywhere' }}>{v}</span>
+          </div>
+        ))}
+      {form && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && setForm(null)}>
+          <div className="modal">
+            <div className="modal-header">
+              <div className="modal-title">{child.forename}'s details</div>
+              <button className="btn btn-icon" onClick={() => setForm(null)} disabled={busy}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <ParentInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} required />
+              <DetailInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} isDarulUloom={false} only={['family', 'emergency', 'health', 'home']} />
+              {error && <div style={{ fontSize: 13, color: 'var(--red)' }}>{error}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setForm(null)} disabled={busy}>Cancel</button>
+              <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function ChildView({ child, reasons, many }) {
   const { isDarulUloom } = useAuth(); // a Darul Uloom's reports are its exam report cards
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -298,6 +346,8 @@ function ChildView({ child, reasons }) {
           </div>
         )}
       </Section>
+
+      {data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} />}
     </>
   );
 }
@@ -349,7 +399,7 @@ export default function ParentPortal() {
               <div style={{ fontWeight: 700, fontSize: 18 }}>{child.forename} {child.surname}</div>
               <div className="text-muted text-sm">{child.class}{child.status === 'Inactive' ? ' · has left' : ''}</div>
             </div>
-            <ChildView key={child.id} child={child} reasons={home.absenceReasons} />
+            <ChildView key={child.id} child={child} reasons={home.absenceReasons} many={home.children.length > 1} />
           </>
         )}
         <LegalLinks style={{ margin: '20px 0 8px' }} />

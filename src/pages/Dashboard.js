@@ -105,6 +105,18 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {(() => {
+        // Children sent in through the online application form that the head hasn't opened yet.
+        const fresh = students.filter(s => s.appliedNew).length;
+        return fresh > 0 && (
+          <div className="card line-row on" role="button" tabIndex={0} style={{marginBottom:14,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}
+            onClick={()=>appNavigate(navigate, '/students?view=waiting')}>
+            <span style={{fontWeight:600}}>{fresh} new application{fresh===1?'':'s'} online</span>
+            <span style={{fontSize:13}}>Waiting list →</span>
+          </div>
+        );
+      })()}
+
       <div className="stat-grid-v2">
         <div className="stat-card-v2">
           <div className="n">{active.length}</div>

@@ -36,6 +36,11 @@ function toClient(row, forTeacher) {
     leaveDate: row.leave_date,
     status: row.status,
     notes: row.notes,
+    // When they were added (the waiting list runs oldest first); whether a parent sent them
+    // in through the online application form (/join/<code>, server/routes/join.js) and the
+    // head hasn't opened it yet; when a parent last changed their details in the portal.
+    addedAt: row.added_at, appliedOnline: !!row.applied_online, appliedNew: !!row.applied_new,
+    parentUpdatedAt: row.parent_updated_at,
     ...extra,
   };
 }
@@ -45,7 +50,7 @@ const FIELD_MAP = {
   parent1Name: 'parent1_name', parent1Phone: 'parent1_phone',
   parent2Name: 'parent2_name', parent2Phone: 'parent2_phone',
   weeklyFee: 'weekly_fee', enrollDate: 'enroll_date', leaveDate: 'leave_date',
-  status: 'status', notes: 'notes',
+  status: 'status', notes: 'notes', appliedNew: 'applied_new',
   ...Object.fromEntries(DETAILS.map(([key, col]) => [key, col])),
 };
 const DETAIL_LEN = Object.fromEntries(DETAILS.map(([key, , n]) => [key, n]));
@@ -59,7 +64,12 @@ const DETAIL_LEN = Object.fromEntries(DETAILS.map(([key, , n]) => [key, n]));
 let ensured = null;
 function ensureLeaveDateColumn() {
   ensured = ensured || query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS leave_date DATE,
-    ${DETAILS.map(([, col]) => `ADD COLUMN IF NOT EXISTS ${col} TEXT NOT NULL DEFAULT ''`).join(',\n    ')}`)
+    ${DETAILS.map(([, col]) => `ADD COLUMN IF NOT EXISTS ${col} TEXT NOT NULL DEFAULT ''`).join(',\n    ')},
+    ADD COLUMN IF NOT EXISTS added_at TIMESTAMP DEFAULT now(),
+    ADD COLUMN IF NOT EXISTS applied_online BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS applied_new BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS applied_ip TEXT,
+    ADD COLUMN IF NOT EXISTS parent_updated_at TIMESTAMP`)
     .catch(err => { ensured = null; throw err; });
   return ensured;
 }
@@ -260,3 +270,4 @@ module.exports = requireAuth(async (req, res) => {
 
 // Used by the demo (server/demo.js) to make sure its tables exist before filling them.
 module.exports.ensure = ensureLeaveDateColumn;
+module.exports.DETAILS = DETAILS;

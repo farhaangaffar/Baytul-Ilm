@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { GrowingText } from '../components/StudentDetails';
 import { LegalLinks } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
@@ -433,6 +434,10 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Online applications — the link parents use to apply (/join/<code>) and the madrasah's message on it */}
+      <JoinCard code={user?.madrasah?.code} message={form.joinMessage||''} onChange={v=>setForm(f=>({...f,joinMessage:v}))}
+        onSave={()=>saveField('join', { joinMessage: form.joinMessage||'' })} label={<Label k="join">Message at the top of the form</Label>}/>
+
       {/* Days off — closed days (Eid etc.); Attendance shows them as closed */}
       <DaysOffCard />
 
@@ -479,5 +484,32 @@ export default function Settings() {
 
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
+  );
+}
+
+// The madrasah's online application link — copy it, send it on WhatsApp, or open it — and its
+// own message shown at the top of the form (saved when you leave the box, like the others).
+function JoinCard({ code, message, onChange, onSave, label }) {
+  const [copied, setCopied] = useState(false);
+  if (!code) return null;
+  const link = `${window.location.origin}/join/${code}`;
+  const copy = async () => { try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {} };
+  const whatsapp = `https://wa.me/?text=${encodeURIComponent(`Apply for a place at our madrasah here: ${link}`)}`;
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="card-title" style={{marginBottom:6}}>Online applications</div>
+      <div className="card-sub" style={{marginBottom:12}}>Share this link — new children arrive on Students → Waiting list.</div>
+      <div style={{fontSize:13,fontWeight:600,background:'#f3f4f6',borderRadius:8,padding:'9px 12px',overflowWrap:'anywhere',marginBottom:8}}>{link}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3, minmax(0, 1fr))',gap:8,marginBottom:14}}>
+        <button className="btn" style={{justifyContent:'center'}} onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+        <a className="btn" style={{justifyContent:'center'}} href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        <a className="btn" style={{justifyContent:'center'}} href={link} target="_blank" rel="noopener noreferrer">Open</a>
+      </div>
+      <div className="form-group">
+        {label}
+        <GrowingText minRows={2} value={message} maxLength={1500} onChange={e=>onChange(e.target.value)} onBlur={onSave}
+          placeholder="e.g. Classes are Monday to Thursday, 5–7pm. Fees are £20 a month. We'll call you when a place is free." />
+      </div>
+    </div>
   );
 }
