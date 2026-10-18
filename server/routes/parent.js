@@ -7,7 +7,7 @@ const { ensureParentTables, childIds, portalOn, ABSENCE_REASONS } = require('../
 // name or records, nor the class list, teachers' details or anything else staff use.
 //   GET               → { children: [...], absenceReasons }
 //   GET ?studentId=   → one child's attendance, fees, finished reports, Qur'aan
-//                       progress, published exam results (a Darul Uloom) and the absences this family has reported
+//                       progress, published exam results and going-home dates (a Darul Uloom) and the absences this family has reported
 //   POST ?action=absence {studentId, date, reason, note} → tell the madrasah
 //   POST ?action=details {studentId, ...PARENT_EDITABLE} → update their contacts, health and
 //                       going home (the head sees "Updated by parent" on the child)
@@ -76,6 +76,8 @@ module.exports = async (req, res) => {
     const s = st.rows[0];
     if (!s) { res.status(404).json({ error: 'Not found' }); return; }
     const exams = await publishedExams(mid, s).catch(() => []);
+    // A Darul Uloom boarder: the next home weekends and their going-home record.
+    const boarding = s.boarding === 'Boarder' ? await require('./boarding').forParent(mid, s).catch(() => null) : null;
     res.status(200).json({
       student: {
         id: s.id, forename: s.forename, surname: s.surname, class: s.class, status: s.status,
@@ -96,6 +98,7 @@ module.exports = async (req, res) => {
       },
       absences: absences.rows,
       exams,
+      boarding,
     });
     return;
   }

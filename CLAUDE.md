@@ -177,9 +177,23 @@ codebase (one codebase, not a fork).
   includes a Darul Uloom's own records (`server/duBackup.js`, `/api/course?action=backup|restore`: the Aalim years' places, books,
   periods, lessons, lessons recorded, exams, papers, marks, comments — restored last, new row numbers with the links carried
   across); a new Darul Uloom table goes there too.
+  **Boarding** (`/boarding`, menu "Boarding", `src/pages/Boarding.js`, `server/routes/boarding.js`; 403 for a maktab): for the
+  head and teachers ticked **Boarding duty** (`teachers.boarding_duty`, a Yes/No in the teacher pop-up on Classes & Teachers,
+  DU only; the session's `boardingDuty` shows them the menu item). Boarders = Active children whose details say "Boarder". Four
+  tabs (remembered per device): **Tonight** — the night register (`du_night_register`, In / Away / Sick per boarder per night,
+  a card per room, "Rest are in", who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own rooms
+  (`du_rooms`: name, beds, teacher in charge; head only) and who sleeps where (`du_room_places`, one room each, never over the
+  beds), "Not in a room" ticks + Move to (the `NotInClass` pattern, `TickList`); **Going home** — home weekends
+  (`du_home_weekends`, head sets them, parents see the next ones), "Away now" (tick → Signed back in; Overdue tag) and Sign
+  out (tick children or a whole room → why, collected by, due back) (`du_leaves`, who signed out/in kept); **Health** — unwell
+  or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
+  last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — home weekends
+  and their own sign-outs; never rooms, night register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
+  has 4 dorms (two boarders not placed), home weekends, one boarder home now, two weeks of nights and health notes
+  (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
-  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; logins: head, Maulana Yusuf (1st year), the Patel family.
+  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their

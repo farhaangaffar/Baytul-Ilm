@@ -8,6 +8,7 @@ import DailyRecords    from './pages/DailyRecords';
 import ClassesTeachers from './pages/ClassesTeachers';
 import Course          from './pages/Course';
 import Timetable       from './pages/Timetable';
+import Boarding        from './pages/Boarding';
 import Exams           from './pages/Exams';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
@@ -151,6 +152,7 @@ export default function App() {
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/course" element={<Course />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/boarding" element={<Boarding />} />}
               <Route path="/reports"    element={session.user.madrasah?.kind === 'darul_uloom' ? <Navigate to="/exams" replace /> : <Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />
@@ -164,6 +166,7 @@ export default function App() {
               <Route path="/records"    element={<DailyRecords />} />
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
+              {session.user.boardingDuty && <Route path="/boarding" element={<Boarding />} />}
               <Route path="*"           element={<Navigate to="/attendance" replace />} />
             </Routes>
           )}

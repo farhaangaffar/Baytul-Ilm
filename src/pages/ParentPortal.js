@@ -26,6 +26,34 @@ import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, P
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const headerBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, border: 'none', borderRadius: 8, background: 'transparent', color: '#fff', opacity: 0.85, cursor: 'pointer', flexShrink: 0 };
 
+// A Darul Uloom boarder: the madrasah's next home weekends, and when the child was last signed out and back in.
+const niceDay = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const niceWhen = v => (v ? `${niceDay(v.slice(0, 10))}, ${v.slice(11, 16)}` : '');
+function GoingHome({ boarding }) {
+  const { homeWeekends, leaves } = boarding;
+  const away = leaves.find(l => !l.backAt);
+  return (
+    <Section title="Going home">
+      {away && <div style={{ fontSize: 13, color: 'var(--amber-text)', fontWeight: 600, marginBottom: 10 }}>
+        Signed out {niceWhen(away.outAt)}{away.collectedBy ? ` · with ${away.collectedBy}` : ''}{away.backDue ? ` · due back ${niceDay(away.backDue)}` : ''}
+      </div>}
+      {homeWeekends.length === 0 && <div className="text-muted text-sm" style={{ marginBottom: 8 }}>No home weekends set yet.</div>}
+      {homeWeekends.map((w, i) => (
+        <BoxRow key={w.id} columns="repeat(3, minmax(0, 1fr))" cells={[
+          { label: true, text: w.name, sub: i === 0 ? 'Next' : undefined, wrap: 'words' },
+          { text: niceDay(w.starts), sub: w.leaveTime ? `Home from ${w.leaveTime}` : 'Go home', tone: i === 0 ? 'blue' : undefined },
+          { text: niceDay(w.ends), sub: w.returnTime ? `Back by ${w.returnTime}` : 'Come back', tone: i === 0 ? 'blue' : undefined },
+        ]} />
+      ))}
+      {leaves.filter(l => l.backAt).slice(0, 3).map(l => (
+        <div key={l.id} className="text-muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+          {l.reason || 'Out'}: {niceWhen(l.outAt)} → {niceWhen(l.backAt)}
+        </div>
+      ))}
+    </Section>
+  );
+}
+
 function Section({ title, children, right }) {
   return (
     <div className="card" style={{ marginBottom: 14 }}>
@@ -263,6 +291,8 @@ function ChildView({ child, reasons, many }) {
           );
         })}
       </OpenableSection>
+
+      {data.boarding && <GoingHome boarding={data.boarding} />}
 
       <OpenableSection title="Fees" summary={
         <>

@@ -913,3 +913,17 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .no-class-row input, .no-class-head input { width: 17px; height: 17px; margin: 0; flex-shrink: 0; cursor: pointer; }
 .no-class-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .no-class-move { position: sticky; bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px; margin-top: 4px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm); font-size: 13px; font-weight: 600; }
+
+/* Boarding (pages/Boarding.js): the night register reuses the attendance lines; rooms and going home reuse the tick lists. */
+.boarding-page { max-width: 760px; margin: 0 auto; }
+.bd-mark { width: auto; min-width: 44px; padding: 0 9px; font-family: var(--font); font-size: 12.5px; }
+.bd-room-head { display: flex; align-items: center; gap: 10px; padding: 12px 0 6px; }
+.bd-room-count { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-right: auto; }
+.bd-tick-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.no-class-row .ct-two { flex: 1; }
+.bd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); flex-shrink: 0; margin: 0 3px; }
+.bd-detail { background: #f6f7f9; border-radius: 8px; padding: 9px 12px; font-size: 13.5px; white-space: pre-wrap; }
+.bd-health-note { background: var(--red-light); color: var(--red-text); border-radius: 8px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; }
+@media (max-width: 640px) { .bd-mark { min-width: 40px; padding: 0 6px; } .att-day .att-day-date { overflow-wrap: anywhere; } }
+.bd-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+.bd-tabs .pill-tab { padding: 8px 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

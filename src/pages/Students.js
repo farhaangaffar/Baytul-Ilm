@@ -15,6 +15,7 @@ import { feeUnit, feePer, ownedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
 import { DetailInputs, DetailLines, HealthNote, HealthDot, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
 import { useAuth } from '../lib/AuthContext';
+import BoarderRecord from '../components/BoarderRecord';
 
 const WAITING_LIST = 'Waiting list';
 
@@ -517,6 +518,7 @@ export default function Students() {
                 ))}
               </div>
               <DetailLines student={selected} isDarulUloom={isDarulUloom} skip={['mainContact']}/>
+              {isDarulUloom && selected.boarding==='Boarder' && selected.status==='Active' && <BoarderRecord studentId={selected.id}/>}
               <ParentLogin student={selected} students={students} />
               {selected.notes&&<div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>

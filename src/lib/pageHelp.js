@@ -146,15 +146,33 @@ const PARENT = { title: 'How to use this page', steps: [
   'Reports: download a finished report as a PDF.',
   'Report an absence at the bottom to let the teacher know.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
+  'Boarders: "Going home" shows the next home weekends and when your child was signed out and back in.',
+] };
+
+// Boarding (a Darul Uloom): the head, and teachers on boarding duty (who can't change rooms or home weekends).
+const BOARDING_HEAD = { title: 'Boarding', steps: [
+  'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
+  'Rooms: add each room and its beds, then tick boarders under "Not in a room" and choose their room.',
+  'Tonight: tap In, Away or Sick for each boarder — "Rest are in" marks everyone left in that room. Anyone signed out shows as Home.',
+  'Going home: add your home weekends (parents see them). Tick who is going and Sign out; when they come back, tick them under "Away now" and Signed back in.',
+  'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
+  'Teachers ticked for Boarding duty (Classes & Teachers → a teacher → Edit) get this page too.',
+] };
+const BOARDING_TEACHER = { title: 'Boarding', steps: [
+  'Tonight: tap In, Away or Sick for each boarder — "Rest are in" marks everyone left in that room. It\'s saved under your name.',
+  'Going home: tick who is going and Sign out (who collected them, when they\'re due back). When they come back, tick them under "Away now" and Signed back in.',
+  'Health: "Write one down" when a boarder is unwell or given medicine.',
+  'Rooms and home weekends are set by the head.',
 ] };
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
 const DU_HEAD = {
+  '/boarding': BOARDING_HEAD,
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
     'Each class or teacher is one line — tap it for the details. A teacher shows the books they teach in each year.',
     'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'aan levels.',
-    'Give a teacher, or a whole class, a login so they can sign in.',
+    'Give a teacher, or a whole class, a login so they can sign in. Edit a teacher and choose Boarding duty: Yes to give them the Boarding page.',
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
@@ -166,6 +184,7 @@ const DU_HEAD = {
 
 // A Darul Uloom teacher: attendance and behaviour for every Aalim year they teach.
 const DU_TEACHER = {
+  '/boarding': BOARDING_TEACHER,
   '/attendance': { title: 'Attendance', steps: [
     'Tap Class at the top and pick the year you\'re with — every Aalim year you teach is there.',
     'Tap P, L or A for each student. It\'s saved under your name ("Today\'s register taken by …").',

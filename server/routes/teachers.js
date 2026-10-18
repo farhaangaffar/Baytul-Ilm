@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const { requireAuth } = require('../auth');
 
-const FIELD_MAP = { name: 'name', phone: 'phone', email: 'email' };
+const FIELD_MAP = { name: 'name', phone: 'phone', email: 'email', boardingDuty: 'boarding_duty' };
 
 // sort_order (manual card order on Classes & Teachers) was added after the table
 // already existed in production — self-heal once per cold start, as elsewhere.
@@ -9,6 +9,8 @@ let sortReady = false;
 async function ensureSortOrderColumn() {
   if (sortReady) return;
   await query('ALTER TABLE teachers ADD COLUMN IF NOT EXISTS sort_order INTEGER');
+  // A Darul Uloom's teachers on boarding duty get the Boarding page (server/routes/boarding.js).
+  await query('ALTER TABLE teachers ADD COLUMN IF NOT EXISTS boarding_duty BOOLEAN NOT NULL DEFAULT false');
   sortReady = true;
 }
 
@@ -33,7 +35,7 @@ module.exports = requireAuth(async (req, res) => {
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query('SELECT id, name, phone, email, subjects FROM teachers WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, name', [mid]);
+      const { rows } = await query('SELECT id, name, phone, email, subjects, boarding_duty AS "boardingDuty" FROM teachers WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, name', [mid]);
       res.status(200).json(rows);
       return;
     }
@@ -43,8 +45,8 @@ module.exports = requireAuth(async (req, res) => {
       if (!b.name) { res.status(400).json({ error: 'name is required' }); return; }
       const newId = b.id || 'T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const { rows } = await query(
-        'INSERT INTO teachers (id, madrasah_id, name, phone, email, subjects) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name, phone, email, subjects',
-        [newId, mid, b.name, b.phone || '', b.email || '', JSON.stringify(b.subjects || [])]
+        'INSERT INTO teachers (id, madrasah_id, name, phone, email, subjects, boarding_duty) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, name, phone, email, subjects',
+        [newId, mid, b.name, b.phone || '', b.email || '', JSON.stringify(b.subjects || []), !!b.boardingDuty]
       );
       res.status(201).json(rows[0]);
       return;
@@ -60,6 +62,7 @@ module.exports = requireAuth(async (req, res) => {
     const values = [];
     Object.entries(b).forEach(([key, val]) => {
       if (key === 'subjects') { values.push(JSON.stringify(val)); sets.push(`subjects = $${values.length}`); return; }
+      if (key === 'boardingDuty') { values.push(!!val); sets.push(`boarding_duty = $${values.length}`); return; }
       const col = FIELD_MAP[key];
       if (!col) return;
       values.push(val);

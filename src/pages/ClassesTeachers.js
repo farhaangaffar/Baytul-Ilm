@@ -13,6 +13,7 @@ import ReorderableGrid from '../components/ReorderableGrid';
 import { useAuth } from '../lib/AuthContext';
 import { CLASS_QURAN_OPTIONS } from '../lib/quran';
 import { guessPlace } from '../lib/courseYears';
+import { ChoiceBoxes } from '../components/StudentDetails';
 
 export default function ClassesTeachers() {
   const { isDarulUloom } = useAuth();
@@ -268,6 +269,7 @@ export default function ClassesTeachers() {
                           <InfoBox value={theirClasses.length || '—'} label={isDarulUloom ? 'Report writer' : theirClasses.length === 1 ? 'Class' : 'Classes'} />
                           <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
                         </div>
+                        {isDarulUloom && t.boardingDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Boarding</span><span className="line-row-name">On boarding duty</span></div>}
                         {theirClasses.map(name => (
                           <div key={name} className="line-row ct-detail"><span className="course-kitaab-subject">{isDarulUloom ? 'Report writer' : 'Class teacher'}</span><span className="line-row-name">{name}</span></div>
                         ))}
@@ -455,6 +457,7 @@ function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
 }
 
 function TeacherModal({ initial, onClose, onSave }) {
+  const { isDarulUloom } = useAuth();
   const [form, setForm] = useState({ ...initial });
   const isNew = !form.id;
   const isValid = form.name && form.name.trim().length > 0;
@@ -490,6 +493,13 @@ function TeacherModal({ initial, onClose, onSave }) {
                 placeholder="e.g. Quran, Arabic, Fiqh (separate with commas or /)"
               />
             </div>
+            {/* A Darul Uloom: teachers on boarding duty also get the Boarding page. */}
+            {isDarulUloom && (
+              <div className="form-group">
+                <label>Boarding duty</label>
+                <ChoiceBoxes options={['Yes', 'No']} value={form.boardingDuty ? 'Yes' : 'No'} onChange={v => setForm({ ...form, boardingDuty: v === 'Yes' })} />
+              </div>
+            )}
           </div>
         </div>
         <div className="modal-footer">

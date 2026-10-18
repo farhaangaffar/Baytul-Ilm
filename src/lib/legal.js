@@ -17,6 +17,7 @@ export const PRIVACY = [
   ]],
   ['What we keep', [
     'About children: name, date of birth, whether a boy or girl, class, attendance, fees, Qur\'aan progress (lessons, grades and the teacher\'s lesson notes), behaviour records, the reports written about them, and (at a Darul Uloom) exam marks and report cards, whether they board, and their previous madrasah or school.',
+    'For boarders at a Darul Uloom: their room, the night register, when they went home and came back (and who collected them), and when they were unwell or given medicine (what, how much and by whom) — seen by the head and the teachers on boarding duty.',
     'If the madrasah adds them: a child\'s home address, allergies, medical conditions and medication (so staff can keep them safe — teachers see these, but not the home address), whether they may go home alone and who else may collect them.',
     'About parents: names, phone numbers, email addresses and whether they\'re the child\'s mother, father or guardian, an emergency contact\'s name and number, a parent login if the madrasah sets one up, and any absences reported through the app.',
     'About staff: names, contact details the madrasah adds, their attendance if the head records it, and login details. Passwords are stored scrambled (hashed) — nobody, including us, can read them.',
@@ -34,7 +35,7 @@ export const PRIVACY = [
     'We don\'t pass information to anyone else unless the law requires it.',
   ]],
   ['Parents see', [
-    'Their own children\'s attendance, fees, Qur\'aan progress, finished reports and published exam report cards — never teachers\' daily comments or lesson notes, and never anyone else\'s child.',
+    'Their own children\'s attendance, fees, Qur\'aan progress, finished reports and published exam report cards, and for a boarder the home weekends and when they were signed out and back in — never teachers\' daily comments or lesson notes, and never anyone else\'s child.',
   ]],
   ['Cookies', [
     'One cookie keeps you signed in. Your device also remembers small things, such as your madrasah\'s code and which tab you last used. There are no tracking or advertising cookies.',

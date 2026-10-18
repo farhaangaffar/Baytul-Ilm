@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'teacher_attendance', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_health_log', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -185,6 +185,77 @@ async function demoImported(c, mid, du, fee) {
       [newId('S'), mid, f, sn, du ? age + 6 : age, fee, `${g === 'Boy' ? 'Bilal' : 'Amina'} ${sn}`, `07700 9008${String(i).padStart(2, '0')}`, g,
         du ? (sheet === 'Weekday Boys' ? 'Year 1' : 'Year 2') : sheet]);
   }
+}
+
+// Boarding (the Boarding page): four rooms with their boarders (two not placed yet, to try), home weekends
+// (one three weeks ago that most went home for, the next two coming up), one boarder home now, two weeks
+// of night registers (tonight's left to take) and a few times someone was unwell or given medicine.
+// Maulana Yusuf (the demo's teacher login) and Qari Ibrahim are on boarding duty.
+async function demoBoarding(c, mid, teacherIds, today, r) {
+  await c.query('UPDATE teachers SET boarding_duty = true WHERE madrasah_id = $1 AND id = ANY($2)', [mid, [teacherIds.yusuf, teacherIds.ibrahim]]);
+  const { rows: boarders } = await c.query(
+    `SELECT id FROM students WHERE madrasah_id = $1 AND status = 'Active' AND boarding = 'Boarder' AND class <> '' ORDER BY sort_order`, [mid]);
+  const rooms = [['Dorm A', 5, 'yusuf'], ['Dorm B', 5, 'ibrahim'], ['Dorm C', 4, 'hamza'], ['Dorm D', 4, 'yusuf']];
+  const roomIds = [];
+  for (const [i, [name, beds, t]] of rooms.entries()) {
+    const { rows: [room] } = await c.query('INSERT INTO du_rooms (madrasah_id, name, beds, teacher_id, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [mid, name, beds, teacherIds[t], i]);
+    roomIds.push([room.id, beds]);
+  }
+  const places = [];
+  let slot = 0;
+  boarders.slice(0, Math.max(0, boarders.length - 2)).forEach(b => {
+    while (slot < roomIds.length && places.filter(p => p[2] === roomIds[slot][0]).length >= roomIds[slot][1]) slot++;
+    if (slot < roomIds.length) places.push([b.id, mid, roomIds[slot][0]]);
+  });
+  await bulk(c, 'du_room_places', ['student_id', 'madrasah_id', 'room_id'], places);
+
+  // Fridays: the home weekend three weeks back, the next one at least a week away, and a month after that.
+  let fri = plus(today, -21); while (dow(fri) !== 5) fri = plus(fri, 1);
+  let nextFri = plus(today, 7); while (dow(nextFri) !== 5) nextFri = plus(nextFri, 1);
+  await bulk(c, 'du_home_weekends', ['madrasah_id', 'name', 'starts', 'leave_time', 'ends', 'return_time'], [
+    [mid, 'Home weekend', fri, '16:00', plus(fri, 2), '18:00'],
+    [mid, 'Home weekend', nextFri, '16:00', plus(nextFri, 2), '18:00'],
+    [mid, 'Half term', plus(nextFri, 28), '15:00', plus(nextFri, 37), '18:00'],
+  ]);
+  const at = (d, h, m) => `${d} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} Europe/London`;
+  const WHO = ['Father', 'Mother', 'Uncle', 'Older brother', 'Parents'];
+  const leaves = [], wentHome = new Set();
+  boarders.forEach((b, i) => {
+    if (i % 7 === 3) return; // a few stayed in
+    wentHome.add(b.id);
+    leaves.push([mid, b.id, 'Home weekend', r.pick(WHO), at(fri, 16, Math.floor(r() * 50)), 'Head', plus(fri, 2), at(plus(fri, 2), 17, Math.floor(r() * 55)), 'Maulana Yusuf Mota']);
+  });
+  await bulk(c, 'du_leaves', ['madrasah_id', 'student_id', 'reason', 'collected_by', 'out_at', 'out_by', 'back_due', 'back_at', 'back_by'], leaves);
+  const home = boarders[boarders.length > 4 ? 4 : 0];
+  if (home) {
+    await c.query(`INSERT INTO du_leaves (madrasah_id, student_id, reason, collected_by, out_at, out_by, back_due)
+                   VALUES ($1,$2,'Family','Father',$3,'Head',$4)`, [mid, home.id, at(plus(today, -1), 15, 20), plus(today, 1)]);
+  }
+
+  const nights = [], sickNights = new Set();
+  for (let n = 14; n >= 1; n--) {
+    const d = plus(today, -n);
+    const away = d === fri || d === plus(fri, 1);
+    boarders.forEach(b => {
+      if ((away && wentHome.has(b.id)) || (home && b.id === home.id && n === 1)) return;
+      const sick = r.chance(0.015);
+      if (sick) sickNights.add(`${b.id}|${d}`);
+      nights.push([mid, b.id, d, sick ? 'sick' : 'in', r.pick(['Maulana Yusuf Mota', 'Qari Ibrahim Khan']), at(d, 21, 30 + Math.floor(r() * 25))]);
+    });
+  }
+  await bulk(c, 'du_night_register', ['madrasah_id', 'student_id', 'date', 'status', 'marked_by', 'marked_at'], nights);
+
+  const someone = () => r.pick(boarders).id;
+  const health = [
+    [someone(), plus(today, -18), 22, 10, 'medicine', 'Headache before bed.', 'Paracetamol', '500mg'],
+    [someone(), plus(today, -12), 7, 40, 'unwell', 'Temperature in the morning — rested in the dorm, better by Asr.', '', ''],
+    [someone(), plus(today, -12), 8, 0, 'medicine', '', 'Calpol', '10ml'],
+    [someone(), plus(today, -6), 21, 15, 'medicine', 'Hay fever.', 'Antihistamine', '1 tablet'],
+    [someone(), plus(today, -3), 16, 45, 'unwell', 'Hurt his ankle playing football — ice pack, parents told.', '', ''],
+    [someone(), plus(today, -1), 22, 0, 'medicine', 'Sore throat.', 'Strepsils', '1 lozenge'],
+  ].map(([sid, d, h, m, kind, note, medicine, dose]) => [mid, sid, at(d, h, m), kind, note, medicine, dose, r.pick(['Maulana Yusuf Mota', 'Qari Ibrahim Khan', 'Head'])]);
+  if (boarders.length) await bulk(c, 'du_health_log', ['madrasah_id', 'student_id', 'at', 'kind', 'note', 'medicine', 'dose', 'by_name'], health);
 }
 
 // The teachers' register (Attendance → Teachers) for every school day so far: nearly always
@@ -764,7 +835,9 @@ async function createDarulUloomDemo(ipHash) {
     await bulk(c, 'du_exam_marks', ['madrasah_id', 'exam_id', 'paper_id', 'student_id', 'mark', 'absent'], markRows);
     await bulk(c, 'du_exam_comments', ['madrasah_id', 'exam_id', 'student_id', 'teacher_comment', 'head_comment', 'behavior'], commentRows);
 
-    // Logins: the head, Maulana Yusuf (1st year's class teacher), and the Patel family (two sons).
+    await demoBoarding(c, mid, teacherIds, today, r);
+
+    // Logins: the head, Maulana Yusuf (1st year's class teacher, on boarding duty), and the Patel family (two sons).
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'maulana.yusuf', $2, 'teacher', $3)`, [mid, pw(), teacherIds.yusuf]);
