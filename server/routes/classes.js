@@ -113,6 +113,21 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   if (req.method === 'DELETE') {
+    // Its children (those who haven't left) move first — to ?moveTo=<another class> or 'Waiting list' —
+    // so nobody is left in a class that no longer exists, where no page would show them.
+    const { rows: [cls] } = await query('SELECT name FROM classes WHERE id = $1 AND madrasah_id = $2', [id, mid]);
+    if (!cls) { res.status(404).json({ error: 'Class not found' }); return; }
+    const { rows: [{ n }] } = await query(
+      `SELECT count(*)::int AS n FROM students WHERE class = $1 AND madrasah_id = $2 AND status <> 'Inactive'`, [cls.name, mid]);
+    if (n) {
+      const to = String(req.query.moveTo || '');
+      const { rows: target } = to === 'Waiting list' ? { rows: [1] }
+        : await query('SELECT 1 FROM classes WHERE name = $1 AND madrasah_id = $2 AND id <> $3', [to, mid, id]);
+      if (!to || !target.length) { res.status(409).json({ error: `Choose where its ${n} ${n === 1 ? 'child goes' : 'children go'} first.`, children: n }); return; }
+      await query(
+        `UPDATE students SET class = $1, status = CASE WHEN $1 = 'Waiting list' THEN 'Waiting list' ELSE status END
+         WHERE class = $2 AND madrasah_id = $3 AND status <> 'Inactive'`, [to, cls.name, mid]);
+    }
     await query('DELETE FROM classes WHERE id = $1 AND madrasah_id = $2', [id, mid]);
     // A Darul Uloom year's subjects and kitaabs go with it (routes/course.js).
     const { rows: [t] } = await query(`SELECT to_regclass('public.du_subjects') IS NOT NULL AS ok`);

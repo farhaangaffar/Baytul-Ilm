@@ -261,6 +261,11 @@ codebase (one codebase, not a fork).
   details** in the portal ("Your details" → Check & update, `POST /api/parent?action=details`, `PARENT_EDITABLE`):
   contacts, home, emergency contact, health, going home — contacts/home for all the family's children, health per child;
   never name, DOB, class or fee. The child's profile shows "Updated by parent" (`parent_updated_at`).
+- **A child is never left without a class:** `students.class` is the class *name* (plain text), so deleting a class
+  first moves its children (not those who have left) to another class or the Waiting list (`DELETE /api/classes?id=&moveTo=`
+  — refused with 409 without one; the delete pop-up has a "Select class…" drop-down). Children whose class no longer exists
+  (from before this) show on Students in an amber "Not in a class" card with a drop-down each. Import suggests the one existing
+  class containing all of a sheet class's words ("Weekday Ali" → "Weekday Ali/Fatima") instead of a new class.
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
   an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`), and

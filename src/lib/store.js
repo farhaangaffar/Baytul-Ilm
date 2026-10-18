@@ -442,7 +442,7 @@ export async function getClasses() { return apiFetch('/api/classes'); }
 export async function getClass(id) { const list = await getClasses(); return list.find(c => c.id === id); }
 export async function addClass(cls) { return apiFetch('/api/classes', { method: 'POST', body: JSON.stringify(cls) }); }
 export async function updateClass(id, data) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
-export async function deleteClass(id) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+export async function deleteClass(id, moveTo) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}${moveTo ? `&moveTo=${encodeURIComponent(moveTo)}` : ''}`, { method: 'DELETE' }); }
 // ── Qur'aan progress (hifz / nazira / qaida) — see server/routes/quran.js ──
 // One student → { entries, priorJuz }; everyone visible → { studentId: { entries, priorJuz } }
 export async function getQuranProgress(studentId) {

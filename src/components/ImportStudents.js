@@ -28,7 +28,11 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
   const sheetClasses = useMemo(() => {
     const names = [...new Set(parsed.rows.map(r => (r.class || '').trim()))];
     return names.map(name => {
-      const match = classNames.find(c => norm(c) === norm(name));
+      // The same name, else the one class whose name has all its words ("Weekday Ali" → "Weekday Ali/Fatima").
+      const words = t => String(t).toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(Boolean);
+      const own = words(name);
+      const within = own.length ? classNames.filter(c => own.every(w => words(c).includes(w))) : [];
+      const match = classNames.find(c => norm(c) === norm(name)) || (within.length === 1 ? within[0] : undefined);
       return { name, guess: !name ? (classNames.length === 1 ? classNames[0] : WAITING) : match || (/wait/i.test(name) ? WAITING : NEW) };
     });
   }, [parsed, classNames]);
