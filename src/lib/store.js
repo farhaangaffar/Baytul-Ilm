@@ -443,7 +443,7 @@ export async function getClass(id) { const list = await getClasses(); return lis
 export async function addClass(cls) { return apiFetch('/api/classes', { method: 'POST', body: JSON.stringify(cls) }); }
 export async function updateClass(id, data) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteClass(id) { return apiFetch(`/api/classes?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
-// ── Qur'an progress (hifz / nazira / qaida) — see server/routes/quran.js ──
+// ── Qur'aan progress (hifz / nazira / qaida) — see server/routes/quran.js ──
 // One student → { entries, priorJuz }; everyone visible → { studentId: { entries, priorJuz } }
 export async function getQuranProgress(studentId) {
   return apiFetch(`/api/quran${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`);
@@ -457,7 +457,7 @@ export async function updateQuranEntry(id, entry) {
 export async function deleteQuranEntry(studentId, id) {
   return apiFetch(`/api/quran?id=${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ studentId }) });
 }
-// A student's own Qur'an level ('hifz' | 'nazira' | 'qaida'), or null to follow their class.
+// A student's own Qur'aan level ('hifz' | 'nazira' | 'qaida'), or null to follow their class.
 export async function saveStudentQuranType(studentId, quranType) {
   return apiFetch('/api/quran?action=type', { method: 'PUT', body: JSON.stringify({ studentId, quranType }) });
 }
@@ -529,7 +529,7 @@ export async function exportAllData() {
   // Saved AI monthly summaries (the text behind each student's PDF report) live in
   // their own table, one fetch per student — not covered by anything else above.
   const aiSummaries = (await Promise.all(students.map(s => getAiSummaries(s.id)))).flat();
-  // Qur'an progress: { studentId: { entries, priorJuz } }.
+  // Qur'aan progress: { studentId: { entries, priorJuz } }.
   const quran = await getQuranProgress();
   // The logo and app icon are served separately from the rest of settings — fold
   // them back in as data: URLs so a restore (which PATCHes settings as-is) brings them back too.

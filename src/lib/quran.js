@@ -1,4 +1,4 @@
-// Qur'an reference data and hifz (Hifdh) progress maths.
+// Qur'aan reference data and hifz (Hifdh) progress maths.
 //
 // Hifz is recorded by surah and ayah (Hafs numbering, 6,236 ayahs). Each ayah has a
 // position 0–6235 counting from Al-Fatihah 1 to An-Nas 6, which makes ranges, juz
@@ -212,7 +212,7 @@ export const CLASS_QURAN_OPTIONS = {
   hifz: 'Hifdh', nazira: 'Naazhirah', qaida: "Qaa'idah", mixed: 'Mixed — set each student',
 };
 
-// A student's Qur'an level: their own if set, else their class's (a mixed class has none
+// A student's Qur'aan level: their own if set, else their class's (a mixed class has none
 // until one is chosen for them). null = not tracked / not chosen yet.
 export function effectiveQuranType(classType, studentType) {
   if (!classType) return null;
@@ -227,7 +227,7 @@ export const KIND_LABELS = {
   sabaq: { name: 'Hifdh Jadeed', hint: 'New lesson', quarters: false },
   sabqi: { name: "Muraaja'ah Qareebah", hint: 'Recent revision', quarters: true },
   manzil: { name: "Muraaja'ah", hint: 'Older revision', quarters: true },
-  reading: { name: 'Naazhirah', hint: "Qur'an reading", quarters: true },
+  reading: { name: 'Naazhirah', hint: "Qur'aan reading", quarters: true },
   lesson: { name: "Qaa'idah", hint: 'Lesson / page', quarters: false },
 };
 

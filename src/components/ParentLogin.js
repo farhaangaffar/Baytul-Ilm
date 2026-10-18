@@ -181,7 +181,7 @@ export default function ParentLogin({ student, students }) {
             ))}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>
-            After saving, you'll get a message with the link, code, username and password to send to the parent. They'll see attendance, fees, finished reports and Qur'an progress, and can report an absence.
+            After saving, you'll get a message with the link, code, username and password to send to the parent. They'll see attendance, fees, finished reports and Qur'aan progress, and can report an absence.
           </div>
           {error && <div style={{ fontSize: 12.5, color: 'var(--red)' }}>{error}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

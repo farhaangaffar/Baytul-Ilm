@@ -9,11 +9,11 @@ import { countVisit } from '../lib/analytics';
 
 const ROLES = [
   { role: 'head', icon: LayoutDashboard, title: 'Headteacher', who: 'Demo Madrasah',
-    text: 'Everything: students, attendance, fees, Qur\'an progress, reports and settings.' },
+    text: 'Everything: students, attendance, fees, Qur\'aan progress, reports and settings.' },
   { role: 'teacher', icon: BookOpen, title: 'Teacher', who: 'Ustadh Yusuf · Hifdh Class',
-    text: 'Their own class: the register, daily records and Qur\'an progress, ticking fees paid.' },
+    text: 'Their own class: the register, daily records and Qur\'aan progress, ticking fees paid.' },
   { role: 'parent', icon: Users, title: 'Parent', who: 'The Rahman family · two children',
-    text: 'Their children\'s attendance, fees, reports and Qur\'an progress; reporting an absence.' },
+    text: 'Their children\'s attendance, fees, reports and Qur\'aan progress; reporting an absence.' },
 ];
 // The made-up Darul Uloom (?demo=darul-uloom, server/demo.js createDarulUloomDemo).
 const DU_ROLES = [

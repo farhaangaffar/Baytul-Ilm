@@ -44,7 +44,7 @@ const HEAD = {
   '/fees': { title: 'Fees', steps: feesForHead },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
-    'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
     'Behaviour: write a comment, positives and concerns for the day.',
     'Report: write the month\'s summary — the AI reads the lesson notes and behaviour records.',
   ] },
@@ -57,8 +57,9 @@ const HEAD = {
   ] },
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
-    'Edit a class to choose its teacher and its Qur\'an level (Hifdh, Naazhirah, Qaa\'idah or Mixed).',
-    'Give a teacher, or a whole class, a login so they can sign in.',
+    'Each class or teacher is one line — tap it to see the details underneath, with Edit and Delete.',
+    'Edit a class to choose its teacher and its Qur\'aan level (Hifdh, Naazhirah, Qaa\'idah or Mixed).',
+    'Tap Login in a class or teacher to give them a login so they can sign in.',
   ] },
   '/stats': { title: 'Stats', steps: [
     'Attendance and fees for the year, month by month.',
@@ -118,7 +119,7 @@ const TEACHER = {
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick your class, then tap a child.',
-    'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
     'Behaviour: write a comment, positives and concerns for the day.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
@@ -138,7 +139,7 @@ const TEACHER = {
 const PARENT = { title: 'How to use this page', steps: [
   'If you have more than one child, choose one at the top.',
   'Attendance and Fees: tap "By month" to see each day or week.',
-  'Progress shows their latest Qur\'an lessons.',
+  'Progress shows their latest Qur\'aan lessons.',
   'Reports: download a finished report as a PDF.',
   'Report an absence at the bottom to let the teacher know.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
@@ -148,12 +149,13 @@ const PARENT = { title: 'How to use this page', steps: [
 const DU_HEAD = {
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
-    'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'an levels.',
+    'Each class or teacher is one line — tap it for the details. A teacher shows the books they teach in each year.',
+    'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'aan levels.',
     'Give a teacher, or a whole class, a login so they can sign in.',
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
-    'Qur\'an: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
     'Behaviour: write a comment, positives and concerns for the day — they go into the report\'s comment.',
     'Report: their reports, one per exam, to download — they\'re written on Exams & reports.',
   ] },

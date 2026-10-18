@@ -197,7 +197,7 @@ async function teacherClassNames(user) {
 // also takes attendance and behaviour for the Aalim years they teach: a year with a timetable
 // lesson or a book of theirs on the Aalim course page. Hifdh and other classes stay with their own
 // teacher. Only routes that ask with { teaching: true } (Attendance, Daily records' behaviour) get
-// these; Qur'an, fees and reports never do.
+// these; Qur'aan, fees and reports never do.
 async function teachingClassNames(user) {
   if (user.classId || !user.teacherId) return [];
   try {

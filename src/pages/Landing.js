@@ -21,21 +21,21 @@ function WhatsApp({ className, children }) {
 
 const FEATURES = [
   {
-    key: 'quran', icon: BookOpen, img: '/landing/quran.jpg', tag: "Qur'an progress",
+    key: 'quran', icon: BookOpen, img: '/landing/quran.jpg', tag: "Qur'aan progress",
     title: 'Every lesson, every child, every juz',
     text: "Record Hifdh Jadeed, Muraaja'ah Qareebah and Muraaja'ah by surah and ayah or in juz quarters — or Naazhirah and Qaa'idah lessons — in a couple of taps. Grade each one and add lesson notes.",
-    points: ['Hifdh, Naazhirah and Qaa\'idah, or a mix in one class', 'Juz-by-juz progress and percentage of the Qur\'an', '"Same as last time" and "Until new lesson" shortcuts'],
+    points: ['Hifdh, Naazhirah and Qaa\'idah, or a mix in one class', 'Juz-by-juz progress and percentage of the Qur\'aan', '"Same as last time" and "Until new lesson" shortcuts'],
   },
   {
     key: 'ai', icon: Sparkles, img: '/landing/report.jpg', tag: 'AI reports',
     title: 'Reports that write themselves',
-    text: "Suhuf reads the teacher's lesson notes, Qur'an progress and behaviour records, and drafts a warm, accurate report paragraph in seconds. Check it, change any words, and add it to the report.",
+    text: "Suhuf reads the teacher's lesson notes, Qur'aan progress and behaviour records, and drafts a warm, accurate report paragraph in seconds. Check it, change any words, and add it to the report.",
     points: ['Monthly or termly reports, as PDFs with your logo', 'Uses exact figures — never made-up progress', 'Download a whole class at once'],
   },
   {
     key: 'parents', icon: Users, img: '/landing/parent.jpg', tag: 'Parent portal',
     title: 'Parents see how their child is doing',
-    text: "Each family gets their own login to see their children's attendance, fees, Qur'an progress and finished reports — and can tell you when their child will be absent.",
+    text: "Each family gets their own login to see their children's attendance, fees, Qur'aan progress and finished reports — and can tell you when their child will be absent.",
     points: ['Brothers and sisters on one login', 'Send login details by WhatsApp in one tap', "Teachers' private notes are never shown to parents"],
   },
   {
@@ -66,7 +66,7 @@ const FAQ = [
   ['How do we start?', 'Tap Start free, enter your madrasah\'s name and your details, and you\'re in straight away — free for 6 months, no card needed. Questions first? Message us on WhatsApp.'],
   ['How long does it take to set up?', 'Most madaaris are up and running in an afternoon: add your classes, paste in your students from a spreadsheet, set your fees and madrasah days, and give teachers their logins. We\'ll help you get started.'],
   ['We already have our students in a spreadsheet. Can we use it?', 'Yes — paste the rows or upload the file. Suhuf works out the columns (names, classes, dates of birth, mother\'s and father\'s details), lets you check everything, and adds them all at once.'],
-  ['How does the AI report work?', "It reads that child's lesson notes, Qur'an progress and behaviour records for the month or term, and writes a short report paragraph. You can add instructions, edit every word, and nothing reaches parents until you press \"Add to report\"."],
+  ['How does the AI report work?', "It reads that child's lesson notes, Qur'aan progress and behaviour records for the month or term, and writes a short report paragraph. You can add instructions, edit every word, and nothing reaches parents until you press \"Add to report\"."],
   ['Who can see our data?', 'Only your madrasah. Each madrasah\'s records are kept completely separate; teachers only see their own classes, and parents only their own children. You can download everything at any time.'],
   ['What does it cost?', 'Suhuf is free for your first 6 months. After that it\'s £20 a month, or £200 a year, for a madrasah of up to 200 children — however many teachers and parents use it. Over 200 children? Message us for a price. You pay by standing order; there\'s no contract, and you can leave whenever you like.'],
   ['What if we stop using it?', 'Download a full backup and a spreadsheet of your students first; then your information is deleted. Nothing is held back.'],
@@ -122,7 +122,7 @@ export default function Landing({ onSignIn }) {
         <div className="lp-hero-text">
           <div className="lp-pill">Built for UK madaaris</div>
           <h1>Your whole madrasah, in one simple app</h1>
-          <p className="lp-lead">Registers, fees, Qur'an progress, behaviour and AI-written reports — with a portal so parents can see how their child is doing.</p>
+          <p className="lp-lead">Registers, fees, Qur'aan progress, behaviour and AI-written reports — with a portal so parents can see how their child is doing.</p>
           <div className="lp-cta">
             <a href="/?demo" className="lp-btn lp-btn-primary"><PlayCircle size={17} />Try the demo</a>
             <a href="/?start" className="lp-btn lp-btn-light"><Rocket size={16} />Start free</a>
@@ -135,7 +135,7 @@ export default function Landing({ onSignIn }) {
         </div>
         <div className="lp-hero-art">
           <Phone src="/landing/dashboard.jpg" alt="The Suhuf dashboard on a phone" eager />
-          <div className="lp-hero-second"><Phone src="/landing/quran.jpg" alt="Recording Qur'an progress" eager /></div>
+          <div className="lp-hero-second"><Phone src="/landing/quran.jpg" alt="Recording Qur'aan progress" eager /></div>
         </div>
       </section>
 

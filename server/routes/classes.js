@@ -2,7 +2,7 @@ const { query, transaction } = require('../db');
 const { requireAuth, isOwner, teacherClassNames, teachingClassNames } = require('../auth');
 
 // quran_type: what the class studies — 'hifz' | 'nazira' | 'qaida', 'mixed' (each
-// student's level is set individually), or null for none. It decides the Qur'an
+// student's level is set individually), or null for none. It decides the Qur'aan
 // progress fields on Daily records; a student's own level (quran_students.quran_type,
 // server/routes/quran.js) overrides it.
 let columnsReady = false;

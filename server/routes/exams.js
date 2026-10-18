@@ -18,7 +18,7 @@ const { classResults, paperPass } = require('../examResults');
 // POST ?action=marks {paperId, marks: [{studentId, mark, absent}]}  → the paper's teacher, its class teacher or the head
 // POST ?action=comment {examId, studentId, teacherComment?, headComment?, behavior?} → class teacher (theirs + behaviour) / head (all)
 // POST ?action=draft {examId, studentId} → a draft of the class teacher's comment, written by AI from the term's
-//                                         marks, attendance, behaviour records, lessons covered and Qur'an notes
+//                                         marks, attendance, behaviour records, lessons covered and Qur'aan notes
 //
 // For a Darul Uloom the exam report card is the child's report (no monthly summaries): marks, the term's
 // attendance (from the previous exam, or 1 September, to this exam), behaviour, and the comments.
