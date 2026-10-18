@@ -253,7 +253,7 @@ codebase (one codebase, not a fork).
   Hifdh) plus the family's contacts, home, emergency contact and who collects; the madrasah's own message is at the top
   (`settings.join_message`, Settings → Online applications card with the link to copy / WhatsApp); a tick "details
   correct and I agree to the madrasah's rules" is required. Guards: hidden bot box, 6 children per address a day
-  (`students.applied_ip`, hashed); a child already applied or at the madrasah (same name + date of birth, not left) isn't added twice — the parent is told. Each child lands on the **Waiting list** (`applied_online`, `applied_new` — "Applied
+  (`students.applied_ip`, hashed); a child already applied or at the madrasah (same name + date of birth + one of the same phone numbers, not left) isn't added twice — the parent is told; same name + date of birth but different phones is added with a "Possible duplicate" note (amber "Check: possible duplicate" tag on the Waiting list). Each child lands on the **Waiting list** (`applied_online`, `applied_new` — "Applied
   online · new" until the head opens it; Dashboard shows "N new applications"); the waiting list runs oldest first
   (`students.added_at`). No login is made — the head sets up a parent login later, as usual. **Parents update their own
   details** in the portal ("Your details" → Check & update, `POST /api/parent?action=details`, `PARENT_EDITABLE`):

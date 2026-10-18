@@ -21,6 +21,8 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Per child; everything else in DETAILS is the family's, shared by brothers and sisters.
 const CHILD_KEYS = new Set(['gender', 'allergies', 'medical', 'medication', 'walksHome', 'boarding', 'schoolYear', 'previousSchool', 'hifdhCompleted']);
+// The start of the note on an application that may be a child already here (Students shows "Check").
+const POSSIBLE_DUPLICATE = 'Possible duplicate';
 const DU_KEYS = new Set(['boarding', 'schoolYear', 'previousSchool', 'hifdhCompleted']);
 
 function ipHash(req) {
@@ -69,19 +71,25 @@ module.exports = async (req, res) => {
   if (!str(f.parent1Name) || !/^[0-9 +()-]{7,20}$/.test(str(f.parent1Phone, 40))) { res.status(400).json({ error: 'Enter the first contact\'s name and phone number.' }); return; }
   for (const k of ['parent1Email', 'parent2Email']) if (str(f[k]) && !EMAIL_RE.test(str(f[k]))) { res.status(400).json({ error: 'Check the email address.' }); return; }
 
-  // Already applied, or already at the madrasah (same first name, surname and date of birth —
-  // a child who has left may apply again): not added twice. The same child twice in one form too.
+  // Already applied, or already at the madrasah: the same first name, surname and date of birth
+  // AND one of the same phone numbers — not added twice (a child who has left may apply again).
+  // Same name and birthday but different phone numbers (common names, a big madrasah): added,
+  // flagged for the head to check (`possibleDuplicate` in the notes, shown on the Waiting list).
   const key = c => `${str(c.forename).toLowerCase()}|${str(c.surname).toLowerCase()}|${c.dob}`;
+  const digits = v => String(v || '').replace(/\D/g, '').slice(-10); // 07700 900111 = +44 7700 900111
+  const phones = [f.parent1Phone, f.parent2Phone].map(digits).filter(d => d.length >= 7);
   const { rows: have } = await query(
-    `SELECT lower(trim(forename)) || '|' || lower(trim(surname)) || '|' || to_char(dob, 'YYYY-MM-DD') AS k, class
+    `SELECT lower(trim(forename)) || '|' || lower(trim(surname)) || '|' || to_char(dob, 'YYYY-MM-DD') AS k, class, parent1_phone, parent2_phone, emergency_phone
      FROM students WHERE madrasah_id = $1 AND status <> 'Inactive' AND dob IS NOT NULL`, [m.id]);
-  const known = new Map(have.map(h => [h.k, h.class]));
-  const fresh = [], already = [];
+  const fresh = [], already = [], seen = new Set();
   for (const c of list) {
     const k = key(c);
-    if (known.has(k)) { already.push({ name: `${str(c.forename)} ${str(c.surname)}`, waiting: known.get(k) === 'Waiting list' }); continue; }
-    known.set(k, 'Waiting list');
-    fresh.push(c);
+    if (seen.has(k)) continue; // the same child twice on this form
+    seen.add(k);
+    const same = have.filter(h => h.k === k);
+    const match = same.find(h => [h.parent1_phone, h.parent2_phone, h.emergency_phone].map(digits).some(d => d.length >= 7 && phones.includes(d)));
+    if (match) { already.push({ name: `${str(c.forename)} ${str(c.surname)}`, waiting: match.class === 'Waiting list' }); continue; }
+    fresh.push({ ...c, possibleDuplicate: same.length ? same[0].class : '' });
   }
   if (!fresh.length) {
     res.status(200).json({ ok: true, count: 0, already });
@@ -96,10 +104,11 @@ module.exports = async (req, res) => {
   const du = m.kind === 'darul_uloom';
   for (const [i, c] of fresh.entries()) {
     const cols = ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'status', 'weekly_fee',
-      'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone', 'applied_online', 'applied_new', 'applied_ip'];
+      'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone', 'applied_online', 'applied_new', 'applied_ip', 'notes'];
     const vals = ['S' + Date.now().toString(36) + crypto.randomBytes(3).toString('hex') + i, m.id, str(c.forename), str(c.surname), c.dob,
       'Waiting list', 'Waiting list', Number(m.default_weekly_fee) || 15,
-      str(f.parent1Name), str(f.parent1Phone, 40), str(f.parent2Name), str(f.parent2Phone, 40), true, true, hash];
+      str(f.parent1Name), str(f.parent1Phone, 40), str(f.parent2Name), str(f.parent2Phone, 40), true, true, hash,
+      c.possibleDuplicate ? `${POSSIBLE_DUPLICATE} — a child with the same name and date of birth is already ${c.possibleDuplicate === 'Waiting list' ? 'on the waiting list' : `in ${c.possibleDuplicate}`}, with different phone numbers. Check it isn't the same child.` : ''];
     for (const [key, col, max] of students.DETAILS) {
       if (DU_KEYS.has(key) && !du) continue;
       cols.push(col); vals.push(str(CHILD_KEYS.has(key) ? c[key] : f[key], max));

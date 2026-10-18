@@ -266,6 +266,7 @@ export default function Students() {
                   <div className="student-compact-sub">
                     {fmtDob(s.dob)}{s.addedAt?` · added ${formatDateGB(String(s.addedAt).slice(0,10))}`:''}
                     {s.appliedOnline&&<span className={`applied-tag ${s.appliedNew?'new':''}`}>{s.appliedNew?'Applied online · new':'Applied online'}</span>}
+                    {s.appliedOnline&&String(s.notes||'').startsWith('Possible duplicate')&&<span className="applied-tag check">Check: possible duplicate</span>}
                   </div>
                 </div>
                 <div className="waiting-move" onClick={e=>e.stopPropagation()}>

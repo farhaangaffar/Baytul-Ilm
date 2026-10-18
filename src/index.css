@@ -868,3 +868,4 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .waiting-move { margin-left: auto; min-width: 180px; }
 .waiting-move select { width: 100%; padding: 8px 12px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fafbfc; font-family: var(--font); font-size: 13px; color: var(--ink); cursor: pointer; }
 @media (max-width: 640px) { .waiting-move { margin-left: 0; width: 100%; } }
+.applied-tag.check { background: var(--amber-light); color: var(--amber-text); }
