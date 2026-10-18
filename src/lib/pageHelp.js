@@ -57,8 +57,9 @@ const HEAD = {
   ] },
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
+    'Each class or teacher is one line — tap it to see the details underneath, with Edit and Delete.',
     'Edit a class to choose its teacher and its Qur\'an level (Hifdh, Naazhirah, Qaa\'idah or Mixed).',
-    'Give a teacher, or a whole class, a login so they can sign in.',
+    'Tap Login in a class or teacher to give them a login so they can sign in.',
   ] },
   '/stats': { title: 'Stats', steps: [
     'Attendance and fees for the year, month by month.',
@@ -148,6 +149,7 @@ const PARENT = { title: 'How to use this page', steps: [
 const DU_HEAD = {
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
+    'Each class or teacher is one line — tap it for the details. A teacher shows the books they teach in each year.',
     'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'an levels.',
     'Give a teacher, or a whole class, a login so they can sign in.',
   ] },

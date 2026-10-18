@@ -5,15 +5,17 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getClasses, addClass, updateClass, deleteClass,
   getTeachers, addTeacher, updateTeacher, deleteTeacher, reorderTeachers,
-  getStudents, getUsers, createUser, updateUser, deleteUser,
+  getStudents, getUsers, createUser, updateUser, deleteUser, getCourse,
 } from '../lib/store';
-import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, AlertCircle, KeyRound, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, KeyRound, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import BoxRow from '../components/BoxRow';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { useAuth } from '../lib/AuthContext';
 import { CLASS_QURAN_OPTIONS } from '../lib/quran';
 import { guessPlace } from '../lib/courseYears';
 
 export default function ClassesTeachers() {
+  const { isDarulUloom } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // ?tab=teachers opens the Teachers tab (e.g. from the Getting started checklist).
@@ -30,17 +32,20 @@ export default function ClassesTeachers() {
   const [teacherModal, setTeacherModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [toast, setToast] = useState('');
+  const [openId, setOpenId] = useState(''); // the open line: 'c:<class id>' or 't:<teacher id>'
+  const [courseSubjects, setCourseSubjects] = useState([]); // a Darul Uloom's books, who teaches each
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [classesData, teachersData, studentsData, loginsData] = await Promise.all([getClasses(), getTeachers(), getStudents(), getUsers()]);
-      setClasses(classesData); setTeachers(teachersData); setStudents(studentsData); setLogins(loginsData);
+      const [classesData, teachersData, studentsData, loginsData, course] = await Promise.all([getClasses(), getTeachers(), getStudents(), getUsers(),
+        isDarulUloom ? getCourse().catch(() => null) : null]);
+      setClasses(classesData); setTeachers(teachersData); setStudents(studentsData); setLogins(loginsData); setCourseSubjects(course?.subjects || []);
     } catch (err) {
       setError(err);
     }
     setLoading(false);
-  }, []);
+  }, [isDarulUloom]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -116,20 +121,23 @@ export default function ClassesTeachers() {
         </button>
       </div>
 
-      <div className="metrics-grid mb-6">
-        <div className="metric-card"><div className="metric-icon dark"><BookOpen size={18}/></div><div className="metric-value">{classes.length}</div><div className="metric-label">Classes</div></div>
-        <div className="metric-card"><div className="metric-icon teal"><Users size={18}/></div><div className="metric-value">{teachers.length}</div><div className="metric-label">Teachers</div></div>
-        <div className="metric-card"><div className="metric-icon green"><Users size={18}/></div><div className="metric-value">{activeStudents}</div><div className="metric-label">Active students</div></div>
-        <div className="metric-card"><div className="metric-icon amber"><AlertCircle size={18}/></div><div className="metric-value">{unassigned}</div><div className="metric-label">Unassigned classes</div></div>
-      </div>
+      {/* The figures in one row of small grey boxes */}
+      <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
+        { text: String(classes.length), sub: 'Classes', className: 'ct-figure' },
+        { text: String(teachers.length), sub: 'Teachers', className: 'ct-figure' },
+        { text: String(activeStudents), sub: 'Students', className: 'ct-figure' },
+        unassigned ? { text: String(unassigned), sub: 'No teacher', tone: 'amber' } : { text: '0', sub: 'No teacher', className: 'ct-figure' },
+      ]} />
+      <div style={{ height: 12 }} />
 
-      {/* Classes tab */}
+      {/* Classes tab: one line per class (name, course or Qur'an level, students); tap to open
+          its teacher, students and login underneath, with Edit and Delete. */}
       {tab === 'classes' && (
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">Classes</div>
-              <div className="card-sub">{classes.length} classes</div>
+              <div className="card-sub">{classes.length} {classes.length === 1 ? 'class' : 'classes'}</div>
             </div>
             <button className="btn btn-primary btn-sm" onClick={() => setClassModal({ name: '', teacherId: '' })}>
               <Plus size={13} /> Add class
@@ -139,41 +147,53 @@ export default function ClassesTeachers() {
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
               No classes yet — click "Add class" to create one.
             </div>
-          ) : (<>
-            {/* One small card per class — name and Qur'an level on top, then teacher /
-                students / class login as three boxes; side by side on wider screens. */}
-            <div className="box-card-grid">
-              {classes.map(c => (
-                <div key={c.id} className="box-card">
-                  <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14.5, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {c.name}
-                      {c.courseOrder && <span className="badge badge-blue">Aalim · year {c.courseOrder}</span>}
-                      {CLASS_QURAN_OPTIONS[c.quranType] && <span className="badge badge-teal">{c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]}</span>}
-                    </div>
-                    <button className="btn btn-icon btn-sm" title="Edit class" onClick={() => setClassModal({ ...c })}><Pencil size={13} /></button>
-                    <button className="btn btn-icon btn-sm" title="Delete class" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'class', item: c })}><Trash2 size={13} /></button>
-                  </div>
-                  <div className="box-row-3">
-                    <InfoBox value={teacherName(c.teacherId)} label="Teacher" />
-                    <InfoBox value={studentCountForClass(c.name)} label="Students" />
-                    <LoginBox login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
-                      title="One shared login for this class — whoever teaches it that day can sign in" />
-                  </div>
-                </div>
-              ))}
+          ) : (
+            <div className="course-lines">
+              {classes.map(c => {
+                const on = openId === `c:${c.id}`;
+                const n = studentCountForClass(c.name);
+                const kind = c.courseOrder ? `Aalim · year ${c.courseOrder}`
+                  : CLASS_QURAN_OPTIONS[c.quranType] ? (c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]) : '';
+                return (
+                  <React.Fragment key={c.id}>
+                    <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={() => setOpenId(on ? '' : `c:${c.id}`)}>
+                      <span className="ct-two">
+                        <span className="line-row-name">{c.name}</span>
+                        <span className="line-row-sub">{[kind, `${n} ${n === 1 ? 'student' : 'students'}`].filter(Boolean).join(' · ')}</span>
+                      </span>
+                      {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                    {on && (
+                      <div className="course-open">
+                        <div className="box-row-3">
+                          <InfoBox value={c.teacherId ? teacherName(c.teacherId) : 'None yet'} label={isDarulUloom && c.courseOrder ? 'Report writer' : 'Teacher'} />
+                          <InfoBox value={n} label={n === 1 ? 'Student' : 'Students'} />
+                          <LoginBox login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
+                            title="One shared login for this class — whoever teaches it that day can sign in" />
+                        </div>
+                        <div className="course-open-actions">
+                          <button type="button" className="line-row add" onClick={() => setClassModal({ ...c })}><Pencil size={13} /> Edit {c.name}</button>
+                          <button type="button" className="line-row add ct-delete" onClick={() => setConfirmDelete({ type: 'class', item: c })}><Trash2 size={13} /> Delete</button>
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
-          </>)}
+          )}
         </div>
       )}
 
-      {/* Teachers tab */}
+      {/* Teachers tab: one line per teacher (name, then what they teach in a few words); tap to
+          open their contact details, classes, subjects (in a Darul Uloom, each year's books they
+          teach) and login underneath, with Edit and Delete. Drag the grip to reorder. */}
       {tab === 'teachers' && (
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">Teachers</div>
-              <div className="card-sub">{teachers.length} staff members</div>
+              <div className="card-sub">{teachers.length} {teachers.length === 1 ? 'teacher' : 'teachers'}</div>
             </div>
             <button className="btn btn-primary btn-sm" onClick={() => setTeacherModal({ name: '', phone: '', email: '', subjectsText: '' })}>
               <Plus size={13} /> Add teacher
@@ -184,47 +204,72 @@ export default function ClassesTeachers() {
               No teachers yet — click "Add teacher" to get started.
             </div>
           ) : (
-            // One card per teacher — everything visible at once on any screen width,
-            // instead of a wide table that scrolls sideways. Drag the grip to reorder.
             <ReorderableGrid
               items={teachers}
               getId={t => t.id}
-              className="box-card-grid"
+              className="course-lines"
               onReordered={async ids => {
                 setTeachers(prev => ids.map(id => prev.find(t => t.id === id)).filter(Boolean));
                 try { await reorderTeachers(ids); }
                 catch (err) { showToast(err.message || 'Could not save the new order'); setTeachers(await getTeachers()); }
               }}
               renderItem={(t, { isDragging, handleProps, cardAttrs }) => {
+                const on = openId === `t:${t.id}`;
                 const login = logins.find(l => l.teacherId === t.id);
                 const theirClasses = classes.filter(c => c.teacherId === t.id).map(c => c.name);
                 const subjects = (t.subjects || []).flatMap(s => s.split('/')).map(s => s.trim()).filter(Boolean);
-                const contact = [t.phone, t.email].filter(Boolean).join(' · ');
+                // A Darul Uloom: the books they teach, year by year (Aalim course page).
+                const books = courseSubjects.filter(x => x.teacherId === t.id)
+                  .map(x => ({ ...x, year: classes.find(c => c.id === x.classId) }))
+                  .filter(x => x.year).sort((a, b) => (a.year.courseOrder || 99) - (b.year.courseOrder || 99));
+                const years = [...new Set([...theirClasses, ...books.map(x => x.year.name)])];
+                const summary = years.length === 0 ? (subjects.length ? subjects.slice(0, 2).join(', ') : 'No classes yet')
+                  : years.length === 1 ? years[0] : `${years.length} classes`;
                 return (
-                  <div key={t.id} className={`box-card ${isDragging ? 'is-dragging' : ''}`} {...cardAttrs}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                  <div key={t.id} className={isDragging ? 'is-dragging' : ''} {...cardAttrs}>
+                    <div className={`line-row ${on ? 'on' : ''}`} role="button" tabIndex={0} onClick={() => setOpenId(on ? '' : `t:${t.id}`)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenId(on ? '' : `t:${t.id}`); } }}>
                       {teachers.length > 1 && (
-                        <div className="drag-handle" {...handleProps} title="Drag to reorder" style={{ ...handleProps.style, margin: '0 -4px 0 -6px' }}><GripVertical size={15} /></div>
+                        <span className="drag-handle" {...handleProps} title="Drag to reorder" onClick={e => e.stopPropagation()}
+                          style={{ ...handleProps.style, margin: '0 -4px 0 -6px' }}><GripVertical size={15} /></span>
                       )}
-                      <div className="avatar" style={{ width: 30, height: 30, fontSize: 11, flexShrink: 0 }}>
-                        {t.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14.5 }}>{t.name}</div>
-                        {contact && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', overflowWrap: 'anywhere' }}>{contact}</div>}
-                      </div>
-                      <button className="btn btn-icon btn-sm" title="Edit teacher" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
-                        <Pencil size={13} />
-                      </button>
-                      <button className="btn btn-icon btn-sm" title="Delete teacher" style={{ color: 'var(--red)' }} onClick={() => setConfirmDelete({ type: 'teacher', item: t })}>
-                        <Trash2 size={13} />
-                      </button>
+                      <span className="course-num ct-initials">{t.name.split(' ').filter(w => /^[A-Za-z]/.test(w)).slice(-2).map(w => w[0]).join('')}</span>
+                      <span className="ct-two">
+                        <span className="line-row-name">{t.name}</span>
+                        <span className="line-row-sub">{summary}</span>
+                      </span>
+                      {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </div>
-                    <div className="box-row-3">
-                      <InfoBox value={theirClasses.length ? theirClasses.join(', ') : '—'} label={theirClasses.length === 1 ? 'Class' : 'Classes'} />
-                      <InfoBox value={subjects.length ? subjects.join(', ') : '—'} label="Subjects" />
-                      <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
-                    </div>
+                    {on && (
+                      <div className="course-open" style={{ marginTop: 6 }}>
+                        {(t.phone || t.email) && (
+                          <div className="ct-contact">
+                            {t.phone && <a href={`tel:${t.phone.replace(/\s/g, '')}`}>{t.phone}</a>}
+                            {t.email && <a href={`mailto:${t.email}`}>{t.email}</a>}
+                          </div>
+                        )}
+                        <div className="box-row-3">
+                          <InfoBox value={theirClasses.length || '—'} label={isDarulUloom ? 'Report writer' : theirClasses.length === 1 ? 'Class' : 'Classes'} />
+                          <InfoBox value={isDarulUloom ? books.length : subjects.length || '—'} label={isDarulUloom ? (books.length === 1 ? 'Book' : 'Books') : 'Subjects'} />
+                          <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
+                        </div>
+                        {theirClasses.map(name => (
+                          <div key={name} className="line-row ct-detail"><span className="course-kitaab-subject">{isDarulUloom ? 'Report writer' : 'Class teacher'}</span><span className="line-row-name">{name}</span></div>
+                        ))}
+                        {isDarulUloom ? books.map(x => (
+                          <div key={x.id} className="line-row ct-detail">
+                            <span className="course-kitaab-subject">{x.year.name}</span>
+                            <span className="line-row-name">{x.subject}{x.kitaab ? <span className="ct-book"> · {x.kitaab}</span> : null}</span>
+                          </div>
+                        )) : subjects.length > 0 && (
+                          <div className="ct-chips">{subjects.map(x => <span key={x}>{x}</span>)}</div>
+                        )}
+                        <div className="course-open-actions">
+                          <button type="button" className="line-row add" onClick={() => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}><Pencil size={13} /> Edit {t.name.split(' ').slice(-2).join(' ')}</button>
+                          <button type="button" className="line-row add ct-delete" onClick={() => setConfirmDelete({ type: 'teacher', item: t })}><Trash2 size={13} /> Delete</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               }}

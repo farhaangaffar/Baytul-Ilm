@@ -266,6 +266,12 @@ codebase (one codebase, not a fork).
   downloads every student, same columns, as a real .xlsx (dates as real dates, fee a number, the rest text; names and notes left-aligned, other columns centred — `SHEET_LEFT`). `src/lib/xlsx.js`
   writes/reads .xlsx with no library — don't go back to .csv downloads (Excel strips 0s and
   some apps show the byte-order mark as junk).
+- **Classes & Teachers** (`src/pages/ClassesTeachers.js`, maktab and Darul Uloom alike): the figures as one row of small
+  white boxes (Classes · Teachers · Students · No teacher, amber when any), then one line per class / teacher (`.line-row`
+  with `.ct-two`: name on top, a few words underneath — every line the same height; teachers keep the drag grip). Tapping a
+  line opens underneath: boxes (teacher or report writer · students · Login; a teacher's classes · subjects or books · Login),
+  the teacher's phone/email, their classes and — in a Darul Uloom — each year's books they teach (from `du_subjects`), then
+  Edit / Delete. One line open at a time.
 - Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Days off, Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
