@@ -40,6 +40,7 @@ const HEAD = {
     'Tap P (present), L (late) or A (absent) for each child — it saves straight away.',
     'Tap a child\'s card to see their month — tap P, L or A on any day to change it (tap it again to clear).',
     'Absences parents have told you about show at the top.',
+    'Teachers (at the top): mark each teacher P, L or A for the day — use ‹ › to go to another day. Each teacher\'s totals for the month are underneath.',
   ] },
   '/fees': { title: 'Fees', steps: feesForHead },
   '/records': { title: 'Daily records', steps: [
@@ -110,7 +111,7 @@ const HEAD = {
 };
 
 const TEACHER = {
-  '/attendance': HEAD['/attendance'],
+  '/attendance': { ...HEAD['/attendance'], steps: HEAD['/attendance'].steps.filter(t => !t.startsWith('Teachers')) }, // the teachers' register is the head's
   '/fees': { title: 'Fees', steps: [
     'Pick your class at the top.',
     'Tap a fee to mark it paid. Tap it again if it was a mistake.',

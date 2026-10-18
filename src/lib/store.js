@@ -517,6 +517,14 @@ export async function askAi(question, year) {
   return answer;
 }
 
+// ── Teachers' attendance (head only; server/routes/teacher-attendance.js) ──
+export async function getTeacherAttendance(from, to) {
+  return apiFetch(`/api/teacher-attendance?from=${from || ''}&to=${to || ''}`);
+}
+export async function setTeacherAttendance(teacherId, date, status, lateTime) {
+  return apiFetch('/api/teacher-attendance', { method: 'POST', body: JSON.stringify({ teacherId, date, status, lateTime }) });
+}
+
 // ── Backup & restore — now a full snapshot of the API rather than localStorage ──
 export async function exportAllData() {
   const years = await getAcademicYears();
@@ -538,9 +546,10 @@ export async function exportAllData() {
   // A Darul Uloom's Aalim years, books, timetable, lessons recorded and exams (server/duBackup.js);
   // a maktab has none (the route answers 403), so it's left out.
   const darulUloom = await apiFetch('/api/course?action=backup').catch(() => undefined);
+  const teacherAttendance = await getTeacherAttendance().catch(() => []);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
-    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom },
+    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom, teacherAttendance },
   };
 }
 async function fetchImageDataUrl(which) {
@@ -599,7 +608,7 @@ export async function importAllData(payload) {
     return;
   }
 
-  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom } = data;
+  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom, teacherAttendance } = data;
 
   for (const y of years || []) await addAcademicYear(y);
   for (const c of classes || []) await addClass(c).catch(() => {});
@@ -628,6 +637,7 @@ export async function importAllData(payload) {
     if (q.quranType) await saveStudentQuranType(studentId, q.quranType);
     for (const { id, ...e } of q.entries || []) await addQuranEntry({ ...e, studentId });
   }
+  for (const t of teacherAttendance || []) await setTeacherAttendance(t.teacherId, t.date, t.status, t.lateTime).catch(() => {});
   // Last, once classes, teachers and students are back: a Darul Uloom's own records.
   if (darulUloom) await apiFetch('/api/course?action=restore', { method: 'POST', body: JSON.stringify(darulUloom) });
 }

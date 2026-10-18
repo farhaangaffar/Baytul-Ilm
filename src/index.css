@@ -887,3 +887,18 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 @media (max-width: 560px) { .ct-detail { flex-wrap: wrap; row-gap: 2px; } .ct-detail > .line-row-name { flex-basis: 100%; white-space: normal; } }
 .course-lines > * { min-width: 0; } /* long names shorten with … instead of widening the page */
 .course-lines > .is-dragging { opacity: 0.5; }
+
+/* Attendance → Children | Teachers (head), and the teachers' register (components/TeacherAttendance.js). */
+.ta-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+.ta-tabs .line-row { justify-content: center; font-weight: 600; }
+.ta-day { display: flex; align-items: center; gap: 8px; padding: 12px 0 8px; border-bottom: 1px solid #f0f2f5; }
+.ta-day + .att-day { border-top: none; }
+.ta-month { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 46px); gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid #f0f2f5; font-size: 13.5px; }
+.att-week-title + .ta-month { border-top: none; }
+.ta-month-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ta-count { text-align: center; border-radius: 8px; padding: 4px 0; font-weight: 700; font-size: 13px; }
+.ta-count small { font-size: 10px; font-weight: 600; margin-left: 2px; opacity: 0.8; }
+.ta-count.P { background: var(--green-light); color: var(--green-text); }
+.ta-count.L { background: var(--amber-light); color: var(--amber-text); }
+.ta-count.A { background: var(--red-light); color: var(--red-text); }
+.ta-count.zero { background: #f3f4f6; color: var(--text-soft); }

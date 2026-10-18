@@ -319,6 +319,10 @@ codebase (one codebase, not a fork).
   date, status ("Late · 17:22"), and P / L / A buttons (tap the lit one again to clear). Any number of
   days per week (usual days + extra days); days off are a faded line with their name. On phones it
   opens scrolled to this week.
+- **Teachers' attendance** (head only; Attendance → Children | Teachers tabs, remembered per device; `src/components/TeacherAttendance.js`,
+  `server/routes/teacher-attendance.js`, table `teacher_attendance`): a day's register — a line per teacher with P / L / A
+  (Late stamps the time when it's today), ‹ › moves a school day at a time (never past today; closed days say so) — then
+  "This month": each teacher's P · L · A counts. In both demos, in Backup (`teacherAttendance`) and demo `TABLES`.
 - **A child's fees** (Fees page → tap a child; `src/components/FeeRows.js`, `.fee-boxed` in `index.css`): the
   attendance look — totals on top (Paid · Owed · Collected), then each week (a card per school month, two
   across from 900px; later months behind "Show the rest of the year") or each month/term in its own box,
