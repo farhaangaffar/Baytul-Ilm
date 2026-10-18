@@ -7,6 +7,7 @@ import { getReportedAbsences, markAbsenceSeen, getStudents, getAttendance, getLa
 import { useBackToClose } from '../lib/useBackToClose';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import TeacherAttendance from '../components/TeacherAttendance';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 // A "month" runs from its first Monday to the day before the next month's first Monday
@@ -29,7 +30,10 @@ export default function Attendance() {
   const [attData, setAttData] = useState({});
   const [lateTimes, setLateTimes] = useState({}); // { studentId: { date: 'HH:MM' } }
   // In a Darul Uloom several teachers take a year's register, so it shows who took each mark.
-  const { isDarulUloom } = useAuth();
+  const { isDarulUloom, isOwner } = useAuth();
+  // The head also takes the teachers' register here (Children | Teachers), remembered per device.
+  const [who, setWho] = useState(() => { try { return localStorage.getItem('attendance_who') || 'children'; } catch { return 'children'; } });
+  const pickWho = w => { setWho(w); try { localStorage.setItem('attendance_who', w); } catch {} };
   const [markedBy, setMarkedBy] = useState({});   // { studentId: { date: 'Maulana Yusuf' } }
   const [reported, setReported] = useState([]);   // absences parents have reported, today onwards
   const [selectedId, setSelectedId] = useState(null);
@@ -144,6 +148,14 @@ export default function Attendance() {
     try { await loadYear(newYear); } catch (err) { showToast(err.message || 'Could not load that year'); }
   }
 
+  const whoTabs = isOwner && (
+    <div className="ta-tabs">
+      {[['children', 'Children'], ['teachers', 'Teachers']].map(([k, l]) => (
+        <button key={k} type="button" className={`line-row ${who === k ? 'on' : ''}`} onClick={() => pickWho(k)}>{l}</button>
+      ))}
+    </div>
+  );
+  if (isOwner && who === 'teachers') return <Layout title="Attendance" subtitle="Teachers">{whoTabs}<TeacherAttendance /></Layout>;
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 
@@ -245,6 +257,7 @@ export default function Attendance() {
 
   return (
     <Layout title="Attendance" subtitle={`${activeClass} · ${year}`}>
+      {whoTabs}
       {isCurrentYear ? (
         <div className="count-row">
           {/* Many classes: just the whole madrasah and the chosen class (each class's count is in the class chooser). */}

@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -169,6 +169,18 @@ async function demoApplications(c, mid, du, fee) {
       [newId('S'), mid, f, sn, du ? age + 6 : age, fee, p1, ph1, r1, p2, ph2, r2, g, `${20 + age} Station Road, Demo Town`,
         allergies, medical, medication, du ? '' : 'No', du ? 'Day student' : '', fresh, daysAgo]);
   }
+}
+
+// The teachers' register (Attendance → Teachers) for every school day so far: nearly always
+// present, now and then late (with a time a little after the start) or away.
+async function demoTeacherAttendance(c, mid, ids, days, r, start) {
+  const rows = [];
+  for (const d of days) for (const id of ids) {
+    const roll = r();
+    const status = roll < 0.03 ? 'A' : roll < 0.08 ? 'L' : 'P';
+    rows.push([mid, id, d, status, status === 'L' ? `${start}:${String(3 + Math.floor(r() * 20)).padStart(2, '0')}` : null]);
+  }
+  await bulk(c, 'teacher_attendance', ['madrasah_id', 'teacher_id', 'date', 'status', 'late_time'], rows);
 }
 
 // Seeded random numbers, so each demo differs a little but every list is consistent.
@@ -338,6 +350,7 @@ async function createDemo(ipHash) {
         `${k.p2} ${k.s}`, k.family ? '07700 900501' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
         ...demoDetails(k, k.order, false)]));
     await demoApplications(c, mid, false, 8);
+    await demoTeacherAttendance(c, mid, Object.values(teacherIds), days, r, '17');
 
     // Attendance, daily records and Qur'aan progress, day by day.
     const att = [], recs = [], quran = [];
@@ -614,6 +627,7 @@ async function createDarulUloomDemo(ipHash) {
         `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
         ...demoDetails(k, k.order, true)]));
     await demoApplications(c, mid, true, 250);
+    await demoTeacherAttendance(c, mid, Object.values(teacherIds), days, r, '08');
 
     // Attendance and behaviour records for everyone; Qur'aan progress for the Hifdh class.
     const att = [], recs = [], quran = [];
