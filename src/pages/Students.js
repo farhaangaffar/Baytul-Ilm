@@ -225,6 +225,9 @@ export default function Students() {
   const waitingStudents = students.filter(s=>s.class===WAITING_LIST)
     .sort((a,b)=>String(a.addedAt||'').localeCompare(String(b.addedAt||'')) || `${a.forename} ${a.surname}`.localeCompare(`${b.forename} ${b.surname}`));
   const leftStudents = students.filter(s=>s.status==='Inactive' && s.class!==WAITING_LIST);
+  // Children whose class no longer exists (e.g. it was deleted before deleting asked where its
+  // children should go) — shown in their own card so they can be put back into a class.
+  const noClassStudents = students.filter(s=>s.status!=='Inactive' && s.class!==WAITING_LIST && !classNames.includes(s.class));
 
   return (
     <Layout title="Students" subtitle={`${students.length} enrolled`}>
@@ -339,6 +342,29 @@ export default function Students() {
         {classNames.length===0 && (
           <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>
             No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them, or tap Import to add a whole spreadsheet (its classes can be added too).
+          </div>
+        )}
+
+        {noClassStudents.length>0&&(
+          <div className="card" style={{marginTop:16,borderLeft:'4px solid var(--amber)'}}>
+            <div className="card-title">Not in a class ({noClassStudents.length})</div>
+            <div className="card-sub" style={{marginBottom:10}}>Their class no longer exists — choose a class for each one.</div>
+            <div className="student-compact-list">
+              {noClassStudents.map(s=>(
+                <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}} onClick={()=>openStudent(s)}>
+                  <div style={{minWidth:0}}>
+                    <div className="student-compact-name">{s.forename} {s.surname}<HealthDot student={s}/></div>
+                    <div className="student-compact-sub">Was in {s.class}</div>
+                  </div>
+                  <div className="waiting-move" onClick={e=>e.stopPropagation()}>
+                    <select value="" onChange={e=>e.target.value&&moveToClass(s,e.target.value)} aria-label={`Choose a class for ${s.forename}`}>
+                      <option value="">Select class…</option>
+                      {classNames.map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

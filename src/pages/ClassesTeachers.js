@@ -101,7 +101,7 @@ export default function ClassesTeachers() {
   async function doDelete() {
     try {
       if (confirmDelete.type === 'class') {
-        await deleteClass(confirmDelete.item.id);
+        await deleteClass(confirmDelete.item.id, confirmDelete.moveTo);
         showToast(`${confirmDelete.item.name} deleted`);
       } else {
         await deleteTeacher(confirmDelete.item.id);
@@ -336,13 +336,24 @@ export default function ClassesTeachers() {
               <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Delete {confirmDelete.item.name}?</div>
               <div className="text-muted text-sm">
                 {confirmDelete.type === 'class'
-                  ? 'Students in this class will keep their existing class label.'
+                  ? (studentCountForClass(confirmDelete.item.name) ? `Its ${studentCountForClass(confirmDelete.item.name)} ${studentCountForClass(confirmDelete.item.name) === 1 ? 'child moves' : 'children move'} to:` : 'It has no children.')
                   : 'This teacher will be unassigned from any classes they teach.'}
               </div>
+              {/* A class's children always go somewhere — never left in a class that no longer exists. */}
+              {confirmDelete.type === 'class' && studentCountForClass(confirmDelete.item.name) > 0 && (
+                <div className="waiting-move" style={{ margin: '12px auto 0', maxWidth: 280 }}>
+                  <select value={confirmDelete.moveTo || ''} onChange={e => setConfirmDelete(d => ({ ...d, moveTo: e.target.value }))}>
+                    <option value="">Select class…</option>
+                    {classes.filter(c => c.id !== confirmDelete.item.id).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    <option value="Waiting list">Waiting list</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="modal-footer" style={{ justifyContent: 'center' }}>
               <button className="btn" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={doDelete}><Trash2 size={13} /> Delete</button>
+              <button className="btn btn-danger" onClick={doDelete}
+                disabled={confirmDelete.type === 'class' && studentCountForClass(confirmDelete.item.name) > 0 && !confirmDelete.moveTo}><Trash2 size={13} /> Delete</button>
             </div>
           </div>
         </div>
