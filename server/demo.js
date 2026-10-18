@@ -171,6 +171,22 @@ async function demoApplications(c, mid, du, fee) {
   }
 }
 
+// Six children just brought in with Students → Import: no class yet, so they wait in "Not in a
+// class" on Students, grouped by the class their spreadsheet named, for the head to tick and move.
+async function demoImported(c, mid, du, fee) {
+  const kids = [
+    ['Zakariya', 'Ahmed', 'Boy', 8, 'Weekday Boys'], ['Hamza', 'Iqbal', 'Boy', 9, 'Weekday Boys'], ['Yahya', 'Rahman', 'Boy', 8, 'Weekday Boys'],
+    ['Safiyyah', 'Begum', 'Girl', 10, 'Weekend Girls'], ['Ruqayyah', 'Shah', 'Girl', 9, 'Weekend Girls'], ['Khadijah', 'Noor', 'Girl', 11, 'Weekend Girls'],
+  ];
+  for (const [i, [f, sn, g, age, sheet]] of kids.entries()) {
+    await c.query(
+      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, status, weekly_fee, enroll_date, parent1_name, parent1_phone, gender, sheet_class, added_at)
+       VALUES ($1,$2,$3,$4, now()::date - ($5::int * 365 + 90), '', 'Active', $6, now()::date, $7, $8, $9, $10, now())`,
+      [newId('S'), mid, f, sn, du ? age + 6 : age, fee, `${g === 'Boy' ? 'Bilal' : 'Amina'} ${sn}`, `07700 9008${String(i).padStart(2, '0')}`, g,
+        du ? (sheet === 'Weekday Boys' ? 'Year 1' : 'Year 2') : sheet]);
+  }
+}
+
 // The teachers' register (Attendance → Teachers) for every school day so far: nearly always
 // present, now and then late (with a time a little after the start) or away.
 async function demoTeacherAttendance(c, mid, ids, days, r, start) {
@@ -350,6 +366,7 @@ async function createDemo(ipHash) {
         `${k.p2} ${k.s}`, k.family ? '07700 900501' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
         ...demoDetails(k, k.order, false)]));
     await demoApplications(c, mid, false, 8);
+    await demoImported(c, mid, false, 8);
     await demoTeacherAttendance(c, mid, Object.values(teacherIds), days, r, '17');
 
     // Attendance, daily records and Qur'aan progress, day by day.
@@ -627,6 +644,7 @@ async function createDarulUloomDemo(ipHash) {
         `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
         ...demoDetails(k, k.order, true)]));
     await demoApplications(c, mid, true, 250);
+    await demoImported(c, mid, true, 250);
     await demoTeacherAttendance(c, mid, Object.values(teacherIds), days, r, '08');
 
     // Attendance and behaviour records for everyone; Qur'aan progress for the Hifdh class.

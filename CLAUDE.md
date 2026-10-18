@@ -265,7 +265,7 @@ codebase (one codebase, not a fork).
   first moves its children (not those who have left) to another class or the Waiting list (`DELETE /api/classes?id=&moveTo=`
   — refused with 409 without one; the delete pop-up has a "Select class…" drop-down). Children whose class no longer exists
   (from before this) or just imported show at the top of Students in an amber "Not in a class" card (`NotInClass`: ticks,
-  grouped by the sheet's class, one "Move to" drop-down).
+  grouped by the sheet's class, one "Move to" drop-down; both demos have six just-imported children there — `demoImported()`).
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
   an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`). **Import brings in
