@@ -264,12 +264,14 @@ codebase (one codebase, not a fork).
 - **A child is never left without a class:** `students.class` is the class *name* (plain text), so deleting a class
   first moves its children (not those who have left) to another class or the Waiting list (`DELETE /api/classes?id=&moveTo=`
   — refused with 409 without one; the delete pop-up has a "Select class…" drop-down). Children whose class no longer exists
-  (from before this) show on Students in an amber "Not in a class" card with a drop-down each. Import suggests the one existing
-  class containing all of a sheet class's words ("Weekday Ali" → "Weekday Ali/Fatima") instead of a new class.
+  (from before this) or just imported show at the top of Students in an amber "Not in a class" card (`NotInClass`: ticks,
+  grouped by the sheet's class, one "Move to" drop-down).
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
-  an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`), and
-  can add the sheet's new class names as classes; Settings → Backup → "Download students to spreadsheet"
+  an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`). **Import brings in
+  children only** — never classes, and nobody is put into a class (the owner's choice: keep it simple): each lands in
+  Students → "Not in a class" (or the Waiting list if the sheet says so), the sheet's class kept as a hint
+  (`students.sheet_class`), and the head ticks children — or a whole sheet-class group — and moves them together; Settings → Backup → "Download students to spreadsheet"
   downloads every student, same columns, as a real .xlsx (dates as real dates, fee a number, the rest text; names and notes left-aligned, other columns centred — `SHEET_LEFT`). `src/lib/xlsx.js`
   writes/reads .xlsx with no library — don't go back to .csv downloads (Excel strips 0s and
   some apps show the byte-order mark as junk).

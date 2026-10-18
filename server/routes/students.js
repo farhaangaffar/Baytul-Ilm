@@ -41,6 +41,7 @@ function toClient(row, forTeacher) {
     // head hasn't opened it yet; when a parent last changed their details in the portal.
     addedAt: row.added_at, appliedOnline: !!row.applied_online, appliedNew: !!row.applied_new,
     parentUpdatedAt: row.parent_updated_at,
+    sheetClass: row.sheet_class || '', // the class an imported child's spreadsheet named (a hint for placing them)
     ...extra,
   };
 }
@@ -69,7 +70,8 @@ function ensureLeaveDateColumn() {
     ADD COLUMN IF NOT EXISTS applied_online BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS applied_new BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS applied_ip TEXT,
-    ADD COLUMN IF NOT EXISTS parent_updated_at TIMESTAMP`)
+    ADD COLUMN IF NOT EXISTS parent_updated_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS sheet_class TEXT NOT NULL DEFAULT ''`)
     .catch(err => { ensured = null; throw err; });
   return ensured;
 }
@@ -112,9 +114,10 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   // Many students at once, from a spreadsheet (Students → Import). Body:
-  // { students: [{ forename, surname, class, dob, parent1Name, …, weeklyFee, enrollDate, status }],
-  //   newClasses: ['Class name', …] } — classes to create first (names the sheet used that
-  // the madrasah doesn't have yet). Each student's class must then exist, or be the waiting list.
+  // { students: [{ forename, surname, sheetClass, waiting, dob, parent1Name, …, weeklyFee, enrollDate, status }] }.
+  // Nobody is put into a class and no class is made: each child comes in with no class (Students →
+  // "Not in a class", where the head places them) — or on the waiting list if the sheet said so —
+  // with the sheet's class name kept as a hint (sheet_class).
   if (action === 'import') {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
     const list = Array.isArray(req.body?.students) ? req.body.students : [];
@@ -122,22 +125,13 @@ module.exports = requireAuth(async (req, res) => {
     if (list.length > 1000) { res.status(400).json({ error: 'Up to 1000 students at a time' }); return; }
     const str = (v, n = 120) => String(v ?? '').trim().slice(0, n);
     const iso = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? v : null);
-    const newClasses = [...new Set((Array.isArray(req.body?.newClasses) ? req.body.newClasses : []).map(c => str(c, 60)).filter(Boolean))];
-    const { rows: have } = await query('SELECT name FROM classes WHERE madrasah_id = $1', [mid]);
-    const known = new Set(have.map(r => r.name));
-    for (const name of newClasses) {
-      if (known.has(name) || name === 'Waiting list') continue;
-      await query('INSERT INTO classes (id, madrasah_id, name) VALUES ($1, $2, $3)',
-        ['C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), mid, name]);
-      known.add(name);
-    }
     const rows = [];
     for (const [i, b] of list.entries()) {
-      const forename = str(b.forename), surname = str(b.surname), cls = str(b.class, 60);
+      const forename = str(b.forename), surname = str(b.surname);
       if (!forename || !surname) { res.status(400).json({ error: `Row ${i + 1}: a forename and surname are needed` }); return; }
-      if (cls !== 'Waiting list' && !known.has(cls)) { res.status(400).json({ error: `Row ${i + 1}: class "${cls}" not found` }); return; }
       const fee = Number(b.weeklyFee);
-      const status = cls === 'Waiting list' ? 'Waiting list' : (b.status === 'Inactive' ? 'Inactive' : 'Active');
+      const status = b.status === 'Inactive' ? 'Inactive' : b.waiting ? 'Waiting list' : 'Active';
+      const cls = status === 'Waiting list' ? 'Waiting list' : '';
       rows.push({
         id: 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + i.toString(36),
         forename, surname, class: cls, dob: iso(b.dob),
@@ -146,21 +140,21 @@ module.exports = requireAuth(async (req, res) => {
         weekly_fee: Number.isFinite(fee) && fee >= 0 ? fee : 15,
         enroll_date: status === 'Waiting list' ? null : iso(b.enrollDate),
         leave_date: status === 'Inactive' ? iso(b.leaveDate) : null,
-        status, notes: str(b.notes, 1000),
+        status, notes: str(b.notes, 1000), sheet_class: str(b.sheetClass ?? b.class, 60),
         ...Object.fromEntries(DETAILS.map(([key, col, n]) => [col, detail(b, key, n)])),
       });
     }
     await query(
-      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes,
+      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes, sheet_class,
                              ${DETAILS.map(d => d[1]).join(', ')})
-       SELECT r.id, $1, r.forename, r.surname, r.dob, r.class, r.parent1_name, r.parent1_phone, r.parent2_name, r.parent2_phone, r.weekly_fee, r.enroll_date, r.leave_date, r.status, r.notes,
+       SELECT r.id, $1, r.forename, r.surname, r.dob, r.class, r.parent1_name, r.parent1_phone, r.parent2_name, r.parent2_phone, r.weekly_fee, r.enroll_date, r.leave_date, r.status, r.notes, COALESCE(r.sheet_class, ''),
               ${DETAILS.map(d => `r.${d[1]}`).join(', ')}
        FROM json_to_recordset($2::json) AS r(id text, forename text, surname text, dob date, class text, parent1_name text, parent1_phone text,
-            parent2_name text, parent2_phone text, weekly_fee numeric, enroll_date date, leave_date date, status text, notes text,
+            parent2_name text, parent2_phone text, weekly_fee numeric, enroll_date date, leave_date date, status text, notes text, sheet_class text,
             ${DETAILS.map(d => `${d[1]} text`).join(', ')})`,
       [mid, JSON.stringify(rows)]
     );
-    res.status(200).json({ ok: true, added: rows.length, classesAdded: newClasses.filter(n => n !== 'Waiting list').length });
+    res.status(200).json({ ok: true, added: rows.length });
     return;
   }
 
