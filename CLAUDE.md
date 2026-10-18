@@ -268,9 +268,9 @@ codebase (one codebase, not a fork).
   some apps show the byte-order mark as junk).
 - **Classes & Teachers** (`src/pages/ClassesTeachers.js`, maktab and Darul Uloom alike): the figures as one row of small
   white boxes (Classes · Teachers · Students · No teacher, amber when any), then one line per class / teacher (`.line-row`
-  with `.ct-two`: name on top, underneath the class's course and students or the teacher's subjects (no initials circle) — every line the same height; teachers keep the drag grip). Tapping a
+  with `.ct-two`: name on top, underneath the class's course and students, or for a teacher their class (madrasah) / their books' subjects (Darul Uloom) — no initials circle — every line the same height; teachers keep the drag grip). Tapping a
   line opens underneath: boxes (teacher or report writer · students · Login; a teacher's Phone · Email boxes (tap to ring/write), then
-  classes · subjects or books · Login), their classes and — in a Darul Uloom — each year's books they teach (from `du_subjects`), then
+  classes · Login), their classes and — in a Darul Uloom — each year's books they teach (from `du_subjects`), then
   Edit / Delete. One line open at a time. Reordering (here and on Students) glides cards to their new places (`ReorderableGrid`).
 - Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Days off, Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —

@@ -222,10 +222,10 @@ export default function ClassesTeachers() {
                 const books = courseSubjects.filter(x => x.teacherId === t.id)
                   .map(x => ({ ...x, year: classes.find(c => c.id === x.classId) }))
                   .filter(x => x.year).sort((a, b) => (a.year.courseOrder || 99) - (b.year.courseOrder || 99));
-                // Under the name: what they teach — a Darul Uloom's book subjects, else the subjects
-                // typed for them; with none, their class.
-                const taught = isDarulUloom ? [...new Set(books.map(x => x.subject))] : subjects;
-                const summary = taught.length ? taught.join(', ') : theirClasses.length ? theirClasses.join(', ') : 'Nothing to teach yet';
+                // Under the name: in a Darul Uloom the subjects of the books they teach (from the
+                // Aalim course page); in a madrasah their class. With neither, what's there.
+                const taught = isDarulUloom ? [...new Set(books.map(x => x.subject))] : theirClasses;
+                const summary = (taught.length ? taught : isDarulUloom ? theirClasses : subjects).join(', ') || 'No class yet';
                 return (
                   <div key={t.id} className={isDragging ? 'is-dragging' : ''} {...cardAttrs}>
                     <div className={`line-row ${on ? 'on' : ''}`} role="button" tabIndex={0} onClick={() => setOpenId(on ? '' : `t:${t.id}`)}
@@ -251,9 +251,8 @@ export default function ClassesTeachers() {
                             <div className="ct-contact-value">{t.email || 'Add'}</div><div className="info-box-label">Email</div>
                           </a>
                         </div>
-                        <div className="box-row-3">
+                        <div className="box-row-3" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                           <InfoBox value={theirClasses.length || '—'} label={isDarulUloom ? 'Report writer' : theirClasses.length === 1 ? 'Class' : 'Classes'} />
-                          <InfoBox value={isDarulUloom ? books.length : subjects.length || '—'} label={isDarulUloom ? (books.length === 1 ? 'Book' : 'Books') : 'Subjects'} />
                           <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
                         </div>
                         {theirClasses.map(name => (
