@@ -864,3 +864,7 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .health-dot { color: var(--red); vertical-align: -2px; margin-left: 6px; flex-shrink: 0; }
 .applied-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #eef0f4; color: var(--text-muted); }
 .applied-tag.new { background: var(--teal-light); color: var(--teal-dark); }
+/* Students → Waiting list: one drop-down to move a child into a class. */
+.waiting-move { margin-left: auto; min-width: 180px; }
+.waiting-move select { width: 100%; padding: 8px 12px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fafbfc; font-family: var(--font); font-size: 13px; color: var(--ink); cursor: pointer; }
+@media (max-width: 640px) { .waiting-move { margin-left: 0; width: 100%; } }

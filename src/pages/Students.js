@@ -268,12 +268,11 @@ export default function Students() {
                     {s.appliedOnline&&<span className={`applied-tag ${s.appliedNew?'new':''}`}>{s.appliedNew?'Applied online · new':'Applied online'}</span>}
                   </div>
                 </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}} onClick={e=>e.stopPropagation()}>
-                  {classNames.map(c=>(
-                    <button key={c} className="btn" style={{fontSize:12,padding:'6px 12px'}} onClick={()=>moveToClass(s,c)}>
-                      {c} <ArrowRight size={12}/>
-                    </button>
-                  ))}
+                <div className="waiting-move" onClick={e=>e.stopPropagation()}>
+                  <select value="" onChange={e=>e.target.value&&moveToClass(s,e.target.value)} aria-label={`Move ${s.forename} into a class`}>
+                    <option value="">Select class…</option>
+                    {classNames.map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
             ))}
