@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-// One line of equal boxes — a day's attendance, a fee, a Qur'an entry. Label boxes
+// One line of equal boxes — a day's attendance, a fee, a Qur'aan entry. Label boxes
 // (grey) name the line; choice boxes stay plain unless they apply, when they fill in
 // their tone. A header box (with a chevron) heads a month that opens.
 //   cells: [{ text, sub?, label?, header?, open?, action? (a dark button-like box), tone?: 'green'|'blue'|'amber'|'red', wrap?: true | 'words' }]

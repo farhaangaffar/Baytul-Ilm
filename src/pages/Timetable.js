@@ -93,7 +93,7 @@ export default function Timetable() {
     return lessons.filter(l => l.periodId === p.id && l.day === d && (view.kind === 'class' ? l.classId === view.id : l.teacherId === view.id));
   };
   // Hifdh, Naazhirah and Qaa'idah are recorded child by child in Daily records, so there's no
-  // "what the class covered" for them — a Qur'an class, or a lesson with one of those subjects.
+  // "what the class covered" for them — a Qur'aan class, or a lesson with one of those subjects.
   const individual = l => !!classes.find(c => c.id === l.classId)?.quranType || QURAN_SUBJECT.test(l.subject);
   // Who fills in what a lesson covered: the head, the class's own login, or the lesson's teacher.
   // Any other teacher can too, as cover for someone who's off — offered when they tap the lesson.

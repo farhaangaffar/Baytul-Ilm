@@ -8,7 +8,7 @@ import {
 import { Check, Trash2, BookOpen, Pencil, X } from 'lucide-react';
 import BoxRow from './BoxRow';
 
-// Qur'an progress on a student's Daily records page: an entry card for one day
+// Qur'aan progress on a student's Daily records page: an entry card for one day
 // (Hifdh Jadeed / Muraaja'ah Qareebah / Muraaja'ah for Hifdh — stored as sabaq /
 // sabqi / manzil; Naazhirah = reading; Qaa'idah = lesson) and a progress card (30-juz
 // bar for Hifdh). Data comes from /api/quran via the parent. Names: KIND_LABELS.
@@ -314,7 +314,7 @@ function EditEntryModal({ entry, studentId, onClose, onSaved }) {
   );
 }
 
-// The student's Qur'an level — Hifdh / Naazhirah / Qaa'idah. Teachers change it as a child moves
+// The student's Qur'aan level — Hifdh / Naazhirah / Qaa'idah. Teachers change it as a child moves
 // up; in a mixed class it's chosen here the first time. Not shown in a Hifdh class.
 function LevelPicker({ student, type, classType, data, onChanged, onError }) {
   const [busy, setBusy] = useState(false);
@@ -329,7 +329,7 @@ function LevelPicker({ student, type, classType, data, onChanged, onError }) {
     setBusy(false);
   }
   return (
-    <div style={{ display: 'flex', gap: 4, background: '#eef1f5', borderRadius: 999, padding: 2 }} aria-label="Qur'an level">
+    <div style={{ display: 'flex', gap: 4, background: '#eef1f5', borderRadius: 999, padding: 2 }} aria-label="Qur'aan level">
       {Object.entries(QURAN_TYPES).map(([k, t]) => {
         const on = type === k;
         return (
@@ -435,7 +435,7 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
     headline = (
       <>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          {[[`${p.completeJuz}`, 'Juz complete'], [`${p.percent}%`, "Of the Qur'an"], [lastFourWeeks, 'Ayahs, last 4 weeks']].map(([v, l]) => (
+          {[[`${p.completeJuz}`, 'Juz complete'], [`${p.percent}%`, "Of the Qur'aan"], [lastFourWeeks, 'Ayahs, last 4 weeks']].map(([v, l]) => (
             <div key={l} style={{ flex: '1 1 80px', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px', textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{v}</div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</div>
@@ -516,7 +516,7 @@ export function QuranProgressCard({ student, type, data, onChanged, canEditPrior
   );
 }
 
-// One paragraph of facts about a student's Qur'an progress in a report period, for
+// One paragraph of facts about a student's Qur'aan progress in a report period, for
 // the AI summary prompt — exact figures, so the report can quote them.
 export function quranFactsForReport(type, data, period) {
   if (!type || !data || !period) return '';
@@ -536,15 +536,15 @@ export function quranFactsForReport(type, data, period) {
     const learned = ayahsMemorisedBetween(entries, data.priorJuz || [], period.start, period.endExclusive);
     const parts = [
       `New ayahs memorised in ${period.label}: ${learned}.`,
-      `Total memorised: ${p.completeJuz} complete juz (${p.percent}% of the Qur'an).`,
+      `Total memorised: ${p.completeJuz} complete juz (${p.percent}% of the Qur'aan).`,
       p.latest ? `Latest Hifdh Jadeed (new lesson): ${rangeLabel(p.latest)} (Juz ${juzOf(p.latest.toSurah, p.latest.toAyah)}).` : '',
       ['sabaq', 'sabqi', 'manzil'].map(graded).filter(Boolean).join('; '),
     ].filter(Boolean);
-    return withNotes(`Hifdh (Qur'an memorisation — use these Arabic names for the parts, as given): ${parts.join(' ')}`);
+    return withNotes(`Hifdh (Qur'aan memorisation — use these Arabic names for the parts, as given): ${parts.join(' ')}`);
   }
   const kind = type === 'nazira' ? 'reading' : 'lesson';
   const last = entries.filter(e => e.kind === kind && e.date < period.endExclusive).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!last) return withNotes('').trim();
-  const where = kind === 'lesson' ? `Qaa'idah: up to ${last.lesson}.` : `Naazhirah (Qur'an reading): up to ${upToLabel(last)} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
+  const where = kind === 'lesson' ? `Qaa'idah: up to ${last.lesson}.` : `Naazhirah (Qur'aan reading): up to ${upToLabel(last)} (Juz ${juzOf(last.toSurah, last.toAyah)}).`;
   return withNotes(`${where} ${graded(kind)}`.trim());
 }

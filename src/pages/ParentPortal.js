@@ -19,7 +19,7 @@ import BoxRow from '../components/BoxRow';
 import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react';
 
 // The parent portal: one page, made for a phone. A family login sees each of their
-// children's attendance, fees, finished reports and Qur'an progress, and can tell the
+// children's attendance, fees, finished reports and Qur'aan progress, and can tell the
 // madrasah about an absence. Everything comes from /api/parent, which only ever
 // returns this family's own children.
 

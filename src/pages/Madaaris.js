@@ -586,7 +586,7 @@ function DeleteModal({ m, onClose, onDeleted }) {
     </>}>
       <div style={{ fontSize: 13, marginBottom: 12 }}>
         This deletes <strong>everything</strong> for this madrasah — its {m.students} student{m.students === 1 ? '' : 's'}, attendance, fees,
-        reports, Qur'an records, logins and settings. <strong>It can't be undone.</strong>
+        reports, Qur'aan records, logins and settings. <strong>It can't be undone.</strong>
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 12 }}>
         If they might want their records, ask the head to download a Backup first (Settings → Backup) — switch it back on for them to do that.

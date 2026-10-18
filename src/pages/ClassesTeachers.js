@@ -130,7 +130,7 @@ export default function ClassesTeachers() {
       ]} />
       <div style={{ height: 12 }} />
 
-      {/* Classes tab: one line per class (name, course or Qur'an level, students); tap to open
+      {/* Classes tab: one line per class (name, course or Qur'aan level, students); tap to open
           its teacher, students and login underneath, with Edit and Delete. */}
       {tab === 'classes' && (
         <div className="card">
@@ -153,7 +153,7 @@ export default function ClassesTeachers() {
                 const on = openId === `c:${c.id}`;
                 const n = studentCountForClass(c.name);
                 const kind = c.courseOrder ? `Aalim · year ${c.courseOrder}`
-                  : CLASS_QURAN_OPTIONS[c.quranType] ? (c.quranType === 'mixed' ? "Qur'an (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]) : '';
+                  : CLASS_QURAN_OPTIONS[c.quranType] ? (c.quranType === 'mixed' ? "Qur'aan (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]) : '';
                 return (
                   <React.Fragment key={c.id}>
                     <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={() => setOpenId(on ? '' : `c:${c.id}`)}>
@@ -222,9 +222,10 @@ export default function ClassesTeachers() {
                 const books = courseSubjects.filter(x => x.teacherId === t.id)
                   .map(x => ({ ...x, year: classes.find(c => c.id === x.classId) }))
                   .filter(x => x.year).sort((a, b) => (a.year.courseOrder || 99) - (b.year.courseOrder || 99));
-                const years = [...new Set([...theirClasses, ...books.map(x => x.year.name)])];
-                const summary = years.length === 0 ? (subjects.length ? subjects.slice(0, 2).join(', ') : 'No classes yet')
-                  : years.length === 1 ? years[0] : `${years.length} classes`;
+                // Under the name: what they teach — a Darul Uloom's book subjects, else the subjects
+                // typed for them; with none, their class.
+                const taught = isDarulUloom ? [...new Set(books.map(x => x.subject))] : subjects;
+                const summary = taught.length ? taught.join(', ') : theirClasses.length ? theirClasses.join(', ') : 'Nothing to teach yet';
                 return (
                   <div key={t.id} className={isDragging ? 'is-dragging' : ''} {...cardAttrs}>
                     <div className={`line-row ${on ? 'on' : ''}`} role="button" tabIndex={0} onClick={() => setOpenId(on ? '' : `t:${t.id}`)}
@@ -233,7 +234,6 @@ export default function ClassesTeachers() {
                         <span className="drag-handle" {...handleProps} title="Drag to reorder" onClick={e => e.stopPropagation()}
                           style={{ ...handleProps.style, margin: '0 -4px 0 -6px' }}><GripVertical size={15} /></span>
                       )}
-                      <span className="course-num ct-initials">{t.name.split(' ').filter(w => /^[A-Za-z]/.test(w)).slice(-2).map(w => w[0]).join('')}</span>
                       <span className="ct-two">
                         <span className="line-row-name">{t.name}</span>
                         <span className="line-row-sub">{summary}</span>
@@ -242,12 +242,15 @@ export default function ClassesTeachers() {
                     </div>
                     {on && (
                       <div className="course-open" style={{ marginTop: 6 }}>
-                        {(t.phone || t.email) && (
-                          <div className="ct-contact">
-                            {t.phone && <a href={`tel:${t.phone.replace(/\s/g, '')}`}>{t.phone}</a>}
-                            {t.email && <a href={`mailto:${t.email}`}>{t.email}</a>}
-                          </div>
-                        )}
+                        {/* Phone and email in boxes — tap one to ring or write. */}
+                        <div className="ct-contact">
+                          <a className="info-box" href={t.phone ? `tel:${t.phone.replace(/\s/g, '')}` : undefined} onClick={t.phone ? undefined : () => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
+                            <div className="ct-contact-value">{t.phone || 'Add'}</div><div className="info-box-label">Phone</div>
+                          </a>
+                          <a className="info-box" href={t.email ? `mailto:${t.email}` : undefined} onClick={t.email ? undefined : () => setTeacherModal({ ...t, subjectsText: (t.subjects || []).join(', ') })}>
+                            <div className="ct-contact-value">{t.email || 'Add'}</div><div className="info-box-label">Email</div>
+                          </a>
+                        </div>
                         <div className="box-row-3">
                           <InfoBox value={theirClasses.length || '—'} label={isDarulUloom ? 'Report writer' : theirClasses.length === 1 ? 'Class' : 'Classes'} />
                           <InfoBox value={isDarulUloom ? books.length : subjects.length || '—'} label={isDarulUloom ? (books.length === 1 ? 'Book' : 'Books') : 'Subjects'} />
@@ -339,8 +342,8 @@ export default function ClassesTeachers() {
 }
 
 // A Darul Uloom picks each class's course — one of the Aalim years (placed in order), Hifdh,
-// Naazhirah, Qaa'idah, mixed Qur'an levels, or none. A maktab picks its Qur'an level as before.
-const DU_COURSES = [['aalim', 'Aalim'], ['hifz', 'Hifdh'], ['nazira', 'Naazhirah'], ['qaida', "Qaa'idah"], ['mixed', "Mixed Qur'an levels — set each student"]];
+// Naazhirah, Qaa'idah, mixed Qur'aan levels, or none. A maktab picks its Qur'aan level as before.
+const DU_COURSES = [['aalim', 'Aalim'], ['hifz', 'Hifdh'], ['nazira', 'Naazhirah'], ['qaida', "Qaa'idah"], ['mixed', "Mixed Qur'aan levels — set each student"]];
 
 function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
   const { isDarulUloom } = useAuth();
@@ -405,7 +408,7 @@ function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
             </div>
             {!isDarulUloom && (
             <div className="form-group">
-              <label>Qur'an</label>
+              <label>Qur'aan</label>
               <select value={form.quranType || ''} onChange={e => setForm({ ...form, quranType: e.target.value })}>
                 <option value="">— Not tracked —</option>
                 {Object.entries(CLASS_QURAN_OPTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}

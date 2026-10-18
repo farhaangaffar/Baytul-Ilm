@@ -16,7 +16,7 @@ export const PRIVACY = [
     `Suhuf (suhuf.uk) is a madrasah management app run by ${PROVIDER.name}. Each madrasah that uses it decides what goes into it and is responsible for the information about its own children, parents and staff — in data-protection terms, the madrasah is the "controller" and we are its "processor". If you're a parent, your madrasah is the first place to ask about your information; you can also write to us at ${PROVIDER.email}.`,
   ]],
   ['What we keep', [
-    'About children: name, date of birth, whether a boy or girl, class, attendance, fees, Qur\'an progress (lessons, grades and the teacher\'s lesson notes), behaviour records, the reports written about them, and (at a Darul Uloom) exam marks and report cards, whether they board, and their previous madrasah or school.',
+    'About children: name, date of birth, whether a boy or girl, class, attendance, fees, Qur\'aan progress (lessons, grades and the teacher\'s lesson notes), behaviour records, the reports written about them, and (at a Darul Uloom) exam marks and report cards, whether they board, and their previous madrasah or school.',
     'If the madrasah adds them: a child\'s home address, allergies, medical conditions and medication (so staff can keep them safe — teachers see these, but not the home address), whether they may go home alone and who else may collect them.',
     'About parents: names, phone numbers, email addresses and whether they\'re the child\'s mother, father or guardian, an emergency contact\'s name and number, a parent login if the madrasah sets one up, and any absences reported through the app.',
     'About staff: names, contact details the madrasah adds, and login details. Passwords are stored scrambled (hashed) — nobody, including us, can read them.',
@@ -25,7 +25,7 @@ export const PRIVACY = [
     'About the madrasah: its name, logo, fee settings, term dates and similar settings.',
   ]],
   ['What it\'s used for', [
-    'Only to run the madrasah\'s records: registers, fees, Qur\'an progress, behaviour, reports and exams, and the parent portal. We don\'t sell information, show adverts or use it for marketing.',
+    'Only to run the madrasah\'s records: registers, fees, Qur\'aan progress, behaviour, reports and exams, and the parent portal. We don\'t sell information, show adverts or use it for marketing.',
   ]],
   ['Who else handles it', [
     'Vercel (the web hosting) and Neon (the database) store and serve Suhuf. They may keep data in the UK, the EU or the US, under the legal safeguards UK law requires for that.',
@@ -34,7 +34,7 @@ export const PRIVACY = [
     'We don\'t pass information to anyone else unless the law requires it.',
   ]],
   ['Parents see', [
-    'Their own children\'s attendance, fees, Qur\'an progress, finished reports and published exam report cards — never teachers\' daily comments or lesson notes, and never anyone else\'s child.',
+    'Their own children\'s attendance, fees, Qur\'aan progress, finished reports and published exam report cards — never teachers\' daily comments or lesson notes, and never anyone else\'s child.',
   ]],
   ['Cookies', [
     'One cookie keeps you signed in. Your device also remembers small things, such as your madrasah\'s code and which tab you last used. There are no tracking or advertising cookies.',

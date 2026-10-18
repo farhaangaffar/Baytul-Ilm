@@ -6,7 +6,7 @@ const { ensureParentTables, childIds, portalOn, ABSENCE_REASONS } = require('../
 // everything they can read is about their own children — never another student's
 // name or records, nor the class list, teachers' details or anything else staff use.
 //   GET               → { children: [...], absenceReasons }
-//   GET ?studentId=   → one child's attendance, fees, finished reports, Qur'an
+//   GET ?studentId=   → one child's attendance, fees, finished reports, Qur'aan
 //                       progress, published exam results (a Darul Uloom) and the absences this family has reported
 //   POST ?action=absence {studentId, date, reason, note} → tell the madrasah
 //   POST ?action=details {studentId, ...PARENT_EDITABLE} → update their contacts, health and

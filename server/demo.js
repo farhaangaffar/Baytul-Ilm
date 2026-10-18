@@ -5,7 +5,7 @@ const { ensureParentTables } = require('./parents');
 
 // Demo madaaris ("Try the demo" on the sign-in screen). Each visitor gets a private
 // copy of a made-up madrasah — three classes, eighteen children, about ten weeks of
-// attendance, fees, daily records, Qur'an progress and finished reports — with a head,
+// attendance, fees, daily records, Qur'aan progress and finished reports — with a head,
 // a teacher and a parent login they can switch between. Nothing in it is real, it can't
 // reach any other madrasah (it's an ordinary madrasah to the rest of the API), and it
 // deletes itself after DEMO_HOURS: expired demos stop signing in (server/auth.js) and
@@ -87,7 +87,7 @@ function yearLabel(s) { // the academic year a date's week falls in
 }
 const inAugust = s => schoolMonthOf(s)[1] === 8; // the summer break: no classes, no fees
 
-// ── Qur'an positions (Hafs; same numbering as src/lib/quran.js) ──
+// ── Qur'aan positions (Hafs; same numbering as src/lib/quran.js) ──
 const AYAHS = [7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
 const OFFSET = []; AYAHS.reduce((t, n, i) => { OFFSET[i] = t; return t + n; }, 0);
 const pos = (s, a) => OFFSET[s - 1] + a - 1;
@@ -100,8 +100,8 @@ const MANZIL = {
 
 // ── The made-up madrasah ──
 const TEACHERS = [
-  { key: 'yusuf', name: 'Ustadh Yusuf Ahmed', phone: '07700 900101', email: 'yusuf@example.com', subjects: ["Qur'an", 'Hifdh'] },
-  { key: 'maryam', name: 'Ustadhah Maryam Khan', phone: '07700 900102', email: 'maryam@example.com', subjects: ["Qur'an", 'Tajweed'] },
+  { key: 'yusuf', name: 'Ustadh Yusuf Ahmed', phone: '07700 900101', email: 'yusuf@example.com', subjects: ["Qur'aan", 'Hifdh'] },
+  { key: 'maryam', name: 'Ustadhah Maryam Khan', phone: '07700 900102', email: 'maryam@example.com', subjects: ["Qur'aan", 'Tajweed'] },
   { key: 'bilal', name: 'Ustadh Bilal Hussain', phone: '07700 900103', email: 'bilal@example.com', subjects: ["Qaa'idah", 'Islamic studies'] },
 ];
 const CLASSES = [
@@ -194,7 +194,7 @@ const COMMENTS = {
     ['Needed help with a few long vowels (madd).', 'Listened carefully to corrections.', 'Rushing when reading.'],
     ['Lovely clear reading.', 'Very attentive.', ''],
     ['Reading is improving week by week.', 'Asked good questions about the meaning.', ''],
-    ['A little distracted today, but read the full portion.', '', 'Needs to bring their Qur\'an every day.'],
+    ['A little distracted today, but read the full portion.', '', 'Needs to bring their Qur\'aan every day.'],
   ],
   qaida: [
     ['Recognised all the letters on the page.', 'Very enthusiastic learner.', ''],
@@ -339,7 +339,7 @@ async function createDemo(ipHash) {
         ...demoDetails(k, k.order, false)]));
     await demoApplications(c, mid, false, 8);
 
-    // Attendance, daily records and Qur'an progress, day by day.
+    // Attendance, daily records and Qur'aan progress, day by day.
     const att = [], recs = [], quran = [];
     const present = {};
     for (const k of kids) {
@@ -615,7 +615,7 @@ async function createDarulUloomDemo(ipHash) {
         ...demoDetails(k, k.order, true)]));
     await demoApplications(c, mid, true, 250);
 
-    // Attendance and behaviour records for everyone; Qur'an progress for the Hifdh class.
+    // Attendance and behaviour records for everyone; Qur'aan progress for the Hifdh class.
     const att = [], recs = [], quran = [];
     const present = {};
     const grade = () => { const g = r(); return g < 0.6 ? 'good' : g < 0.82 ? 'okay' : g < 0.94 ? 'weak' : 'repeat'; };

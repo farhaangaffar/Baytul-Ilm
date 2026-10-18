@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const { requireAuth, accessScope } = require('../auth');
 
-// Qur'an progress (hifz, nazira, qaida), recorded by the teacher each day on the Daily
+// Qur'aan progress (hifz, nazira, qaida), recorded by the teacher each day on the Daily
 // records page. Each entry has a kind (and a day can have several):
 //   hifz:   sabaq (new lesson), sabqi (recent revision), manzil (older revision)
 //   nazira: reading      qaida: lesson
@@ -109,7 +109,7 @@ module.exports = requireAuth(async (req, res) => {
   if (!scope.studentIds.has(b.studentId)) { forbidden(); return; }
 
   if (req.method === 'PUT' && req.query.action === 'type') {
-    // A student's own Qur'an level; null goes back to following their class.
+    // A student's own Qur'aan level; null goes back to following their class.
     const type = ['hifz', 'nazira', 'qaida'].includes(b.quranType) ? b.quranType : null;
     await query(
       `INSERT INTO quran_students (student_id, madrasah_id, quran_type) VALUES ($1, $2, $3)

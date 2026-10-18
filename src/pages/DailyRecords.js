@@ -179,7 +179,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   // The AI monthly summary (and the report it feeds) is owner-only; teachers keep
   // the daily records themselves.
   const { isOwner, isDarulUloom } = useAuth();
-  // Qur'an progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
+  // Qur'aan progress, when the student's class tracks it (hifz / nazira / qaida / mixed).
   // Their level is their own if set, else their class's.
   const hasQuran = !!classType;
   // Starts from what the student list already loaded, so the page opens with the right
@@ -187,7 +187,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   const [quran, setQuran] = useState(initialQuran || null);
   const quranType = quran ? effectiveQuranType(classType, quran.quranType) : null;
   // Which tab is showing — remembered between students (and visits) on this device.
-  const tabs = [hasQuran&&['quran',"Qur'an"],['day','Behaviour'],isOwner&&['report','Report']].filter(Boolean);
+  const tabs = [hasQuran&&['quran',"Qur'aan"],['day','Behaviour'],isOwner&&['report','Report']].filter(Boolean);
   const [tabPick, setTabPick] = useState(()=>{ try { return localStorage.getItem('records_tab')||''; } catch { return ''; } });
   const tab = tabs.some(([k])=>k===tabPick) ? tabPick : tabs[0][0];
   function pickTab(k){ setTabPick(k); try { localStorage.setItem('records_tab',k); } catch { /* fine */ } }
@@ -364,10 +364,10 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
       const year = termly || yearly ? period.yearLabel : await currentSchoolYear();
       const attendanceForYear = await getAttendance(year);
       const counts = termly || yearly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
-      // Qur'an progress for the period, as exact figures the summary can quote.
+      // Qur'aan progress for the period, as exact figures the summary can quote.
       const quranFacts = quranType ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
       // Lesson notes (in quranFacts) are the main source; behaviour records come second.
-      const prompt=`You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : yearly ? 'end-of-year' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'an progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'an progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
+      const prompt=`You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : yearly ? 'end-of-year' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'aan progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'aan progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
       const res = await fetch('/api/ai-summary', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -441,7 +441,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
       </div>
       <HealthNote student={student}/>
 
-      {/* One thing at a time: Qur'an | Behaviour | Report (heads only), each a
+      {/* One thing at a time: Qur'aan | Behaviour | Report (heads only), each a
           single roomy column. */}
       {tabs.length>1&&(
         <div className="student-tabs" role="tablist">
@@ -708,7 +708,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
               <textarea
                 value={aiInstructions}
                 onChange={e=>setAiInstructions(e.target.value)}
-                placeholder="e.g. focus on his Qur'an memorisation progress, keep it brief…"
+                placeholder="e.g. focus on his Qur'aan memorisation progress, keep it brief…"
                 rows={2}
                 style={{width:'100%',border:'1px solid var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontFamily:'var(--font)',fontSize:13,resize:'vertical'}}
               />
@@ -840,7 +840,7 @@ export default function DailyRecords() {
       const types = Object.fromEntries(classesData.filter(c => c.quranType).map(c => [c.name, c.quranType]));
       setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
       setAttendance(attendanceData); setAllRecords(recordsData); setClassTypes(types);
-      // Qur'an progress only matters when some class tracks it; never blocks the page.
+      // Qur'aan progress only matters when some class tracks it; never blocks the page.
       if (Object.keys(types).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
       // ?student=<id> (from Reports' "Not written") opens that child straight away.
@@ -874,7 +874,7 @@ export default function DailyRecords() {
   if (error) return <Layout title="Daily records"><ErrorState error={error} onRetry={load} /></Layout>;
 
   return (
-    <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?"Qur'an, behaviour and reports":'Select a student to view or add records'}>
+    <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?"Qur'aan, behaviour and reports":'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]}
           initialQuran={quranAll[selectedStudent.id] || (quranAllLoaded ? { entries: [], priorJuz: [], quranType: null } : null)} onQuranChanged={updateQuranFor}

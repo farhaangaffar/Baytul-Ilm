@@ -268,10 +268,10 @@ codebase (one codebase, not a fork).
   some apps show the byte-order mark as junk).
 - **Classes & Teachers** (`src/pages/ClassesTeachers.js`, maktab and Darul Uloom alike): the figures as one row of small
   white boxes (Classes · Teachers · Students · No teacher, amber when any), then one line per class / teacher (`.line-row`
-  with `.ct-two`: name on top, a few words underneath — every line the same height; teachers keep the drag grip). Tapping a
-  line opens underneath: boxes (teacher or report writer · students · Login; a teacher's classes · subjects or books · Login),
-  the teacher's phone/email, their classes and — in a Darul Uloom — each year's books they teach (from `du_subjects`), then
-  Edit / Delete. One line open at a time.
+  with `.ct-two`: name on top, underneath the class's course and students or the teacher's subjects (no initials circle) — every line the same height; teachers keep the drag grip). Tapping a
+  line opens underneath: boxes (teacher or report writer · students · Login; a teacher's Phone · Email boxes (tap to ring/write), then
+  classes · subjects or books · Login), their classes and — in a Darul Uloom — each year's books they teach (from `du_subjects`), then
+  Edit / Delete. One line open at a time. Reordering (here and on Students) glides cards to their new places (`ReorderableGrid`).
 - Settings page: three cards (Your madrasah · Fees [+ Fee weeks or Fee months] · Classes & parents [+ Days off, Terms])
   plus Backup; **everything saves by itself** (no Save button) with a small "Saved" tick —
   keep it that way, and keep help text to one short line.
@@ -342,7 +342,7 @@ codebase (one codebase, not a fork).
   wording — use them everywhere, never the stored keys): levels hifz/nazira/qaida show as
   **Hifdh / Naazhirah / Qaa'idah**; kinds sabaq/sabqi/manzil/reading/lesson show as **Hifdh
   Jadeed / Muraaja'ah Qareebah / Muraaja'ah / Naazhirah / Qaa'idah** (`KIND_LABELS`,
-  `QURAN_TYPES` in `src/lib/quran.js`). Hifdh Jadeed is never recorded in quarters; Qaa'idah offers "Same as last time" (the child's last lesson text);
+  `QURAN_TYPES` in `src/lib/quran.js`). Spell it **Qur'aan** on screen (the owner's spelling; book titles like Tarjamat-ul-Qur'an keep theirs). Hifdh Jadeed is never recorded in quarters; Qaa'idah offers "Same as last time" (the child's last lesson text);
   Muraaja'ah Qareebah's "To" offers "Until new lesson" (the ayah before the latest Hifdh
   Jadeed). Hifz is recorded by **surah and ayah**
   (sabaq / sabqi / manzil, graded good / okay / weak / repeat, with **lesson notes** — the
