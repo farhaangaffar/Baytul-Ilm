@@ -269,7 +269,7 @@ codebase (one codebase, not a fork).
   writes/reads .xlsx with no library — don't go back to .csv downloads (Excel strips 0s and
   some apps show the byte-order mark as junk).
 - **Classes & Teachers** (`src/pages/ClassesTeachers.js`, maktab and Darul Uloom alike): the figures as one row of small
-  white boxes (Classes · Teachers · Students · No teacher, amber when any), then one line per class / teacher (`.line-row`
+  white boxes (Classes · Teachers · Students · No teacher — amber when any, and tapping it shows just those classes, each tagged "No teacher"; a Darul Uloom's Aalim years don't count, the head writes their reports), then one line per class / teacher (`.line-row`
   with `.ct-two`: name on top, underneath the class's course and students, or for a teacher their class (madrasah) / their books' subjects (Darul Uloom) — no initials circle — every line the same height; teachers keep the drag grip). Tapping a
   line opens underneath: boxes (teacher or report writer · students · Login; a teacher's Phone · Email boxes (tap to ring/write), then
   classes · Login), their classes and — in a Darul Uloom — each year's books they teach (from `du_subjects`), then

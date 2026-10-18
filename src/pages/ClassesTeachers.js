@@ -33,6 +33,7 @@ export default function ClassesTeachers() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [toast, setToast] = useState('');
   const [openId, setOpenId] = useState(''); // the open line: 'c:<class id>' or 't:<teacher id>'
+  const [onlyNoTeacher, setOnlyNoTeacher] = useState(false); // the "No teacher" box shows just those classes
   const [courseSubjects, setCourseSubjects] = useState([]); // a Darul Uloom's books, who teaches each
 
   const load = useCallback(async () => {
@@ -65,7 +66,11 @@ export default function ClassesTeachers() {
   if (error) return <Layout title="Classes & Teachers"><ErrorState error={error} onRetry={load} /></Layout>;
 
   const activeStudents = students.filter(s => s.status === 'Active').length;
-  const unassigned = classes.filter(c => !c.teacherId).length;
+  // Classes with no teacher. A Darul Uloom's Aalim years don't count: with no report writer,
+  // the head writes their reports.
+  const needsTeacher = c => !c.teacherId && !(isDarulUloom && c.courseOrder);
+  const unassigned = classes.filter(needsTeacher).length;
+  const shownClasses = onlyNoTeacher ? classes.filter(needsTeacher) : classes;
 
   async function saveClass(form) {
     try {
@@ -126,7 +131,9 @@ export default function ClassesTeachers() {
         { text: String(classes.length), sub: 'Classes', className: 'ct-figure' },
         { text: String(teachers.length), sub: 'Teachers', className: 'ct-figure' },
         { text: String(activeStudents), sub: 'Students', className: 'ct-figure' },
-        unassigned ? { text: String(unassigned), sub: 'No teacher', tone: 'amber' } : { text: '0', sub: 'No teacher', className: 'ct-figure' },
+        unassigned
+          ? { text: String(unassigned), sub: 'No teacher', tone: 'amber', onClick: () => { setTab('classes'); setOnlyNoTeacher(true); setOpenId(''); } }
+          : { text: '0', sub: 'No teacher', className: 'ct-figure' },
       ]} />
       <div style={{ height: 12 }} />
 
@@ -149,7 +156,12 @@ export default function ClassesTeachers() {
             </div>
           ) : (
             <div className="course-lines">
-              {classes.map(c => {
+              {onlyNoTeacher && (
+                <button type="button" className="line-row on" style={{ justifyContent: 'space-between' }} onClick={() => setOnlyNoTeacher(false)}>
+                  <span>{shownClasses.length} with no teacher</span><span style={{ fontWeight: 600 }}>Show all</span>
+                </button>
+              )}
+              {shownClasses.map(c => {
                 const on = openId === `c:${c.id}`;
                 const n = studentCountForClass(c.name);
                 const kind = c.courseOrder ? `Aalim · year ${c.courseOrder}`
@@ -161,6 +173,7 @@ export default function ClassesTeachers() {
                         <span className="line-row-name">{c.name}</span>
                         <span className="line-row-sub">{[kind, `${n} ${n === 1 ? 'student' : 'students'}`].filter(Boolean).join(' · ')}</span>
                       </span>
+                      {needsTeacher(c) && <span className="applied-tag check" style={{ marginLeft: 0 }}>No teacher</span>}
                       {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
                     {on && (

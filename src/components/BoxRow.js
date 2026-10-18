@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 // One line of equal boxes — a day's attendance, a fee, a Qur'aan entry. Label boxes
 // (grey) name the line; choice boxes stay plain unless they apply, when they fill in
 // their tone. A header box (with a chevron) heads a month that opens.
-//   cells: [{ text, sub?, label?, header?, open?, action? (a dark button-like box), tone?: 'green'|'blue'|'amber'|'red', wrap?: true | 'words' }]
+//   cells: [{ text, sub?, label?, header?, open?, action? (a dark button-like box), tone?: 'green'|'blue'|'amber'|'red', wrap?: true | 'words', onClick? (a box to tap) }]
 //   columns: CSS grid columns (default four equal ones; null = set by `className` in CSS);
 //   fill: take the parent's height. A cell's own className is put on its box.
 const TONES = {
@@ -31,7 +31,9 @@ export default function BoxRow({ cells, columns = 'repeat(4, minmax(0, 1fr))', f
         // wrap: true breaks long words if it must; 'words' only between words.
         const line = c.wrap ? { overflowWrap: c.wrap === 'words' ? 'normal' : 'break-word' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
         return (
-          <div key={i} className={c.className} style={{ ...style, borderRadius: 8, padding: '5px 4px', minHeight: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden', minWidth: 0 }}>
+          <div key={i} className={c.className} role={c.onClick ? 'button' : undefined} tabIndex={c.onClick ? 0 : undefined} onClick={c.onClick}
+            onKeyDown={c.onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.onClick(); } } : undefined}
+            style={{ ...style, cursor: c.onClick ? 'pointer' : undefined, borderRadius: 8, padding: '5px 4px', minHeight: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden', minWidth: 0 }}>
             <div style={{ ...line, display: c.header ? 'flex' : 'block', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
               {c.header && (c.open ? <ChevronUp size={13} style={{ flexShrink: 0 }} /> : <ChevronDown size={13} style={{ flexShrink: 0 }} />)}{c.text}
             </div>

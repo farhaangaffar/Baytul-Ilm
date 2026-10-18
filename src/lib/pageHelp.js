@@ -59,6 +59,7 @@ const HEAD = {
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
     'Each class or teacher is one line — tap it to see the details underneath, with Edit and Delete.',
+    'A class with no teacher is marked in amber — tap the amber "No teacher" box at the top to see just those.',
     'Edit a class to choose its teacher and its Qur\'aan level (Hifdh, Naazhirah, Qaa\'idah or Mixed).',
     'Tap Login in a class or teacher to give them a login so they can sign in.',
   ] },
