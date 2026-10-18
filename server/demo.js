@@ -152,6 +152,25 @@ function demoDetails(k, i, du) {
     du && k.type === 'alim' && i % 6 === 0 ? String(2020 + (i % 5)) : ''];
 }
 
+// Two children sent in through the online application form (/join/<code>), on the Waiting list:
+// one the head has already looked at, one still marked new.
+async function demoApplications(c, mid, du, fee) {
+  const apps = [
+    ['Maryam', 'Hassan', 'Girl', 9, 'Sarah Hassan', '07700 900710', 'Mother', 'Ahmed Hassan', '07700 900711', 'Father', '', 'Mild asthma', 'Inhaler in her bag', 12, false],
+    ['Idris', 'Malik', 'Boy', 7, 'Imran Malik', '07700 900720', 'Father', 'Huda Malik', '07700 900721', 'Mother', 'Sesame', '', '', 2, true],
+  ];
+  for (const [f, sn, g, age, p1, ph1, r1, p2, ph2, r2, allergies, medical, medication, daysAgo, fresh] of apps) {
+    await c.query(
+      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, status, weekly_fee, parent1_name, parent1_phone, parent1_relation,
+         parent2_name, parent2_phone, parent2_relation, main_contact, gender, address, postcode, allergies, medical, medication, walks_home,
+         boarding, applied_online, applied_new, added_at)
+       VALUES ($1,$2,$3,$4, now()::date - ($5::int * 365 + 40), 'Waiting list', 'Waiting list', $6, $7,$8,$9, $10,$11,$12, 'Contact 1', $13,
+         $14, 'DT3 2AB', $15,$16,$17, $18, $19, true, $20, now() - ($21::int * interval '1 day'))`,
+      [newId('S'), mid, f, sn, du ? age + 6 : age, fee, p1, ph1, r1, p2, ph2, r2, g, `${20 + age} Station Road, Demo Town`,
+        allergies, medical, medication, du ? '' : 'No', du ? 'Day student' : '', fresh, daysAgo]);
+  }
+}
+
 // Seeded random numbers, so each demo differs a little but every list is consistent.
 function rng(seed) {
   let a = seed >>> 0;
@@ -318,6 +337,7 @@ async function createDemo(ipHash) {
       kids.map(k => [k.id, mid, k.f, k.s, k.born, className[k.c], `${k.p1} ${k.s}`, k.family ? '07700 900500' : `07700 9${String(10000 + k.order * 37).slice(-5)}`,
         `${k.p2} ${k.s}`, k.family ? '07700 900501' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
         ...demoDetails(k, k.order, false)]));
+    await demoApplications(c, mid, false, 8);
 
     // Attendance, daily records and Qur'an progress, day by day.
     const att = [], recs = [], quran = [];
@@ -593,6 +613,7 @@ async function createDarulUloomDemo(ipHash) {
       kids.map(k => [k.id, mid, k.f, k.s, k.born, k.cls, `${k.p1} ${k.s}`, k.family ? '07700 900600' : `07700 9${String(20000 + k.order * 41).slice(-5)}`,
         `${k.p2} ${k.s}`, k.family ? '07700 900601' : '', k.fee, k.enroll, k.leave, k.leave ? 'Inactive' : 'Active', k.leave ? 'Moved to another area.' : '', k.order,
         ...demoDetails(k, k.order, true)]));
+    await demoApplications(c, mid, true, 250);
 
     // Attendance and behaviour records for everyone; Qur'an progress for the Hifdh class.
     const att = [], recs = [], quran = [];

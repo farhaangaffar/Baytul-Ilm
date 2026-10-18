@@ -13,7 +13,7 @@ import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight,
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer, ownedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
-import { DetailInputs, DetailLines, HealthNote, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
+import { DetailInputs, DetailLines, HealthNote, HealthDot, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
 import { useAuth } from '../lib/AuthContext';
 
 const WAITING_LIST = 'Waiting list';
@@ -32,7 +32,7 @@ export default function Students() {
 
   const [showEnroll, setShowEnroll] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [view, setView] = useState('roster');
+  const [view, setView] = useState(() => new URLSearchParams(window.location.search).get('view') === 'waiting' ? 'waiting' : 'roster');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -90,6 +90,14 @@ export default function Students() {
 
   useEffect(() => { load(); }, [load]);
   const closeSelected = useBackToClose(!!selected, () => setSelected(null));
+  // Opening an online application marks it as seen (no longer "new").
+  function openStudent(s) {
+    setSelected(s);
+    if (s.appliedNew) {
+      updateStudent(s.id, { appliedNew: false }).catch(() => {});
+      setStudents(list => list.map(x => (x.id === s.id ? { ...x, appliedNew: false } : x)));
+    }
+  }
 
   // A left student's saved reports live on their profile here instead of Reports.js
   // (which no longer lists them) — fetched fresh whenever a different left student
@@ -213,7 +221,9 @@ export default function Students() {
   const avgAtt = rosterStudents.length ? Math.round(rosterStudents.reduce((s,st)=>s+attendancePctFrom(attendance, st.id),0)/rosterStudents.length) : 0;
   const collected = fees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
   const owed = fees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const waitingStudents = students.filter(s=>s.class===WAITING_LIST);
+  // Oldest first — whoever has waited longest is at the top.
+  const waitingStudents = students.filter(s=>s.class===WAITING_LIST)
+    .sort((a,b)=>String(a.addedAt||'').localeCompare(String(b.addedAt||'')) || `${a.forename} ${a.surname}`.localeCompare(`${b.forename} ${b.surname}`));
   const leftStudents = students.filter(s=>s.status==='Inactive' && s.class!==WAITING_LIST);
 
   return (
@@ -250,17 +260,19 @@ export default function Students() {
           <div className="student-column-header"><span>Waiting list</span><span className="text-muted" style={{fontWeight:500,fontSize:12}}>{waitingStudents.length}</span></div>
           <div className="student-compact-list">
             {waitingStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase())).map(s=>(
-              <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}} onClick={()=>setSelected(s)}>
+              <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}} onClick={()=>openStudent(s)}>
                 <div style={{minWidth:0}}>
-                  <div className="student-compact-name">{s.forename} {s.surname}</div>
-                  <div className="student-compact-sub">{fmtDob(s.dob)}</div>
+                  <div className="student-compact-name">{s.forename} {s.surname}<HealthDot student={s}/></div>
+                  <div className="student-compact-sub">
+                    {fmtDob(s.dob)}{s.addedAt?` · added ${formatDateGB(String(s.addedAt).slice(0,10))}`:''}
+                    {s.appliedOnline&&<span className={`applied-tag ${s.appliedNew?'new':''}`}>{s.appliedNew?'Applied online · new':'Applied online'}</span>}
+                  </div>
                 </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}} onClick={e=>e.stopPropagation()}>
-                  {classNames.map(c=>(
-                    <button key={c} className="btn" style={{fontSize:12,padding:'6px 12px'}} onClick={()=>moveToClass(s,c)}>
-                      {c} <ArrowRight size={12}/>
-                    </button>
-                  ))}
+                <div className="waiting-move" onClick={e=>e.stopPropagation()}>
+                  <select value="" onChange={e=>e.target.value&&moveToClass(s,e.target.value)} aria-label={`Move ${s.forename} into a class`}>
+                    <option value="">Select class…</option>
+                    {classNames.map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
             ))}
@@ -405,6 +417,8 @@ export default function Students() {
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
                     [`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`],
                     ['Status',selected.status],
+                    ...(selected.appliedOnline?[['Applied online',selected.addedAt?formatDateGB(String(selected.addedAt).slice(0,10)):'Yes']]:[]),
+                    ...(selected.parentUpdatedAt?[['Updated by parent',formatDateGB(String(selected.parentUpdatedAt).slice(0,10))]]:[]),
                     // Extra history rows only for a left student — their attendance/fees
                     // totals below are already all-time, so the fuller picture (paid,
                     // owed, daily records) lives here too rather than only as pills.

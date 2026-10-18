@@ -546,7 +546,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
      stat-card row above it) instead of getting squeezed by the button group. */
   .students-toolbar { flex-direction: column; align-items: stretch; }
   .students-toolbar-search { max-width: none; }
-  .students-toolbar-tabs { width: 100%; }
+  .students-toolbar-tabs { width: 100%; display: grid !important; grid-template-columns: 1fr 1fr; }
   .students-toolbar-tabs .btn { flex: 1; min-width: 0; justify-content: center; }
   .ring-row { grid-template-columns: 1fr; }
 }
@@ -862,3 +862,9 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .choice-boxes button.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
 .health-note { display: flex; gap: 10px; align-items: flex-start; background: var(--red-light); color: var(--red-text); border: 1px solid #f3c4c4; border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; line-height: 1.45; margin-bottom: 14px; }
 .health-dot { color: var(--red); vertical-align: -2px; margin-left: 6px; flex-shrink: 0; }
+.applied-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #eef0f4; color: var(--text-muted); }
+.applied-tag.new { background: var(--teal-light); color: var(--teal-dark); }
+/* Students → Waiting list: one drop-down to move a child into a class. */
+.waiting-move { margin-left: auto; min-width: 180px; }
+.waiting-move select { width: 100%; padding: 8px 12px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fafbfc; font-family: var(--font); font-size: 13px; color: var(--ink); cursor: pointer; }
+@media (max-width: 640px) { .waiting-move { margin-left: 0; width: 100%; } }

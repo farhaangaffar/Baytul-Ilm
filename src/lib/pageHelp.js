@@ -33,6 +33,7 @@ const HEAD = {
     'Add a new child with Enroll, or a whole spreadsheet of children with Import.',
     'Set up a parent login from the child\'s card (switch the parent portal on in Settings first) — then Share or WhatsApp the ready-made message to the parent.',
     'Children who have left are kept at the bottom.',
+    'Waiting list: oldest first. Children whose parents applied online are marked "Applied online" (new until you open them).',
   ] },
   '/attendance': { title: 'Attendance', steps: [
     'Pick the class at the top.',
@@ -68,6 +69,7 @@ const HEAD = {
     'Your madrasah: its name, logo and sign-in code.',
     'Fees: how often you charge, how much, and which weeks or months.',
     'Classes & parents: madrasah days, reports and the parent portal.',
+    'Online applications: share the link so parents can apply; write a short message for the top of the form.',
     'Days off & extra days: add days you\'re closed (like Eid) or open extra (like Ramadhaan weekends) — one day, or From–To for several.',
     'Download a backup now and then. "Download students to spreadsheet" gives you every child and their parents\' details.',
   ] },
@@ -139,6 +141,7 @@ const PARENT = { title: 'How to use this page', steps: [
   'Progress shows their latest Qur\'an lessons.',
   'Reports: download a finished report as a PDF.',
   'Report an absence at the bottom to let the teacher know.',
+  'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
 ] };
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.

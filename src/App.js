@@ -17,6 +17,7 @@ import Madaaris        from './pages/Madaaris';
 import ParentPortal    from './pages/ParentPortal';
 import BackToExit, { ParentBackToExit } from './components/BackToExit';
 import Signup         from './pages/Signup';
+import Join           from './pages/Join';
 import { getSession, logout } from './lib/store';
 import { LegalPage, AcceptTerms } from './components/Legal';
 import { DemoScreen } from './components/Demo';
@@ -83,6 +84,9 @@ export default function App() {
   // The privacy policy and terms open for anyone, signed in or not.
   const legal = { '/privacy': 'privacy', '/terms': 'terms' }[window.location.pathname];
   if (legal) return <LegalPage kind={legal} />;
+  // A madrasah's online application form, for parents with the link (/join/<code>).
+  const join = /^\/join\/([a-z0-9-]+)\/?$/i.exec(window.location.pathname);
+  if (join) return <Join code={join[1].toLowerCase()} />;
 
   // The front page: always at /about, and at / for someone who isn't signed in on a device
   // that doesn't belong to any madrasah yet (staff and parents arrive with ?m=<code>, or the

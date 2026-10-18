@@ -248,6 +248,17 @@ codebase (one codebase, not a fork).
   `src/components/StudentDetails.js`); a health note shows in red on the child's profile, Attendance and Daily records
   (`HealthNote`) and a red heart by the name on lists (`HealthDot`). Teachers get health, emergency and collection, never the
   address, emails or previous school (`TEACHER_HIDDEN`). In the spreadsheet too. Later, parents fill these in themselves (online sign-up).
+- **Online applications** (`/join/<code>`, `src/pages/Join.js`, `server/routes/join.js` — open to anyone with the link):
+  parents send one or more children (name, DOB, gender, health; Darul Uloom: boarding, school year, previous school,
+  Hifdh) plus the family's contacts, home, emergency contact and who collects; the madrasah's own message is at the top
+  (`settings.join_message`, Settings → Online applications card with the link to copy / WhatsApp); a tick "details
+  correct and I agree to the madrasah's rules" is required. Guards: hidden bot box, 6 children per address a day
+  (`students.applied_ip`, hashed). Each child lands on the **Waiting list** (`applied_online`, `applied_new` — "Applied
+  online · new" until the head opens it; Dashboard shows "N new applications"); the waiting list runs oldest first
+  (`students.added_at`). No login is made — the head sets up a parent login later, as usual. **Parents update their own
+  details** in the portal ("Your details" → Check & update, `POST /api/parent?action=details`, `PARENT_EDITABLE`):
+  contacts, home, emergency contact, health, going home — contacts/home for all the family's children, health per child;
+  never name, DOB, class or fee. The child's profile shows "Updated by parent" (`parent_updated_at`).
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
   an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`), and

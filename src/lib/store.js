@@ -105,6 +105,10 @@ export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeUR
 export async function getParentHome() { return apiFetch('/api/parent'); }
 export async function getParentChild(studentId) { return apiFetch(`/api/parent?studentId=${encodeURIComponent(studentId)}`); }
 export async function reportAbsence(data) { return apiFetch('/api/parent?action=absence', { method: 'POST', body: JSON.stringify(data) }); }
+export async function updateMyChildDetails(data) { return apiFetch('/api/parent?action=details', { method: 'POST', body: JSON.stringify(data) }); }
+// The online application form (/join/<code>) — open to anyone with the link.
+export async function getJoinForm(code) { return apiFetch(`/api/join?m=${encodeURIComponent(code)}`); }
+export async function sendApplication(data) { return apiFetch('/api/join', { method: 'POST', body: JSON.stringify(data) }); }
 
 // ── Absences parents have reported (staff) — see server/routes/absences.js ──
 export async function getReportedAbsences(from) { return apiFetch(`/api/absences${from ? `?from=${from}` : ''}`); }
