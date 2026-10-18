@@ -6,37 +6,21 @@ import { DETAIL_FIELDS } from '../lib/studentDetails';
 import { xlsxBlob, downloadBlob, xlsxToText } from '../lib/xlsx';
 
 // Students → Import: paste rows copied from Excel / Google Sheets (or choose a .csv), check
-// them, then add them all at once. Class names the madrasah doesn't have yet can be matched
-// to an existing class, added as new classes, or put on the waiting list.
-const WAITING = 'Waiting list';
-const NEW = '__new__';
+// them, then add them all at once. Only children and their details come in — never classes, and
+// nobody is put into a class: they land in Students → "Not in a class", grouped by the class their
+// sheet named, and the head places them (the sheet's class is kept as a hint, `sheetClass`).
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, '');
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function ImportStudents({ classNames, students, onClose, onDone }) {
+export default function ImportStudents({ students, onClose, onDone }) {
   const [text, setText] = useState('');
   const [step, setStep] = useState('paste'); // paste → check
-  const [classMap, setClassMap] = useState({}); // sheet class name → class / NEW / WAITING
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef(null);
 
   const parsed = useMemo(() => parseSheet(text), [text]);
   const existing = useMemo(() => new Set(students.map(s => norm(s.forename + s.surname))), [students]);
-
-  // Each different class name in the sheet, with a best guess at what it means here.
-  const sheetClasses = useMemo(() => {
-    const names = [...new Set(parsed.rows.map(r => (r.class || '').trim()))];
-    return names.map(name => {
-      // The same name, else the one class whose name has all its words ("Weekday Ali" → "Weekday Ali/Fatima").
-      const words = t => String(t).toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(Boolean);
-      const own = words(name);
-      const within = own.length ? classNames.filter(c => own.every(w => words(c).includes(w))) : [];
-      const match = classNames.find(c => norm(c) === norm(name)) || (within.length === 1 ? within[0] : undefined);
-      return { name, guess: !name ? (classNames.length === 1 ? classNames[0] : WAITING) : match || (/wait/i.test(name) ? WAITING : NEW) };
-    });
-  }, [parsed, classNames]);
-  const classFor = name => classMap[name] ?? sheetClasses.find(c => c.name === name)?.guess ?? WAITING;
 
   const checked = parsed.rows.map(r => {
     const issues = [];
@@ -68,14 +52,12 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
     setBusy(true); setError('');
     try {
       const fee = await getDefaultWeeklyFee().catch(() => 15);
-      const newClasses = sheetClasses.filter(c => classFor(c.name) === NEW).map(c => c.name);
       const list = toAdd.map(({ r, dob }) => {
-        const mapped = classFor((r.class || '').trim());
-        const cls = mapped === NEW ? r.class.trim() : mapped;
         const left = /left|inactive/i.test(r.status || '') || !!parseDate(r.leaveDate);
         const amount = parseFloat(String(r.weeklyFee || '').replace(/[^0-9.]/g, ''));
         return {
-          forename: r.forename, surname: r.surname, class: cls, dob,
+          forename: r.forename, surname: r.surname, sheetClass: (r.class || '').trim(), dob,
+          waiting: /wait/i.test(r.status || '') || /wait/i.test(r.class || ''),
           parent1Name: r.parent1Name, parent1Phone: r.parent1Phone, parent2Name: r.parent2Name, parent2Phone: r.parent2Phone,
           weeklyFee: Number.isFinite(amount) ? amount : fee,
           enrollDate: parseDate(r.enrollDate) || today(),
@@ -84,8 +66,8 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
           ...Object.fromEntries(DETAIL_FIELDS.map(([k]) => [k, r[k] || ''])),
         };
       });
-      const res = await importStudents(list, newClasses);
-      onDone(`${res.added} student${res.added === 1 ? '' : 's'} added${res.classesAdded ? ` · ${res.classesAdded} new class${res.classesAdded === 1 ? '' : 'es'}` : ''}`);
+      const res = await importStudents(list);
+      onDone(`${res.added} student${res.added === 1 ? '' : 's'} added — choose their classes in "Not in a class"`);
     } catch (err) { setError(err.message || 'Could not add the students'); }
     setBusy(false);
   }
@@ -119,35 +101,13 @@ export default function ImportStudents({ classNames, students, onClose, onDone }
             {skipped.length > 0 && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 4 }}>
               {skipped.length} skipped: {skipped.slice(0, 4).map(c => `${[c.r.forename, c.r.surname].filter(Boolean).join(' ') || 'a row'} (${c.skip.toLowerCase()})`).join(', ')}{skipped.length > 4 ? '…' : ''}
             </div>}
-            {sheetClasses.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div className="form-section-title" style={{ marginBottom: 8 }}>Classes</div>
-                <div style={{ display: 'grid', gap: 6 }}>
-                  {sheetClasses.map(c => {
-                    const n = toAdd.filter(x => (x.r.class || '').trim() === c.name).length;
-                    if (!n) return null;
-                    return (
-                      <div key={c.name || '—'} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 8, alignItems: 'center', fontSize: 13 }}>
-                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <strong>{c.name || 'No class given'}</strong> <span className="text-muted">· {n}</span>
-                        </span>
-                        <select value={classFor(c.name)} onChange={e => setClassMap(m => ({ ...m, [c.name]: e.target.value }))} style={sel} aria-label={`Class for ${c.name || 'no class'}`}>
-                          {c.name && !classNames.some(x => norm(x) === norm(c.name)) && <option value={NEW}>Add new class "{c.name}"</option>}
-                          {classNames.map(x => <option key={x} value={x}>{x}</option>)}
-                          <option value={WAITING}>Waiting list</option>
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6 }}>They'll be added without a class — then choose a class for them on Students, under "Not in a class".</div>
             <div className="form-section-title" style={{ margin: '14px 0 8px' }}>Students</div>
             <div style={{ display: 'grid', gap: 4, maxHeight: 260, overflowY: 'auto' }}>
               {toAdd.map((c, i) => (
                 <div key={i} style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '6px 10px', fontSize: 12.5 }}>
                   <strong>{c.r.forename} {c.r.surname}</strong>
-                  <span className="text-muted"> · {(() => { const m = classFor((c.r.class || '').trim()); return m === NEW ? c.r.class : m; })()}{c.dob ? ` · born ${c.dob.split('-').reverse().join('/')}` : ''}{c.r.parent1Phone ? ` · ${c.r.parent1Phone}` : ''}</span>
+                  <span className="text-muted">{c.r.class ? ` · ${c.r.class}` : ''}{c.dob ? ` · born ${c.dob.split('-').reverse().join('/')}` : ''}{c.r.parent1Phone ? ` · ${c.r.parent1Phone}` : ''}</span>
                   {c.issues.length > 0 && <div style={{ color: 'var(--amber-text)', fontSize: 11.5 }}>{c.issues.join('; ')} — left blank</div>}
                 </div>
               ))}

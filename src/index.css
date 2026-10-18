@@ -902,3 +902,14 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .ta-count.L { background: var(--amber-light); color: var(--amber-text); }
 .ta-count.A { background: var(--red-light); color: var(--red-text); }
 .ta-count.zero { background: #f3f4f6; color: var(--text-soft); }
+
+/* Students → "Not in a class": tick children (or a whole spreadsheet class) and move them together. */
+.no-class-card { border-left: 4px solid var(--amber); margin-bottom: 16px; }
+.no-class-group { margin-bottom: 12px; }
+.no-class-head { display: flex; align-items: center; gap: 10px; padding: 6px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.no-class-head .text-muted { margin-left: auto; font-weight: 500; }
+.no-class-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-top: 4px; background: #f9fafb; border-radius: var(--r-md); cursor: pointer; font-size: 13.5px; }
+.no-class-row.on { background: var(--teal-light); }
+.no-class-row input, .no-class-head input { width: 17px; height: 17px; margin: 0; flex-shrink: 0; cursor: pointer; }
+.no-class-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.no-class-move { position: sticky; bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px; margin-top: 4px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm); font-size: 13px; font-weight: 600; }

@@ -33,7 +33,7 @@ const HEAD = {
     'Add a new child with Enroll, or a whole spreadsheet of children with Import.',
     'Set up a parent login from the child\'s card (switch the parent portal on in Settings first) — then Share or WhatsApp the ready-made message to the parent.',
     'Children who have left are kept at the bottom.',
-    'If a class was deleted, its children show in "Not in a class" — choose a class for each one.',
+    'Children added by Import (or whose class was deleted) show in "Not in a class" at the top — tick them (or a whole group) and choose their class.',
     'Waiting list: oldest first. Children whose parents applied online are marked "Applied online" (new until you open them).',
   ] },
   '/attendance': { title: 'Attendance', steps: [

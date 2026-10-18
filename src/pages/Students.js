@@ -197,6 +197,21 @@ export default function Students() {
     }
   }
 
+  // Several children into one class at once (the "Not in a class" card), a few at a time.
+  async function moveMany(list, className) {
+    const day = new Date().toISOString().split('T')[0];
+    let done = 0;
+    try {
+      for (let i = 0; i < list.length; i += 6) {
+        await Promise.all(list.slice(i, i + 6).map(st => updateStudent(st.id, st.enrollDate ? { class: className } : { class: className, enrollDate: day }).then(() => { done++; })));
+      }
+      showToast(`${done} student${done===1?'':'s'} moved to ${className}`);
+    } catch (err) {
+      showToast(done ? `${done} moved — ${err.message || 'the rest could not be moved'}` : (err.message || 'Could not move them'));
+    }
+    await silentRefresh();
+  }
+
   async function confirmAndDelete() {
     setSaving(true);
     try {
@@ -225,8 +240,8 @@ export default function Students() {
   const waitingStudents = students.filter(s=>s.class===WAITING_LIST)
     .sort((a,b)=>String(a.addedAt||'').localeCompare(String(b.addedAt||'')) || `${a.forename} ${a.surname}`.localeCompare(`${b.forename} ${b.surname}`));
   const leftStudents = students.filter(s=>s.status==='Inactive' && s.class!==WAITING_LIST);
-  // Children whose class no longer exists (e.g. it was deleted before deleting asked where its
-  // children should go) — shown in their own card so they can be put back into a class.
+  // Children in no class: just imported from a spreadsheet (imports never place anyone), or
+  // their class no longer exists — shown in their own card so the head can put them into classes.
   const noClassStudents = students.filter(s=>s.status!=='Inactive' && s.class!==WAITING_LIST && !classNames.includes(s.class));
 
   return (
@@ -289,6 +304,9 @@ export default function Students() {
         </div>
       ) : (
         <>
+        {noClassStudents.length>0&&!search&&(
+          <NotInClass students={noClassStudents} classNames={classNames} onOpen={openStudent} onMove={moveMany}/>
+        )}
         {/* One full-width card per class, closed by default so a madrasah with many classes
             isn't one long scroll. Searching opens every class with a match. */}
         {classNames.map(c=>{
@@ -341,30 +359,7 @@ export default function Students() {
         )}
         {classNames.length===0 && (
           <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>
-            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them, or tap Import to add a whole spreadsheet (its classes can be added too).
-          </div>
-        )}
-
-        {noClassStudents.length>0&&(
-          <div className="card" style={{marginTop:16,borderLeft:'4px solid var(--amber)'}}>
-            <div className="card-title">Not in a class ({noClassStudents.length})</div>
-            <div className="card-sub" style={{marginBottom:10}}>Their class no longer exists — choose a class for each one.</div>
-            <div className="student-compact-list">
-              {noClassStudents.map(s=>(
-                <div className="student-compact-card" key={s.id} style={{flexWrap:'wrap',gap:10}} onClick={()=>openStudent(s)}>
-                  <div style={{minWidth:0}}>
-                    <div className="student-compact-name">{s.forename} {s.surname}<HealthDot student={s}/></div>
-                    <div className="student-compact-sub">Was in {s.class}</div>
-                  </div>
-                  <div className="waiting-move" onClick={e=>e.stopPropagation()}>
-                    <select value="" onChange={e=>e.target.value&&moveToClass(s,e.target.value)} aria-label={`Choose a class for ${s.forename}`}>
-                      <option value="">Select class…</option>
-                      {classNames.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
+            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them, or tap Import to add a whole spreadsheet.
           </div>
         )}
 
@@ -636,3 +631,64 @@ export default function Students() {
   );
 }
 
+
+// Students → "Not in a class": children brought in from a spreadsheet (grouped by the class their
+// sheet named) or whose class was deleted. Tick some — or a whole group — and move them together.
+function NotInClass({ students, classNames, onOpen, onMove }) {
+  const [picked, setPicked] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const groups = [];
+  students.forEach(s => {
+    const label = s.class ? `Was in ${s.class}` : s.sheetClass ? `On the spreadsheet: ${s.sheetClass}` : 'No class given';
+    let g = groups.find(x => x.label === label);
+    if (!g) groups.push(g = { label, list: [] });
+    g.list.push(s);
+  });
+  groups.forEach(g => g.list.sort((a, b) => `${a.forename} ${a.surname}`.localeCompare(`${b.forename} ${b.surname}`)));
+  const ids = new Set(students.map(s => s.id));
+  const chosen = picked.filter(id => ids.has(id));
+  const toggle = id => setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
+  const all = list => list.every(s => chosen.includes(s.id));
+  const toggleAll = list => setPicked(p => (all(list) ? p.filter(id => !list.some(s => s.id === id)) : [...new Set([...p, ...list.map(s => s.id)])]));
+
+  async function move(c) {
+    if (!c || !chosen.length) return;
+    setBusy(true);
+    await onMove(students.filter(s => chosen.includes(s.id)), c);
+    setPicked([]);
+    setBusy(false);
+  }
+
+  return (
+    <div className="card no-class-card">
+      <div className="card-title">Not in a class ({students.length})</div>
+      <div className="card-sub" style={{marginBottom:12}}>Tick the children for a class (or tick a group for all of them), then choose the class.</div>
+      {groups.map(g => (
+        <div key={g.label} className="no-class-group">
+          <label className="no-class-head">
+            <input type="checkbox" checked={all(g.list)} onChange={() => toggleAll(g.list)} />
+            <span>{g.label}</span><span className="text-muted">{g.list.length}</span>
+          </label>
+          {g.list.map(s => (
+            <div key={s.id} className={`no-class-row ${chosen.includes(s.id) ? 'on' : ''}`} onClick={() => toggle(s.id)}>
+              <input type="checkbox" checked={chosen.includes(s.id)} onChange={() => toggle(s.id)} onClick={e => e.stopPropagation()} aria-label={`Select ${s.forename} ${s.surname}`} />
+              <span className="no-class-name">{s.forename} {s.surname}<HealthDot student={s}/></span>
+              <button type="button" className="btn btn-sm" onClick={e => { e.stopPropagation(); onOpen(s); }}>Details</button>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="no-class-move">
+        <span>{busy ? 'Moving…' : chosen.length ? `${chosen.length} selected — move to:` : 'Tick children, then move them to:'}</span>
+        {classNames.length ? (
+          <div className="waiting-move">
+            <select value="" disabled={busy || !chosen.length} onChange={e => move(e.target.value)} aria-label="Move the selected children to a class">
+              <option value="">Select class…</option>
+              {classNames.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        ) : <span className="text-muted">Add your classes on Classes &amp; Teachers first.</span>}
+      </div>
+    </div>
+  );
+}

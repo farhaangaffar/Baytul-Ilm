@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS students (
   applied_online     BOOLEAN NOT NULL DEFAULT false,
   applied_new        BOOLEAN NOT NULL DEFAULT false,
   applied_ip         TEXT,
-  parent_updated_at  TIMESTAMP
+  parent_updated_at  TIMESTAMP,
+  sheet_class        TEXT NOT NULL DEFAULT ''  -- the class an imported child's spreadsheet named
 );
 CREATE INDEX IF NOT EXISTS idx_students_madrasah ON students (madrasah_id);
 
