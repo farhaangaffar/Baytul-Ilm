@@ -535,9 +535,12 @@ export async function exportAllData() {
   // them back in as data: URLs so a restore (which PATCHes settings as-is) brings them back too.
   if (settings.hasLogo) settings.logo = await fetchImageDataUrl('logo').catch(() => undefined);
   if (settings.hasIcon) settings.icon = await fetchImageDataUrl('icon').catch(() => undefined);
+  // A Darul Uloom's Aalim years, books, timetable, lessons recorded and exams (server/duBackup.js);
+  // a maktab has none (the route answers 403), so it's left out.
+  const darulUloom = await apiFetch('/api/course?action=backup').catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
-    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran },
+    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom },
   };
 }
 async function fetchImageDataUrl(which) {
@@ -596,7 +599,7 @@ export async function importAllData(payload) {
     return;
   }
 
-  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran } = data;
+  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom } = data;
 
   for (const y of years || []) await addAcademicYear(y);
   for (const c of classes || []) await addClass(c).catch(() => {});
@@ -625,6 +628,8 @@ export async function importAllData(payload) {
     if (q.quranType) await saveStudentQuranType(studentId, q.quranType);
     for (const { id, ...e } of q.entries || []) await addQuranEntry({ ...e, studentId });
   }
+  // Last, once classes, teachers and students are back: a Darul Uloom's own records.
+  if (darulUloom) await apiFetch('/api/course?action=restore', { method: 'POST', body: JSON.stringify(darulUloom) });
 }
 
 // ── Timetable (Darul Uloom; server/routes/timetable.js) ──

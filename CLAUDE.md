@@ -173,8 +173,10 @@ codebase (one codebase, not a fork).
   teacher's comment / Marks missing / Not written; tap → `CardModal`; Print the whole class), 3 Send to parents (Publish,
   head only). A Darul Uloom has **no Reports page** (menu hidden, `/reports` → `/exams`); the child's Report tab
   (`StudentExams`) only lists their reports to download; Settings says "Reports are made: With each exam"; the parent
-  portal's "Reports" are the exam cards; page help has `DU_HEAD` overrides. Note: Settings → Backup
-  doesn't yet include the Darul Uloom tables (course, timetable, exams) — add before launch.
+  portal's "Reports" are the exam cards; page help has `DU_HEAD` overrides. Settings → Backup
+  includes a Darul Uloom's own records (`server/duBackup.js`, `/api/course?action=backup|restore`: the Aalim years' places, books,
+  periods, lessons, lessons recorded, exams, papers, marks, comments — restored last, new row numbers with the links carried
+  across); a new Darul Uloom table goes there too.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; logins: head, Maulana Yusuf (1st year), the Patel family.

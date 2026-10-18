@@ -16,6 +16,7 @@ const { requireAuth } = require('../auth');
 // POST {classId, subject, kitaab, teacherId}  → adds a subject; PATCH ?id= changes it; DELETE ?id= removes it
 // POST ?action=move-up {holdBack: [studentIds]} → everyone up a year; the last year finish (marked left)
 // POST ?action=undo-move      → puts the last move back
+// GET ?action=backup / POST ?action=restore {…} → this Darul Uloom's part of Settings → Backup (server/duBackup.js)
 
 let ready = false;
 async function ensure() {
@@ -106,6 +107,14 @@ module.exports = requireAuth(async (req, res) => {
   const { action, id } = req.query;
   await ensure();
   if (!(await isDarulUloom(mid))) { res.status(403).json({ error: 'This is only for a Darul Uloom.' }); return; }
+
+  if (action === 'backup' && req.method === 'GET') { res.status(200).json(await require('../duBackup').backup(mid)); return; }
+  if (action === 'restore' && req.method === 'POST') {
+    if (req.user.demo) { res.status(403).json({ error: 'Backups are switched off in the demo.' }); return; }
+    await require('../duBackup').restore(mid, req.body);
+    res.status(200).json({ ok: true });
+    return;
+  }
 
   if (req.method === 'GET') {
     const { rows: classes } = await query(
