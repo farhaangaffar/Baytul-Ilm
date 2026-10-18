@@ -87,7 +87,28 @@ CREATE TABLE IF NOT EXISTS students (
   leave_date     DATE,
   status         TEXT NOT NULL DEFAULT 'Active',
   notes          TEXT NOT NULL DEFAULT '',
-  sort_order     INTEGER
+  sort_order     INTEGER,
+  -- extra details (src/lib/studentDetails.js): family & contact, health, going home, Darul Uloom
+  gender             TEXT NOT NULL DEFAULT '',
+  address            TEXT NOT NULL DEFAULT '',
+  postcode           TEXT NOT NULL DEFAULT '',
+  parent1_relation   TEXT NOT NULL DEFAULT '',
+  parent1_email      TEXT NOT NULL DEFAULT '',
+  parent2_relation   TEXT NOT NULL DEFAULT '',
+  parent2_email      TEXT NOT NULL DEFAULT '',
+  main_contact       TEXT NOT NULL DEFAULT '',
+  emergency_name     TEXT NOT NULL DEFAULT '',
+  emergency_relation TEXT NOT NULL DEFAULT '',
+  emergency_phone    TEXT NOT NULL DEFAULT '',
+  allergies          TEXT NOT NULL DEFAULT '',
+  medical            TEXT NOT NULL DEFAULT '',
+  medication         TEXT NOT NULL DEFAULT '',
+  walks_home         TEXT NOT NULL DEFAULT '',
+  collectors         TEXT NOT NULL DEFAULT '',
+  boarding           TEXT NOT NULL DEFAULT '',
+  school_year        TEXT NOT NULL DEFAULT '',
+  previous_school    TEXT NOT NULL DEFAULT '',
+  hifdh_completed    TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_students_madrasah ON students (madrasah_id);
 

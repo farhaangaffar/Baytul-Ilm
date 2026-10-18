@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { HealthNote, HealthDot } from '../components/StudentDetails';
 import Layout from '../components/Layout';
 import ClassBar, { MANY_CLASSES } from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
@@ -194,6 +195,7 @@ export default function Attendance() {
           </div>
         </div>
 
+        <HealthNote student={selected}/>
         {/* This month's totals first, then one card per week: a line per day (however many
             days the madrasah opens — usual days plus any extra days) with P / L / A to tap.
             Weeks sit two across on wide screens. */}
@@ -294,7 +296,7 @@ export default function Attendance() {
           return (
             <div className="entity-card" key={s.id} role="button" tabIndex={0} onClick={()=>openStudent(s.id)}
               onKeyDown={e=>{ if (e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); openStudent(s.id); } }}>
-              <div className="entity-card-name">{s.forename} {s.surname}</div>
+              <div className="entity-card-name">{s.forename} {s.surname}<HealthDot student={s}/></div>
               {(() => {
                 const r = isCurrentYear && reported.find(x => x.studentId === s.id && x.date === TODAY);
                 return r

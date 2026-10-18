@@ -855,3 +855,10 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 @keyframes tt-in-right { from { transform: translateX(45%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes tt-in-left { from { transform: translateX(-45%); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .tt-slide-right, .tt-slide-left { animation: none; } }
+
+/* A child's details: quick-choice boxes in the edit pop-up, and the red health note. */
+.choice-boxes { display: grid; gap: 6px; }
+.choice-boxes button { padding: 9px 4px; border-radius: 8px; border: 1px solid #dfe3e8; background: #fafbfc; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; min-width: 0; }
+.choice-boxes button.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.health-note { display: flex; gap: 10px; align-items: flex-start; background: var(--red-light); color: var(--red-text); border: 1px solid #f3c4c4; border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; line-height: 1.45; margin-bottom: 14px; }
+.health-dot { color: var(--red); vertical-align: -2px; margin-left: 6px; flex-shrink: 0; }

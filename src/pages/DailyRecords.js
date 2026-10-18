@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { HealthNote, HealthDot } from '../components/StudentDetails';
 import Layout from '../components/Layout';
 import ClassBar from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
@@ -134,7 +135,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
               onMouseEnter={e=>e.currentTarget.style.boxShadow='var(--shadow-md)'}
               onMouseLeave={e=>e.currentTarget.style.boxShadow=''}>
               <div style={{marginBottom:12}}>
-                <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
+                <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}<HealthDot student={s}/></div>
                 <div className="text-muted text-sm">{quranUpTo(effectiveQuranType(classTypes[s.class], quranAll[s.id]?.quranType), quranAll[s.id]) || s.class}</div>
               </div>
               {/* Neutral tile + colored corner dot — same language as the Fees week-pills
@@ -438,6 +439,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
           <div className="text-muted text-sm">{student.class}</div>
         </div>
       </div>
+      <HealthNote student={student}/>
 
       {/* One thing at a time: Qur'an | Behaviour | Report (heads only), each a
           single roomy column. */}

@@ -1,7 +1,26 @@
 const { query } = require('../db');
 const { requireAuth, isOwner, teacherScope } = require('../auth');
 
-function toClient(row) {
+// A child's extra details (src/lib/studentDetails.js has the labels): [client key, column, max length].
+// All plain text, '' when not filled in.
+const DETAILS = [
+  ['gender', 'gender', 10], ['address', 'address', 200], ['postcode', 'postcode', 12],
+  ['parent1Relation', 'parent1_relation', 30], ['parent1Email', 'parent1_email', 120],
+  ['parent2Relation', 'parent2_relation', 30], ['parent2Email', 'parent2_email', 120],
+  ['mainContact', 'main_contact', 10],
+  ['emergencyName', 'emergency_name', 120], ['emergencyRelation', 'emergency_relation', 40], ['emergencyPhone', 'emergency_phone', 40],
+  ['allergies', 'allergies', 500], ['medical', 'medical', 500], ['medication', 'medication', 500],
+  ['walksHome', 'walks_home', 10], ['collectors', 'collectors', 300],
+  ['boarding', 'boarding', 20], ['schoolYear', 'school_year', 40], ['previousSchool', 'previous_school', 200], ['hifdhCompleted', 'hifdh_completed', 40],
+];
+// Teachers see what keeps a child safe in class (health, emergency contact, who collects them) —
+// not the family's home address or email addresses.
+const TEACHER_HIDDEN = new Set(['address', 'postcode', 'parent1Email', 'parent2Email', 'previousSchool']);
+const detail = (b, key, n) => String(b[key] ?? '').trim().slice(0, n);
+
+function toClient(row, forTeacher) {
+  const extra = {};
+  for (const [key, col] of DETAILS) if (!(forTeacher && TEACHER_HIDDEN.has(key))) extra[key] = row[col] || '';
   return {
     id: row.id,
     forename: row.forename,
@@ -17,6 +36,7 @@ function toClient(row) {
     leaveDate: row.leave_date,
     status: row.status,
     notes: row.notes,
+    ...extra,
   };
 }
 
@@ -26,14 +46,22 @@ const FIELD_MAP = {
   parent2Name: 'parent2_name', parent2Phone: 'parent2_phone',
   weeklyFee: 'weekly_fee', enrollDate: 'enroll_date', leaveDate: 'leave_date',
   status: 'status', notes: 'notes',
+  ...Object.fromEntries(DETAILS.map(([key, col]) => [key, col])),
 };
+const DETAIL_LEN = Object.fromEntries(DETAILS.map(([key, , n]) => [key, n]));
 
 // Self-healing: adds leave_date if this DB was created before the column existed
 // (same pattern as ai_summaries.behavior in api/ai-summary.js) — no manual
 // production migration step needed, even though db/migrate-003-*.sql exists too
 // for anyone who prefers to apply schema changes by hand.
-async function ensureLeaveDateColumn() {
-  await query('ALTER TABLE students ADD COLUMN IF NOT EXISTS leave_date DATE');
+// The details columns are added the same way (db/migrate-031-student-details.sql) — once per
+// server start, not on every request.
+let ensured = null;
+function ensureLeaveDateColumn() {
+  ensured = ensured || query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS leave_date DATE,
+    ${DETAILS.map(([, col]) => `ADD COLUMN IF NOT EXISTS ${col} TEXT NOT NULL DEFAULT ''`).join(',\n    ')}`)
+    .catch(err => { ensured = null; throw err; });
+  return ensured;
 }
 
 // Single flat file, dispatching on ?id= for item ops — Vercel's file-based
@@ -55,7 +83,7 @@ module.exports = requireAuth(async (req, res) => {
       `SELECT * FROM students WHERE madrasah_id = $1 AND class = ANY($2) AND status <> 'Inactive' ORDER BY sort_order NULLS LAST, forename, surname`,
       [mid, scope.classNames]
     );
-    res.status(200).json(rows.map(toClient));
+    res.status(200).json(rows.map(r => toClient(r, true)));
     return;
   }
 
@@ -109,13 +137,17 @@ module.exports = requireAuth(async (req, res) => {
         enroll_date: status === 'Waiting list' ? null : iso(b.enrollDate),
         leave_date: status === 'Inactive' ? iso(b.leaveDate) : null,
         status, notes: str(b.notes, 1000),
+        ...Object.fromEntries(DETAILS.map(([key, col, n]) => [col, detail(b, key, n)])),
       });
     }
     await query(
-      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes)
-       SELECT r.id, $1, r.forename, r.surname, r.dob, r.class, r.parent1_name, r.parent1_phone, r.parent2_name, r.parent2_phone, r.weekly_fee, r.enroll_date, r.leave_date, r.status, r.notes
+      `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes,
+                             ${DETAILS.map(d => d[1]).join(', ')})
+       SELECT r.id, $1, r.forename, r.surname, r.dob, r.class, r.parent1_name, r.parent1_phone, r.parent2_name, r.parent2_phone, r.weekly_fee, r.enroll_date, r.leave_date, r.status, r.notes,
+              ${DETAILS.map(d => `r.${d[1]}`).join(', ')}
        FROM json_to_recordset($2::json) AS r(id text, forename text, surname text, dob date, class text, parent1_name text, parent1_phone text,
-            parent2_name text, parent2_phone text, weekly_fee numeric, enroll_date date, leave_date date, status text, notes text)`,
+            parent2_name text, parent2_phone text, weekly_fee numeric, enroll_date date, leave_date date, status text, notes text,
+            ${DETAILS.map(d => `${d[1]} text`).join(', ')})`,
       [mid, JSON.stringify(rows)]
     );
     res.status(200).json({ ok: true, added: rows.length, classesAdded: newClasses.filter(n => n !== 'Waiting list').length });
@@ -168,7 +200,7 @@ module.exports = requireAuth(async (req, res) => {
   if (!id) {
     if (req.method === 'GET') {
       const { rows } = await query('SELECT * FROM students WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, forename, surname', [mid]);
-      res.status(200).json(rows.map(toClient));
+      res.status(200).json(rows.map(r => toClient(r)));
       return;
     }
 
@@ -183,11 +215,13 @@ module.exports = requireAuth(async (req, res) => {
         if (taken.length) { res.status(409).json({ error: 'A student with this id already exists.' }); return; }
       }
       const { rows } = await query(
-        `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes,
+                               ${DETAILS.map(d => d[1]).join(', ')})
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, ${DETAILS.map((d, i) => `$${16 + i}`).join(',')}) RETURNING *`,
         [newId, mid, b.forename, b.surname, b.dob || null, b.class,
          b.parent1Name || '', b.parent1Phone || '', b.parent2Name || '', b.parent2Phone || '',
-         b.weeklyFee ?? 15, b.enrollDate || null, b.leaveDate || null, b.status || 'Active', b.notes || '']
+         b.weeklyFee ?? 15, b.enrollDate || null, b.leaveDate || null, b.status || 'Active', b.notes || '',
+         ...DETAILS.map(([key, , n]) => detail(b, key, n))]
       );
       res.status(201).json(toClient(rows[0]));
       return;
@@ -204,7 +238,7 @@ module.exports = requireAuth(async (req, res) => {
     Object.entries(b).forEach(([key, val]) => {
       const col = FIELD_MAP[key];
       if (!col) return;
-      values.push(val);
+      values.push(key in DETAIL_LEN ? detail(b, key, DETAIL_LEN[key]) : val);
       sets.push(`${col} = $${values.length}`);
     });
     if (!sets.length) { res.status(400).json({ error: 'No valid fields to update' }); return; }

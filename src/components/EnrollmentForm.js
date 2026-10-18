@@ -1,9 +1,11 @@
 // components/EnrollmentForm.js
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, BookOpen, ChevronRight, CheckCircle } from 'lucide-react';
+import { X, User, Phone, BookOpen, ChevronRight, CheckCircle, HeartPulse } from 'lucide-react';
 import { addStudent, getClassNames, getDefaultWeeklyFee } from '../lib/store';
 import { currencySymbol, money } from '../lib/branding';
 import { feeUnit } from '../lib/feePeriods';
+import { ChoiceBoxes, ParentInputs, DetailInputs, GrowingText } from './StudentDetails';
+import { useAuth } from '../lib/AuthContext';
 
 function emptyForm(defaultWeeklyFee) {
   return {
@@ -15,9 +17,11 @@ function emptyForm(defaultWeeklyFee) {
   };
 }
 
-const steps = ['Student details', 'Parent contacts', 'Class & fees'];
+const steps = ['Student details', 'Parent contacts', 'More details', 'Class & fees'];
+const LAST = steps.length - 1;
 
 export default function EnrollmentForm({ onClose, onSaved }) {
+  const { isDarulUloom } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(emptyForm(15));
   const [errors, setErrors] = useState({});
@@ -45,7 +49,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
       if (!form.parent1Name.trim()) e.parent1Name = 'Required';
       if (!form.parent1Phone.trim()) e.parent1Phone = 'Required';
     }
-    if (step === 2) {
+    if (step === LAST) {
       if (!form.class) e.class = 'Required';
       if (!form.weeklyFee || Number(form.weeklyFee) <= 0) e.weeklyFee = 'Required';
     }
@@ -97,7 +101,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
           <div>
             <div className="modal-title">Enroll new student</div>
             {!done && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                 {steps.map((s, i) => (
                   <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
                     <div style={{
@@ -151,17 +155,19 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                 {field('Surname', 'surname', 'text', true)}
                 {field('Date of birth', 'dob', 'date', true)}
                 {field('Enrolment date', 'enrollDate', 'date')}
+                <div className="form-group"><label>Gender</label><ChoiceBoxes options={['Boy', 'Girl']} value={form.gender || ''} onChange={v => set('gender', v)} /></div>
               </div>
             </div>
           ) : step === 1 ? (
             <div>
-              <div className="form-section-title"><Phone size={14} />Parent / guardian contacts</div>
-              <div className="form-grid form-grid-2" style={{ marginTop: 14 }}>
-                {field('Parent 1 name', 'parent1Name', 'text', true)}
-                {field('Parent 1 phone', 'parent1Phone', 'tel', true)}
-                {field('Parent 2 name (optional)', 'parent2Name')}
-                {field('Parent 2 phone (optional)', 'parent2Phone', 'tel')}
-              </div>
+              <div className="form-section-title" style={{ marginBottom: 14 }}><Phone size={14} />Contacts</div>
+              <ParentInputs form={form} set={set} errors={errors} required />
+            </div>
+          ) : step === 2 ? (
+            <div>
+              <div className="form-section-title" style={{ marginBottom: 4 }}><HeartPulse size={14} />More details</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>All optional — fill in what you know; the rest can be added later.</div>
+              <DetailInputs form={form} set={set} isDarulUloom={isDarulUloom} />
             </div>
           ) : (
             <div>
@@ -178,7 +184,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
               <div className="form-grid" style={{ marginTop: 14 }}>
                 <div className="form-group">
                   <label>Notes (optional)</label>
-                  <textarea rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any notes about this student…" style={{ resize: 'vertical' }} />
+                  <GrowingText minRows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any notes about this student…" />
                 </div>
               </div>
               {submitError && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 12 }}>{submitError}</div>}
@@ -188,8 +194,8 @@ export default function EnrollmentForm({ onClose, onSaved }) {
 
         <div className="modal-footer">
           {!done && step > 0 && <button className="btn" onClick={back}>Back</button>}
-          {!done && step < 2 && <button className="btn btn-primary" onClick={next}>Continue</button>}
-          {!done && step === 2 && <button className="btn btn-gold" onClick={submit} disabled={saving}>{saving ? 'Enrolling…' : 'Enroll student'}</button>}
+          {!done && step < LAST && <button className="btn btn-primary" onClick={next}>Continue</button>}
+          {!done && step === LAST && <button className="btn btn-gold" onClick={submit} disabled={saving}>{saving ? 'Enrolling…' : 'Enroll student'}</button>}
           {done && <button className="btn btn-primary" onClick={onClose}>Close</button>}
         </div>
       </div>
