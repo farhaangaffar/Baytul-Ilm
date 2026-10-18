@@ -11,7 +11,9 @@ const students = require('./students');
 // POST { m, children: [{ forename, surname, dob, gender, allergies, medical, medication, … }],
 //        family: { parent1Name, parent1Phone, …, address, emergencyName, walksHome, … },
 //        agree: true, website: '' (a hidden box only bots fill in) }
-// Guards: the hidden box, the agreement tick, and a few applications per address a day.
+// Guards: the hidden box, the agreement tick, a few applications per address a day, and no
+// child added twice (same name and date of birth already applied or at the madrasah).
+// → { ok, count (children added), already: [{ name, waiting }] (children not added again) }
 
 const PER_DAY = 6;            // children from one address per madrasah per day
 const MAX_CHILDREN = 6;
@@ -67,13 +69,32 @@ module.exports = async (req, res) => {
   if (!str(f.parent1Name) || !/^[0-9 +()-]{7,20}$/.test(str(f.parent1Phone, 40))) { res.status(400).json({ error: 'Enter the first contact\'s name and phone number.' }); return; }
   for (const k of ['parent1Email', 'parent2Email']) if (str(f[k]) && !EMAIL_RE.test(str(f[k]))) { res.status(400).json({ error: 'Check the email address.' }); return; }
 
+  // Already applied, or already at the madrasah (same first name, surname and date of birth —
+  // a child who has left may apply again): not added twice. The same child twice in one form too.
+  const key = c => `${str(c.forename).toLowerCase()}|${str(c.surname).toLowerCase()}|${c.dob}`;
+  const { rows: have } = await query(
+    `SELECT lower(trim(forename)) || '|' || lower(trim(surname)) || '|' || to_char(dob, 'YYYY-MM-DD') AS k, class
+     FROM students WHERE madrasah_id = $1 AND status <> 'Inactive' AND dob IS NOT NULL`, [m.id]);
+  const known = new Map(have.map(h => [h.k, h.class]));
+  const fresh = [], already = [];
+  for (const c of list) {
+    const k = key(c);
+    if (known.has(k)) { already.push({ name: `${str(c.forename)} ${str(c.surname)}`, waiting: known.get(k) === 'Waiting list' }); continue; }
+    known.set(k, 'Waiting list');
+    fresh.push(c);
+  }
+  if (!fresh.length) {
+    res.status(200).json({ ok: true, count: 0, already });
+    return;
+  }
+
   const hash = ipHash(req);
   const { rows: [{ n }] } = await query(
     `SELECT count(*)::int AS n FROM students WHERE madrasah_id = $1 AND applied_ip = $2 AND added_at > now() - interval '1 day'`, [m.id, hash]);
-  if (n + list.length > PER_DAY) { res.status(429).json({ error: 'Too many applications from here today — please contact the madrasah.' }); return; }
+  if (n + fresh.length > PER_DAY) { res.status(429).json({ error: 'Too many applications from here today — please contact the madrasah.' }); return; }
 
   const du = m.kind === 'darul_uloom';
-  for (const [i, c] of list.entries()) {
+  for (const [i, c] of fresh.entries()) {
     const cols = ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'status', 'weekly_fee',
       'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone', 'applied_online', 'applied_new', 'applied_ip'];
     const vals = ['S' + Date.now().toString(36) + crypto.randomBytes(3).toString('hex') + i, m.id, str(c.forename), str(c.surname), c.dob,
@@ -85,5 +106,5 @@ module.exports = async (req, res) => {
     }
     await query(`INSERT INTO students (${cols.join(', ')}) VALUES (${cols.map((_, j) => `$${j + 1}`).join(', ')})`, vals);
   }
-  res.status(200).json({ ok: true, count: list.length });
+  res.status(200).json({ ok: true, count: fresh.length, already });
 };

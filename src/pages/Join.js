@@ -19,7 +19,7 @@ export default function Join({ code }) {
   const [agree, setAgree] = useState(false);
   const [legal, setLegal] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(0);
+  const [sent, setSent] = useState(null); // { count, already: [{ name, waiting }] } once sent
 
   useEffect(() => {
     getJoinForm(code).then(setInfo).catch(err => setError(err.message || 'We couldn\'t open this form.'));
@@ -36,7 +36,7 @@ export default function Join({ code }) {
     try {
       const { website, ...rest } = family;
       const r = await sendApplication({ m: code, children, family: rest, agree, website });
-      setSent(r.count || children.length);
+      setSent({ count: r.count || 0, already: r.already || [] });
       window.scrollTo(0, 0);
     } catch (err) { setError(err.message || 'Something went wrong — please try again.'); }
     setBusy(false);
@@ -49,7 +49,7 @@ export default function Join({ code }) {
       {info.hasLogo && <img src={`/api/settings?logo&m=${encodeURIComponent(code)}`} alt="" style={{ maxHeight: 64, maxWidth: 160, objectFit: 'contain', marginBottom: 8 }} />}
       {info.arabicName && <div style={{ fontFamily: "'Amiri', serif", fontSize: 22, color: 'var(--ink)' }}>{info.arabicName}</div>}
       <div style={{ fontWeight: 700, fontSize: 18 }}>{info.name}</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{sent ? 'Application sent' : 'Apply for a place'}</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{sent ? (sent.count ? 'Application sent' : 'Already received') : 'Apply for a place'}</div>
     </div>
   );
 
@@ -63,10 +63,14 @@ export default function Join({ code }) {
         {header}
         <div className="card" style={{ textAlign: 'center', padding: '28px 20px' }}>
           <CheckCircle size={40} color="var(--green-text)" style={{ marginBottom: 10 }} />
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Thank you — your application has been sent</div>
-          <div style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
-            {sent === 1 ? 'Your child is' : `Your ${sent} children are`} now on {info.name}'s waiting list. The madrasah will contact you about a place.
-          </div>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{sent.count ? 'Thank you — your application has been sent' : 'We already have this application'}</div>
+          {sent.count > 0 && <div style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+            {sent.count === 1 ? 'Your child is' : `Your ${sent.count} children are`} now on {info.name}'s waiting list. The madrasah will contact you about a place.
+          </div>}
+          {sent.already.length > 0 && <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginTop: sent.count ? 10 : 0 }}>
+            {sent.already.map(a => a.name).join(' and ')} {sent.already.length === 1 ? 'was' : 'were'} not added again — {sent.already.every(a => a.waiting)
+              ? 'they are already on the waiting list.' : 'the madrasah already has them.'} There's no need to apply twice.
+          </div>}
         </div>
         <MadeWith style={{ marginTop: 18 }} />
       </div></div>
