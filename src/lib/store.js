@@ -679,6 +679,8 @@ const boardingPost = (action, body) => apiFetch(`/api/boarding?action=${action}`
 const boardingDelete = (action, id) => apiFetch(`/api/boarding?action=${action}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const saveRoom = room => boardingPost('room', room);
 export const deleteRoom = id => boardingDelete('room', id);
+export const deleteRoomGroup = (what, block, level) =>
+  apiFetch(`/api/boarding?action=group&what=${what}&block=${encodeURIComponent(block || '')}&level=${encodeURIComponent(level || '')}`, { method: 'DELETE' });
 export const placeBoarders = (studentIds, roomId) => boardingPost('place', { studentIds, roomId });
 export const markNight = (date, studentIds, status) => boardingPost('register', { date, studentIds, status });
 export const signOutBoarders = (studentIds, details) => boardingPost('out', { studentIds, ...details });

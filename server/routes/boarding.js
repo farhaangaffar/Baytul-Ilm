@@ -27,6 +27,7 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // POST ?action=out {studentIds[], collectedBy, reason, backDue} → signs them out (going home)
 // POST ?action=answer {weekendId, studentIds[], going} → staff mark staying (going: false) or back to going home
 // POST ?action=back {leaveIds[]}                         → signs them back in
+// DELETE ?action=group&what=block|level&block=&level=     (head)  → a whole section or level: its rooms go, their boarders are not in a room
 // DELETE ?action=leave&id=                               (head)  → a sign-out made by mistake
 // POST ?action=home-weekend {id?, name, starts, leaveTime, ends, returnTime} (head) · DELETE ?action=home-weekend&id= (head)
 // POST ?action=health {studentId, kind: 'unwell'|'medicine', note, medicine, dose, at?}
@@ -255,6 +256,24 @@ const handler = requireAuth(async (req, res) => {
       await query('UPDATE du_rooms SET level = $1 WHERE madrasah_id = $2 AND block = $3 AND level = $4', [to, mid, str(b.block, 40), str(b.level, 40)]);
     } else { res.status(400).json({ error: 'Rename what?' }); return; }
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'DELETE' && action === 'group') {
+    if (headOnly()) return;
+    const q = req.query || {};
+    const block = str(q.block, 40), level = str(q.level, 40);
+    if (q.what !== 'block' && q.what !== 'level') { res.status(400).json({ error: 'Remove what?' }); return; }
+    const ids = q.what === 'block'
+      ? 'SELECT id FROM du_rooms WHERE madrasah_id = $1 AND block = $2'
+      : 'SELECT id FROM du_rooms WHERE madrasah_id = $1 AND block = $2 AND level = $3';
+    const args = q.what === 'block' ? [mid, block] : [mid, block, level];
+    let removed = 0;
+    await transaction(async c => {
+      await c.query(`DELETE FROM du_room_places WHERE madrasah_id = $1 AND room_id IN (${ids})`, args);
+      removed = (await c.query(`DELETE FROM du_rooms WHERE id IN (${ids})`, args)).rowCount;
+    });
+    res.status(200).json({ ok: true, removed });
     return;
   }
 

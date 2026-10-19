@@ -11,7 +11,7 @@ import PickField from '../components/PickField';
 import { TripBoxes } from '../components/BoarderRecord';
 import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName } from '../lib/boardingRooms';
 import {
-  getBoarding, saveRoom, deleteRoom, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
+  getBoarding, saveRoom, deleteRoom, deleteRoomGroup, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
   saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding,
   getBoarderRecord, weekendAnswer,
 } from '../lib/store';
@@ -115,9 +115,12 @@ export default function Boarding() {
           onSave={async (f, list) => { if (await run(() => addRooms(f.block, f.level, f.teacherId, list), `${list.length} room${list.length === 1 ? '' : 's'} added`)) setModal(null); }} />
       )}
       {modal?.kind === 'rename' && (
-        <RenameModal what={modal.what} name={modal.what === 'block' ? sectionLabel(modal.block) : levelLabel(modal.level)}
-          current={modal.what === 'block' ? modal.block : modal.level} onClose={() => setModal(null)}
-          onSave={async to => { if (await run(() => renameBoarding(modal.what, modal.block, modal.level, to), 'Renamed')) setModal(null); }} />
+        <RenameModal what={modal.what} name={modal.what === 'block' ? (sectionLabel(modal.block) || 'Rooms') : (levelLabel(modal.level) || 'Rooms')}
+          current={modal.what === 'block' ? modal.block : modal.level}
+          rooms={rooms.filter(r => (r.block || '') === (modal.block || '') && (modal.what === 'block' || (r.level || '') === (modal.level || '')))}
+          boarders={boarders} onClose={() => setModal(null)}
+          onSave={async to => { if (await run(() => renameBoarding(modal.what, modal.block, modal.level, to), 'Renamed')) setModal(null); }}
+          onDelete={async () => { if (await run(() => deleteRoomGroup(modal.what, modal.block, modal.level), modal.what === 'block' ? 'Section removed' : 'Level removed')) setModal(null); }} />
       )}
       {modal?.kind === 'room' && (
         <RoomModal room={modal.room} rooms={rooms} teachers={teachers} count={boarders.filter(b => b.roomId === modal.room.id).length} onClose={() => setModal(null)}
@@ -353,7 +356,7 @@ function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAd
   return (
     <Shell title={section.block || 'Rooms'} onClose={onClose} width={480}
       footer={<>
-        {head && section.block && <button className="btn" style={{ marginRight: 'auto' }} onClick={() => onRename({ what: 'block', block: section.block })}><Pencil size={13} />Rename</button>}
+        {head && <button className="btn" style={{ marginRight: 'auto' }} onClick={() => onRename({ what: 'block', block: section.block })}><Pencil size={13} />Edit section</button>}
         <button className="btn btn-primary" onClick={onClose}>Done</button>
       </>}>
       <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={[
@@ -386,7 +389,7 @@ function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAd
                   {head && (
                     <div className="course-open-actions">
                       <button type="button" className="line-row add" onClick={() => onAdd({ block: section.block, level: l.level })}><Plus size={13} /> Add rooms</button>
-                      {l.level && <button type="button" className="line-row add" onClick={() => onRename({ what: 'level', block: section.block, level: l.level })}><Pencil size={13} /> Rename level</button>}
+                      <button type="button" className="line-row add" onClick={() => onRename({ what: 'level', block: section.block, level: l.level })}><Pencil size={13} /> Edit level</button>
                     </div>
                   )}
                 </div>
@@ -860,17 +863,30 @@ function AddRoomsModal({ at, rooms, teachers, onClose, onSave }) {
   );
 }
 
-function RenameModal({ what, name, current, onClose, onSave }) {
+// Edit a whole section or level: rename it, or remove it with all its rooms (their boarders go to "Not in a room").
+function RenameModal({ what, name, current, rooms, boarders, onClose, onSave, onDelete }) {
   const [to, setTo] = useState(current || '');
+  const [sure, setSure] = useState(false);
   const [busy, wrap] = useBusy();
+  const people = boarders.filter(b => rooms.some(r => r.id === b.roomId)).length;
+  const word = what === 'block' ? 'section' : 'level';
   return (
-    <Shell title={`Rename ${name}`} onClose={onClose}
+    <Shell title={`Edit ${name}`} onClose={onClose}
       footer={<>
+        {sure
+          ? <button className="btn" style={{ marginRight: 'auto', background: 'var(--red)', color: '#fff' }} disabled={busy} onClick={wrap(onDelete)}>Remove it all</button>
+          : <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} onClick={() => setSure(true)}><Trash2 size={13} />Remove</button>}
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" disabled={busy || !to.trim() || to.trim() === current} onClick={wrap(() => onSave(to.trim()))}><Save size={13} />Save</button>
       </>}>
-      <div className="form-group"><label>{what === 'block' ? 'Section' : 'Level'}</label>
+      <div className="form-group"><label>{what === 'block' ? 'Section' : 'Level'} name</label>
         <input value={to} onChange={e => setTo(e.target.value)} maxLength={40} autoFocus /></div>
+      {sure && (
+        <div className="bd-short" style={{ marginTop: 10 }}>
+          Remove this {word} and its {rooms.length} room{rooms.length === 1 ? '' : 's'}?
+          {people ? ` The ${people} boarder${people === 1 ? '' : 's'} in them will be listed under "Not in a room".` : ''}
+        </div>
+      )}
     </Shell>
   );
 }
