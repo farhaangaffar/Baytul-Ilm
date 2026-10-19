@@ -188,9 +188,9 @@ codebase (one codebase, not a fork).
   number, keeping its zeros: 001 → 002, 101 → 102); sections and levels can be renamed. A short level or room gets its word in front ("1" → Level 1, "12" → Room 12 —
   `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish — lists, not blocks): one line per section
   ("N levels · N rooms", "used / beds") → a pop-up (`SectionSheet`: Rooms · Boarders · Free beds boxes, its levels as closed
-  lines, a level opens to room lines — beds as dots, "3/4", no teacher name — plus Edit level (`LevelModal`, `?action=level`:
-  its name and every room's number/beds in one list, ✕ / "Another room", teacher in charge — no separate Add rooms there), Edit
-  section (`SectionModal`, `?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"
+  lines, a level opens to room lines — beds as dots, "3/4", no teacher name — plus "Edit <level>" inside the open level (`LevelModal`, `?action=level`:
+  its name and every room's number/beds in one list, ✕ / "Another room", teacher in charge — no separate Add rooms there); "Edit section" sits by the section's name in the pop-up's title, never the footer — the owner
+  found a footer button unclear once a level was open (`SectionModal`, `?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"
   adds one — a number of rooms, numbered by `newLevelRooms()` (level 2 → 201…, ground → 001…), 4 beds each); a section or level can be removed with all its rooms — `?action=group`, their boarders go to
   "Not in a room") → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
   room" with a name search, Edit room); an amber "N boarders not in a room" line opens `PlaceSheet`; and who sleeps where (`du_room_places`, one room each, never over the

@@ -356,11 +356,10 @@ function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAd
   const [openLevel, setOpenLevel] = useState(null);
   const all = section.levels.flatMap(l => l.rooms);
   return (
-    <Shell title={section.block || 'Rooms'} onClose={onClose} width={480}
-      footer={<>
-        {head && <button className="btn" style={{ marginRight: 'auto' }} onClick={() => onRename({ what: 'block', block: section.block })}><Pencil size={13} />Edit section</button>}
-        <button className="btn btn-primary" onClick={onClose}>Done</button>
-      </>}>
+    <Shell onClose={onClose} width={480}
+      title={<span className="bd-sheet-title">{section.block || 'Rooms'}
+        {head && <button type="button" className="bd-title-edit" onClick={() => onRename({ what: 'block', block: section.block })}><Pencil size={12} />Edit section</button>}</span>}
+      footer={<button className="btn btn-primary" onClick={onClose}>Done</button>}>
       <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={[
         { text: all.length, sub: 'Rooms', className: 'ct-figure' },
         { text: used(all), sub: 'Boarders', className: 'ct-figure' },
@@ -390,7 +389,7 @@ function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAd
                   ))}
                   {head && (
                     <div className="course-open-actions">
-                      <button type="button" className="line-row add" onClick={() => onRename({ what: 'level', block: section.block, level: l.level })}><Pencil size={13} /> Edit level</button>
+                      <button type="button" className="line-row add" onClick={() => onRename({ what: 'level', block: section.block, level: l.level })}><Pencil size={13} /> Edit {levelLabel(l.level) || 'level'}</button>
                     </div>
                   )}
                 </div>
