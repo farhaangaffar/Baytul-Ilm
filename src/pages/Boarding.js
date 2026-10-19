@@ -411,7 +411,7 @@ function RoomChooser({ rooms, inRoom, people, withNone, onClose, onMove }) {
             return (
               <button key={r.id} type="button" className={`line-row bd-pick ${pick === r.id ? 'on' : ''} ${fits ? '' : 'full'}`} disabled={!fits}
                 onClick={() => setPick(r.id)}>
-                <span className="line-row-name">{roomLabel(r.name)}{pick === r.id && ' ✓'}</span>
+                <span className="line-row-name">{roomLabel(r.name)}</span>
                 {r.beds <= 12 && <span className="bd-dots" aria-hidden="true">{Array.from({ length: r.beds }, (_, i) => <i key={i} className={i >= taken ? 'free' : ''} />)}</span>}
                 <span className="bd-free">{left === 0 ? 'Full' : `${left} free`}</span>
               </button>
