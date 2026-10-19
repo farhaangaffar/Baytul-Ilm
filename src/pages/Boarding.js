@@ -11,7 +11,7 @@ import PickField from '../components/PickField';
 import { TripBoxes } from '../components/BoarderRecord';
 import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName } from '../lib/boardingRooms';
 import {
-  getBoarding, saveRoom, deleteRoom, deleteRoomGroup, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
+  getBoarding, saveRoom, deleteRoom, deleteRoomGroup, saveLevel, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
   saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding,
   getBoarderRecord, weekendAnswer,
 } from '../lib/store';
@@ -114,7 +114,12 @@ export default function Boarding() {
         <AddRoomsModal at={modal.at} rooms={rooms} teachers={teachers} onClose={() => setModal(null)}
           onSave={async (f, list) => { if (await run(() => addRooms(f.block, f.level, f.teacherId, list), `${list.length} room${list.length === 1 ? '' : 's'} added`)) setModal(null); }} />
       )}
-      {modal?.kind === 'rename' && (
+      {modal?.kind === 'rename' && modal.what === 'level' && (
+        <LevelModal block={modal.block} level={modal.level} rooms={rooms} teachers={teachers} boarders={boarders} onClose={() => setModal(null)}
+          onSave={async (to, list, teacherId) => { if (await run(() => saveLevel(modal.block, modal.level, to, list, teacherId), 'Level saved')) setModal(null); }}
+          onDelete={async () => { if (await run(() => deleteRoomGroup('level', modal.block, modal.level), 'Level removed')) setModal(null); }} />
+      )}
+      {modal?.kind === 'rename' && modal.what === 'block' && (
         <RenameModal what={modal.what} name={modal.what === 'block' ? (sectionLabel(modal.block) || 'Rooms') : (levelLabel(modal.level) || 'Rooms')}
           current={modal.what === 'block' ? modal.block : modal.level}
           rooms={rooms.filter(r => (r.block || '') === (modal.block || '') && (modal.what === 'block' || (r.level || '') === (modal.level || '')))}
@@ -388,7 +393,6 @@ function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAd
                   ))}
                   {head && (
                     <div className="course-open-actions">
-                      <button type="button" className="line-row add" onClick={() => onAdd({ block: section.block, level: l.level })}><Plus size={13} /> Add rooms</button>
                       <button type="button" className="line-row add" onClick={() => onRename({ what: 'level', block: section.block, level: l.level })}><Pencil size={13} /> Edit level</button>
                     </div>
                   )}
@@ -858,6 +862,69 @@ function AddRoomsModal({ at, rooms, teachers, onClose, onSave }) {
           </select>
         </div>
         <div className="text-muted" style={{ fontSize: 12 }}>No sections or levels? Leave them blank — just the rooms.</div>
+      </div>
+    </Shell>
+  );
+}
+
+// Edit a level: its name, every room's number and beds in one list (✕ removes a room, "Another room" adds one), who's in
+// charge, or remove the whole level.
+function LevelModal({ block, level, rooms, teachers, boarders, onClose, onSave, onDelete }) {
+  const mine = rooms.filter(r => (r.block || '') === (block || '') && (r.level || '') === (level || ''));
+  const inRoom = id => boarders.filter(b => b.roomId === id).length;
+  const same = mine.every(r => (r.teacherId || '') === (mine[0]?.teacherId || ''));
+  const [to, setTo] = useState(level || '');
+  const [list, setList] = useState(() => mine.map(r => ({ id: r.id, name: r.name, beds: r.beds })));
+  const [teacherId, setTeacherId] = useState(same ? (mine[0]?.teacherId || '') : 'keep');
+  const [sure, setSure] = useState(false);
+  const [busy, wrap] = useBusy();
+  const setRow = (i, k, v) => setList(l => l.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const filled = list.filter(r => String(r.name).trim());
+  const outOf = mine.filter(r => !list.some(x => x.id === r.id)).reduce((t, r) => t + inRoom(r.id), 0);
+  const people = mine.reduce((t, r) => t + inRoom(r.id), 0);
+  const last = list[list.length - 1];
+  return (
+    <Shell title={`Edit ${levelLabel(level) || 'rooms'}${block ? ` · ${block}` : ''}`} onClose={onClose} width={500}
+      footer={<>
+        {sure
+          ? <button className="btn" style={{ marginRight: 'auto', background: 'var(--red)', color: '#fff' }} disabled={busy} onClick={wrap(onDelete)}>Remove it all</button>
+          : <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} onClick={() => setSure(true)}><Trash2 size={13} />Remove level</button>}
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy || !filled.length}
+          onClick={wrap(() => onSave(to.trim(), filled.map(r => ({ id: r.id, name: String(r.name).trim(), beds: r.beds })), teacherId === 'keep' ? undefined : teacherId))}><Save size={13} />Save</button>
+      </>}>
+      {sure && (
+        <div className="bd-short" style={{ marginBottom: 12 }}>
+          Remove this level and its {mine.length} room{mine.length === 1 ? '' : 's'}?
+          {people ? ` The ${people} boarder${people === 1 ? '' : 's'} in them will be listed under "Not in a room".` : ''}
+        </div>
+      )}
+      <div className="form-grid">
+        <div className="form-group"><label>Level name</label>
+          <input value={to} onChange={e => setTo(e.target.value)} maxLength={40} placeholder="e.g. Ground, 1, 2" /></div>
+        <div className="form-group">
+          <label>Rooms on this level</label>
+          <div className="bd-room-rows">
+            <span className="bd-room-rows-head">Room number or name</span><span className="bd-room-rows-head">Beds</span><span />
+            {list.map((r, i) => (
+              <React.Fragment key={r.id || `new${i}`}>
+                <input value={r.name} onChange={e => setRow(i, 'name', e.target.value)} maxLength={40} aria-label={`Room ${i + 1}`} />
+                <input type="number" min={r.id ? inRoom(r.id) : 0} max={500} value={r.beds} onChange={e => setRow(i, 'beds', e.target.value)} aria-label={`Beds in room ${i + 1}`} />
+                <button type="button" className="btn btn-icon btn-sm" aria-label="Remove this room" onClick={() => setList(l => l.filter((_, j) => j !== i))}><X size={14} /></button>
+              </React.Fragment>
+            ))}
+          </div>
+          {outOf > 0 && <div className="bd-short" style={{ marginTop: 8 }}>{outOf} boarder{outOf === 1 ? '' : 's'} in the rooms you took off will go to "Not in a room".</div>}
+          <button type="button" className="line-row add" style={{ marginTop: 8 }}
+            onClick={() => setList(l => [...l, { name: last ? nextRoomName(String(last.name)) : '', beds: last ? last.beds : 4 }])}><Plus size={13} /> Another room</button>
+        </div>
+        <div className="form-group"><label>Teacher in charge (of these rooms)</label>
+          <select value={teacherId} onChange={e => setTeacherId(e.target.value)}>
+            {!same && <option value="keep">Leave as it is (different for each room)</option>}
+            <option value="">No one</option>
+            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
       </div>
     </Shell>
   );

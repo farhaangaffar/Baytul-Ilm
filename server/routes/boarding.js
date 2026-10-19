@@ -27,6 +27,8 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // POST ?action=out {studentIds[], collectedBy, reason, backDue} → signs them out (going home)
 // POST ?action=answer {weekendId, studentIds[], going} → staff mark staying (going: false) or back to going home
 // POST ?action=back {leaveIds[]}                         → signs them back in
+// POST ?action=level {block, level, to, rooms:[{id?, name, beds}], teacherId?} (head) → a level's rooms edited in one go
+//   (rooms left out are removed — their boarders are then not in a room; teacherId absent = leave each room's as it is)
 // DELETE ?action=group&what=block|level&block=&level=     (head)  → a whole section or level: its rooms go, their boarders are not in a room
 // DELETE ?action=leave&id=                               (head)  → a sign-out made by mistake
 // POST ?action=home-weekend {id?, name, starts, leaveTime, ends, returnTime} (head) · DELETE ?action=home-weekend&id= (head)
@@ -256,6 +258,56 @@ const handler = requireAuth(async (req, res) => {
       await query('UPDATE du_rooms SET level = $1 WHERE madrasah_id = $2 AND block = $3 AND level = $4', [to, mid, str(b.block, 40), str(b.level, 40)]);
     } else { res.status(400).json({ error: 'Rename what?' }); return; }
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'level') {
+    if (headOnly()) return;
+    const b = req.body || {};
+    const block = str(b.block, 40), level = str(b.level, 40), to = str(b.to, 40);
+    const list = (Array.isArray(b.rooms) ? b.rooms : []).map(r => ({ id: r.id ? String(r.id) : '', name: str(r.name, 40), beds: Math.max(0, Math.min(500, parseInt(r.beds, 10) || 0)) }))
+      .filter(r => r.name);
+    if (!list.length) { res.status(400).json({ error: 'Keep at least one room — or remove the level.' }); return; }
+    const names = list.map(r => r.name.toLowerCase());
+    if (new Set(names).size !== names.length) { res.status(400).json({ error: 'The same room number is there twice.' }); return; }
+    const keepTeacher = b.teacherId === undefined;
+    const teacherId = b.teacherId ? String(b.teacherId) : null;
+    if (teacherId) {
+      const { rows } = await query('SELECT 1 FROM teachers WHERE id = $1 AND madrasah_id = $2', [teacherId, mid]);
+      if (!rows.length) { res.status(400).json({ error: 'Teacher not found.' }); return; }
+    }
+    const { rows: existing } = await query(`SELECT r.id::text AS id, r.name, (SELECT count(*)::int FROM du_room_places p WHERE p.room_id = r.id AND p.madrasah_id = r.madrasah_id) AS n
+                                            FROM du_rooms r WHERE r.madrasah_id = $1 AND r.block = $2 AND r.level = $3`, [mid, block, level]);
+    const ids = new Set(existing.map(r => r.id));
+    if (list.some(r => r.id && !ids.has(r.id))) { res.status(404).json({ error: 'Room not found.' }); return; }
+    const full = list.find(r => r.id && existing.find(e => e.id === r.id).n > r.beds);
+    if (full) { const n = existing.find(e => e.id === full.id).n; res.status(400).json({ error: `${n} boarders sleep in ${full.name} — give it at least ${n} beds.` }); return; }
+    // Another level with the new name may already hold a room of the same number.
+    if (to.toLowerCase() !== level.toLowerCase()) {
+      const { rows: taken } = await query('SELECT name FROM du_rooms WHERE madrasah_id = $1 AND lower(block) = lower($2) AND lower(level) = lower($3) AND lower(name) = ANY($4)',
+        [mid, block, to, names]);
+      if (taken.length) { res.status(409).json({ error: `There is already a room ${taken.map(t => t.name).join(', ')} there.` }); return; }
+    }
+    const gone = existing.filter(e => !list.some(r => r.id === e.id)).map(e => e.id);
+    await transaction(async c => {
+      if (gone.length) {
+        await c.query('DELETE FROM du_room_places WHERE madrasah_id = $1 AND room_id = ANY($2::bigint[])', [mid, gone]);
+        await c.query('DELETE FROM du_rooms WHERE madrasah_id = $1 AND id = ANY($2::bigint[])', [mid, gone]);
+      }
+      // Names first go to a placeholder so swapping two rooms' numbers doesn't trip over itself.
+      for (const r of list.filter(x => x.id)) await c.query("UPDATE du_rooms SET name = '~' || id WHERE id = $1 AND madrasah_id = $2", [r.id, mid]);
+      for (const r of list) {
+        if (r.id) {
+          await c.query(`UPDATE du_rooms SET name = $1, beds = $2, level = $3${keepTeacher ? '' : ', teacher_id = $6'} WHERE id = $4 AND madrasah_id = $5`,
+            keepTeacher ? [r.name, r.beds, to, r.id, mid] : [r.name, r.beds, to, r.id, mid, teacherId]);
+        } else {
+          await c.query(`INSERT INTO du_rooms (madrasah_id, block, level, name, beds, teacher_id, sort_order)
+                         VALUES ($1,$2,$3,$4,$5,$6, (SELECT COALESCE(max(sort_order), 0) + 1 FROM du_rooms WHERE madrasah_id = $1))`,
+            [mid, block, to, r.name, r.beds, teacherId]);
+        }
+      }
+    });
+    res.status(200).json({ ok: true, removed: gone.length });
     return;
   }
 
