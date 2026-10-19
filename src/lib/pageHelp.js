@@ -153,7 +153,7 @@ const PARENT = { title: 'How to use this page', steps: [
 const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
   'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
-  'Tap a section to see its levels and rooms. Tick boarders under "Not in a room" and choose their room.',
+  'Tap a section, then a level, then a room to see who sleeps there — ✕ takes someone out, "Put a boarder in this room" adds one. The amber line places boarders not in a room yet.',
   'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
   'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
   'Home weekends: everyone goes home — tap a weekend to add anyone staying. The rest are signed out by themselves at the leave time.',

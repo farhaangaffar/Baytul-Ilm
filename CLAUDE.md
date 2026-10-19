@@ -186,9 +186,11 @@ codebase (one codebase, not a fork).
   one free box to a choice of words) — a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its
   level) and beds, plus the teacher in charge. "Add rooms" adds a level's rooms in one pop-up ("Another room" suggests the next
   number, keeping its zeros: 001 → 002, 101 → 102); sections and levels can be renamed. A short level or room gets its word in front ("1" → Level 1, "12" → Room 12 —
-  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish): a line per section
-  ("N of M beds") → its levels (small heading, rename pencil) → room lines (room, beds as dots, "3/4" — no teacher name; the
-  teacher in charge is in the opened room's boxes), one "Add rooms" / "Rename" pair per section; and who sleeps where (`du_room_places`, one room each, never over the
+  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish — lists, not blocks): one line per section
+  ("N levels · N rooms", "used / beds") → a pop-up (`SectionSheet`: Rooms · Boarders · Free beds boxes, its levels as closed
+  lines, a level opens to room lines — beds as dots, "3/4", no teacher name — plus Add rooms / Rename level, Add a level,
+  Rename) → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
+  room" with a name search, Edit room); an amber "N boarders not in a room" line opens `PlaceSheet`; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's
   pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
   with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — kept plain (the owner found earlier versions too wordy and confusing; everyone goes home,
