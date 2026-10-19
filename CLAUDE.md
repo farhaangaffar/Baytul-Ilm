@@ -194,7 +194,7 @@ codebase (one codebase, not a fork).
   adds one — a number of rooms, numbered by `newLevelRooms()` (level 2 → 201…, ground → 001…), 4 beds each); a section or level can be removed with all its rooms — `?action=group`, their boarders go to
   "Not in a room") → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
   room" with a name search, Edit room); an amber "N boarders not in a room" line opens `PlaceSheet`; and who sleeps where (`du_room_places`, one room each, never over the
-  beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's
+  beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`; class groups in course order — `courseOrder`) → "Move to a room" opens `RoomChooser` (the owner's
   pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
   with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — kept plain (the owner found earlier versions too wordy and confusing; everyone goes home,
   no parents' input): two light buttons **Sign out** ("going home") / **Sign in** ("N not in") → `SignPicker` (type a name, tap

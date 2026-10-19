@@ -219,8 +219,9 @@ const handler = requireAuth(async (req, res) => {
     const today = ukToday();
     const date = ISO.test(String(req.query.date || '')) && req.query.date <= today ? req.query.date : today;
     const [boarders, rooms, places, teachers, register, leaves, weekends, health] = await Promise.all([
-      query(`SELECT id, forename, surname, class, allergies, medical, medication, parent1_name AS "parent1Name", parent1_phone AS "parent1Phone" FROM students
-             WHERE madrasah_id = $1 AND status = 'Active' AND boarding = 'Boarder' ORDER BY forename, surname`, [mid]),
+      query(`SELECT s.id, s.forename, s.surname, s.class, s.allergies, s.medical, s.medication, s.parent1_name AS "parent1Name", s.parent1_phone AS "parent1Phone",
+                    (SELECT c.course_order FROM classes c WHERE c.madrasah_id = s.madrasah_id AND c.name = s.class LIMIT 1) AS "courseOrder"
+             FROM students s WHERE s.madrasah_id = $1 AND s.status = 'Active' AND s.boarding = 'Boarder' ORDER BY s.forename, s.surname`, [mid]),
       query('SELECT id::text AS id, block, level, name, beds, teacher_id AS "teacherId" FROM du_rooms WHERE madrasah_id = $1 ORDER BY sort_order, name', [mid]),
       query('SELECT student_id, room_id::text AS room_id FROM du_room_places WHERE madrasah_id = $1', [mid]),
       query('SELECT id, name, boarding_duty AS "boardingDuty" FROM teachers WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, name', [mid]),

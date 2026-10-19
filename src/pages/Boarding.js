@@ -531,10 +531,11 @@ function groupByClass(list) {
   const groups = [];
   list.forEach(b => {
     let g = groups.find(x => x.label === (b.class || 'No class'));
-    if (!g) groups.push(g = { label: b.class || 'No class', list: [] });
+    if (!g) groups.push(g = { label: b.class || 'No class', order: b.class ? (b.courseOrder ?? 9999) : 99999, list: [] });
     g.list.push(b);
   });
-  return groups;
+  // Classes in course order (1st year, 2nd year…), then the rest by name — as everywhere else in the app.
+  return groups.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label, undefined, { numeric: true }));
 }
 
 // ── Going home, kept plain: Sign out / Sign in (type a name, tap it), Here · Not in · Late back, the list of who's
