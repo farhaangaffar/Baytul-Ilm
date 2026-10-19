@@ -9,6 +9,7 @@ const { ensureParentTables, childIds, portalOn, ABSENCE_REASONS } = require('../
 //   GET ?studentId=   → one child's attendance, fees, finished reports, Qur'aan
 //                       progress, published exam results and going-home dates (a Darul Uloom) and the absences this family has reported
 //   POST ?action=absence {studentId, date, reason, note} → tell the madrasah
+//   POST ?action=weekend {studentId, weekendId, going, collector} → a boarder's home weekend answer
 //   POST ?action=details {studentId, ...PARENT_EDITABLE} → update their contacts, health and
 //                       going home (the head sees "Updated by parent" on the child)
 // When the madrasah has the portal switched off (Settings), every call says so.
@@ -115,6 +116,17 @@ module.exports = async (req, res) => {
        ON CONFLICT (student_id, date) DO UPDATE SET reason = EXCLUDED.reason, note = EXCLUDED.note, reported_by = EXCLUDED.reported_by, seen = false, created_at = now()`,
       [mid, b.studentId, b.date, b.reason, String(b.note || '').slice(0, 500), user.id]
     );
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  // A boarder's home weekend: coming home or staying, and who's collecting (server/routes/boarding.js).
+  if (req.method === 'POST' && req.query.action === 'weekend') {
+    const b = req.body || {};
+    if (!mine.has(b.studentId)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const { rows } = await query('SELECT id, boarding FROM students WHERE id = $1 AND madrasah_id = $2', [b.studentId, mid]);
+    const err = rows[0] ? await require('./boarding').parentAnswer(mid, rows[0], b) : 'Not found';
+    if (err) { res.status(400).json({ error: err }); return; }
     res.status(200).json({ ok: true });
     return;
   }

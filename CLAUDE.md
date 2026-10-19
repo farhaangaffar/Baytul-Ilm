@@ -190,13 +190,22 @@ codebase (one codebase, not a fork).
   → its levels → room lines; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's
   pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
-  with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — home weekends
-  (`du_home_weekends`, head sets them, parents see the next ones), "Away now" (tick → Signed back in; Overdue tag) and Sign
-  out (tick children or a whole floor → why, collected by, due back) (`du_leaves`, who signed out/in kept); **Health** — unwell
+  with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — built for 150–500 boarders (the owner chose
+  "parents tell you first + only the exceptions"): Here · Home now · Overdue boxes; a search to find any boarder → their record
+  (`BoarderSheet`: status boxes, Sign out / Signed back in, staying/coming home, Still here / Collected now, head: "Signed out by
+  mistake"; trips as boxes — `TripBoxes`, also on the Students profile and parent portal — never a long "last month" list);
+  home weekends (`du_home_weekends`, head sets them): before one, parents answer in the portal (`du_weekend_answers`: coming
+  home/staying, who's collecting; until the leave time) and staff see Coming home / Staying / No answer (tap → WhatsApp
+  reminders), "Add someone staying"; at the leave time `applyWeekends()` (run when Boarding or the portal is next opened — no
+  timer) signs out everyone not staying (`du_leaves.weekend_id`, `applied_at`); on the weekend: Not collected yet (Collected),
+  Not back yet by floor (Back); marking In tonight (or Back on a Home line in Tonight) signs them back in; "Away now" lists the
+  rest (one-off trips, overdue first) (`du_leaves`, who signed out/in kept); **Health** — unwell
   or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
-  last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — home weekends
-  and their own sign-outs; never rooms, night register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
-  has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends, one boarder home now, two weeks of nights and health notes
+  last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — the next home weekend's
+  question (`POST /api/parent?action=weekend`, `parentAnswer()`), the other home weekends and their own trips; never rooms, night
+  register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
+  has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (the next one
+  mostly answered by parents, a few staying, three no answer — Yusuf Patel among them), one boarder home now, two weeks of nights and health notes
   (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,

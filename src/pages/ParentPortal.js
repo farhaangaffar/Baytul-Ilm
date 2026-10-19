@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LegalLinks, MadeWith } from '../components/Legal';
-import { getParentHome, getParentChild, reportAbsence, updateMyChildDetails, logout, formatDateGB } from '../lib/store';
+import { getParentHome, getParentChild, reportAbsence, updateMyChildDetails, logout, formatDateGB, answerHomeWeekend } from '../lib/store';
+import { TripBoxes } from '../components/BoarderRecord';
 import { ParentInputs, DetailInputs, HealthNote } from '../components/StudentDetails';
 import { periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
@@ -26,30 +27,65 @@ import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, P
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const headerBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, border: 'none', borderRadius: 8, background: 'transparent', color: '#fff', opacity: 0.85, cursor: 'pointer', flexShrink: 0 };
 
-// A Darul Uloom boarder: the madrasah's next home weekends, and when the child was last signed out and back in.
+// A Darul Uloom boarder: the madrasah's next home weekends — for the next one, until its leave time, the parent
+// answers whether their child is coming home and who's collecting — and their trips home, in boxes.
 const niceDay = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-const niceWhen = v => (v ? `${niceDay(v.slice(0, 10))}, ${v.slice(11, 16)}` : '');
-function GoingHome({ boarding }) {
+const COLLECTORS = ['Father', 'Mother', 'Someone else'];
+function GoingHome({ boarding, child, onChanged }) {
   const { homeWeekends, leaves } = boarding;
-  const away = leaves.find(l => !l.backAt);
+  const next = homeWeekends.find(w => w.canAnswer);
+  const a = next?.answer;
+  const [other, setOther] = useState(a && a.collector && !COLLECTORS.includes(a.collector) ? a.collector : '');
+  const [someone, setSomeone] = useState(!!(a && a.collector && !COLLECTORS.includes(a.collector)));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  async function save(going, collector) {
+    setBusy(true); setErr('');
+    try { await answerHomeWeekend({ studentId: child.id, weekendId: next.id, going, collector }); await onChanged(); }
+    catch (e) { setErr(e.message || 'Could not save'); }
+    setBusy(false);
+  }
+  const collectorBox = someone ? 'Someone else' : (a?.collector || '');
   return (
     <Section title="Going home">
-      {away && <div style={{ fontSize: 13, color: 'var(--amber-text)', fontWeight: 600, marginBottom: 10 }}>
-        Signed out {niceWhen(away.outAt)}{away.collectedBy ? ` · with ${away.collectedBy}` : ''}{away.backDue ? ` · due back ${niceDay(away.backDue)}` : ''}
-      </div>}
+      {next && (
+        <div className="pp-weekend">
+          <div style={{ fontWeight: 700, fontSize: 14 }}>{next.name} · {niceDay(next.starts)}</div>
+          <div className="text-muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Home from {next.leaveTime || '16:00'} · back by {next.returnTime || '18:00'} on {niceDay(next.ends)}</div>
+          <div className="pp-q">Is {child.forename} coming home?</div>
+          <div className="pp-boxes two">
+            <button type="button" disabled={busy} className={a?.going ? 'on' : ''} onClick={() => save(true, a?.collector || '')}>Yes<small>coming home</small></button>
+            <button type="button" disabled={busy} className={a && !a.going ? 'on' : ''} onClick={() => save(false, '')}>No<small>staying</small></button>
+          </div>
+          {a?.going && <>
+            <div className="pp-q">Who is collecting {child.forename}?</div>
+            <div className="pp-boxes">
+              {COLLECTORS.map(c => (
+                <button key={c} type="button" disabled={busy} className={collectorBox === c ? 'on' : ''}
+                  onClick={() => { if (c === 'Someone else') setSomeone(true); else { setSomeone(false); save(true, c); } }}>{c}</button>
+              ))}
+            </div>
+            {someone && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <input value={other} onChange={e => setOther(e.target.value)} placeholder="Their name, e.g. Uncle Yusuf" maxLength={120}
+                  style={{ flex: 1, minWidth: 0, padding: '9px 10px', border: '1px solid #dfe3e8', borderRadius: 8, fontFamily: 'var(--font)', fontSize: 13 }} />
+                <button type="button" className="btn btn-primary btn-sm" disabled={busy || !other.trim()} onClick={() => save(true, other.trim())}>Save</button>
+              </div>
+            )}
+          </>}
+          {err && <div style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 6 }}>{err}</div>}
+        </div>
+      )}
       {homeWeekends.length === 0 && <div className="text-muted text-sm" style={{ marginBottom: 8 }}>No home weekends set yet.</div>}
-      {homeWeekends.map((w, i) => (
+      {homeWeekends.filter(w => w !== next).map(w => (
         <BoxRow key={w.id} columns="repeat(3, minmax(0, 1fr))" cells={[
-          { label: true, text: w.name, sub: i === 0 ? 'Next' : undefined, wrap: 'words' },
-          { text: niceDay(w.starts), sub: w.leaveTime ? `Home from ${w.leaveTime}` : 'Go home', tone: i === 0 ? 'blue' : undefined },
-          { text: niceDay(w.ends), sub: w.returnTime ? `Back by ${w.returnTime}` : 'Come back', tone: i === 0 ? 'blue' : undefined },
+          { label: true, text: w.name, wrap: 'words' },
+          { text: niceDay(w.starts), sub: w.leaveTime ? `Home from ${w.leaveTime}` : 'Go home' },
+          { text: niceDay(w.ends), sub: w.returnTime ? `Back by ${w.returnTime}` : 'Come back' },
         ]} />
       ))}
-      {leaves.filter(l => l.backAt).slice(0, 3).map(l => (
-        <div key={l.id} className="text-muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-          {l.reason || 'Out'}: {niceWhen(l.outAt)} → {niceWhen(l.backAt)}
-        </div>
-      ))}
+      {leaves.length > 0 && <div className="pp-q" style={{ marginTop: 12 }}>Trips home</div>}
+      {leaves.slice(0, 4).map(l => <TripBoxes key={l.id} trip={l} />)}
     </Section>
   );
 }
@@ -292,7 +328,7 @@ function ChildView({ child, reasons, many }) {
         })}
       </OpenableSection>
 
-      {data.boarding && <GoingHome boarding={data.boarding} />}
+      {data.boarding && <GoingHome boarding={data.boarding} child={child} onChanged={load} />}
 
       <OpenableSection title="Fees" summary={
         <>

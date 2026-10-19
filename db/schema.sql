@@ -476,7 +476,8 @@ CREATE TABLE IF NOT EXISTS du_home_weekends (
   starts      DATE NOT NULL,
   leave_time  TEXT NOT NULL DEFAULT '',
   ends        DATE NOT NULL,
-  return_time TEXT NOT NULL DEFAULT ''
+  return_time TEXT NOT NULL DEFAULT '',
+  applied_at  TIMESTAMPTZ               -- when everyone not staying was signed out (at the leave time)
 );
 CREATE TABLE IF NOT EXISTS du_leaves (
   id           BIGSERIAL PRIMARY KEY,
@@ -488,7 +489,8 @@ CREATE TABLE IF NOT EXISTS du_leaves (
   out_by       TEXT NOT NULL DEFAULT '',
   back_due     DATE,
   back_at      TIMESTAMPTZ,
-  back_by      TEXT NOT NULL DEFAULT ''
+  back_by      TEXT NOT NULL DEFAULT '',
+  weekend_id   BIGINT                  -- the home weekend this trip was part of
 );
 CREATE INDEX IF NOT EXISTS du_leaves_madrasah ON du_leaves (madrasah_id, out_at);
 CREATE TABLE IF NOT EXISTS du_health_log (
@@ -503,3 +505,14 @@ CREATE TABLE IF NOT EXISTS du_health_log (
   by_name     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS du_health_log_madrasah ON du_health_log (madrasah_id, at);
+CREATE TABLE IF NOT EXISTS du_weekend_answers (       -- a parent's (or staff) answer for a home weekend
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  weekend_id  BIGINT NOT NULL,
+  student_id  TEXT NOT NULL,
+  going       BOOLEAN NOT NULL,                       -- coming home (true) or staying
+  collector   TEXT NOT NULL DEFAULT '',
+  answered_by TEXT NOT NULL DEFAULT '',               -- 'Parent' or the staff member
+  answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  waiting     BOOLEAN NOT NULL DEFAULT false,         -- still here after the weekend's sign-out (not collected yet)
+  PRIMARY KEY (weekend_id, student_id)
+);

@@ -106,6 +106,7 @@ export async function getParentHome() { return apiFetch('/api/parent'); }
 export async function getParentChild(studentId) { return apiFetch(`/api/parent?studentId=${encodeURIComponent(studentId)}`); }
 export async function reportAbsence(data) { return apiFetch('/api/parent?action=absence', { method: 'POST', body: JSON.stringify(data) }); }
 export async function updateMyChildDetails(data) { return apiFetch('/api/parent?action=details', { method: 'POST', body: JSON.stringify(data) }); }
+export async function answerHomeWeekend(data) { return apiFetch('/api/parent?action=weekend', { method: 'POST', body: JSON.stringify(data) }); }
 // The online application form (/join/<code>) — open to anyone with the link.
 export async function getJoinForm(code) { return apiFetch(`/api/join?m=${encodeURIComponent(code)}`); }
 export async function sendApplication(data) { return apiFetch('/api/join', { method: 'POST', body: JSON.stringify(data) }); }
@@ -690,3 +691,6 @@ export const addHealthNote = entry => boardingPost('health', entry);
 export const deleteHealthNote = id => boardingDelete('health', id);
 export const addRooms = (block, level, teacherId, rooms) => boardingPost('rooms', { block, level, teacherId, rooms });
 export const renameBoarding = (what, block, level, to) => boardingPost('rename', { what, block, level, to });
+export const weekendAnswer = (weekendId, studentIds, going, collector) => boardingPost('answer', { weekendId, studentIds, going, collector });
+export const notCollected = (weekendId, studentId) => boardingPost('not-collected', { weekendId, studentId });
+export const collectedNow = (weekendId, studentId, collectedBy) => boardingPost('collected', { weekendId, studentId, collectedBy });

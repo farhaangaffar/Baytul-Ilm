@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_health_log', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -214,21 +214,33 @@ async function demoBoarding(c, mid, teacherIds, today, r) {
   // Fridays: the home weekend three weeks back, the next one at least a week away, and a month after that.
   let fri = plus(today, -21); while (dow(fri) !== 5) fri = plus(fri, 1);
   let nextFri = plus(today, 7); while (dow(nextFri) !== 5) nextFri = plus(nextFri, 1);
-  await bulk(c, 'du_home_weekends', ['madrasah_id', 'name', 'starts', 'leave_time', 'ends', 'return_time'], [
-    [mid, 'Home weekend', fri, '16:00', plus(fri, 2), '18:00'],
-    [mid, 'Home weekend', nextFri, '16:00', plus(nextFri, 2), '18:00'],
-    [mid, 'Half term', plus(nextFri, 28), '15:00', plus(nextFri, 37), '18:00'],
-  ]);
+  const weekendIds = [];
+  for (const [name, starts, leaveTime, ends] of [['Home weekend', fri, '16:00', plus(fri, 2)], ['Home weekend', nextFri, '16:00', plus(nextFri, 2)],
+    ['Half term', plus(nextFri, 28), '15:00', plus(nextFri, 37)]]) {
+    const { rows: [w] } = await c.query(
+      `INSERT INTO du_home_weekends (madrasah_id, name, starts, leave_time, ends, return_time, applied_at) VALUES ($1,$2,$3,$4,$5,'18:00', $6) RETURNING id`,
+      [mid, name, starts, leaveTime, ends, starts < today ? new Date() : null]);
+    weekendIds.push(w.id);
+  }
   const at = (d, h, m) => `${d} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} Europe/London`;
   const WHO = ['Father', 'Mother', 'Uncle', 'Older brother', 'Parents'];
   const leaves = [], wentHome = new Set();
   boarders.forEach((b, i) => {
     if (i % 7 === 3) return; // a few stayed in
     wentHome.add(b.id);
-    leaves.push([mid, b.id, 'Home weekend', r.pick(WHO), at(fri, 16, Math.floor(r() * 50)), 'Head', plus(fri, 2), at(plus(fri, 2), 17, Math.floor(r() * 55)), 'Maulana Yusuf Mota']);
+    leaves.push([mid, b.id, 'Home weekend', r.pick(WHO), at(fri, 16, Math.floor(r() * 50)), 'Home weekend', plus(fri, 2), at(plus(fri, 2), 17, Math.floor(r() * 55)), 'Maulana Yusuf Mota', weekendIds[0]]);
   });
-  await bulk(c, 'du_leaves', ['madrasah_id', 'student_id', 'reason', 'collected_by', 'out_at', 'out_by', 'back_due', 'back_at', 'back_by'], leaves);
+  await bulk(c, 'du_leaves', ['madrasah_id', 'student_id', 'reason', 'collected_by', 'out_at', 'out_by', 'back_due', 'back_at', 'back_by', 'weekend_id'], leaves);
   const home = boarders[boarders.length > 4 ? 4 : 0];
+  // The next home weekend: most parents have answered (a few staying), three haven't yet — the boarder home now
+  // (Yusuf Patel, so the Patel family's portal asks them) among them.
+  const answers = [];
+  boarders.forEach((b, i) => {
+    if (b === home || i % 6 === 1) return;
+    const stay = i % 9 === 5;
+    answers.push([mid, weekendIds[1], b.id, !stay, stay ? '' : r.pick(['Father', 'Mother', 'Father', 'Uncle Bilal']), 'Parent']);
+  });
+  await bulk(c, 'du_weekend_answers', ['madrasah_id', 'weekend_id', 'student_id', 'going', 'collector', 'answered_by'], answers);
   if (home) {
     await c.query(`INSERT INTO du_leaves (madrasah_id, student_id, reason, collected_by, out_at, out_by, back_due)
                    VALUES ($1,$2,'Family','Father',$3,'Head',$4)`, [mid, home.id, at(plus(today, -1), 15, 20), plus(today, 1)]);

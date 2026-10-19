@@ -947,3 +947,19 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .line-row.bd-pick:disabled { opacity: 1; }
 .line-row.bd-pick.full { opacity: 0.5; }
 .bd-short { background: var(--amber-light); color: var(--amber-text); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; margin: -2px 0 8px; }
+/* Boarding → Going home: the search, the home weekend card, a boarder's record. */
+.bd-search { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 10px; padding: 4px 6px 4px 12px; box-shadow: var(--shadow-sm); margin: 10px 0 14px; color: var(--text-soft); }
+.bd-search input { flex: 1; min-width: 0; border: none; outline: none; padding: 8px 0; font-family: var(--font); font-size: 14px; background: transparent; }
+.card.bd-weekend { border: 1px solid var(--teal); }
+.line-row.bd-amber { background: var(--amber-light); border-color: var(--amber); }
+.bd-sheet-actions { display: grid; gap: 6px; margin: 6px 0 4px; }
+.bd-sheet-actions .btn { justify-content: center; width: 100%; }
+/* Parent portal → Going home: the next home weekend's question. */
+.pp-weekend { border: 1px solid var(--teal); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.pp-q { font-size: 13px; font-weight: 600; margin: 10px 0 6px; }
+.pp-boxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pp-boxes.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pp-boxes button { border: 1px solid #dfe3e8; background: #fafbfc; border-radius: 10px; padding: 9px 4px; font-family: var(--font); font-size: 13.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.pp-boxes button small { display: block; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.pp-boxes button.on { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+.pp-boxes button.on small { color: var(--green-text); }

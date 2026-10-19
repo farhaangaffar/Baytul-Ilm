@@ -10,7 +10,11 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 //   Night register — each boarder In / Away / Sick for a night (du_night_register). A boarder signed out
 //     (going home) shows as Home that night and isn't marked.
 //   Going home — signing a boarder out (who collected them, when they're due back) and back in (du_leaves);
-//     the madrasah's own home weekends (du_home_weekends), which parents see in the portal.
+//     the madrasah's own home weekends (du_home_weekends), which parents see in the portal. Before one, parents
+//     answer in the portal — coming home or staying, and who's collecting (du_weekend_answers); at its leave time
+//     everyone not staying is signed out by itself (applyWeekends(), run when boarding is next opened — no timer),
+//     so staff only handle the exceptions (staying, not collected yet). Marking a boarder In on the night
+//     register signs them back in.
 //   Sick & medicine — when a boarder was unwell or given medicine (du_health_log).
 //
 // GET ?date=YYYY-MM-DD → { today, date, head, boarders, rooms, teachers, register, leaves, homeWeekends, health }
@@ -19,8 +23,11 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // POST ?action=rooms {block, level, teacherId, rooms: [{name, beds}]} (head) → several rooms on one level at once
 // POST ?action=rename {what: 'block'|'level', block, level?, to} (head) → renames a section, or a level in a section
 // POST ?action=place {studentIds[], roomId|null}         (head)  → puts them in a room (or none)
-// POST ?action=register {date, studentIds[], status: 'in'|'away'|'sick'|null}
+// POST ?action=register {date, studentIds[], status: 'in'|'away'|'sick'|null} — 'in' tonight also signs them back in
 // POST ?action=out {studentIds[], collectedBy, reason, backDue} → signs them out (going home)
+// POST ?action=answer {weekendId, studentIds[], going, collector?} → staff set coming home / staying for a home weekend
+// POST ?action=not-collected {weekendId, studentId} → still here after the weekend's sign-out (waiting to be collected)
+// POST ?action=collected {weekendId, studentId, collectedBy?} → a waiting boarder has now been collected
 // POST ?action=back {leaveIds[]}                         → signs them back in
 // DELETE ?action=leave&id=                               (head)  → a sign-out made by mistake
 // POST ?action=home-weekend {id?, name, starts, leaveTime, ends, returnTime} (head) · DELETE ?action=home-weekend&id= (head)
@@ -89,6 +96,19 @@ async function ensure() {
     by_name     TEXT NOT NULL DEFAULT ''
   )`);
   await query('CREATE INDEX IF NOT EXISTS du_health_log_madrasah ON du_health_log (madrasah_id, at)');
+  await query(`CREATE TABLE IF NOT EXISTS du_weekend_answers (
+    madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+    weekend_id  BIGINT NOT NULL,
+    student_id  TEXT NOT NULL,
+    going       BOOLEAN NOT NULL,
+    collector   TEXT NOT NULL DEFAULT '',
+    answered_by TEXT NOT NULL DEFAULT '',
+    answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    waiting     BOOLEAN NOT NULL DEFAULT false,
+    PRIMARY KEY (weekend_id, student_id)
+  )`);
+  await query('ALTER TABLE du_home_weekends ADD COLUMN IF NOT EXISTS applied_at TIMESTAMPTZ');
+  await query('ALTER TABLE du_leaves ADD COLUMN IF NOT EXISTS weekend_id BIGINT');
   await query(`ALTER TABLE du_rooms ADD COLUMN IF NOT EXISTS block TEXT NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT ''`);
   ready = true;
@@ -109,7 +129,34 @@ const LEAVE_COLS = `id::text AS id, student_id AS "studentId", reason, collected
   out_by AS "outBy", to_char(back_due, 'YYYY-MM-DD') AS "backDue", ${LONDON('back_at')} AS "backAt", back_by AS "backBy"`;
 const HEALTH_COLS = `id::text AS id, student_id AS "studentId", ${LONDON('at')} AS at, kind, note, medicine, dose, by_name AS "by"`;
 const WEEKEND_COLS = `id::text AS id, name, to_char(starts, 'YYYY-MM-DD') AS starts, leave_time AS "leaveTime",
-  to_char(ends, 'YYYY-MM-DD') AS ends, return_time AS "returnTime"`;
+  to_char(ends, 'YYYY-MM-DD') AS ends, return_time AS "returnTime", applied_at IS NOT NULL AS started`;
+// The moment a home weekend's boarders leave, as a timestamp (UK time; 16:00 if no time was set).
+const LEAVE_MOMENT = `((starts + COALESCE(NULLIF(leave_time, ''), '16:00')::time) AT TIME ZONE 'Europe/London')`;
+// A home weekend still to come or going on now — the one parents answer about and staff work from.
+const CURRENT_WEEKEND = `SELECT ${WEEKEND_COLS} FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= $2 ORDER BY starts LIMIT 1`;
+const ANSWER_COLS = `student_id AS "studentId", going, collector, answered_by AS "by", waiting`;
+
+// Signs everyone out for a home weekend once its leave time has passed: every Active boarder except
+// those staying (or still waiting to be collected) and anyone already out. Done once per weekend.
+async function applyWeekends(mid) {
+  const { rows } = await query(
+    `SELECT id, to_char(ends, 'YYYY-MM-DD') AS ends, ${LEAVE_MOMENT} AS leave_at FROM du_home_weekends
+     WHERE madrasah_id = $1 AND applied_at IS NULL AND ${LEAVE_MOMENT} <= now()`, [mid]);
+  for (const w of rows) {
+    await transaction(async c => {
+      const { rowCount } = await c.query('UPDATE du_home_weekends SET applied_at = now() WHERE id = $1 AND madrasah_id = $2 AND applied_at IS NULL', [w.id, mid]);
+      if (!rowCount || w.ends < ukToday()) return; // someone else just did it, or it's already over
+      await c.query(
+        `INSERT INTO du_leaves (madrasah_id, student_id, reason, collected_by, out_at, out_by, back_due, weekend_id)
+         SELECT $1, s.id, 'Home weekend', COALESCE(a.collector, ''), $3, 'Home weekend', $4, $2
+         FROM students s LEFT JOIN du_weekend_answers a ON a.weekend_id = $2 AND a.student_id = s.id AND a.madrasah_id = $1
+         WHERE s.madrasah_id = $1 AND s.status = 'Active' AND s.boarding = 'Boarder'
+           AND (a.student_id IS NULL OR (a.going AND NOT a.waiting))
+           AND NOT EXISTS (SELECT 1 FROM du_leaves l WHERE l.madrasah_id = $1 AND l.student_id = s.id AND l.back_at IS NULL)`,
+        [mid, w.id, w.leave_at, w.ends]);
+    });
+  }
+}
 
 // May this person use Boarding? The head of a Darul Uloom, or a teacher of one ticked for boarding duty.
 async function access(req) {
@@ -132,14 +179,34 @@ async function boarderIds(mid) {
 async function forParent(mid, s) {
   if (s.boarding !== 'Boarder') return null;
   await ensure();
-  const [weekends, leaves] = await Promise.all([
-    query(`SELECT ${WEEKEND_COLS} FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= $2 ORDER BY starts LIMIT 3`, [mid, ukToday()]),
+  await applyWeekends(mid);
+  const [weekends, leaves, answers] = await Promise.all([
+    query(`SELECT ${WEEKEND_COLS}, ${LEAVE_MOMENT} > now() AS "canAnswer" FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= $2 ORDER BY starts LIMIT 3`, [mid, ukToday()]),
     query(`SELECT ${LEAVE_COLS} FROM du_leaves WHERE madrasah_id = $1 AND student_id = $2 ORDER BY out_at DESC LIMIT 10`, [mid, s.id]),
+    query(`SELECT weekend_id::text AS "weekendId", going, collector FROM du_weekend_answers WHERE madrasah_id = $1 AND student_id = $2`, [mid, s.id]),
   ]);
+  const answerOf = Object.fromEntries(answers.rows.map(a => [a.weekendId, { going: a.going, collector: a.collector }]));
   return {
-    homeWeekends: weekends.rows,
+    homeWeekends: weekends.rows.map(({ started, ...w }) => ({ ...w, answer: answerOf[w.id] || null })),
     leaves: leaves.rows.map(({ outBy, backBy, ...l }) => l),
   };
+}
+
+// A parent answers for a home weekend (server/routes/parent.js, POST ?action=weekend): coming home or staying,
+// and who's collecting — until the weekend's leave time.
+async function parentAnswer(mid, s, b) {
+  if (s.boarding !== 'Boarder') return 'Only for boarders.';
+  await ensure();
+  const { rows: [w] } = await query(`SELECT id, ${LEAVE_MOMENT} > now() AS open FROM du_home_weekends WHERE id = $1 AND madrasah_id = $2`, [b.weekendId, mid]);
+  if (!w) return 'Home weekend not found.';
+  if (!w.open) return 'It\'s too late to change this now — please contact the madrasah.';
+  if (typeof b.going !== 'boolean') return 'Coming home or staying?';
+  await query(
+    `INSERT INTO du_weekend_answers (madrasah_id, weekend_id, student_id, going, collector, answered_by) VALUES ($1,$2,$3,$4,$5,'Parent')
+     ON CONFLICT (weekend_id, student_id) DO UPDATE SET going = EXCLUDED.going, collector = EXCLUDED.collector, answered_by = 'Parent',
+       answered_at = now(), waiting = false WHERE du_weekend_answers.madrasah_id = EXCLUDED.madrasah_id`,
+    [mid, w.id, s.id, b.going, b.going ? str(b.collector, 120) : '']);
+  return null;
 }
 
 const handler = requireAuth(async (req, res) => {
@@ -149,6 +216,7 @@ const handler = requireAuth(async (req, res) => {
   const head = isOwner(req);
   const action = req.query.action || '';
   const headOnly = () => { if (!head) res.status(403).json({ error: 'Only the head can change this.' }); return !head; };
+  await applyWeekends(mid);
 
   if (req.method === 'GET' && action === 'student') {
     const sid = String(req.query.studentId || '');
@@ -168,22 +236,31 @@ const handler = requireAuth(async (req, res) => {
     const today = ukToday();
     const date = ISO.test(String(req.query.date || '')) && req.query.date <= today ? req.query.date : today;
     const [boarders, rooms, places, teachers, register, leaves, weekends, health] = await Promise.all([
-      query(`SELECT id, forename, surname, class, allergies, medical, medication FROM students
+      query(`SELECT id, forename, surname, class, allergies, medical, medication, parent1_name AS "parent1Name", parent1_phone AS "parent1Phone" FROM students
              WHERE madrasah_id = $1 AND status = 'Active' AND boarding = 'Boarder' ORDER BY forename, surname`, [mid]),
       query('SELECT id::text AS id, block, level, name, beds, teacher_id AS "teacherId" FROM du_rooms WHERE madrasah_id = $1 ORDER BY sort_order, name', [mid]),
       query('SELECT student_id, room_id::text AS room_id FROM du_room_places WHERE madrasah_id = $1', [mid]),
       query('SELECT id, name, boarding_duty AS "boardingDuty" FROM teachers WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, name', [mid]),
       query(`SELECT student_id AS "studentId", status, marked_by AS "by", to_char(marked_at AT TIME ZONE 'Europe/London', 'HH24:MI') AS "time"
              FROM du_night_register WHERE madrasah_id = $1 AND date = $2`, [mid, date]),
-      // Everyone out now, and the last month's comings and goings.
-      query(`SELECT ${LEAVE_COLS} FROM du_leaves WHERE madrasah_id = $1 AND (back_at IS NULL OR out_at > now() - interval '31 days')
-             ORDER BY out_at DESC`, [mid]),
+      // Everyone out now (each boarder's own history is under their name — ?action=student).
+      query(`SELECT ${LEAVE_COLS}, weekend_id::text AS "weekendId" FROM du_leaves WHERE madrasah_id = $1 AND back_at IS NULL ORDER BY out_at DESC`, [mid]),
       query(`SELECT ${WEEKEND_COLS} FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= ($2::date - 60) ORDER BY starts`, [mid, today]),
       query(`SELECT ${HEALTH_COLS} FROM du_health_log WHERE madrasah_id = $1 AND at > now() - interval '31 days' ORDER BY at DESC`, [mid]),
     ]);
     const roomOf = Object.fromEntries(places.rows.map(p => [p.student_id, p.room_id]));
+    // The home weekend to come (or on now), with everyone's answers and who has come back from it.
+    const { rows: [weekend] } = await query(CURRENT_WEEKEND, [mid, today]);
+    if (weekend) {
+      const [answers, back] = await Promise.all([
+        query(`SELECT ${ANSWER_COLS} FROM du_weekend_answers WHERE madrasah_id = $1 AND weekend_id = $2`, [mid, weekend.id]),
+        query(`SELECT student_id FROM du_leaves WHERE madrasah_id = $1 AND weekend_id = $2 AND back_at IS NOT NULL`, [mid, weekend.id]),
+      ]);
+      weekend.answers = answers.rows;
+      weekend.backIds = back.rows.map(r => r.student_id);
+    }
     res.status(200).json({
-      today, date, head,
+      today, date, head, weekend: weekend || null,
       boarders: boarders.rows.map(s => ({ ...s, roomId: roomOf[s.id] || '' })),
       rooms: rooms.rows,
       teachers: teachers.rows,
@@ -314,6 +391,10 @@ const handler = requireAuth(async (req, res) => {
       await query(`INSERT INTO du_night_register (madrasah_id, student_id, date, status, marked_by) SELECT $1, unnest($2::text[]), $3, $4, $5
                    ON CONFLICT (student_id, date) DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, marked_at = now()
                    WHERE du_night_register.madrasah_id = EXCLUDED.madrasah_id`, [mid, ids, b.date, b.status, by]);
+      // In tonight = back: anyone still signed out is signed back in.
+      if (b.status === 'in' && b.date === today) {
+        await query('UPDATE du_leaves SET back_at = now(), back_by = $1 WHERE madrasah_id = $2 AND student_id = ANY($3) AND back_at IS NULL', [by, mid, ids]);
+      }
     }
     res.status(200).json({ ok: true });
     return;
@@ -333,6 +414,43 @@ const handler = requireAuth(async (req, res) => {
        WHERE NOT EXISTS (SELECT 1 FROM du_leaves l WHERE l.madrasah_id = $1 AND l.student_id = s AND l.back_at IS NULL)`,
       [mid, ids, str(b.reason, 120), str(b.collectedBy, 120), by, backDue]);
     res.status(200).json({ ok: true, signedOut: rowCount });
+    return;
+  }
+
+  if (req.method === 'POST' && ['answer', 'not-collected', 'collected'].includes(action)) {
+    const b = req.body || {};
+    const { rows: [w] } = await query(`SELECT id, to_char(ends, 'YYYY-MM-DD') AS ends, applied_at IS NOT NULL AS started FROM du_home_weekends WHERE id = $1 AND madrasah_id = $2`, [b.weekendId, mid]);
+    if (!w) { res.status(404).json({ error: 'Home weekend not found.' }); return; }
+    const mine = await boarderIds(mid);
+    const ids = (Array.isArray(b.studentIds) ? b.studentIds : [b.studentId]).map(String).filter(id => mine.has(id));
+    if (!ids.length) { res.status(400).json({ error: 'Choose the boarders.' }); return; }
+    const by = await whoName(req.user);
+    const upsert = (going, collector, waiting) => query(
+      `INSERT INTO du_weekend_answers (madrasah_id, weekend_id, student_id, going, collector, answered_by, waiting)
+       SELECT $1, $2, unnest($3::text[]), $4, $5, $6, $7
+       ON CONFLICT (weekend_id, student_id) DO UPDATE SET going = EXCLUDED.going,
+         collector = CASE WHEN EXCLUDED.collector = '' THEN du_weekend_answers.collector ELSE EXCLUDED.collector END,
+         answered_by = EXCLUDED.answered_by, answered_at = now(), waiting = EXCLUDED.waiting
+       WHERE du_weekend_answers.madrasah_id = EXCLUDED.madrasah_id`, [mid, w.id, ids, going, collector, by, waiting]);
+    // Their sign-out from this weekend, if it's been made and they're not back.
+    const dropLeave = () => query('DELETE FROM du_leaves WHERE madrasah_id = $1 AND weekend_id = $2 AND student_id = ANY($3) AND back_at IS NULL', [mid, w.id, ids]);
+    if (action === 'answer') {
+      if (typeof b.going !== 'boolean') { res.status(400).json({ error: 'Coming home or staying?' }); return; }
+      await upsert(b.going, b.going ? str(b.collector, 120) : '', false);
+      if (!b.going) await dropLeave();
+    } else if (action === 'not-collected') {
+      await dropLeave();
+      await upsert(true, '', true);
+    } else {
+      await upsert(true, str(b.collectedBy, 120), false);
+      await query(
+        `INSERT INTO du_leaves (madrasah_id, student_id, reason, collected_by, out_by, back_due, weekend_id)
+         SELECT $1, s, 'Home weekend', COALESCE((SELECT collector FROM du_weekend_answers WHERE weekend_id = $2 AND student_id = s), ''), $4, $5, $2
+         FROM unnest($3::text[]) AS s
+         WHERE NOT EXISTS (SELECT 1 FROM du_leaves l WHERE l.madrasah_id = $1 AND l.student_id = s AND l.back_at IS NULL)`,
+        [mid, w.id, ids, by, w.ends]);
+    }
+    res.status(200).json({ ok: true });
     return;
   }
 
@@ -410,3 +528,4 @@ const handler = requireAuth(async (req, res) => {
 module.exports = handler;
 module.exports.ensure = ensure;
 module.exports.forParent = forParent;
+module.exports.parentAnswer = parentAnswer;
