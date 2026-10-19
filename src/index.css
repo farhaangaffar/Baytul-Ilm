@@ -964,3 +964,6 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .bd-big button { background: #fff; border: 1px solid #dfe3e8; border-radius: 14px; padding: 16px 8px; font-family: var(--font); font-size: 15px; font-weight: 700; color: var(--ink); cursor: pointer; box-shadow: var(--shadow-sm); }
 .bd-big button:hover { border-color: var(--teal-mid); }
 .bd-big button small { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-top: 3px; }
+/* The name box in Sign out / Sign in and "Add someone staying": grey like the app's other boxes, not white on white. */
+.modal .bd-search { background: #f3f4f6; border: 1px solid #e3e7ec; box-shadow: none; }
+.modal .bd-search:focus-within { border-color: var(--teal-mid); background: #fff; }
