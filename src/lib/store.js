@@ -690,4 +690,3 @@ export const addHealthNote = entry => boardingPost('health', entry);
 export const deleteHealthNote = id => boardingDelete('health', id);
 export const addRooms = (block, level, teacherId, rooms) => boardingPost('rooms', { block, level, teacherId, rooms });
 export const renameBoarding = (what, block, level, to) => boardingPost('rename', { what, block, level, to });
-export const setBlockWord = word => boardingPost('block-word', { word });

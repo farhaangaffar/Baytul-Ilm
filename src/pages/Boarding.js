@@ -8,10 +8,10 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes, HealthDot, GrowingText } from '../components/StudentDetails';
 import PickField from '../components/PickField';
-import { BLOCK_WORDS, blockLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName } from '../lib/boardingRooms';
+import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName } from '../lib/boardingRooms';
 import {
   getBoarding, saveRoom, deleteRoom, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
-  saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding, setBlockWord,
+  saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding,
 } from '../lib/store';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, LogOut, LogIn, Pill } from 'lucide-react';
 
@@ -89,7 +89,6 @@ export default function Boarding() {
             onEdit={room => setModal({ kind: 'room', room })}
             onAdd={at => setModal({ kind: 'add-rooms', at })}
             onRename={r => setModal({ kind: 'rename', ...r })}
-            onWord={w => run(() => setBlockWord(w), `Now called "${w}"`)}
             onPlace={(ids, roomId, label) => run(() => placeBoarders(ids, roomId), `${ids.length} moved to ${label}`)} />
         )}
         {boarders.length > 0 && tab === 'home' && (
@@ -106,16 +105,16 @@ export default function Boarding() {
       </div>
 
       {modal?.kind === 'add-rooms' && (
-        <AddRoomsModal at={modal.at} rooms={rooms} teachers={teachers} word={data.blockWord} onClose={() => setModal(null)}
+        <AddRoomsModal at={modal.at} rooms={rooms} teachers={teachers} onClose={() => setModal(null)}
           onSave={async (f, list) => { if (await run(() => addRooms(f.block, f.level, f.teacherId, list), `${list.length} room${list.length === 1 ? '' : 's'} added`)) setModal(null); }} />
       )}
       {modal?.kind === 'rename' && (
-        <RenameModal what={modal.what} name={modal.what === 'block' ? blockLabel(modal.block, data.blockWord) : levelLabel(modal.level)}
-          current={modal.what === 'block' ? modal.block : modal.level} word={data.blockWord} onClose={() => setModal(null)}
+        <RenameModal what={modal.what} name={modal.what === 'block' ? sectionLabel(modal.block) : levelLabel(modal.level)}
+          current={modal.what === 'block' ? modal.block : modal.level} onClose={() => setModal(null)}
           onSave={async to => { if (await run(() => renameBoarding(modal.what, modal.block, modal.level, to), 'Renamed')) setModal(null); }} />
       )}
       {modal?.kind === 'room' && (
-        <RoomModal room={modal.room} rooms={rooms} word={data.blockWord} teachers={teachers} count={boarders.filter(b => b.roomId === modal.room.id).length} onClose={() => setModal(null)}
+        <RoomModal room={modal.room} rooms={rooms} teachers={teachers} count={boarders.filter(b => b.roomId === modal.room.id).length} onClose={() => setModal(null)}
           onSave={async f => { if (await run(() => saveRoom(f), f.id ? 'Room saved' : 'Room added')) setModal(null); }}
           onDelete={async () => { if (await run(() => deleteRoom(modal.room.id), 'Room removed')) setModal(null); }} />
       )}
@@ -153,11 +152,11 @@ export default function Boarding() {
 
 // ── Tonight: the night register, a card per floor (a block's level), each room's boarders together ──
 function Tonight({ data, date, outOf, mark, onDate, onMark }) {
-  const { boarders, rooms, today, blockWord } = data;
+  const { boarders, rooms, today } = data;
   const label = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   const inRoom = r => boarders.filter(b => b.roomId === r.id);
   const cards = [
-    ...floors(rooms).map(f => ({ key: `${f.block}|${f.level}`, title: floorLabel(f, blockWord) || 'Rooms', rooms: f.rooms.filter(r => inRoom(r).length) })),
+    ...floors(rooms).map(f => ({ key: `${f.block}|${f.level}`, title: floorLabel(f) || 'Rooms', rooms: f.rooms.filter(r => inRoom(r).length) })),
     { key: 'none', title: 'Not in a room', rooms: [{ id: '', name: '', loose: true }] },
   ].map(c => ({ ...c, list: c.rooms.flatMap(r => (r.loose ? boarders.filter(b => !rooms.some(x => x.id === b.roomId)) : inRoom(r))) }))
     .filter(c => c.list.length);
@@ -255,8 +254,8 @@ function TickList({ groups, picked, setPicked, sub, actions }) {
 }
 
 // ── Rooms: a line per wing / block (tap for its levels and rooms), a room opens to who sleeps there ──
-function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onWord, onPlace }) {
-  const { rooms, boarders, blockWord: word } = data;
+function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
+  const { rooms, boarders } = data;
   const [openBlock, setOpenBlock] = useState(null);
   const [openId, setOpenId] = useState('');
   const [picked, setPicked] = useState([]);
@@ -269,7 +268,7 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onWord, onPla
     const list = chosen.filter(id => from.some(b => b.id === id));
     if (!value || !list.length) return;
     const room = rooms.find(r => r.id === value);
-    await onPlace(list, value === 'none' ? null : value, room ? fullRoom(room, word) : 'no room');
+    await onPlace(list, value === 'none' ? null : value, room ? fullRoom(room) : 'no room');
     setPicked([]);
   };
   const moveBar = (from, withNone) => {
@@ -282,7 +281,7 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onWord, onPla
             <select value="" disabled={!n} onChange={e => moveTo(e.target.value, from)} aria-label="Move the selected boarders">
               <option value="">Select room…</option>
               {floors(rooms).map(f => (
-                <optgroup key={`${f.block}|${f.level}`} label={floorLabel(f, word) || 'Rooms'}>
+                <optgroup key={`${f.block}|${f.level}`} label={floorLabel(f) || 'Rooms'}>
                   {f.rooms.map(r => <option key={r.id} value={r.id}>{roomLabel(r.name)} ({inRoom(r).length}/{r.beds})</option>)}
                 </optgroup>
               ))}
@@ -345,18 +344,12 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onWord, onPla
     <>
       <div className="card">
         <div className="card-title" style={{ marginBottom: 2 }}>Rooms</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>{onlyLoose || !rooms.length ? 'Tap a room to see who sleeps there' : `Tap a ${word.toLowerCase()} to see its levels and rooms`}</div>
-        {head && (
-          <div className="bd-word">
-            <span>We call them</span>
-            <ChoiceBoxes options={BLOCK_WORDS} value={word} onChange={v => v && v !== word && onWord(v)} />
-          </div>
-        )}
+        <div className="card-sub" style={{ marginBottom: 12 }}>{onlyLoose || !rooms.length ? 'Tap a room to see who sleeps there' : 'Tap a section to see its levels and rooms'}</div>
         <div className="course-lines">
           {onlyLoose ? levelsOf(lay[0], true) : lay.map(b => {
             const all = b.levels.flatMap(l => l.rooms);
             const on = openBlock === b.block;
-            const name = blockLabel(b.block, word) || `No ${word.toLowerCase()}`;
+            const name = sectionLabel(b.block) || 'No section';
             return (
               <React.Fragment key={b.block || 'none'}>
                 <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={() => { setOpenBlock(on ? null : b.block); setOpenId(''); setPicked([]); }}>
@@ -380,8 +373,8 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onWord, onPla
               </React.Fragment>
             );
           })}
-          {rooms.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>No rooms yet{head ? ` — add a ${word.toLowerCase()}, its levels, then each room and its beds.` : '.'}</div>}
-          {head && <button type="button" className="line-row add" onClick={() => onAdd({ block: '', level: '' })}><Plus size={14} /> {rooms.length ? `Add a ${word.toLowerCase()} or rooms` : 'Add rooms'}</button>}
+          {rooms.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>No rooms yet{head ? ' — add a section, its levels, then each room and its beds.' : '.'}</div>}
+          {head && <button type="button" className="line-row add" onClick={() => onAdd({ block: '', level: '' })}><Plus size={14} /> {rooms.length ? 'Add a section or rooms' : 'Add rooms'}</button>}
         </div>
       </div>
       {unplaced.length > 0 && (
@@ -409,7 +402,7 @@ function groupByClass(list) {
 
 // ── Going home: home weekends, who's away now, signing out, the last month ──
 function GoingHome({ data, outOf, head, onSignOut, onSignIn, onWeekend, onLeave }) {
-  const { boarders, rooms, leaves, homeWeekends, today, blockWord } = data;
+  const { boarders, rooms, leaves, homeWeekends, today } = data;
   const [pickedIn, setPickedIn] = useState([]);
   const [pickedOut, setPickedOut] = useState([]);
   const byId = Object.fromEntries(boarders.map(b => [b.id, b]));
@@ -417,7 +410,7 @@ function GoingHome({ data, outOf, head, onSignOut, onSignIn, onWeekend, onLeave 
   const back = leaves.filter(l => l.backAt && byId[l.studentId]);
   const here = boarders.filter(b => !outOf[b.id]);
   // Floor by floor (a block's level — tick one for everyone on it), then anyone not in a room.
-  const hereGroups = [...floors(rooms).map(f => ({ label: floorLabel(f, blockWord) || 'Rooms', list: here.filter(b => f.rooms.some(r => r.id === b.roomId)) })),
+  const hereGroups = [...floors(rooms).map(f => ({ label: floorLabel(f) || 'Rooms', list: here.filter(b => f.rooms.some(r => r.id === b.roomId)) })),
     { label: 'Not in a room', list: here.filter(b => !rooms.some(r => r.id === b.roomId)) }];
   const roomOf = b => rooms.find(r => r.id === b.roomId);
   const upcoming = homeWeekends.filter(w => w.ends >= today);
@@ -568,13 +561,13 @@ function useBusy() {
 const blocksOf = rooms => [...new Set(rooms.map(r => r.block).filter(Boolean))];
 const levelsIn = (rooms, block) => [...new Set(rooms.filter(r => r.block === block).map(r => r.level).filter(Boolean))];
 
-function RoomModal({ room, rooms, word, teachers, count, onClose, onSave, onDelete }) {
+function RoomModal({ room, rooms, teachers, count, onClose, onSave, onDelete }) {
   const [f, setF] = useState({ id: room.id, block: room.block || '', level: room.level || '', name: room.name || '', beds: room.beds ?? 4, teacherId: room.teacherId || '' });
   const [sure, setSure] = useState(false);
   const [busy, wrap] = useBusy();
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   return (
-    <Shell title={`Edit ${fullRoom(room, word)}`} onClose={onClose}
+    <Shell title={`Edit ${fullRoom(room)}`} onClose={onClose}
       footer={<>
         {sure
           ? <button className="btn" style={{ marginRight: 'auto', background: 'var(--red)', color: '#fff' }} disabled={busy} onClick={wrap(onDelete)}>Remove{count ? ` (${count} leave it)` : ''}</button>
@@ -584,7 +577,7 @@ function RoomModal({ room, rooms, word, teachers, count, onClose, onSave, onDele
       </>}>
       <div className="form-grid">
         <div className="form-grid form-grid-2">
-          <div className="form-group"><label>{word}</label><PickField value={f.block} onChange={v => set('block', v)} options={blocksOf(rooms)} placeholder="e.g. A, East" /></div>
+          <div className="form-group"><label>Section</label><PickField value={f.block} onChange={v => set('block', v)} options={blocksOf(rooms)} placeholder="e.g. Block A, East Wing" /></div>
           <div className="form-group"><label>Level</label><PickField value={f.level} onChange={v => set('level', v)} options={levelsIn(rooms, f.block)} placeholder="e.g. Ground, 1" /></div>
           <div className="form-group"><label>Room number or name</label><input value={f.name} onChange={e => set('name', e.target.value)} maxLength={40} /></div>
           <div className="form-group"><label>Beds</label><input type="number" min={0} max={500} value={f.beds} onChange={e => set('beds', e.target.value)} /></div>
@@ -601,16 +594,15 @@ function RoomModal({ room, rooms, word, teachers, count, onClose, onSave, onDele
 }
 
 // Adds a level's rooms in one go: the block, the level, then each room's number and beds.
-function AddRoomsModal({ at, rooms, word, teachers, onClose, onSave }) {
+function AddRoomsModal({ at, rooms, teachers, onClose, onSave }) {
   const [f, setF] = useState({ block: at.block || '', level: at.level || '', teacherId: '' });
   const [list, setList] = useState([{ name: '', beds: 4 }]);
   const [busy, wrap] = useBusy();
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const setRow = (i, k, v) => setList(l => l.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const filled = list.filter(r => r.name.trim());
-  const wordLow = word.toLowerCase();
   return (
-    <Shell title={at.block ? `Add rooms to ${blockLabel(at.block, word)}` : 'Add rooms'} onClose={onClose} width={500}
+    <Shell title={at.block ? `Add rooms to ${sectionLabel(at.block)}` : 'Add rooms'} onClose={onClose} width={500}
       footer={<>
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" disabled={busy || !filled.length} onClick={wrap(() => onSave(f, filled))}>
@@ -618,8 +610,8 @@ function AddRoomsModal({ at, rooms, word, teachers, onClose, onSave }) {
       </>}>
       <div className="form-grid">
         <div className="form-grid form-grid-2">
-          <div className="form-group"><label>{word}</label>
-            <PickField value={f.block} onChange={v => set('block', v)} options={blocksOf(rooms)} placeholder={`e.g. A, East — or leave blank`} autoFocus={!at.block} /></div>
+          <div className="form-group"><label>Section</label>
+            <PickField value={f.block} onChange={v => set('block', v)} options={blocksOf(rooms)} placeholder="e.g. Block A, East Wing, Dorm 3" autoFocus={!at.block} /></div>
           <div className="form-group"><label>Level</label>
             <PickField value={f.level} onChange={v => set('level', v)} options={levelsIn(rooms, f.block)} placeholder="e.g. Ground, 1, 2" /></div>
         </div>
@@ -644,13 +636,13 @@ function AddRoomsModal({ at, rooms, word, teachers, onClose, onSave }) {
             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
-        <div className="text-muted" style={{ fontSize: 12 }}>No {wordLow}s or levels? Leave them blank — just the rooms.</div>
+        <div className="text-muted" style={{ fontSize: 12 }}>No sections or levels? Leave them blank — just the rooms.</div>
       </div>
     </Shell>
   );
 }
 
-function RenameModal({ what, name, current, word, onClose, onSave }) {
+function RenameModal({ what, name, current, onClose, onSave }) {
   const [to, setTo] = useState(current || '');
   const [busy, wrap] = useBusy();
   return (
@@ -659,7 +651,7 @@ function RenameModal({ what, name, current, word, onClose, onSave }) {
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" disabled={busy || !to.trim() || to.trim() === current} onClick={wrap(() => onSave(to.trim()))}><Save size={13} />Save</button>
       </>}>
-      <div className="form-group"><label>{what === 'block' ? word : 'Level'}</label>
+      <div className="form-group"><label>{what === 'block' ? 'Section' : 'Level'}</label>
         <input value={to} onChange={e => setTo(e.target.value)} maxLength={40} autoFocus /></div>
     </Shell>
   );

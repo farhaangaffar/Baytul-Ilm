@@ -142,8 +142,7 @@ CREATE TABLE IF NOT EXISTS settings (
   school_days         INTEGER[] NOT NULL DEFAULT '{1,2,3,4}', -- days classes meet (0 Sun … 6 Sat)
   fee_auto            BOOLEAN NOT NULL DEFAULT true, -- add fees by themselves (monthly/termly periods; weekly fee weeks)
   fee_auto_since      DATE, -- Monday automatic weekly fees began; earlier weeks are never filled in
-  join_message        TEXT NOT NULL DEFAULT '', -- shown at the top of the online application form (/join/<code>)
-  boarding_block_word TEXT NOT NULL DEFAULT 'Block' -- a Darul Uloom: Wing, Block, Section or Dorm
+  join_message        TEXT NOT NULL DEFAULT '' -- shown at the top of the online application form (/join/<code>)
 );
 
 -- Fee periods removed on purpose (e.g. an August with no classes), for a whole class
@@ -448,7 +447,7 @@ CREATE TABLE IF NOT EXISTS du_exam_comments (
 CREATE TABLE IF NOT EXISTS du_rooms (
   id          BIGSERIAL PRIMARY KEY,
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
-  block       TEXT NOT NULL DEFAULT '',   -- wing / block / section / dorm, as the madrasah writes it
+  block       TEXT NOT NULL DEFAULT '',   -- the section, as the madrasah writes it (Block A, East Wing…)
   level       TEXT NOT NULL DEFAULT '',   -- e.g. Ground, 1, 2
   name        TEXT NOT NULL,              -- the room's number or name
   beds        INTEGER NOT NULL DEFAULT 0,

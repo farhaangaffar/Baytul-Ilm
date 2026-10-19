@@ -1,12 +1,10 @@
 -- Boarding at a Darul Uloom (the Boarding page, server/routes/boarding.js). The API makes these itself
 -- on first use; this file is for manual use. Nothing existing is changed.
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS boarding_duty BOOLEAN NOT NULL DEFAULT false;
--- What the madrasah calls its boarding buildings: Wing, Block, Section or Dorm.
-ALTER TABLE settings ADD COLUMN IF NOT EXISTS boarding_block_word TEXT NOT NULL DEFAULT 'Block';
 CREATE TABLE IF NOT EXISTS du_rooms (
   id          BIGSERIAL PRIMARY KEY,
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
-  block       TEXT NOT NULL DEFAULT '',   -- wing / block / section / dorm, as the madrasah writes it
+  block       TEXT NOT NULL DEFAULT '',   -- the section, as the madrasah writes it (Block A, East Wing…)
   level       TEXT NOT NULL DEFAULT '',   -- e.g. Ground, 1, 2
   name        TEXT NOT NULL,              -- the room's number or name
   beds        INTEGER NOT NULL DEFAULT 0,

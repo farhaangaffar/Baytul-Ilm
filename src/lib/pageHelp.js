@@ -152,8 +152,8 @@ const PARENT = { title: 'How to use this page', steps: [
 // Boarding (a Darul Uloom): the head, and teachers on boarding duty (who can't change rooms or home weekends).
 const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
-  'Rooms: choose what you call your buildings (Wing, Block, Section or Dorm), then "Add rooms": write the block\'s letter or name, the level, and each room\'s number and beds ("Another room" adds the next one).',
-  'Tap a block to see its levels and rooms. Tick boarders under "Not in a room" and choose their room.',
+  'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
+  'Tap a section to see its levels and rooms. Tick boarders under "Not in a room" and choose their room.',
   'Tonight: tap In, Away or Sick for each boarder — "Rest are in" marks everyone left in that room. Anyone signed out shows as Home.',
   'Going home: add your home weekends (parents see them). Tick who is going and Sign out; when they come back, tick them under "Away now" and Signed back in.',
   'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
