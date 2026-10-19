@@ -932,3 +932,15 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .bd-level-head .text-muted { font-weight: 500; font-size: 12px; margin-right: auto; }
 .bd-room-rows { display: grid; grid-template-columns: minmax(0, 1fr) 84px 32px; gap: 6px; align-items: center; }
 .bd-room-rows-head { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+/* Boarding → "Move to a room" (RoomChooser): a line per room, beds as dots. */
+.bd-who { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.bd-who span { background: var(--teal-light); color: var(--teal-dark); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.bd-pick-head { font-weight: 700; font-size: 13px; margin: 14px 0 6px; }
+.bd-pick-head small { font-weight: 500; color: var(--text-muted); font-size: 12px; }
+.line-row.bd-pick { margin-bottom: 6px; }
+.line-row.bd-pick.full { opacity: 0.5; }
+.bd-dots { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; max-width: 120px; }
+.bd-dots i { width: 9px; height: 9px; border-radius: 50%; background: #c9cfd6; display: block; }
+.bd-dots i.free { background: var(--green); }
+.bd-free { font-size: 12px; color: var(--text-muted); min-width: 44px; text-align: right; }
+.line-row.bd-pick.on .bd-free { color: var(--teal-dark); }

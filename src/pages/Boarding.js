@@ -259,6 +259,7 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
   const [openBlock, setOpenBlock] = useState(null);
   const [openId, setOpenId] = useState('');
   const [picked, setPicked] = useState([]);
+  const [chooser, setChooser] = useState(null); // { from, withNone } — the "Move to a room" pop-up
   const unplaced = boarders.filter(b => !b.roomId || !rooms.some(r => r.id === b.roomId));
   const ids = new Set(boarders.map(b => b.id));
   const chosen = picked.filter(id => ids.has(id));
@@ -269,26 +270,16 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
     if (!value || !list.length) return;
     const room = rooms.find(r => r.id === value);
     await onPlace(list, value === 'none' ? null : value, room ? fullRoom(room) : 'no room');
-    setPicked([]);
+    setPicked([]); setChooser(null);
   };
   const moveBar = (from, withNone) => {
     const n = chosen.filter(id => from.some(b => b.id === id)).length;
     return head && (
       <div className="no-class-move">
-        <span>{n ? `${n} selected — move to:` : 'Tick boarders, then move them to:'}</span>
-        {rooms.length ? (
-          <div className="waiting-move">
-            <select value="" disabled={!n} onChange={e => moveTo(e.target.value, from)} aria-label="Move the selected boarders">
-              <option value="">Select room…</option>
-              {floors(rooms).map(f => (
-                <optgroup key={`${f.block}|${f.level}`} label={floorLabel(f) || 'Rooms'}>
-                  {f.rooms.map(r => <option key={r.id} value={r.id}>{roomLabel(r.name)} ({inRoom(r).length}/{r.beds})</option>)}
-                </optgroup>
-              ))}
-              {withNone && <option value="none">Out of this room</option>}
-            </select>
-          </div>
-        ) : <span className="text-muted">Add a room first.</span>}
+        <span>{n ? `${n} selected` : 'Tick boarders, then move them'}</span>
+        {rooms.length
+          ? <button type="button" className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} disabled={!n} onClick={() => setChooser({ from, withNone })}>Move to a room</button>
+          : <span className="text-muted">Add a room first.</span>}
       </div>
     );
   };
@@ -386,7 +377,54 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
             : unplaced.map(b => <div key={b.id} className="no-class-row" style={{ cursor: 'default' }}><span className="no-class-name">{nameOf(b)}</span><span className="bd-tick-sub">{b.class}</span></div>)}
         </div>
       )}
+      {chooser && (
+        <RoomChooser rooms={rooms} inRoom={inRoom} withNone={chooser.withNone}
+          people={boarders.filter(b => chosen.includes(b.id) && chooser.from.some(x => x.id === b.id))}
+          onClose={() => setChooser(null)} onMove={value => moveTo(value, chooser.from)} />
+      )}
     </>
+  );
+}
+
+// "Move to a room": a line per room under its section and level, its beds as dots (green = free), full
+// rooms (or ones without a bed for everyone ticked) faded; tap one, then Move.
+function RoomChooser({ rooms, inRoom, people, withNone, onClose, onMove }) {
+  const [pick, setPick] = useState('');
+  const [busy, wrap] = useBusy();
+  const free = r => Math.max(0, r.beds - inRoom(r).filter(b => !people.some(p => p.id === b.id)).length);
+  const chosenRoom = rooms.find(r => r.id === pick);
+  return (
+    <Shell title={`Move ${people.length} boarder${people.length === 1 ? '' : 's'}`} onClose={onClose} width={480}
+      footer={<>
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy || !pick} onClick={wrap(() => onMove(pick))}>
+          {pick === 'none' ? 'Take out of the room' : chosenRoom ? `Move to ${roomLabel(chosenRoom.name)}` : 'Choose a room'}</button>
+      </>}>
+      <div className="bd-who">{people.map(p => <span key={p.id}>{nameOf(p)}</span>)}</div>
+      {floors(rooms).map(f => (
+        <div key={`${f.block}|${f.level}`}>
+          <div className="bd-pick-head">{f.block || 'Rooms'}{f.level && <small> · {levelLabel(f.level)}</small>}</div>
+          {f.rooms.map(r => {
+            const left = free(r);
+            const fits = left >= people.length;
+            const taken = r.beds - left;
+            return (
+              <button key={r.id} type="button" className={`line-row bd-pick ${pick === r.id ? 'on' : ''} ${fits ? '' : 'full'}`} disabled={!fits}
+                onClick={() => setPick(r.id)}>
+                <span className="line-row-name">{roomLabel(r.name)}{pick === r.id && ' ✓'}</span>
+                {r.beds <= 12 && <span className="bd-dots" aria-hidden="true">{Array.from({ length: r.beds }, (_, i) => <i key={i} className={i >= taken ? 'free' : ''} />)}</span>}
+                <span className="bd-free">{left === 0 ? 'Full' : `${left} free`}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+      {withNone && (
+        <button type="button" className={`line-row bd-pick ${pick === 'none' ? 'on' : ''}`} style={{ marginTop: 12 }} onClick={() => setPick('none')}>
+          <span className="line-row-name">Take out of the room</span>
+        </button>
+      )}
+    </Shell>
   );
 }
 
