@@ -154,13 +154,13 @@ const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
   'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
   'Tap a section to see its levels and rooms. Tick boarders under "Not in a room" and choose their room.',
-  'Tonight: tap In, Away or Sick for each boarder — "Rest are in" marks everyone left in that room. Anyone signed out shows as Home.',
+  'Tonight: tap In, Missing (not here and not signed out) or Sick for each boarder — "Rest are in" marks everyone left in that room. Anyone signed out shows as Home.',
   'Going home: add your home weekends (parents see them). Tick who is going and Sign out; when they come back, tick them under "Away now" and Signed back in.',
   'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
   'Teachers ticked for Boarding duty (Classes & Teachers → a teacher → Edit) get this page too.',
 ] };
 const BOARDING_TEACHER = { title: 'Boarding', steps: [
-  'Tonight: tap In, Away or Sick for each boarder — "Rest are in" marks everyone left in that room. It\'s saved under your name.',
+  'Tonight: tap In, Missing (not here and not signed out) or Sick for each boarder — "Rest are in" marks everyone left in that room. It\'s saved under your name.',
   'Going home: tick who is going and Sign out (who collected them, when they\'re due back). When they come back, tick them under "Away now" and Signed back in.',
   'Health: "Write one down" when a boarder is unwell or given medicine.',
   'Rooms and home weekends are set by the head.',

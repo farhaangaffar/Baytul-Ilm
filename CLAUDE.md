@@ -180,7 +180,7 @@ codebase (one codebase, not a fork).
   **Boarding** (`/boarding`, menu "Boarding", `src/pages/Boarding.js`, `server/routes/boarding.js`; 403 for a maktab): for the
   head and teachers ticked **Boarding duty** (`teachers.boarding_duty`, a Yes/No in the teacher pop-up on Classes & Teachers,
   DU only; the session's `boardingDuty` shows them the menu item). Boarders = Active children whose details say "Boarder". Four
-  tabs (remembered per device): **Tonight** — the night register (`du_night_register`, In / Away / Sick per boarder per night,
+  tabs (remembered per device): **Tonight** — the night register (`du_night_register`, In / Missing / Sick per boarder per night (Missing is stored as 'away'; shown red in the top figures),
   a card per floor (a section's level) with each room's boarders together, "Rest are in" per floor, who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own layout (head only): a **section** — whatever the
   madrasah calls it, typed in full and shown as typed ("Block A", "East Wing", "Dorm 3"; `du_rooms.block`; the owner preferred
   one free box to a choice of words) — a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its

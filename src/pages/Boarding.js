@@ -16,8 +16,8 @@ import {
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, LogOut, LogIn, Pill } from 'lucide-react';
 
 const TABS = [['tonight', 'Tonight'], ['rooms', 'Rooms'], ['home', 'Going home'], ['health', 'Health']];
-const MARKS = [['in', 'In', 'P'], ['away', 'Away', 'A'], ['sick', 'Sick', 'L']]; // status, label, colour (attendance's)
-const STATUS = { in: 'In', away: 'Away — not here', sick: 'Sick' };
+const MARKS = [['in', 'In', 'P'], ['away', 'Missing', 'A'], ['sick', 'Sick', 'L']]; // status, label, colour (attendance's)
+const STATUS = { in: 'In', away: 'Missing', sick: 'Sick' };
 const REASONS = ['Home weekend', 'Appointment', 'Family', 'Other'];
 const shift = (date, n) => { const d = new Date(date + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const nameOf = s => `${s.forename} ${s.surname}`;
@@ -58,6 +58,7 @@ export default function Boarding() {
   const mark = Object.fromEntries(register.map(r => [r.studentId, r]));
   const here = boarders.filter(b => !outOf[b.id]);
   const inTonight = here.filter(b => mark[b.id]?.status === 'in').length;
+  const missing = here.filter(b => mark[b.id]?.status === 'away').length; // stored as 'away'; shown as Missing
   const unwellWeek = new Set(health.filter(h => h.at.slice(0, 10) >= shift(today, -7)).map(h => h.studentId)).size;
   const teacherName = id => teachers.find(t => t.id === id)?.name || '';
 
@@ -66,7 +67,9 @@ export default function Boarding() {
       <div className="boarding-page">
         <BoxRow className="bd-figures" cells={[
           { text: boarders.length, sub: 'Boarders', className: 'ct-figure' },
-          { text: `${inTonight} / ${here.length}`, sub: date === today ? 'In tonight' : 'In that night', className: 'ct-figure' },
+          missing
+            ? { text: `${missing} missing`, sub: `${inTonight} / ${here.length} in`, tone: 'red', onClick: () => setTab('tonight') }
+            : { text: `${inTonight} / ${here.length}`, sub: date === today ? 'In tonight' : 'In that night', className: 'ct-figure' },
           { text: out.length, sub: 'Home now', className: 'ct-figure', onClick: () => setTab('home') },
           { text: unwellWeek, sub: 'Sick this week', className: 'ct-figure', onClick: () => setTab('health') },
         ]} />
@@ -196,7 +199,7 @@ function Tonight({ data, date, outOf, mark, onDate, onMark }) {
           <button type="button" className="btn btn-icon btn-sm" aria-label="Night before" onClick={() => onDate(shift(date, -1))}><ChevronLeft size={16} /></button>
           <div style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ fontWeight: 700 }}>{label}{date === today && <span className="att-today">Tonight</span>}</div>
-            <div className="att-day-status">In, Away or Sick for each boarder</div>
+            <div className="att-day-status">In, Missing or Sick for each boarder</div>
           </div>
           <button type="button" className="btn btn-icon btn-sm" aria-label="Night after" disabled={date >= today} onClick={() => onDate(shift(date, 1))}><ChevronRight size={16} /></button>
         </div>
