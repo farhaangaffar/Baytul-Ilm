@@ -411,19 +411,21 @@ function RoomChooser({ rooms, inRoom, people, withNone, onClose, onMove }) {
             const full = left === 0;
             const taken = r.beds - left;
             return (
-              <button key={r.id} type="button" className={`line-row bd-pick ${pick === r.id ? 'on' : ''} ${full ? 'full' : ''}`} disabled={full}
+              <React.Fragment key={r.id}>
+              <button type="button" className={`line-row bd-pick ${pick === r.id ? 'on' : ''} ${full ? 'full' : ''}`} disabled={full}
                 onClick={() => setPick(r.id)}>
                 <span className="line-row-name">{roomLabel(r.name)}</span>
                 {r.beds <= 12 && <span className="bd-dots" aria-hidden="true">{Array.from({ length: r.beds }, (_, i) => <i key={i} className={i >= taken ? 'free' : ''} />)}</span>}
                 <span className="bd-free">{left === 0 ? 'Full' : `${left} free`}</span>
               </button>
+                {short && pick === r.id && (
+                  <div className="bd-short">Only {left} bed{left === 1 ? '' : 's'} free here — you've ticked {people.length}. Untick some, or choose a room with more space.</div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
       ))}
-      {short && (
-        <div className="bd-short">{roomLabel(chosenRoom.name)} has {free(chosenRoom)} bed{free(chosenRoom) === 1 ? '' : 's'} free — you've ticked {people.length}. Untick some, or choose a room with more space.</div>
-      )}
       {withNone && (
         <button type="button" className={`line-row bd-pick ${pick === 'none' ? 'on' : ''}`} style={{ marginTop: 12 }} onClick={() => setPick('none')}>
           <span className="line-row-name">Take out of the room</span>
