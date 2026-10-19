@@ -505,13 +505,13 @@ CREATE TABLE IF NOT EXISTS du_health_log (
   by_name     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS du_health_log_madrasah ON du_health_log (madrasah_id, at);
-CREATE TABLE IF NOT EXISTS du_weekend_answers (       -- a parent's (or staff) answer for a home weekend
+CREATE TABLE IF NOT EXISTS du_weekend_answers (       -- who's staying for a home weekend (set by staff)
   madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
   weekend_id  BIGINT NOT NULL,
   student_id  TEXT NOT NULL,
   going       BOOLEAN NOT NULL,                       -- coming home (true) or staying
   collector   TEXT NOT NULL DEFAULT '',
-  answered_by TEXT NOT NULL DEFAULT '',               -- 'Parent' or the staff member
+  answered_by TEXT NOT NULL DEFAULT '',               -- the staff member
   answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   waiting     BOOLEAN NOT NULL DEFAULT false,         -- still here after the weekend's sign-out (not collected yet)
   PRIMARY KEY (weekend_id, student_id)

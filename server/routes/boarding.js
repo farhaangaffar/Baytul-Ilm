@@ -10,10 +10,10 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 //   Night register — each boarder In / Away / Sick for a night (du_night_register). A boarder signed out
 //     (going home) shows as Home that night and isn't marked.
 //   Going home — signing a boarder out (who collected them, when they're due back) and back in (du_leaves);
-//     the madrasah's own home weekends (du_home_weekends), which parents see in the portal. Before one, parents
-//     answer in the portal — coming home or staying, and who's collecting (du_weekend_answers); at its leave time
-//     everyone not staying is signed out by itself (applyWeekends(), run when boarding is next opened — no timer),
-//     so staff only handle the exceptions (staying, not collected yet). Marking a boarder In on the night
+//     the madrasah's own home weekends (du_home_weekends), which parents see in the portal. Everyone is assumed to
+//     go home: staff mark only who's staying (du_weekend_answers, going = false); at its leave time everyone not
+//     staying is signed out by itself (applyWeekends(), run when boarding is next opened — no timer), and staff
+//     handle the exceptions (not collected yet). Marking a boarder In on the night
 //     register signs them back in.
 //   Sick & medicine — when a boarder was unwell or given medicine (du_health_log).
 //
@@ -25,7 +25,7 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // POST ?action=place {studentIds[], roomId|null}         (head)  → puts them in a room (or none)
 // POST ?action=register {date, studentIds[], status: 'in'|'away'|'sick'|null} — 'in' tonight also signs them back in
 // POST ?action=out {studentIds[], collectedBy, reason, backDue} → signs them out (going home)
-// POST ?action=answer {weekendId, studentIds[], going, collector?} → staff set coming home / staying for a home weekend
+// POST ?action=answer {weekendId, studentIds[], going} → staff mark staying (going: false) or back to going home
 // POST ?action=not-collected {weekendId, studentId} → still here after the weekend's sign-out (waiting to be collected)
 // POST ?action=collected {weekendId, studentId, collectedBy?} → a waiting boarder has now been collected
 // POST ?action=back {leaveIds[]}                         → signs them back in
@@ -180,34 +180,16 @@ async function forParent(mid, s) {
   if (s.boarding !== 'Boarder') return null;
   await ensure();
   await applyWeekends(mid);
-  const [weekends, leaves, answers] = await Promise.all([
-    query(`SELECT ${WEEKEND_COLS}, ${LEAVE_MOMENT} > now() AS "canAnswer" FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= $2 ORDER BY starts LIMIT 3`, [mid, ukToday()]),
+  const [weekends, leaves] = await Promise.all([
+    query(`SELECT ${WEEKEND_COLS} FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= $2 ORDER BY starts LIMIT 3`, [mid, ukToday()]),
     query(`SELECT ${LEAVE_COLS} FROM du_leaves WHERE madrasah_id = $1 AND student_id = $2 ORDER BY out_at DESC LIMIT 10`, [mid, s.id]),
-    query(`SELECT weekend_id::text AS "weekendId", going, collector FROM du_weekend_answers WHERE madrasah_id = $1 AND student_id = $2`, [mid, s.id]),
   ]);
-  const answerOf = Object.fromEntries(answers.rows.map(a => [a.weekendId, { going: a.going, collector: a.collector }]));
   return {
-    homeWeekends: weekends.rows.map(({ started, ...w }) => ({ ...w, answer: answerOf[w.id] || null })),
+    homeWeekends: weekends.rows.map(({ started, ...w }) => w),
     leaves: leaves.rows.map(({ outBy, backBy, ...l }) => l),
   };
 }
 
-// A parent answers for a home weekend (server/routes/parent.js, POST ?action=weekend): coming home or staying,
-// and who's collecting — until the weekend's leave time.
-async function parentAnswer(mid, s, b) {
-  if (s.boarding !== 'Boarder') return 'Only for boarders.';
-  await ensure();
-  const { rows: [w] } = await query(`SELECT id, ${LEAVE_MOMENT} > now() AS open FROM du_home_weekends WHERE id = $1 AND madrasah_id = $2`, [b.weekendId, mid]);
-  if (!w) return 'Home weekend not found.';
-  if (!w.open) return 'It\'s too late to change this now — please contact the madrasah.';
-  if (typeof b.going !== 'boolean') return 'Coming home or staying?';
-  await query(
-    `INSERT INTO du_weekend_answers (madrasah_id, weekend_id, student_id, going, collector, answered_by) VALUES ($1,$2,$3,$4,$5,'Parent')
-     ON CONFLICT (weekend_id, student_id) DO UPDATE SET going = EXCLUDED.going, collector = EXCLUDED.collector, answered_by = 'Parent',
-       answered_at = now(), waiting = false WHERE du_weekend_answers.madrasah_id = EXCLUDED.madrasah_id`,
-    [mid, w.id, s.id, b.going, b.going ? str(b.collector, 120) : '']);
-  return null;
-}
 
 const handler = requireAuth(async (req, res) => {
   await ensure();
@@ -528,4 +510,3 @@ const handler = requireAuth(async (req, res) => {
 module.exports = handler;
 module.exports.ensure = ensure;
 module.exports.forParent = forParent;
-module.exports.parentAnswer = parentAnswer;

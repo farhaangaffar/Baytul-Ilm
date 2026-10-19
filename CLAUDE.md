@@ -181,31 +181,30 @@ codebase (one codebase, not a fork).
   head and teachers ticked **Boarding duty** (`teachers.boarding_duty`, a Yes/No in the teacher pop-up on Classes & Teachers,
   DU only; the session's `boardingDuty` shows them the menu item). Boarders = Active children whose details say "Boarder". Four
   tabs (remembered per device): **Tonight** — the night register (`du_night_register`, In / Missing / Sick per boarder per night (Missing is stored as 'away'; shown red in the top figures),
-  a card per floor (a section's level) with each room's boarders together, "Rest are in" per floor, who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own layout (head only): a **section** — whatever the
+  a card per floor (a section's level), closed by default (one line: "N of M in · N missing"; tap to open each room's boarders), "Rest are in" per floor, who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own layout (head only): a **section** — whatever the
   madrasah calls it, typed in full and shown as typed ("Block A", "East Wing", "Dorm 3"; `du_rooms.block`; the owner preferred
   one free box to a choice of words) — a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its
   level) and beds, plus the teacher in charge. "Add rooms" adds a level's rooms in one pop-up ("Another room" suggests the next
   number, keeping its zeros: 001 → 002, 101 → 102); sections and levels can be renamed. A short level or room gets its word in front ("1" → Level 1, "12" → Room 12 —
-  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page shows a line per section
-  → its levels → room lines; and who sleeps where (`du_room_places`, one room each, never over the
+  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish): a line per section
+  ("N of M beds") → its levels (small heading, rename pencil) → room lines (room, beds as dots, "3/4" — no teacher name; the
+  teacher in charge is in the opened room's boxes), one "Add rooms" / "Rename" pair per section; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's
   pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
   with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — built for 150–500 boarders (the owner chose
-  "parents tell you first + only the exceptions"): Here · Home now · Overdue boxes; a search to find any boarder → their record
-  (`BoarderSheet`: status boxes, Sign out / Signed back in, staying/coming home, Still here / Collected now, head: "Signed out by
-  mistake"; trips as boxes — `TripBoxes`, also on the Students profile and parent portal — never a long "last month" list);
-  home weekends (`du_home_weekends`, head sets them): before one, parents answer in the portal (`du_weekend_answers`: coming
-  home/staying, who's collecting; until the leave time) and staff see Coming home / Staying / No answer (tap → WhatsApp
-  reminders), "Add someone staying"; at the leave time `applyWeekends()` (run when Boarding or the portal is next opened — no
+  "everyone goes home, mark only who's staying" — no parents' input): Here · Home now · Overdue boxes; a search to find any boarder → their record
+  (`BoarderSheet`: status boxes, Sign out / Signed back in, Staying this weekend / going after all, Still here / Collected now,
+  head: "Signed out by mistake"; trips as boxes — `TripBoxes`, also on the Students profile and parent portal — never a long "last month" list);
+  home weekends (`du_home_weekends`, head sets them): before one, Going home / Staying boxes and "Add someone staying"
+  (`du_weekend_answers`, going = false; `waiting` = not collected yet); at the leave time `applyWeekends()` (run when Boarding or the portal is next opened — no
   timer) signs out everyone not staying (`du_leaves.weekend_id`, `applied_at`); on the weekend: Not collected yet (Collected),
   Not back yet by floor (Back); marking In tonight (or Back on a Home line in Tonight) signs them back in; "Away now" lists the
   rest (one-off trips, overdue first) (`du_leaves`, who signed out/in kept); **Health** — unwell
   or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
-  last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — the next home weekend's
-  question (`POST /api/parent?action=weekend`, `parentAnswer()`), the other home weekends and their own trips; never rooms, night
-  register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
-  has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (the next one
-  mostly answered by parents, a few staying, three no answer — Yusuf Patel among them), one boarder home now, two weeks of nights and health notes
+  last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — the next home weekends' dates
+  and their own trips as boxes; never rooms, night register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
+  has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (two boarders
+  staying for the next one), one boarder home now, two weeks of nights and health notes
   (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,

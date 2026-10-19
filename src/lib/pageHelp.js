@@ -146,7 +146,7 @@ const PARENT = { title: 'How to use this page', steps: [
   'Reports: download a finished report as a PDF.',
   'Report an absence at the bottom to let the teacher know.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
-  'Boarders: "Going home" — for the next home weekend, tap whether your child is coming home and who is collecting. Their trips home are underneath.',
+  'Boarders: "Going home" shows the next home weekends and your child\'s trips home.',
 ] };
 
 // Boarding (a Darul Uloom): the head, and teachers on boarding duty (who can't change rooms or home weekends).
@@ -154,15 +154,15 @@ const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
   'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
   'Tap a section to see its levels and rooms. Tick boarders under "Not in a room" and choose their room.',
-  'Tonight: tap In, Missing (not here and not signed out) or Sick for each boarder — "Rest are in" marks everyone left in that room. Anyone signed out shows as Home.',
-  'Going home: add your home weekends. Parents answer in their portal (coming home or staying, who\'s collecting); "No answer" lets you remind them on WhatsApp.',
-  'At the leave time everyone not staying is signed out by itself — just add anyone staying, and on the day tap a child\'s name → "Still here" if not collected yet.',
+  'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
+  'Going home: add your home weekends (parents see the dates). Everyone goes home — just "Add someone staying".',
+  'At the leave time the rest are signed out by themselves. On the day, tap a child\'s name → "Still here" if not collected yet.',
   'Coming back: tap Back on their "Home" line in Tonight\'s register (or under Not back yet). Find any boarder with the search to sign them out for an appointment, or to see their trips.',
   'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
   'Teachers ticked for Boarding duty (Classes & Teachers → a teacher → Edit) get this page too.',
 ] };
 const BOARDING_TEACHER = { title: 'Boarding', steps: [
-  'Tonight: tap In, Missing (not here and not signed out) or Sick for each boarder — "Rest are in" marks everyone left in that room. It\'s saved under your name.',
+  'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. It\'s saved under your name.',
   'Going home: find a boarder with the search, tap their name → Sign out (who collected them, when they\'re due back) or Signed back in. On a home weekend everyone is signed out by itself; tap Back on their "Home" line in Tonight when they return.',
   'Health: "Write one down" when a boarder is unwell or given medicine.',
   'Rooms and home weekends are set by the head.',

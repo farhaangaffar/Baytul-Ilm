@@ -232,13 +232,10 @@ async function demoBoarding(c, mid, teacherIds, today, r) {
   });
   await bulk(c, 'du_leaves', ['madrasah_id', 'student_id', 'reason', 'collected_by', 'out_at', 'out_by', 'back_due', 'back_at', 'back_by', 'weekend_id'], leaves);
   const home = boarders[boarders.length > 4 ? 4 : 0];
-  // The next home weekend: most parents have answered (a few staying), three haven't yet — the boarder home now
-  // (Yusuf Patel, so the Patel family's portal asks them) among them.
+  // The next home weekend: everyone goes home except two marked as staying.
   const answers = [];
   boarders.forEach((b, i) => {
-    if (b === home || i % 6 === 1) return;
-    const stay = i % 9 === 5;
-    answers.push([mid, weekendIds[1], b.id, !stay, stay ? '' : r.pick(['Father', 'Mother', 'Father', 'Uncle Bilal']), 'Parent']);
+    if (b !== home && (i % 9 === 5 || i % 9 === 7)) answers.push([mid, weekendIds[1], b.id, false, '', 'Head']);
   });
   await bulk(c, 'du_weekend_answers', ['madrasah_id', 'weekend_id', 'student_id', 'going', 'collector', 'answered_by'], answers);
   if (home) {

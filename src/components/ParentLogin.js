@@ -44,7 +44,7 @@ export function parentLoginMessage(code, login, password) {
 }
 
 // A UK mobile as WhatsApp wants it (447…), or '' if it doesn't look like one.
-export function whatsappNumber(phone) {
+function whatsappNumber(phone) {
   const d = digits(phone);
   if (/^07\d{9}$/.test(d)) return '44' + d.slice(1);
   if (/^447\d{9}$/.test(d)) return d;
