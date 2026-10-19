@@ -155,15 +155,14 @@ const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
   'Tap a section to see its levels and rooms. Tick boarders under "Not in a room" and choose their room.',
   'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
-  'Going home: add your home weekends (parents see the dates). Everyone goes home — just "Add someone staying".',
-  'At the leave time the rest are signed out by themselves. On the day, tap a child\'s name → "Still here" if not collected yet.',
-  'Coming back: tap Back on their "Home" line in Tonight\'s register (or under Not back yet). Find any boarder with the search to sign them out for an appointment, or to see their trips.',
+  'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
+  'Home weekends: everyone goes home — tap a weekend to add anyone staying. The rest are signed out by themselves at the leave time.',
   'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
   'Teachers ticked for Boarding duty (Classes & Teachers → a teacher → Edit) get this page too.',
 ] };
 const BOARDING_TEACHER = { title: 'Boarding', steps: [
   'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. It\'s saved under your name.',
-  'Going home: find a boarder with the search, tap their name → Sign out (who collected them, when they\'re due back) or Signed back in. On a home weekend everyone is signed out by itself; tap Back on their "Home" line in Tonight when they return.',
+  'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
   'Health: "Write one down" when a boarder is unwell or given medicine.',
   'Rooms and home weekends are set by the head.',
 ] };

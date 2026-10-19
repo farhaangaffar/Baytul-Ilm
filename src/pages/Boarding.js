@@ -13,7 +13,7 @@ import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floo
 import {
   getBoarding, saveRoom, deleteRoom, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
   saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding,
-  getBoarderRecord, weekendAnswer, notCollected, collectedNow,
+  getBoarderRecord, weekendAnswer,
 } from '../lib/store';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, LogOut, LogIn, Pill, Search } from 'lucide-react';
 
@@ -72,7 +72,7 @@ export default function Boarding() {
           missing
             ? { text: `${missing} missing`, sub: `${inTonight} / ${here.length} in`, tone: 'red', onClick: () => setTab('tonight') }
             : { text: `${inTonight} / ${here.length}`, sub: date === today ? 'In tonight' : 'In that night', className: 'ct-figure' },
-          { text: out.length, sub: 'Home now', className: 'ct-figure', onClick: () => setTab('home') },
+          { text: out.length, sub: 'Not in', className: 'ct-figure', onClick: () => setTab('home') },
           { text: unwellWeek, sub: 'Sick this week', className: 'ct-figure', onClick: () => setTab('health') },
         ]} />
         <div className="pill-tabs bd-tabs">
@@ -99,11 +99,10 @@ export default function Boarding() {
         {boarders.length > 0 && tab === 'home' && (
           <GoingHome data={data} outOf={outOf} head={head}
             onOpen={b => setModal({ kind: 'boarder', boarder: b })}
-            onWeekend={w => setModal({ kind: 'weekend', weekend: w })}
-            onAnswer={(wid, ids, going) => run(() => weekendAnswer(wid, ids, going), going ? 'Coming home' : 'Staying')}
-            onCollected={(wid, id) => run(() => collectedNow(wid, id), 'Collected')}
-            onBack={ids => run(() => signInBoarders(ids), 'Signed back in')}
-            onPickStaying={w => setModal({ kind: 'stay', weekend: w })} />
+            onSign={mode => setModal({ kind: 'sign', mode })}
+            onBack={ids => run(() => signInBoarders(ids), 'Signed in')}
+            onWeekendOpen={w => setModal({ kind: 'weekend-view', id: w.id })}
+            onWeekendAdd={() => setModal({ kind: 'weekend', weekend: { name: 'Home weekend', starts: '', leaveTime: '16:00', ends: '', returnTime: '18:00' } })} />
         )}
         {boarders.length > 0 && tab === 'health' && (
           <Health boarders={boarders} health={health} head={head}
@@ -137,15 +136,25 @@ export default function Boarding() {
       {modal?.kind === 'boarder' && (
         <BoarderSheet boarder={modal.boarder} data={data} outOf={outOf} onClose={() => setModal(null)}
           onSignOut={ids => setModal({ kind: 'out', ids })}
-          onBack={ids => run(() => signInBoarders(ids), 'Signed back in')}
-          onAnswer={(wid, ids, going) => run(() => weekendAnswer(wid, ids, going), going ? 'Coming home' : 'Staying')}
-          onNotCollected={(wid, id) => run(() => notCollected(wid, id), 'Waiting to be collected')}
-          onCollected={(wid, id) => run(() => collectedNow(wid, id), 'Collected')}
+          onBack={ids => run(() => signInBoarders(ids), 'Signed in')}
           onRemove={id => run(() => deleteLeave(id), 'Sign-out removed')} />
       )}
-      {modal?.kind === 'stay' && data.weekend && (
-        <StayPicker weekend={data.weekend} boarders={boarders} onClose={() => setModal(null)}
-          onAdd={b => run(() => weekendAnswer(data.weekend.id, [b.id], false), `${nameOf(b)} staying`)} />
+      {modal?.kind === 'sign' && (
+        <SignPicker mode={modal.mode} data={data} outOf={outOf} onClose={() => setModal(null)}
+          onPick={async b => {
+            if (modal.mode === 'out') { setModal({ kind: 'out', ids: [b.id] }); return; }
+            await run(() => signInBoarders([outOf[b.id].id]), `${nameOf(b)} signed in`);
+          }} />
+      )}
+      {modal?.kind === 'weekend-view' && homeWeekends.find(w => w.id === modal.id) && (
+        <WeekendSheet weekend={homeWeekends.find(w => w.id === modal.id)} data={data} head={head} onClose={() => setModal(null)}
+          onEdit={() => setModal({ kind: 'weekend', weekend: homeWeekends.find(w => w.id === modal.id) })}
+          onAdd={() => setModal({ kind: 'stay', id: modal.id })}
+          onRemove={b => run(() => weekendAnswer(modal.id, [b.id], true), `${nameOf(b)} going home`)} />
+      )}
+      {modal?.kind === 'stay' && homeWeekends.find(w => w.id === modal.id) && (
+        <StayPicker weekend={homeWeekends.find(w => w.id === modal.id)} boarders={boarders} onClose={() => setModal({ kind: 'weekend-view', id: modal.id })}
+          onAdd={b => run(() => weekendAnswer(modal.id, [b.id], false), `${nameOf(b)} staying`)} />
       )}
       {modal?.kind === 'health' && (
         <HealthModal boarders={boarders} onClose={() => setModal(null)}
@@ -461,209 +470,159 @@ function groupByClass(list) {
   return groups;
 }
 
-// ── Going home, built for big boarding houses: a search to find any boarder (their own record and sign out / in
-// is under their name), the home weekend — parents answer first, everyone not staying is signed out by itself at
-// the leave time — everyone is assumed to go home, staff only mark who's staying and handle the exceptions — and
-// who's away now. Coming back: In on the night register.
-function GoingHome({ data, outOf, head, onOpen, onWeekend, onAnswer, onCollected, onBack, onPickStaying }) {
-  const { boarders, rooms, leaves, homeWeekends, today, weekend } = data;
-  const [find, setFind] = useState('');
+// ── Going home, kept plain: Sign out / Sign in (type a name, tap it), Here · Not in · Late back, the list of who's
+// not in (Back on each), and the home weekends — tap one for who's staying (everyone else goes home, signed out by
+// itself at the leave time). Coming back can also be marked In on Tonight's register.
+function GoingHome({ data, outOf, head, onOpen, onSign, onBack, onWeekendOpen, onWeekendAdd }) {
+  const { boarders, rooms, leaves, homeWeekends, today } = data;
   const [openFloor, setOpenFloor] = useState('');
   const byId = Object.fromEntries(boarders.map(b => [b.id, b]));
   const out = leaves.filter(l => byId[l.studentId]);
-  const overdue = out.filter(l => l.backDue && l.backDue < today);
-  const here = boarders.filter(b => !outOf[b.id]);
-  const roomOf = b => rooms.find(r => r.id === b.roomId);
-  const q = find.trim().toLowerCase();
-  const found = q ? boarders.filter(b => nameOf(b).toLowerCase().includes(q)).slice(0, 12) : [];
-  const where = b => (outOf[b.id] ? `Home${outOf[b.id].backDue ? ` · back ${niceDate(outOf[b.id].backDue)}` : ''}` : `Here${roomOf(b) ? ` · ${roomLabel(roomOf(b).name)}` : ''}`);
-
-  // The home weekend: everyone goes home except those marked staying; once it starts, the exceptions and who isn't back.
-  const w = weekend;
-  const ans = Object.fromEntries((w?.answers || []).map(a => [a.studentId, a]));
-  const staying = w ? boarders.filter(b => ans[b.id] && !ans[b.id].going) : [];
-  const waiting = w ? boarders.filter(b => ans[b.id]?.waiting) : [];
-  const weekendOut = out.filter(l => w && l.weekendId === w.id);
-  const otherOut = out.filter(l => !(w && l.weekendId === w.id && !(l.backDue && l.backDue < today)));
-  const notBackFloors = [...floors(rooms).map(f => ({ key: `${f.block}|${f.level}`, label: floorLabel(f) || 'Rooms', rooms: f.rooms })), { key: 'none', label: 'Not in a room', rooms: null }]
-    .map(f => ({ ...f, list: weekendOut.map(l => byId[l.studentId]).filter(b => (f.rooms ? f.rooms.some(r => r.id === b.roomId) : !rooms.some(r => r.id === b.roomId))) }))
+  const late = l => l.backDue && l.backDue < today;
+  const sorted = [...out].sort((a, b) => (late(a) ? 0 : 1) - (late(b) ? 0 : 1) || nameOf(byId[a.studentId]).localeCompare(nameOf(byId[b.studentId])));
+  const line = l => {
+    const b = byId[l.studentId];
+    return (
+      <div key={l.id} className={`line-row ${late(l) ? 'bd-amber' : ''}`} onClick={() => onOpen(b)}>
+        <span className="ct-two">
+          <span className="line-row-name">{nameOf(b)}</span>
+          <span className="line-row-sub">{late(l) ? `Late · due ${niceDate(l.backDue)}` : l.backDue ? `Due ${niceDate(l.backDue)}` : l.reason || 'Out'}</span>
+        </span>
+        <button type="button" className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); onBack([l.id]); }}>Back</button>
+      </div>
+    );
+  };
+  // A long list (a home weekend) goes floor by floor, each floor closed.
+  const floorsOut = [...floors(rooms).map(f => ({ key: `${f.block}|${f.level}`, label: floorLabel(f) || 'Rooms', ids: new Set(f.rooms.map(r => r.id)) })), { key: 'none', label: 'Not in a room', ids: null }]
+    .map(f => ({ ...f, list: sorted.filter(l => (f.ids ? f.ids.has(byId[l.studentId].roomId) : !rooms.some(r => r.id === byId[l.studentId].roomId))) }))
     .filter(f => f.list.length);
-  const when2 = (d, t) => `${niceDate(d)}${t ? ` ${t}` : ''}`;
-
+  const upcoming = homeWeekends.filter(w => w.ends >= today);
   return (
     <>
+      <div className="bd-big">
+        <button type="button" onClick={() => onSign('out')}>Sign out<small>going home</small></button>
+        <button type="button" onClick={() => onSign('in')}>Sign in<small>{out.length} not in</small></button>
+      </div>
       <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={[
-        { text: here.length, sub: 'Here', tone: 'green' },
-        { text: out.length, sub: 'Home now', className: 'ct-figure' },
-        overdue.length ? { text: overdue.length, sub: 'Overdue', tone: 'red' } : { text: 0, sub: 'Overdue', className: 'ct-figure' },
+        { text: boarders.length - out.length, sub: 'Here', tone: 'green' },
+        { text: out.length, sub: 'Not in', className: 'ct-figure' },
+        { text: out.filter(late).length, sub: 'Late back', ...(out.some(late) ? { tone: 'red' } : { className: 'ct-figure' }) },
       ]} />
-      <div className="bd-search">
-        <Search size={15} />
-        <input value={find} onChange={e => setFind(e.target.value)} placeholder="Find a boarder to sign out or in…" aria-label="Find a boarder" />
-        {find && <button type="button" className="btn btn-icon btn-sm" aria-label="Clear" onClick={() => setFind('')}><X size={14} /></button>}
-      </div>
-      {q && (
-        <div className="card" style={{ marginBottom: 14 }}>
+
+      {out.length > 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="card-title" style={{ marginBottom: 10 }}>Not in</div>
           <div className="course-lines">
-            {found.map(b => (
-              <button key={b.id} type="button" className="line-row" onClick={() => onOpen(b)}>
-                <span className="ct-two"><span className="line-row-name">{nameOf(b)}</span><span className="line-row-sub">{b.class} · {where(b)}</span></span>
-              </button>
+            {out.length <= 12 ? sorted.map(line) : floorsOut.map(f => (
+              <React.Fragment key={f.key}>
+                <button type="button" className={`line-row ${openFloor === f.key ? 'on' : ''}`} onClick={() => setOpenFloor(openFloor === f.key ? '' : f.key)}>
+                  <span className="line-row-name">{f.label}</span><span className="line-row-sub">{f.list.length}{f.list.some(late) ? ` · ${f.list.filter(late).length} late` : ''}</span>
+                  {openFloor === f.key ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                {openFloor === f.key && <div className="course-open">{f.list.map(line)}</div>}
+              </React.Fragment>
             ))}
-            {!found.length && <div className="text-muted" style={{ fontSize: 13 }}>No boarder called “{find}”.</div>}
           </div>
         </div>
       )}
 
-      {w && !w.started && (
-        <div className="card bd-weekend">
-          <div className="card-title" style={{ marginBottom: 2 }}>{w.name} · {niceDate(w.starts)}</div>
-          <div className="card-sub" style={{ marginBottom: 12 }}>Home from {when2(w.starts, w.leaveTime)} · back by {when2(w.ends, w.returnTime)}</div>
-          <BoxRow columns="repeat(2, minmax(0, 1fr))" cells={[
-            { text: boarders.length - staying.length, sub: 'Going home', tone: 'green' },
-            { text: staying.length, sub: 'Staying', label: true },
-          ]} />
-          <div className="card-sub" style={{ margin: '8px 0 12px' }}>Everyone goes home — just add anyone staying. At {w.leaveTime || '16:00'} on {niceDate(w.starts)} the rest are signed out by themselves.</div>
-          <div className="bd-pick-head" style={{ marginTop: 0 }}>Staying ({staying.length})</div>
-          <div className="course-lines">
-            {staying.map(b => (
-              <div key={b.id} className="line-row" style={{ cursor: 'default' }}>
-                <span className="ct-two"><span className="line-row-name">{nameOf(b)}</span><span className="line-row-sub">{roomOf(b) ? roomLabel(roomOf(b).name) : b.class}</span></span>
-                <button type="button" className="btn btn-sm" onClick={() => onAnswer(w.id, [b.id], true)}>Going home</button>
-              </div>
-            ))}
-            <button type="button" className="line-row add" onClick={() => onPickStaying(w)}><Plus size={13} /> Add someone staying</button>
-          </div>
-        </div>
-      )}
-
-      {w && w.started && (
-        <div className="card bd-weekend">
-          <div className="card-title" style={{ marginBottom: 2 }}>{w.name} — on now</div>
-          <div className="card-sub" style={{ marginBottom: 12 }}>Back by {when2(w.ends, w.returnTime)} · marking them In on the night register signs them back in</div>
-          <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={[
-            { text: weekendOut.length, sub: 'Not back yet', label: true },
-            { text: (w.backIds || []).length, sub: 'Back', tone: (w.backIds || []).length ? 'green' : undefined },
-            { text: staying.length, sub: 'Stayed', label: true },
-          ]} />
-          {waiting.length > 0 && <>
-            <div className="bd-pick-head">Not collected yet ({waiting.length})</div>
-            <div className="course-lines">
-              {waiting.map(b => (
-                <div key={b.id} className="line-row bd-amber" style={{ cursor: 'default' }}>
-                  <span className="ct-two"><span className="line-row-name">{nameOf(b)}</span><span className="line-row-sub">{roomOf(b) ? roomLabel(roomOf(b).name) : b.class}</span></span>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onCollected(w.id, b.id)}>Collected</button>
-                </div>
-              ))}
-            </div>
-          </>}
-          {notBackFloors.length > 0 && <>
-            <div className="bd-pick-head">Not back yet</div>
-            <div className="course-lines">
-              {notBackFloors.map(f => (
-                <React.Fragment key={f.key}>
-                  <button type="button" className={`line-row ${openFloor === f.key ? 'on' : ''}`} onClick={() => setOpenFloor(openFloor === f.key ? '' : f.key)}>
-                    <span className="line-row-name">{f.label}</span><span className="line-row-sub">{f.list.length} not back</span>
-                    {openFloor === f.key ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </button>
-                  {openFloor === f.key && (
-                    <div className="course-open">
-                      {f.list.map(b => (
-                        <div key={b.id} className="line-row" style={{ cursor: 'default' }}>
-                          <span className="ct-two"><span className="line-row-name">{nameOf(b)}</span><span className="line-row-sub">{roomOf(b) ? roomLabel(roomOf(b).name) : b.class}{outOf[b.id]?.collectedBy ? ` · with ${outOf[b.id].collectedBy}` : ''}</span></span>
-                          <button type="button" className="btn btn-primary btn-sm" onClick={() => onBack([outOf[b.id].id])}>Back</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          </>}
-        </div>
-      )}
-
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="card-title">Away now ({otherOut.length})</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>{otherOut.length ? 'Overdue first · tap a name for their record' : w?.started ? 'No one else is away.' : 'Every boarder is here.'}</div>
+      <div className="card" style={{ marginTop: 12 }}>
+        <div className="card-title" style={{ marginBottom: 10 }}>Home weekends</div>
         <div className="course-lines">
-          {[...otherOut].sort((a, b) => (a.backDue && a.backDue < today ? 0 : 1) - (b.backDue && b.backDue < today ? 0 : 1)).map(l => {
-            const late = l.backDue && l.backDue < today;
-            const b = byId[l.studentId];
-            return (
-              <div key={l.id} className={`line-row ${late ? 'bd-amber' : ''}`} onClick={() => onOpen(b)}>
-                <span className="ct-two">
-                  <span className="line-row-name">{nameOf(b)}{late && <span className="applied-tag check">Overdue</span>}</span>
-                  <span className="line-row-sub">{l.reason || 'Out'}{l.collectedBy ? ` · ${l.collectedBy}` : ''}{l.backDue ? ` · back ${niceDate(l.backDue)}` : ''}</span>
-                </span>
-                <button type="button" className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); onBack([l.id]); }}>Back</button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="card-title" style={{ marginBottom: 2 }}>Home weekends</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>Parents see these in the parent portal</div>
-        <div className="course-lines">
-          {homeWeekends.filter(x => x.ends >= today).map((x, i) => (
-            <button key={x.id} type="button" className="line-row" disabled={!head} onClick={() => onWeekend(x)}>
+          {upcoming.map(w => (
+            <button key={w.id} type="button" className="line-row" onClick={() => onWeekendOpen(w)}>
               <span className="ct-two">
-                <span className="line-row-name">{x.name}{i === 0 && <span className="att-today">Next</span>}</span>
-                <span className="line-row-sub">{when2(x.starts, x.leaveTime)} → {when2(x.ends, x.returnTime)}</span>
+                <span className="line-row-name">{niceDate(w.starts)} – {niceDate(w.ends)}</span>
+                <span className="line-row-sub">{w.staying.length ? `${w.staying.length} staying` : w.name}</span>
               </span>
-              {head && <Pencil size={13} />}
+              <ChevronRight size={16} />
             </button>
           ))}
-          {!homeWeekends.some(x => x.ends >= today) && <div className="text-muted" style={{ fontSize: 13 }}>None coming up.</div>}
-          {head && <button type="button" className="line-row add" onClick={() => onWeekend({ name: 'Home weekend', starts: '', leaveTime: '16:00', ends: '', returnTime: '18:00' })}><Plus size={14} /> Add a home weekend</button>}
+          {!upcoming.length && <div className="text-muted" style={{ fontSize: 13 }}>None coming up.</div>}
+          {head && <button type="button" className="line-row add" onClick={onWeekendAdd}><Plus size={14} /> Add a home weekend</button>}
         </div>
       </div>
     </>
   );
 }
 
+// Sign out / Sign in: type a name, tap it. Signing in is done straight away; signing out asks who collected them.
+function SignPicker({ mode, data, outOf, onClose, onPick }) {
+  const [find, setFind] = useState('');
+  const [busy, wrap] = useBusy();
+  const q = find.trim().toLowerCase();
+  const pool = data.boarders.filter(b => (mode === 'in' ? outOf[b.id] : !outOf[b.id]));
+  const list = pool.filter(b => !q || nameOf(b).toLowerCase().includes(q)).slice(0, 40);
+  return (
+    <Shell title={mode === 'in' ? 'Sign in' : 'Sign out'} onClose={onClose} footer={<button className="btn" onClick={onClose}>Close</button>}>
+      <div className="bd-search" style={{ margin: '0 0 10px' }}><Search size={15} /><input value={find} onChange={e => setFind(e.target.value)} placeholder="Type a name…" autoFocus /></div>
+      <div className="course-lines">
+        {list.map(b => (
+          <button key={b.id} type="button" className="line-row" disabled={busy} onClick={wrap(async () => { await onPick(b); setFind(''); })}>
+            <span className="ct-two"><span className="line-row-name">{nameOf(b)}</span><span className="line-row-sub">{b.class}</span></span>
+          </button>
+        ))}
+        {!list.length && <div className="text-muted" style={{ fontSize: 13 }}>{pool.length ? 'No one by that name.' : mode === 'in' ? 'Everyone is in.' : 'Everyone is out.'}</div>}
+      </div>
+    </Shell>
+  );
+}
+
+// A home weekend: going home / staying, who's staying (✕ to take them off), add someone staying.
+function WeekendSheet({ weekend, data, head, onClose, onEdit, onAdd, onRemove }) {
+  const byId = Object.fromEntries(data.boarders.map(b => [b.id, b]));
+  const staying = weekend.staying.map(id => byId[id]).filter(Boolean);
+  return (
+    <Shell title={`${niceDate(weekend.starts)} – ${niceDate(weekend.ends)}`} onClose={onClose}
+      footer={<>
+        {head && <button className="btn" style={{ marginRight: 'auto' }} onClick={onEdit}><Pencil size={13} />Edit</button>}
+        <button className="btn btn-primary" onClick={onClose}>Done</button>
+      </>}>
+      <div className="card-sub" style={{ marginBottom: 10 }}>{weekend.name} · home from {weekend.leaveTime || '16:00'} · back by {weekend.returnTime || '18:00'}</div>
+      <BoxRow columns="repeat(2, minmax(0, 1fr))" cells={[
+        { text: data.boarders.length - staying.length, sub: 'Going home', tone: 'green' },
+        { text: staying.length, sub: 'Staying', label: true },
+      ]} />
+      <div className="bd-pick-head">Staying</div>
+      <div className="course-lines">
+        {staying.map(b => (
+          <div key={b.id} className="line-row" style={{ cursor: 'default' }}>
+            <span className="line-row-name">{nameOf(b)}</span>
+            <button type="button" className="btn btn-icon btn-sm" aria-label={`${nameOf(b)} is going home`} onClick={() => onRemove(b)}><X size={14} /></button>
+          </div>
+        ))}
+        <button type="button" className="line-row add" onClick={onAdd}><Plus size={13} /> Add someone staying</button>
+      </div>
+    </Shell>
+  );
+}
+
 // A boarder's own record (tap their name on Going home): where they are, one button to sign out or back in,
 // their home-weekend answer, and their comings and goings — everything in boxes.
-function BoarderSheet({ boarder, data, outOf, onClose, onSignOut, onBack, onAnswer, onNotCollected, onCollected, onRemove }) {
+function BoarderSheet({ boarder, data, outOf, onClose, onSignOut, onBack, onRemove }) {
   const [rec, setRec] = useState(null);
   const [busy, wrap] = useBusy();
   const leave = outOf[boarder.id];
-  const w = data.weekend;
-  const a = (w?.answers || []).find(x => x.studentId === boarder.id);
   const room = data.rooms.find(r => r.id === boarder.roomId);
-  useEffect(() => { getBoarderRecord(boarder.id).then(setRec).catch(() => setRec({ leaves: [] })); }, [boarder.id, leave?.id, a?.going, a?.waiting]);
-  const act = fn => wrap(async () => { await fn(); });
+  useEffect(() => { getBoarderRecord(boarder.id).then(setRec).catch(() => setRec({ leaves: [] })); }, [boarder.id, leave?.id]);
   return (
-    <Shell title={nameOf(boarder)} onClose={onClose} width={480}
-      footer={<button className="btn" onClick={onClose}>Close</button>}>
-      <div className="card-sub" style={{ marginBottom: 10 }}>{boarder.class}{room ? ` · ${fullRoom(room)}` : ' · not in a room'}</div>
-      <BoxRow columns={leave ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))'} cells={leave ? [
-        { text: 'Home now', sub: `since ${niceDate(leave.outAt.slice(0, 10))}`, tone: 'amber' },
+    <Shell title={nameOf(boarder)} onClose={onClose} width={480} footer={<button className="btn" onClick={onClose}>Close</button>}>
+      <div className="card-sub" style={{ marginBottom: 10 }}>{boarder.class}{room ? ` · ${fullRoom(room)}` : ''}</div>
+      <BoxRow columns={leave ? 'repeat(3, minmax(0, 1fr))' : '1fr'} cells={leave ? [
+        { text: 'Not in', sub: `since ${niceDate(leave.outAt.slice(0, 10))}`, tone: 'amber' },
         { text: leave.collectedBy || '—', sub: 'Collected by', label: true },
         { text: leave.backDue ? niceDate(leave.backDue) : '—', sub: 'Due back', label: true, tone: leave.backDue && leave.backDue < data.today ? 'red' : undefined },
-      ] : [
-        { text: 'Here', sub: room ? roomLabel(room.name) : 'In the madrasah', tone: 'green' },
-        { text: w ? (a && !a.going ? 'Staying' : 'Going home') : '—', sub: w ? `${w.name} · ${niceDate(w.starts)}` : 'No home weekend set', label: true, wrap: 'words' },
-      ]} />
+      ] : [{ text: 'Here', sub: room ? roomLabel(room.name) : '', tone: 'green' }]} />
       <div className="bd-sheet-actions">
         {leave
-          ? <button className="btn btn-primary" disabled={busy} onClick={act(() => onBack([leave.id]))}><LogIn size={14} />Signed back in</button>
+          ? <button className="btn btn-primary" disabled={busy} onClick={wrap(() => onBack([leave.id]))}><LogIn size={14} />Sign in</button>
           : <button className="btn btn-primary" disabled={busy} onClick={() => onSignOut([boarder.id])}><LogOut size={14} />Sign out</button>}
-        {w && !w.started && !leave && (a?.going === false
-          ? <button className="btn" disabled={busy} onClick={act(() => onAnswer(w.id, [boarder.id], true))}>Going home this weekend after all</button>
-          : <button className="btn" disabled={busy} onClick={act(() => onAnswer(w.id, [boarder.id], false))}>Staying this weekend</button>)}
-        {w && w.started && leave && leave.weekendId === w.id && (
-          <button className="btn" disabled={busy} onClick={act(() => onNotCollected(w.id, boarder.id))}>Still here — not collected yet</button>)}
-        {w && w.started && a?.waiting && (
-          <button className="btn" disabled={busy} onClick={act(() => onCollected(w.id, boarder.id))}>Collected now</button>)}
         {leave && data.head && (
-          <button className="btn" style={{ color: 'var(--red-text)' }} disabled={busy} onClick={act(() => onRemove(leave.id))}><Trash2 size={13} />Signed out by mistake</button>)}
+          <button className="btn" style={{ color: 'var(--red-text)' }} disabled={busy} onClick={wrap(() => onRemove(leave.id))}><Trash2 size={13} />Signed out by mistake</button>)}
       </div>
-      <div className="bd-pick-head">Comings and goings</div>
+      <div className="bd-pick-head">Trips home</div>
       {!rec && <div className="text-muted" style={{ fontSize: 13 }}>Loading…</div>}
-      {rec && !rec.leaves.length && <div className="text-muted" style={{ fontSize: 13 }}>Not been home yet.</div>}
+      {rec && !rec.leaves.length && <div className="text-muted" style={{ fontSize: 13 }}>None yet.</div>}
       {rec && rec.leaves.map(t => <TripBoxes key={t.id} trip={t} />)}
     </Shell>
   );
@@ -673,9 +632,8 @@ function BoarderSheet({ boarder, data, outOf, onClose, onSignOut, onBack, onAnsw
 function StayPicker({ weekend, boarders, onClose, onAdd }) {
   const [find, setFind] = useState('');
   const [busy, wrap] = useBusy();
-  const ans = Object.fromEntries((weekend.answers || []).map(a => [a.studentId, a]));
   const q = find.trim().toLowerCase();
-  const list = boarders.filter(b => !(ans[b.id] && !ans[b.id].going) && (!q || nameOf(b).toLowerCase().includes(q))).slice(0, 30);
+  const list = boarders.filter(b => !weekend.staying.includes(b.id) && (!q || nameOf(b).toLowerCase().includes(q))).slice(0, 30);
   return (
     <Shell title={`Staying · ${weekend.name}`} onClose={onClose} footer={<button className="btn" onClick={onClose}>Done</button>}>
       <div className="bd-search" style={{ marginBottom: 10 }}><Search size={15} /><input value={find} onChange={e => setFind(e.target.value)} placeholder="Find a boarder…" autoFocus /></div>

@@ -191,15 +191,16 @@ codebase (one codebase, not a fork).
   teacher in charge is in the opened room's boxes), one "Add rooms" / "Rename" pair per section; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's
   pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
-  with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — built for 150–500 boarders (the owner chose
-  "everyone goes home, mark only who's staying" — no parents' input): Here · Home now · Overdue boxes; a search to find any boarder → their record
-  (`BoarderSheet`: status boxes, Sign out / Signed back in, Staying this weekend / going after all, Still here / Collected now,
-  head: "Signed out by mistake"; trips as boxes — `TripBoxes`, also on the Students profile and parent portal — never a long "last month" list);
-  home weekends (`du_home_weekends`, head sets them): before one, Going home / Staying boxes and "Add someone staying"
-  (`du_weekend_answers`, going = false; `waiting` = not collected yet); at the leave time `applyWeekends()` (run when Boarding or the portal is next opened — no
-  timer) signs out everyone not staying (`du_leaves.weekend_id`, `applied_at`); on the weekend: Not collected yet (Collected),
-  Not back yet by floor (Back); marking In tonight (or Back on a Home line in Tonight) signs them back in; "Away now" lists the
-  rest (one-off trips, overdue first) (`du_leaves`, who signed out/in kept); **Health** — unwell
+  with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — kept plain (the owner found earlier versions too wordy and confusing; everyone goes home,
+  no parents' input): two light buttons **Sign out** ("going home") / **Sign in** ("N not in") → `SignPicker` (type a name, tap
+  it; signing in is instant and the picker stays open for the next; signing out asks why / collected by / due back); boxes
+  Here · Not in · Late back; a **Not in** card (a line each with Back, late first, amber; over 12 → floor lines, closed); **Home
+  weekends** lines (dates, "N staying") → `WeekendSheet` (Going home / Staying boxes, staying list with ✕, "Add someone staying",
+  head: Edit) (`du_home_weekends`; staying = `du_weekend_answers.going = false`); at the leave time `applyWeekends()` (run when
+  Boarding or the portal is next opened — no timer) signs out everyone not staying (`du_leaves.weekend_id`, `applied_at`);
+  marking In tonight (or Back on a Home line in Tonight) signs them back in. Tap a name in Not in → `BoarderSheet` (status
+  boxes, Sign in / Sign out, head: "Signed out by mistake", trips as boxes — `TripBoxes`, also on the Students profile and parent
+  portal) (`du_leaves`, who signed out/in kept); **Health** — unwell
   or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
   last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — the next home weekends' dates
   and their own trips as boxes; never rooms, night register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo

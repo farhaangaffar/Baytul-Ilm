@@ -691,5 +691,3 @@ export const deleteHealthNote = id => boardingDelete('health', id);
 export const addRooms = (block, level, teacherId, rooms) => boardingPost('rooms', { block, level, teacherId, rooms });
 export const renameBoarding = (what, block, level, to) => boardingPost('rename', { what, block, level, to });
 export const weekendAnswer = (weekendId, studentIds, going) => boardingPost('answer', { weekendId, studentIds, going });
-export const notCollected = (weekendId, studentId) => boardingPost('not-collected', { weekendId, studentId });
-export const collectedNow = (weekendId, studentId, collectedBy) => boardingPost('collected', { weekendId, studentId, collectedBy });

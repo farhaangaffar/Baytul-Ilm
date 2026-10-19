@@ -959,3 +959,8 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .bd-missing { color: var(--red-text); }
 .line-row.bd-room-line { padding: 9px 14px; }
 .line-row.bd-room-line .bd-free { min-width: 36px; }
+/* Boarding → Going home: Sign out / Sign in, two light buttons. */
+.bd-big { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 10px; }
+.bd-big button { background: #fff; border: 1px solid #dfe3e8; border-radius: 14px; padding: 16px 8px; font-family: var(--font); font-size: 15px; font-weight: 700; color: var(--ink); cursor: pointer; box-shadow: var(--shadow-sm); }
+.bd-big button:hover { border-color: var(--teal-mid); }
+.bd-big button small { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-top: 3px; }
