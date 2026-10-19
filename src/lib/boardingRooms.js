@@ -32,3 +32,10 @@ export function nextRoomName(name) {
   const m = /^(.*?)(\d+)$/.exec(String(name || '').trim());
   return m ? `${m[1]}${String(Number(m[2]) + 1).padStart(m[2].length, '0')}` : '';
 }
+
+// Room numbers for a new level's rooms: level 2 → 201, 202…; ground → 001, 002…; otherwise 1, 2, 3.
+export function newLevelRooms(level, count) {
+  const lv = String(level || '').trim();
+  const n = /^\d+$/.test(lv) ? lv : /^g(round)?\b/i.test(lv) ? '0' : '';
+  return Array.from({ length: count }, (_, i) => (n ? `${n}${String(i + 1).padStart(2, '0')}` : String(i + 1)));
+}

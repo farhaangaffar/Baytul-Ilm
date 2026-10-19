@@ -9,7 +9,7 @@ import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes, HealthDot, GrowingText } from '../components/StudentDetails';
 import PickField from '../components/PickField';
 import { TripBoxes } from '../components/BoarderRecord';
-import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName } from '../lib/boardingRooms';
+import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName, newLevelRooms } from '../lib/boardingRooms';
 import {
   getBoarding, saveRoom, deleteRoom, deleteRoomGroup, saveLevel, saveSection, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
   saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding,
@@ -398,7 +398,6 @@ function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAd
             </React.Fragment>
           );
         })}
-        {head && <button type="button" className="line-row add" onClick={() => onAdd({ block: section.block, level: '' })}><Plus size={13} /> Add a level</button>}
       </div>
     </Shell>
   );
@@ -934,10 +933,18 @@ function SectionModal({ block, rooms, boarders, onClose, onSave, onDelete }) {
   const lay = layout(mine)[0];
   const inRooms = list => boarders.filter(b => list.some(r => r.id === b.roomId)).length;
   const [to, setTo] = useState(block || '');
-  const [levels, setLevels] = useState(() => (lay ? lay.levels : []).map(l => ({ from: l.level || '', to: l.level || '', rooms: l.rooms })));
+  const [levels, setLevels] = useState(() => (lay ? lay.levels : []).map(l => ({ key: `l${l.level}`, from: l.level || '', to: l.level || '', rooms: l.rooms })));
+  const setLevel = (i, k, v) => setLevels(ls => ls.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  const addLevel = () => setLevels(ls => {
+    const last = [...ls].reverse().find(x => /^\d+$/.test(x.to.trim()));
+    return [...ls, { key: `new${Date.now()}`, isNew: true, to: last ? String(Number(last.to) + 1) : '', count: 4 }];
+  });
+  const payload = () => levels.map(l => (l.isNew
+    ? { to: l.to.trim(), rooms: newLevelRooms(l.to, Math.max(1, Math.min(100, parseInt(l.count, 10) || 1))) }
+    : { from: l.from, to: l.to.trim() }));
   const [sure, setSure] = useState(false);
   const [busy, wrap] = useBusy();
-  const goneRooms = (lay ? lay.levels : []).filter(l => !levels.some(x => x.from === (l.level || ''))).flatMap(l => l.rooms);
+  const goneRooms = (lay ? lay.levels : []).filter(l => !levels.some(x => !x.isNew && x.from === (l.level || ''))).flatMap(l => l.rooms);
   const out = inRooms(goneRooms);
   const people = inRooms(mine);
   return (
@@ -948,7 +955,7 @@ function SectionModal({ block, rooms, boarders, onClose, onSave, onDelete }) {
           : <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} onClick={() => setSure(true)}><Trash2 size={13} />Remove section</button>}
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" disabled={busy || !levels.length}
-          onClick={wrap(() => onSave(to.trim(), levels.map(l => ({ from: l.from, to: l.to.trim() }))))}><Save size={13} />Save</button>
+          onClick={wrap(() => onSave(to.trim(), payload()))}><Save size={13} />Save</button>
       </>}>
       {sure && (
         <div className="bd-short" style={{ marginBottom: 12 }}>
@@ -964,17 +971,25 @@ function SectionModal({ block, rooms, boarders, onClose, onSave, onDelete }) {
           <div className="bd-room-rows">
             <span className="bd-room-rows-head">Level name</span><span className="bd-room-rows-head">Rooms</span><span />
             {levels.map((l, i) => (
-              <React.Fragment key={l.from || 'none'}>
-                <input value={l.to} onChange={e => setLevels(ls => ls.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)))} maxLength={40}
-                  placeholder="e.g. Ground, 1" aria-label={`Level ${i + 1}`} />
-                <span className="bd-level-count">{l.rooms.length}</span>
+              <React.Fragment key={l.key}>
+                <input value={l.to} onChange={e => setLevel(i, 'to', e.target.value)} maxLength={40}
+                  placeholder="e.g. Ground, 1" aria-label={`Level ${i + 1}`} autoFocus={l.isNew} />
+                {l.isNew
+                  ? <input type="number" min={1} max={100} value={l.count} onChange={e => setLevel(i, 'count', e.target.value)} aria-label={`Rooms on level ${i + 1}`} />
+                  : <span className="bd-level-count">{l.rooms.length}</span>}
                 <button type="button" className="btn btn-icon btn-sm" aria-label="Remove this level" onClick={() => setLevels(ls => ls.filter((_, j) => j !== i))}><X size={14} /></button>
               </React.Fragment>
             ))}
           </div>
           {out > 0 && <div className="bd-short" style={{ marginTop: 8 }}>{out} boarder{out === 1 ? '' : 's'} on the levels you took off will go to "Not in a room".</div>}
           {goneRooms.length > 0 && !out && <div className="bd-short" style={{ marginTop: 8 }}>{goneRooms.length} room{goneRooms.length === 1 ? '' : 's'} will be removed.</div>}
-          <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>A level's rooms and beds: open the level → Edit level.</div>
+          <button type="button" className="line-row add" style={{ marginTop: 8 }} onClick={addLevel}><Plus size={13} /> Another level</button>
+          {levels.some(l => l.isNew) && (
+            <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+              New levels' rooms: {levels.filter(l => l.isNew).map(l => newLevelRooms(l.to, Math.max(1, Math.min(100, parseInt(l.count, 10) || 1)))).map(r => r.length > 3 ? `${r[0]}–${r[r.length - 1]}` : r.join(', ')).join(' · ')}, 4 beds each.
+            </div>
+          )}
+          <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>A level's room numbers and beds: open the level → Edit level.</div>
         </div>
       </div>
     </Shell>

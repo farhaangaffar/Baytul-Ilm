@@ -189,8 +189,9 @@ codebase (one codebase, not a fork).
   `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish — lists, not blocks): one line per section
   ("N levels · N rooms", "used / beds") → a pop-up (`SectionSheet`: Rooms · Boarders · Free beds boxes, its levels as closed
   lines, a level opens to room lines — beds as dots, "3/4", no teacher name — plus Edit level (`LevelModal`, `?action=level`:
-  its name and every room's number/beds in one list, ✕ / "Another room", teacher in charge — no separate Add rooms there), Add a
-  level, Edit section (`SectionModal`, `?action=section`: its name and each level's name in one list, ✕ removes a level); a section or level can be removed with all its rooms — `?action=group`, their boarders go to
+  its name and every room's number/beds in one list, ✕ / "Another room", teacher in charge — no separate Add rooms there), Edit
+  section (`SectionModal`, `?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"
+  adds one — a number of rooms, numbered by `newLevelRooms()` (level 2 → 201…, ground → 001…), 4 beds each); a section or level can be removed with all its rooms — `?action=group`, their boarders go to
   "Not in a room") → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
   room" with a name search, Edit room); an amber "N boarders not in a room" line opens `PlaceSheet`; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's

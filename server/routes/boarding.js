@@ -29,7 +29,8 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // POST ?action=back {leaveIds[]}                         → signs them back in
 // POST ?action=level {block, level, to, rooms:[{id?, name, beds}], teacherId?} (head) → a level's rooms edited in one go
 //   (rooms left out are removed — their boarders are then not in a room; teacherId absent = leave each room's as it is)
-// POST ?action=section {block, to, levels:[{from, to}]} (head) → rename a section and its levels in one go
+// POST ?action=section {block, to, levels:[{from, to} | {to, rooms:[names]}]} (head) → rename a section and its levels in one go,
+//   or add a level (new rooms, 4 beds each)
 //   (levels left out are removed with their rooms — their boarders are then not in a room)
 // DELETE ?action=group&what=block|level&block=&level=     (head)  → a whole section or level: its rooms go, their boarders are not in a room
 // DELETE ?action=leave&id=                               (head)  → a sign-out made by mistake
@@ -267,9 +268,14 @@ const handler = requireAuth(async (req, res) => {
     if (headOnly()) return;
     const b = req.body || {};
     const block = str(b.block, 40), to = str(b.to, 40);
-    const levels = (Array.isArray(b.levels) ? b.levels : []).map(l => ({ from: str(l.from, 40), to: str(l.to, 40) }));
-    if (!levels.length) { res.status(400).json({ error: 'Keep at least one level — or remove the section.' }); return; }
-    const tos = levels.map(l => l.to.toLowerCase());
+    const all = (Array.isArray(b.levels) ? b.levels : []).map(l => ({
+      isNew: Array.isArray(l.rooms), from: str(l.from, 40), to: str(l.to, 40),
+      rooms: (Array.isArray(l.rooms) ? l.rooms : []).map(r => str(r, 40)).filter(Boolean).slice(0, 100),
+    }));
+    const levels = all.filter(l => !l.isNew), added = all.filter(l => l.isNew);
+    if (added.some(l => !l.rooms.length)) { res.status(400).json({ error: 'A new level needs at least one room.' }); return; }
+    if (!all.length) { res.status(400).json({ error: 'Keep at least one level — or remove the section.' }); return; }
+    const tos = all.map(l => l.to.toLowerCase());
     if (new Set(tos).size !== tos.length) { res.status(400).json({ error: 'Two levels have the same name.' }); return; }
     const { rows: had } = await query('SELECT DISTINCT level FROM du_rooms WHERE madrasah_id = $1 AND block = $2', [mid, block]);
     if (levels.some(l => !had.some(h => h.level === l.from))) { res.status(404).json({ error: 'Level not found.' }); return; }
@@ -291,6 +297,12 @@ const handler = requireAuth(async (req, res) => {
       // One statement, so swapping two levels' names works.
       await c.query(`UPDATE du_rooms r SET level = m.t, block = $3 FROM unnest($4::text[], $5::text[]) AS m(f, t)
                      WHERE r.madrasah_id = $1 AND r.block = $2 AND r.level = m.f`, [mid, block, to, levels.map(l => l.from), levels.map(l => l.to)]);
+      for (const l of added) {
+        for (const name of l.rooms) {
+          await c.query(`INSERT INTO du_rooms (madrasah_id, block, level, name, beds, sort_order)
+                         VALUES ($1,$2,$3,$4,4, (SELECT COALESCE(max(sort_order), 0) + 1 FROM du_rooms WHERE madrasah_id = $1))`, [mid, to, l.to, name]);
+        }
+      }
     });
     res.status(200).json({ ok: true, removed: gone.length });
     return;
