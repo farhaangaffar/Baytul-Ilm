@@ -146,15 +146,36 @@ const PARENT = { title: 'How to use this page', steps: [
   'Reports: download a finished report as a PDF.',
   'Report an absence at the bottom to let the teacher know.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
+  'Boarders: "Going home" shows the next home weekends and your child\'s trips home.',
+] };
+
+// Boarding (a Darul Uloom): the head, and teachers on boarding duty (who can't change rooms or home weekends).
+const BOARDING_HEAD = { title: 'Boarding', steps: [
+  'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
+  'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
+  'Tap a section, then a level, then a room to see who sleeps there — ✕ takes someone out, "Put a boarder in this room" adds one. The amber line places boarders not in a room yet.',
+  '"Edit section" is next to the section\'s name at the top; "Edit <level>" is inside each open level. Edit level changes its name and every room in it — numbers, beds, ✕ to take a room off, "Another room" to add one. "Edit section" changes its name and each level\'s name (✕ takes a level off; "Another level" adds one with 4-bed rooms). Either can be removed with all its rooms (its boarders go to "Not in a room").',
+  'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
+  'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
+  'Home weekends: everyone goes home — tap a weekend to add anyone staying. The rest are signed out by themselves at the leave time.',
+  'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
+  'Teachers ticked for Boarding duty (Classes & Teachers → a teacher → Edit) get this page too.',
+] };
+const BOARDING_TEACHER = { title: 'Boarding', steps: [
+  'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. It\'s saved under your name.',
+  'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
+  'Health: "Write one down" when a boarder is unwell or given medicine.',
+  'Rooms and home weekends are set by the head.',
 ] };
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
 const DU_HEAD = {
+  '/boarding': BOARDING_HEAD,
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add classes and teachers with the + buttons.',
     'Each class or teacher is one line — tap it for the details. A teacher shows the books they teach in each year.',
     'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'aan levels.',
-    'Give a teacher, or a whole class, a login so they can sign in.',
+    'Give a teacher, or a whole class, a login so they can sign in. Edit a teacher and choose Boarding duty: Yes to give them the Boarding page.',
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
@@ -166,6 +187,7 @@ const DU_HEAD = {
 
 // A Darul Uloom teacher: attendance and behaviour for every Aalim year they teach.
 const DU_TEACHER = {
+  '/boarding': BOARDING_TEACHER,
   '/attendance': { title: 'Attendance', steps: [
     'Tap Class at the top and pick the year you\'re with — every Aalim year you teach is there.',
     'Tap P, L or A for each student. It\'s saved under your name ("Today\'s register taken by …").',

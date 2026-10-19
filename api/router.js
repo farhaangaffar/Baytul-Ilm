@@ -32,6 +32,7 @@ const routes = {
   'teacher-attendance': require('../server/routes/teacher-attendance'),
   terms: require('../server/routes/terms'),
   timetable: require('../server/routes/timetable'),
+  boarding: require('../server/routes/boarding'),
   users: require('../server/routes/users'),
 };
 

@@ -1,7 +1,8 @@
 const { query, transaction } = require('./db');
 
 // A Darul Uloom's part of Settings → Backup: the Aalim years' places, each year's books, the
-// timetable and lessons recorded, and exams with their papers, marks and comments. Taken and put
+// timetable and lessons recorded, exams with their papers, marks and comments, and boarding (rooms and who
+// is in them, home weekends, going home, night registers, unwell & medicine). Taken and put
 // back here (GET / POST /api/course?action=backup / restore) because these tables point at each
 // other by number: on restore every row gets a new number and the links are carried across.
 // Classes, teachers and students keep their own ids in a backup, so links to them stay as they are.
@@ -11,12 +12,13 @@ const asText = v => (v === null || v === undefined ? null : String(v));
 async function ensureTables() {
   await require('./routes/timetable').ensure();
   await require('./routes/exams').ensure();
+  await require('./routes/boarding').ensure();
 }
 
 async function backup(mid) {
   await ensureTables();
   const all = sql => query(sql, [mid]).then(r => r.rows);
-  const [classes, subjects, periods, lessons, logs, exams, papers, marks, comments] = await Promise.all([
+  const [classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers] = await Promise.all([
     all('SELECT id, course_order FROM classes WHERE madrasah_id = $1 AND course_order IS NOT NULL'),
     all('SELECT id, class_id, subject, kitaab, teacher_id, sort_order FROM du_subjects WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT id, name, starts, ends, is_break, days FROM du_periods WHERE madrasah_id = $1 ORDER BY id'),
@@ -28,8 +30,15 @@ async function backup(mid) {
     all('SELECT id, exam_id, class_id, subject, kitaab, teacher_id, out_of, sort_order, pass_mark, examiner FROM du_exam_papers WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT exam_id, paper_id, student_id, mark, absent FROM du_exam_marks WHERE madrasah_id = $1'),
     all('SELECT exam_id, student_id, teacher_comment, head_comment, behavior FROM du_exam_comments WHERE madrasah_id = $1'),
+    all('SELECT id, block, level, name, beds, teacher_id, sort_order FROM du_rooms WHERE madrasah_id = $1 ORDER BY id'),
+    all('SELECT student_id, room_id FROM du_room_places WHERE madrasah_id = $1'),
+    all(`SELECT id, name, to_char(starts, 'YYYY-MM-DD') AS starts, leave_time, to_char(ends, 'YYYY-MM-DD') AS ends, return_time, applied_at FROM du_home_weekends WHERE madrasah_id = $1 ORDER BY id`),
+    all(`SELECT student_id, reason, collected_by, out_at, out_by, to_char(back_due, 'YYYY-MM-DD') AS back_due, back_at, back_by, weekend_id FROM du_leaves WHERE madrasah_id = $1 ORDER BY id`),
+    all(`SELECT student_id, to_char(date, 'YYYY-MM-DD') AS date, status, marked_by, marked_at FROM du_night_register WHERE madrasah_id = $1`),
+    all('SELECT student_id, at, kind, note, medicine, dose, by_name FROM du_health_log WHERE madrasah_id = $1 ORDER BY id'),
+    all('SELECT weekend_id, student_id, going, collector, answered_by, answered_at, waiting FROM du_weekend_answers WHERE madrasah_id = $1'),
   ]);
-  return { classes, subjects, periods, lessons, logs, exams, papers, marks, comments };
+  return { classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers };
 }
 
 // Replaces this madrasah's Darul Uloom records with the backup's, in one go (all or nothing).
@@ -38,7 +47,7 @@ async function restore(mid, b) {
   await ensureTables();
   const list = k => (Array.isArray(b[k]) ? b[k] : []);
   await transaction(async c => {
-    for (const t of ['du_exam_marks', 'du_exam_comments', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_subjects']) {
+    for (const t of ['du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'du_exam_marks', 'du_exam_comments', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_subjects']) {
       await c.query(`DELETE FROM ${t} WHERE madrasah_id = $1`, [mid]);
     }
     for (const r of list('classes')) {
@@ -90,6 +99,43 @@ async function restore(mid, b) {
       if (!examId[k.exam_id]) continue;
       await c.query('INSERT INTO du_exam_comments (madrasah_id, exam_id, student_id, teacher_comment, head_comment, behavior) VALUES ($1,$2,$3,$4,$5,$6)',
         [mid, examId[k.exam_id], k.student_id, k.teacher_comment || '', k.head_comment || '', k.behavior || '']);
+    }
+    // Boarding (backups from before it have none of these lists).
+    const roomId = {};
+    for (const r of list('rooms')) {
+      roomId[r.id] = await ins('INSERT INTO du_rooms (madrasah_id, block, level, name, beds, teacher_id, sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [mid, r.block || '', r.level || '', r.name, r.beds || 0, r.teacher_id, r.sort_order || 0]);
+    }
+    for (const p of list('roomPlaces')) {
+      if (!roomId[p.room_id]) continue;
+      await c.query('INSERT INTO du_room_places (student_id, madrasah_id, room_id) VALUES ($1,$2,$3) ON CONFLICT (student_id) DO NOTHING', [p.student_id, mid, roomId[p.room_id]]);
+    }
+    const weekendId = {};
+    for (const w of list('homeWeekends')) {
+      weekendId[w.id] = await ins('INSERT INTO du_home_weekends (madrasah_id, name, starts, leave_time, ends, return_time, applied_at) VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz) RETURNING id',
+        [mid, w.name || '', w.starts, w.leave_time || '', w.ends, w.return_time || '', asText(w.applied_at)]);
+    }
+    for (const a of list('weekendAnswers')) {
+      if (!weekendId[a.weekend_id]) continue;
+      await c.query(`INSERT INTO du_weekend_answers (madrasah_id, weekend_id, student_id, going, collector, answered_by, answered_at, waiting)
+                     VALUES ($1,$2,$3,$4,$5,$6, COALESCE($7::timestamptz, now()), $8) ON CONFLICT (weekend_id, student_id) DO NOTHING`,
+        [mid, weekendId[a.weekend_id], a.student_id, !!a.going, a.collector || '', a.answered_by || '', asText(a.answered_at), !!a.waiting]);
+    }
+    for (const l of list('leaves')) {
+      await c.query(
+        `INSERT INTO du_leaves (madrasah_id, student_id, reason, collected_by, out_at, out_by, back_due, back_at, back_by, weekend_id)
+         VALUES ($1,$2,$3,$4, COALESCE($5::timestamptz, now()), $6,$7, $8::timestamptz, $9, $10)`,
+        [mid, l.student_id, l.reason || '', l.collected_by || '', asText(l.out_at), l.out_by || '', l.back_due, asText(l.back_at), l.back_by || '', weekendId[l.weekend_id] || null]);
+    }
+    for (const n of list('nights')) {
+      await c.query(`INSERT INTO du_night_register (madrasah_id, student_id, date, status, marked_by, marked_at)
+                     VALUES ($1,$2,$3,$4,$5, COALESCE($6::timestamptz, now())) ON CONFLICT (student_id, date) DO NOTHING`,
+        [mid, n.student_id, n.date, n.status, n.marked_by || '', asText(n.marked_at)]);
+    }
+    for (const h of list('health')) {
+      await c.query(`INSERT INTO du_health_log (madrasah_id, student_id, at, kind, note, medicine, dose, by_name)
+                     VALUES ($1,$2, COALESCE($3::timestamptz, now()), $4,$5,$6,$7,$8)`,
+        [mid, h.student_id, asText(h.at), h.kind, h.note || '', h.medicine || '', h.dose || '', h.by_name || '']);
     }
   });
 }

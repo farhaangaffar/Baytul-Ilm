@@ -667,3 +667,31 @@ export async function saveExamMarks(paperId, marks) { return apiFetch('/api/exam
 export async function saveExamComment(data) { return apiFetch('/api/exams?action=comment', { method: 'POST', body: JSON.stringify(data) }); }
 export async function getStudentExams(studentId) { return apiFetch(`/api/exams?studentId=${encodeURIComponent(studentId)}`); }
 export async function draftExamComment(examId, studentId) { return apiFetch('/api/exams?action=draft', { method: 'POST', body: JSON.stringify({ examId, studentId }) }); }
+
+// ── Boarding (a Darul Uloom; the head and teachers on boarding duty — server/routes/boarding.js) ──
+export async function getBoarding(date) {
+  return apiFetch(`/api/boarding${date ? `?date=${date}` : ''}`);
+}
+export async function getBoarderRecord(studentId) {
+  return apiFetch(`/api/boarding?action=student&studentId=${encodeURIComponent(studentId)}`);
+}
+const boardingPost = (action, body) => apiFetch(`/api/boarding?action=${action}`, { method: 'POST', body: JSON.stringify(body) });
+const boardingDelete = (action, id) => apiFetch(`/api/boarding?action=${action}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const saveRoom = room => boardingPost('room', room);
+export const deleteRoom = id => boardingDelete('room', id);
+export const saveLevel = (block, level, to, rooms, teacherId) => boardingPost('level', { block, level, to, rooms, teacherId });
+export const saveSection = (block, to, levels) => boardingPost('section', { block, to, levels });
+export const deleteRoomGroup = (what, block, level) =>
+  apiFetch(`/api/boarding?action=group&what=${what}&block=${encodeURIComponent(block || '')}&level=${encodeURIComponent(level || '')}`, { method: 'DELETE' });
+export const placeBoarders = (studentIds, roomId) => boardingPost('place', { studentIds, roomId });
+export const markNight = (date, studentIds, status) => boardingPost('register', { date, studentIds, status });
+export const signOutBoarders = (studentIds, details) => boardingPost('out', { studentIds, ...details });
+export const signInBoarders = leaveIds => boardingPost('back', { leaveIds });
+export const deleteLeave = id => boardingDelete('leave', id);
+export const saveHomeWeekend = w => boardingPost('home-weekend', w);
+export const deleteHomeWeekend = id => boardingDelete('home-weekend', id);
+export const addHealthNote = entry => boardingPost('health', entry);
+export const deleteHealthNote = id => boardingDelete('health', id);
+export const addRooms = (block, level, teacherId, rooms) => boardingPost('rooms', { block, level, teacherId, rooms });
+export const renameBoarding = (what, block, level, to) => boardingPost('rename', { what, block, level, to });
+export const weekendAnswer = (weekendId, studentIds, going) => boardingPost('answer', { weekendId, studentIds, going });

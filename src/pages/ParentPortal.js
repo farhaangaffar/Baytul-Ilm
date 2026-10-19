@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LegalLinks, MadeWith } from '../components/Legal';
 import { getParentHome, getParentChild, reportAbsence, updateMyChildDetails, logout, formatDateGB } from '../lib/store';
+import { TripBoxes } from '../components/BoarderRecord';
 import { ParentInputs, DetailInputs, HealthNote } from '../components/StudentDetails';
 import { periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
@@ -25,6 +26,26 @@ import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, P
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 const headerBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, border: 'none', borderRadius: 8, background: 'transparent', color: '#fff', opacity: 0.85, cursor: 'pointer', flexShrink: 0 };
+
+// A Darul Uloom boarder: the madrasah's next home weekends and their trips home, in boxes.
+const niceDay = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+function GoingHome({ boarding }) {
+  const { homeWeekends, leaves } = boarding;
+  return (
+    <Section title="Going home">
+      {homeWeekends.length === 0 && <div className="text-muted text-sm" style={{ marginBottom: 8 }}>No home weekends set yet.</div>}
+      {homeWeekends.map((w, i) => (
+        <BoxRow key={w.id} columns="repeat(3, minmax(0, 1fr))" cells={[
+          { label: true, text: w.name, sub: i === 0 ? 'Next' : undefined, wrap: 'words' },
+          { text: niceDay(w.starts), sub: w.leaveTime ? `Home from ${w.leaveTime}` : 'Go home', tone: i === 0 ? 'blue' : undefined },
+          { text: niceDay(w.ends), sub: w.returnTime ? `Back by ${w.returnTime}` : 'Come back', tone: i === 0 ? 'blue' : undefined },
+        ]} />
+      ))}
+      {leaves.length > 0 && <div style={{ fontSize: 13, fontWeight: 600, margin: '12px 0 6px' }}>Trips home</div>}
+      {leaves.slice(0, 4).map(l => <TripBoxes key={l.id} trip={l} />)}
+    </Section>
+  );
+}
 
 function Section({ title, children, right }) {
   return (
@@ -263,6 +284,8 @@ function ChildView({ child, reasons, many }) {
           );
         })}
       </OpenableSection>
+
+      {data.boarding && <GoingHome boarding={data.boarding} />}
 
       <OpenableSection title="Fees" summary={
         <>

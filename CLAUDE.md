@@ -177,9 +177,44 @@ codebase (one codebase, not a fork).
   includes a Darul Uloom's own records (`server/duBackup.js`, `/api/course?action=backup|restore`: the Aalim years' places, books,
   periods, lessons, lessons recorded, exams, papers, marks, comments — restored last, new row numbers with the links carried
   across); a new Darul Uloom table goes there too.
+  **Boarding** (`/boarding`, menu "Boarding", `src/pages/Boarding.js`, `server/routes/boarding.js`; 403 for a maktab): for the
+  head and teachers ticked **Boarding duty** (`teachers.boarding_duty`, a Yes/No in the teacher pop-up on Classes & Teachers,
+  DU only; the session's `boardingDuty` shows them the menu item). Boarders = Active children whose details say "Boarder". Four
+  tabs (remembered per device): **Tonight** — the night register (`du_night_register`, In / Missing / Sick per boarder per night (Missing is stored as 'away'; shown red in the top figures),
+  a card per floor (a section's level), closed by default (one line: "N of M in · N missing"; tap to open each room's boarders), "Rest are in" per floor, who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own layout (head only): a **section** — whatever the
+  madrasah calls it, typed in full and shown as typed ("Block A", "East Wing", "Dorm 3"; `du_rooms.block`; the owner preferred
+  one free box to a choice of words) — a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its
+  level) and beds, plus the teacher in charge. "Add rooms" adds a level's rooms in one pop-up ("Another room" suggests the next
+  number, keeping its zeros: 001 → 002, 101 → 102); sections and levels can be renamed. A short level or room gets its word in front ("1" → Level 1, "12" → Room 12 —
+  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish — lists, not blocks): one line per section
+  ("N levels · N rooms", "used / beds") → a pop-up (`SectionSheet`: Rooms · Boarders · Free beds boxes, its levels as closed
+  lines, a level opens to room lines — beds as dots, "3/4", no teacher name — plus "Edit <level>" inside the open level (`LevelModal`, `?action=level`:
+  its name and every room's number/beds in one list, ✕ / "Another room", teacher in charge — no separate Add rooms there); "Edit section" sits by the section's name in the pop-up's title, never the footer — the owner
+  found a footer button unclear once a level was open (`SectionModal`, `?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"
+  adds one — a number of rooms, numbered by `newLevelRooms()` (level 2 → 201…, ground → 001…), 4 beds each); a section or level can be removed with all its rooms — `?action=group`, their boarders go to
+  "Not in a room") → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
+  room" with a name search, Edit room); an amber "N boarders not in a room" line opens `PlaceSheet`; and who sleeps where (`du_room_places`, one room each, never over the
+  beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`; class groups in course order — `courseOrder`) → "Move to a room" opens `RoomChooser` (the owner's
+  pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
+  with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note shows right under it); **Going home** — kept plain (the owner found earlier versions too wordy and confusing; everyone goes home,
+  no parents' input): two light buttons **Sign out** ("going home") / **Sign in** ("N not in") → `SignPicker` (type a name, tap
+  it; signing in is instant and the picker stays open for the next; signing out asks why / collected by / due back); boxes
+  Here · Not in · Late back; a **Not in** card (a line each with Back, late first, amber; over 12 → floor lines, closed); **Home
+  weekends** lines (dates, "N staying") → `WeekendSheet` (Going home / Staying boxes, staying list with ✕, "Add someone staying",
+  head: Edit) (`du_home_weekends`; staying = `du_weekend_answers.going = false`); at the leave time `applyWeekends()` (run when
+  Boarding or the portal is next opened — no timer) signs out everyone not staying (`du_leaves.weekend_id`, `applied_at`);
+  marking In tonight (or Back on a Home line in Tonight) signs them back in. Tap a name in Not in → `BoarderSheet` (status
+  boxes, Sign in / Sign out, head: "Signed out by mistake", trips as boxes — `TripBoxes`, also on the Students profile and parent
+  portal) (`du_leaves`, who signed out/in kept); **Health** — unwell
+  or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
+  last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — the next home weekends' dates
+  and their own trips as boxes; never rooms, night register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
+  has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (two boarders
+  staying for the next one), one boarder home now, two weeks of nights and health notes
+  (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
-  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; logins: head, Maulana Yusuf (1st year), the Patel family.
+  behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
