@@ -11,7 +11,7 @@ import PickField from '../components/PickField';
 import { TripBoxes } from '../components/BoarderRecord';
 import { sectionLabel, levelLabel, roomLabel, floorLabel, fullRoom, layout, floors, nextRoomName } from '../lib/boardingRooms';
 import {
-  getBoarding, saveRoom, deleteRoom, deleteRoomGroup, saveLevel, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
+  getBoarding, saveRoom, deleteRoom, deleteRoomGroup, saveLevel, saveSection, placeBoarders, markNight, signOutBoarders, signInBoarders, deleteLeave,
   saveHomeWeekend, deleteHomeWeekend, addHealthNote, deleteHealthNote, niceDate, addRooms, renameBoarding,
   getBoarderRecord, weekendAnswer,
 } from '../lib/store';
@@ -120,12 +120,9 @@ export default function Boarding() {
           onDelete={async () => { if (await run(() => deleteRoomGroup('level', modal.block, modal.level), 'Level removed')) setModal(null); }} />
       )}
       {modal?.kind === 'rename' && modal.what === 'block' && (
-        <RenameModal what={modal.what} name={modal.what === 'block' ? (sectionLabel(modal.block) || 'Rooms') : (levelLabel(modal.level) || 'Rooms')}
-          current={modal.what === 'block' ? modal.block : modal.level}
-          rooms={rooms.filter(r => (r.block || '') === (modal.block || '') && (modal.what === 'block' || (r.level || '') === (modal.level || '')))}
-          boarders={boarders} onClose={() => setModal(null)}
-          onSave={async to => { if (await run(() => renameBoarding(modal.what, modal.block, modal.level, to), 'Renamed')) setModal(null); }}
-          onDelete={async () => { if (await run(() => deleteRoomGroup(modal.what, modal.block, modal.level), modal.what === 'block' ? 'Section removed' : 'Level removed')) setModal(null); }} />
+        <SectionModal block={modal.block} rooms={rooms} boarders={boarders} onClose={() => setModal(null)}
+          onSave={async (to, levels) => { if (await run(() => saveSection(modal.block, to, levels), 'Section saved')) setModal(null); }}
+          onDelete={async () => { if (await run(() => deleteRoomGroup('block', modal.block), 'Section removed')) setModal(null); }} />
       )}
       {modal?.kind === 'room' && (
         <RoomModal room={modal.room} rooms={rooms} teachers={teachers} count={boarders.filter(b => b.roomId === modal.room.id).length} onClose={() => setModal(null)}
@@ -930,30 +927,56 @@ function LevelModal({ block, level, rooms, teachers, boarders, onClose, onSave, 
   );
 }
 
-// Edit a whole section or level: rename it, or remove it with all its rooms (their boarders go to "Not in a room").
-function RenameModal({ what, name, current, rooms, boarders, onClose, onSave, onDelete }) {
-  const [to, setTo] = useState(current || '');
+// Edit a section: its name and each level's name in one list (✕ removes a level with its rooms), or remove it all.
+// A level's rooms are edited in Edit level.
+function SectionModal({ block, rooms, boarders, onClose, onSave, onDelete }) {
+  const mine = rooms.filter(r => (r.block || '') === (block || ''));
+  const lay = layout(mine)[0];
+  const inRooms = list => boarders.filter(b => list.some(r => r.id === b.roomId)).length;
+  const [to, setTo] = useState(block || '');
+  const [levels, setLevels] = useState(() => (lay ? lay.levels : []).map(l => ({ from: l.level || '', to: l.level || '', rooms: l.rooms })));
   const [sure, setSure] = useState(false);
   const [busy, wrap] = useBusy();
-  const people = boarders.filter(b => rooms.some(r => r.id === b.roomId)).length;
-  const word = what === 'block' ? 'section' : 'level';
+  const goneRooms = (lay ? lay.levels : []).filter(l => !levels.some(x => x.from === (l.level || ''))).flatMap(l => l.rooms);
+  const out = inRooms(goneRooms);
+  const people = inRooms(mine);
   return (
-    <Shell title={`Edit ${name}`} onClose={onClose}
+    <Shell title={`Edit ${block || 'rooms'}`} onClose={onClose} width={480}
       footer={<>
         {sure
           ? <button className="btn" style={{ marginRight: 'auto', background: 'var(--red)', color: '#fff' }} disabled={busy} onClick={wrap(onDelete)}>Remove it all</button>
-          : <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} onClick={() => setSure(true)}><Trash2 size={13} />Remove</button>}
+          : <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} onClick={() => setSure(true)}><Trash2 size={13} />Remove section</button>}
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" disabled={busy || !to.trim() || to.trim() === current} onClick={wrap(() => onSave(to.trim()))}><Save size={13} />Save</button>
+        <button className="btn btn-primary" disabled={busy || !levels.length}
+          onClick={wrap(() => onSave(to.trim(), levels.map(l => ({ from: l.from, to: l.to.trim() }))))}><Save size={13} />Save</button>
       </>}>
-      <div className="form-group"><label>{what === 'block' ? 'Section' : 'Level'} name</label>
-        <input value={to} onChange={e => setTo(e.target.value)} maxLength={40} autoFocus /></div>
       {sure && (
-        <div className="bd-short" style={{ marginTop: 10 }}>
-          Remove this {word} and its {rooms.length} room{rooms.length === 1 ? '' : 's'}?
+        <div className="bd-short" style={{ marginBottom: 12 }}>
+          Remove this section and its {mine.length} room{mine.length === 1 ? '' : 's'}?
           {people ? ` The ${people} boarder${people === 1 ? '' : 's'} in them will be listed under "Not in a room".` : ''}
         </div>
       )}
+      <div className="form-grid">
+        <div className="form-group"><label>Section name</label>
+          <input value={to} onChange={e => setTo(e.target.value)} maxLength={40} placeholder="e.g. Block A, East Wing" /></div>
+        <div className="form-group">
+          <label>Levels</label>
+          <div className="bd-room-rows">
+            <span className="bd-room-rows-head">Level name</span><span className="bd-room-rows-head">Rooms</span><span />
+            {levels.map((l, i) => (
+              <React.Fragment key={l.from || 'none'}>
+                <input value={l.to} onChange={e => setLevels(ls => ls.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)))} maxLength={40}
+                  placeholder="e.g. Ground, 1" aria-label={`Level ${i + 1}`} />
+                <span className="bd-level-count">{l.rooms.length}</span>
+                <button type="button" className="btn btn-icon btn-sm" aria-label="Remove this level" onClick={() => setLevels(ls => ls.filter((_, j) => j !== i))}><X size={14} /></button>
+              </React.Fragment>
+            ))}
+          </div>
+          {out > 0 && <div className="bd-short" style={{ marginTop: 8 }}>{out} boarder{out === 1 ? '' : 's'} on the levels you took off will go to "Not in a room".</div>}
+          {goneRooms.length > 0 && !out && <div className="bd-short" style={{ marginTop: 8 }}>{goneRooms.length} room{goneRooms.length === 1 ? '' : 's'} will be removed.</div>}
+          <div className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>A level's rooms and beds: open the level → Edit level.</div>
+        </div>
+      </div>
     </Shell>
   );
 }

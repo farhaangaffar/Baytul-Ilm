@@ -29,6 +29,8 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // POST ?action=back {leaveIds[]}                         → signs them back in
 // POST ?action=level {block, level, to, rooms:[{id?, name, beds}], teacherId?} (head) → a level's rooms edited in one go
 //   (rooms left out are removed — their boarders are then not in a room; teacherId absent = leave each room's as it is)
+// POST ?action=section {block, to, levels:[{from, to}]} (head) → rename a section and its levels in one go
+//   (levels left out are removed with their rooms — their boarders are then not in a room)
 // DELETE ?action=group&what=block|level&block=&level=     (head)  → a whole section or level: its rooms go, their boarders are not in a room
 // DELETE ?action=leave&id=                               (head)  → a sign-out made by mistake
 // POST ?action=home-weekend {id?, name, starts, leaveTime, ends, returnTime} (head) · DELETE ?action=home-weekend&id= (head)
@@ -258,6 +260,39 @@ const handler = requireAuth(async (req, res) => {
       await query('UPDATE du_rooms SET level = $1 WHERE madrasah_id = $2 AND block = $3 AND level = $4', [to, mid, str(b.block, 40), str(b.level, 40)]);
     } else { res.status(400).json({ error: 'Rename what?' }); return; }
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'section') {
+    if (headOnly()) return;
+    const b = req.body || {};
+    const block = str(b.block, 40), to = str(b.to, 40);
+    const levels = (Array.isArray(b.levels) ? b.levels : []).map(l => ({ from: str(l.from, 40), to: str(l.to, 40) }));
+    if (!levels.length) { res.status(400).json({ error: 'Keep at least one level — or remove the section.' }); return; }
+    const tos = levels.map(l => l.to.toLowerCase());
+    if (new Set(tos).size !== tos.length) { res.status(400).json({ error: 'Two levels have the same name.' }); return; }
+    const { rows: had } = await query('SELECT DISTINCT level FROM du_rooms WHERE madrasah_id = $1 AND block = $2', [mid, block]);
+    if (levels.some(l => !had.some(h => h.level === l.from))) { res.status(404).json({ error: 'Level not found.' }); return; }
+    const gone = had.map(h => h.level).filter(lv => !levels.some(l => l.from === lv));
+    // Moving into another section's name: its rooms mustn't share a level and number with these.
+    if (to.toLowerCase() !== block.toLowerCase()) {
+      const { rows: clash } = await query(`SELECT o.name FROM du_rooms o JOIN du_rooms r ON r.madrasah_id = o.madrasah_id AND r.block = $2
+                                            JOIN unnest($4::text[], $5::text[]) AS m(f, t) ON m.f = r.level
+                                           WHERE o.madrasah_id = $1 AND lower(o.block) = lower($3) AND lower(o.level) = lower(m.t) AND lower(o.name) = lower(r.name)`,
+        [mid, block, to, levels.map(l => l.from), levels.map(l => l.to)]);
+      if (clash.length) { res.status(409).json({ error: `${to || 'That section'} already has a room ${clash[0].name} on the same level.` }); return; }
+    }
+    await transaction(async c => {
+      if (gone.length) {
+        const sub = 'SELECT id FROM du_rooms WHERE madrasah_id = $1 AND block = $2 AND level = ANY($3)';
+        await c.query(`DELETE FROM du_room_places WHERE madrasah_id = $1 AND room_id IN (${sub})`, [mid, block, gone]);
+        await c.query(`DELETE FROM du_rooms WHERE id IN (${sub})`, [mid, block, gone]);
+      }
+      // One statement, so swapping two levels' names works.
+      await c.query(`UPDATE du_rooms r SET level = m.t, block = $3 FROM unnest($4::text[], $5::text[]) AS m(f, t)
+                     WHERE r.madrasah_id = $1 AND r.block = $2 AND r.level = m.f`, [mid, block, to, levels.map(l => l.from), levels.map(l => l.to)]);
+    });
+    res.status(200).json({ ok: true, removed: gone.length });
     return;
   }
 

@@ -946,6 +946,7 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .line-row.bd-pick.on .bd-free { color: var(--teal-dark); }
 .line-row.bd-pick:disabled { opacity: 1; }
 .line-row.bd-pick.full { opacity: 0.5; }
+.bd-level-count { align-self: center; text-align: center; font-size: 13px; color: var(--text-muted); }
 .bd-short { background: var(--amber-light); color: var(--amber-text); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; margin: -2px 0 8px; }
 /* Boarding → Going home: the search, the home weekend card, a boarder's record. */
 .bd-search { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 10px; padding: 4px 6px 4px 12px; box-shadow: var(--shadow-sm); margin: 10px 0 14px; color: var(--text-soft); }
