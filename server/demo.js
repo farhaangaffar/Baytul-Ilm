@@ -187,7 +187,8 @@ async function demoImported(c, mid, du, fee) {
   }
 }
 
-// Boarding (the Boarding page): four rooms with their boarders (two not placed yet, to try), home weekends
+// Boarding (the Boarding page): two blocks — A with a ground floor and a first floor, B with a ground floor —
+// four rooms with their boarders (two not placed yet, to try), home weekends
 // (one three weeks ago that most went home for, the next two coming up), one boarder home now, two weeks
 // of night registers (tonight's left to take) and a few times someone was unwell or given medicine.
 // Maulana Yusuf (the demo's teacher login) and Qari Ibrahim are on boarding duty.
@@ -195,11 +196,11 @@ async function demoBoarding(c, mid, teacherIds, today, r) {
   await c.query('UPDATE teachers SET boarding_duty = true WHERE madrasah_id = $1 AND id = ANY($2)', [mid, [teacherIds.yusuf, teacherIds.ibrahim]]);
   const { rows: boarders } = await c.query(
     `SELECT id FROM students WHERE madrasah_id = $1 AND status = 'Active' AND boarding = 'Boarder' AND class <> '' ORDER BY sort_order`, [mid]);
-  const rooms = [['Dorm A', 5, 'yusuf'], ['Dorm B', 5, 'ibrahim'], ['Dorm C', 4, 'hamza'], ['Dorm D', 4, 'yusuf']];
+  const rooms = [['A', 'Ground', '1', 5, 'yusuf'], ['A', 'Ground', '2', 5, 'yusuf'], ['A', '1', '3', 4, 'ibrahim'], ['B', 'Ground', '1', 4, 'hamza']];
   const roomIds = [];
-  for (const [i, [name, beds, t]] of rooms.entries()) {
-    const { rows: [room] } = await c.query('INSERT INTO du_rooms (madrasah_id, name, beds, teacher_id, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-      [mid, name, beds, teacherIds[t], i]);
+  for (const [i, [block, level, name, beds, t]] of rooms.entries()) {
+    const { rows: [room] } = await c.query('INSERT INTO du_rooms (madrasah_id, block, level, name, beds, teacher_id, sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+      [mid, block, level, name, beds, teacherIds[t], i]);
     roomIds.push([room.id, beds]);
   }
   const places = [];

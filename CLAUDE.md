@@ -181,15 +181,20 @@ codebase (one codebase, not a fork).
   head and teachers ticked **Boarding duty** (`teachers.boarding_duty`, a Yes/No in the teacher pop-up on Classes & Teachers,
   DU only; the session's `boardingDuty` shows them the menu item). Boarders = Active children whose details say "Boarder". Four
   tabs (remembered per device): **Tonight** — the night register (`du_night_register`, In / Away / Sick per boarder per night,
-  a card per room, "Rest are in", who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own rooms
-  (`du_rooms`: name, beds, teacher in charge; head only) and who sleeps where (`du_room_places`, one room each, never over the
+  a card per floor (a block's level) with each room's boarders together, "Rest are in" per floor, who marked it; anyone signed out shows as Home); **Rooms** — each madrasah's own layout (head only): a wing / block / section / dorm
+  (`du_rooms.block`, written as letters, names or words; the madrasah picks the word — `settings.boarding_block_word`, "We call
+  them" boxes), a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its
+  level) and beds, plus the teacher in charge. "Add rooms" adds a level's rooms in one pop-up ("Another room" suggests the next
+  number); blocks and levels can be renamed. Short names get their word in front ("A" → Block A, "1" → Level 1, "12" → Room 12 —
+  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page shows a line per block
+  → its levels → room lines; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks + Move to (the `NotInClass` pattern, `TickList`); **Going home** — home weekends
   (`du_home_weekends`, head sets them, parents see the next ones), "Away now" (tick → Signed back in; Overdue tag) and Sign
-  out (tick children or a whole room → why, collected by, due back) (`du_leaves`, who signed out/in kept); **Health** — unwell
+  out (tick children or a whole floor → why, collected by, due back) (`du_leaves`, who signed out/in kept); **Health** — unwell
   or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
   last went home and recent health notes (`BoarderRecord`). Parent portal: "Going home" card (`forParent()` — home weekends
   and their own sign-outs; never rooms, night register or health). In Backup (`duBackup.js`) and demo `TABLES`; the DU demo
-  has 4 dorms (two boarders not placed), home weekends, one boarder home now, two weeks of nights and health notes
+  has Block A (Ground: rooms 1 and 2, Level 1: room 3) and Block B (Ground: room 1), two boarders not placed, home weekends, one boarder home now, two weeks of nights and health notes
   (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,

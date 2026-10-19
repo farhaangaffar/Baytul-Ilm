@@ -30,7 +30,7 @@ async function backup(mid) {
     all('SELECT id, exam_id, class_id, subject, kitaab, teacher_id, out_of, sort_order, pass_mark, examiner FROM du_exam_papers WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT exam_id, paper_id, student_id, mark, absent FROM du_exam_marks WHERE madrasah_id = $1'),
     all('SELECT exam_id, student_id, teacher_comment, head_comment, behavior FROM du_exam_comments WHERE madrasah_id = $1'),
-    all('SELECT id, name, beds, teacher_id, sort_order FROM du_rooms WHERE madrasah_id = $1 ORDER BY id'),
+    all('SELECT id, block, level, name, beds, teacher_id, sort_order FROM du_rooms WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT student_id, room_id FROM du_room_places WHERE madrasah_id = $1'),
     all(`SELECT name, to_char(starts, 'YYYY-MM-DD') AS starts, leave_time, to_char(ends, 'YYYY-MM-DD') AS ends, return_time FROM du_home_weekends WHERE madrasah_id = $1 ORDER BY id`),
     all(`SELECT student_id, reason, collected_by, out_at, out_by, to_char(back_due, 'YYYY-MM-DD') AS back_due, back_at, back_by FROM du_leaves WHERE madrasah_id = $1 ORDER BY id`),
@@ -102,8 +102,8 @@ async function restore(mid, b) {
     // Boarding (backups from before it have none of these lists).
     const roomId = {};
     for (const r of list('rooms')) {
-      roomId[r.id] = await ins('INSERT INTO du_rooms (madrasah_id, name, beds, teacher_id, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-        [mid, r.name, r.beds || 0, r.teacher_id, r.sort_order || 0]);
+      roomId[r.id] = await ins('INSERT INTO du_rooms (madrasah_id, block, level, name, beds, teacher_id, sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [mid, r.block || '', r.level || '', r.name, r.beds || 0, r.teacher_id, r.sort_order || 0]);
     }
     for (const p of list('roomPlaces')) {
       if (!roomId[p.room_id]) continue;

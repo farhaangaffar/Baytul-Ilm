@@ -4,7 +4,9 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 // A Darul Uloom's boarding (the Boarding page, src/pages/Boarding.js). Boarders are the Active
 // children whose details say "Boarder". The head, and the teachers ticked for boarding duty
 // (teachers.boarding_duty, on Classes & Teachers), use it; everyone else gets 403, as does a maktab.
-//   Rooms — each madrasah's own (name, beds, the teacher in charge); a boarder has one room (du_room_places).
+//   Rooms — each madrasah's own, laid out as it likes: a wing / block / section / dorm (written as letters, names
+//     or words; the madrasah picks which word it uses — settings.boarding_block_word), a level, then the room's
+//     number or name and its beds (and the teacher in charge); a boarder has one room (du_room_places).
 //   Night register — each boarder In / Away / Sick for a night (du_night_register). A boarder signed out
 //     (going home) shows as Home that night and isn't marked.
 //   Going home — signing a boarder out (who collected them, when they're due back) and back in (du_leaves);
@@ -13,7 +15,10 @@ const { requireAuth, isOwner, whoName } = require('../auth');
 //
 // GET ?date=YYYY-MM-DD → { today, date, head, boarders, rooms, teachers, register, leaves, homeWeekends, health }
 // GET ?action=student&studentId= → { room, leaves, health } — one boarder (their profile)
-// POST ?action=room {id?, name, beds, teacherId}        (head)  · DELETE ?action=room&id=        (head)
+// POST ?action=room {id?, block, level, name, beds, teacherId} (head)  · DELETE ?action=room&id= (head)
+// POST ?action=rooms {block, level, teacherId, rooms: [{name, beds}]} (head) → several rooms on one level at once
+// POST ?action=rename {what: 'block'|'level', block, level?, to} (head) → renames a block, or a level in a block
+// POST ?action=block-word {word: 'Wing'|'Block'|'Section'|'Dorm'} (head)
 // POST ?action=place {studentIds[], roomId|null}         (head)  → puts them in a room (or none)
 // POST ?action=register {date, studentIds[], status: 'in'|'away'|'sick'|null}
 // POST ?action=out {studentIds[], collectedBy, reason, backDue} → signs them out (going home)
@@ -85,10 +90,19 @@ async function ensure() {
     by_name     TEXT NOT NULL DEFAULT ''
   )`);
   await query('CREATE INDEX IF NOT EXISTS du_health_log_madrasah ON du_health_log (madrasah_id, at)');
+  await query(`ALTER TABLE du_rooms ADD COLUMN IF NOT EXISTS block TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT ''`);
+  await require('./settings').ensure();
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS boarding_block_word TEXT NOT NULL DEFAULT 'Block'`);
   ready = true;
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const BLOCK_WORDS = ['Wing', 'Block', 'Section', 'Dorm'];
+// "Block A · Level 1 · Room 12" — short letters or numbers get their word in front (src/lib/boardingRooms.js does the same).
+const short = s => /^[A-Za-z0-9-]{1,4}$/.test(s);
+const roomTitle = (r, word = 'Block') => [r.block && (short(r.block) ? `${word} ${r.block}` : r.block),
+  r.level && (short(r.level) ? `Level ${r.level}` : r.level), short(r.name) ? `Room ${r.name}` : r.name].filter(Boolean).join(' · ');
 const TIME = /^\d{2}:\d{2}$/;
 const ukToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
 const str = (v, n = 200) => String(v ?? '').trim().slice(0, n);
@@ -144,12 +158,13 @@ const handler = requireAuth(async (req, res) => {
     const { rows: st } = await query('SELECT 1 FROM students WHERE id = $1 AND madrasah_id = $2', [sid, mid]);
     if (!st.length) { res.status(404).json({ error: 'Not found' }); return; }
     const [room, leaves, health] = await Promise.all([
-      query(`SELECT r.name FROM du_room_places p JOIN du_rooms r ON r.id = p.room_id AND r.madrasah_id = p.madrasah_id
+      query(`SELECT r.block, r.level, r.name FROM du_room_places p JOIN du_rooms r ON r.id = p.room_id AND r.madrasah_id = p.madrasah_id
              WHERE p.student_id = $1 AND p.madrasah_id = $2`, [sid, mid]),
       query(`SELECT ${LEAVE_COLS} FROM du_leaves WHERE madrasah_id = $1 AND student_id = $2 ORDER BY out_at DESC LIMIT 30`, [mid, sid]),
       query(`SELECT ${HEALTH_COLS} FROM du_health_log WHERE madrasah_id = $1 AND student_id = $2 ORDER BY at DESC LIMIT 30`, [mid, sid]),
     ]);
-    res.status(200).json({ room: room.rows[0]?.name || '', leaves: leaves.rows, health: health.rows });
+    const { rows: [set] } = await query('SELECT boarding_block_word FROM settings WHERE madrasah_id = $1', [mid]);
+    res.status(200).json({ room: room.rows[0] ? roomTitle(room.rows[0], set?.boarding_block_word) : '', leaves: leaves.rows, health: health.rows });
     return;
   }
 
@@ -159,7 +174,7 @@ const handler = requireAuth(async (req, res) => {
     const [boarders, rooms, places, teachers, register, leaves, weekends, health] = await Promise.all([
       query(`SELECT id, forename, surname, class, allergies, medical, medication FROM students
              WHERE madrasah_id = $1 AND status = 'Active' AND boarding = 'Boarder' ORDER BY forename, surname`, [mid]),
-      query('SELECT id::text AS id, name, beds, teacher_id AS "teacherId" FROM du_rooms WHERE madrasah_id = $1 ORDER BY sort_order, name', [mid]),
+      query('SELECT id::text AS id, block, level, name, beds, teacher_id AS "teacherId" FROM du_rooms WHERE madrasah_id = $1 ORDER BY sort_order, name', [mid]),
       query('SELECT student_id, room_id::text AS room_id FROM du_room_places WHERE madrasah_id = $1', [mid]),
       query('SELECT id, name, boarding_duty AS "boardingDuty" FROM teachers WHERE madrasah_id = $1 ORDER BY sort_order NULLS LAST, name', [mid]),
       query(`SELECT student_id AS "studentId", status, marked_by AS "by", to_char(marked_at AT TIME ZONE 'Europe/London', 'HH24:MI') AS "time"
@@ -170,9 +185,10 @@ const handler = requireAuth(async (req, res) => {
       query(`SELECT ${WEEKEND_COLS} FROM du_home_weekends WHERE madrasah_id = $1 AND ends >= ($2::date - 60) ORDER BY starts`, [mid, today]),
       query(`SELECT ${HEALTH_COLS} FROM du_health_log WHERE madrasah_id = $1 AND at > now() - interval '31 days' ORDER BY at DESC`, [mid]),
     ]);
+    const { rows: [st] } = await query('SELECT boarding_block_word FROM settings WHERE madrasah_id = $1', [mid]);
     const roomOf = Object.fromEntries(places.rows.map(p => [p.student_id, p.room_id]));
     res.status(200).json({
-      today, date, head,
+      today, date, head, blockWord: st?.boarding_block_word || 'Block',
       boarders: boarders.rows.map(s => ({ ...s, roomId: roomOf[s.id] || '' })),
       rooms: rooms.rows,
       teachers: teachers.rows,
@@ -184,27 +200,79 @@ const handler = requireAuth(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && action === 'room') {
+  if (req.method === 'POST' && action === 'block-word') {
+    if (headOnly()) return;
+    const word = BLOCK_WORDS.includes(req.body?.word) ? req.body.word : 'Block';
+    await query('UPDATE settings SET boarding_block_word = $1 WHERE madrasah_id = $2', [word, mid]);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'rename') {
     if (headOnly()) return;
     const b = req.body || {};
-    const name = str(b.name, 80);
-    const beds = Math.max(0, Math.min(500, parseInt(b.beds, 10) || 0));
-    if (!name) { res.status(400).json({ error: 'Give the room a name.' }); return; }
+    const to = str(b.to, 40);
+    if (b.what === 'block') {
+      await query('UPDATE du_rooms SET block = $1 WHERE madrasah_id = $2 AND block = $3', [to, mid, str(b.block, 40)]);
+    } else if (b.what === 'level') {
+      await query('UPDATE du_rooms SET level = $1 WHERE madrasah_id = $2 AND block = $3 AND level = $4', [to, mid, str(b.block, 40), str(b.level, 40)]);
+    } else { res.status(400).json({ error: 'Rename what?' }); return; }
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'rooms') {
+    if (headOnly()) return;
+    const b = req.body || {};
+    const block = str(b.block, 40), level = str(b.level, 40);
+    const list = (Array.isArray(b.rooms) ? b.rooms : []).map(r => ({ name: str(r.name, 40), beds: Math.max(0, Math.min(500, parseInt(r.beds, 10) || 0)) }))
+      .filter(r => r.name);
+    if (!list.length) { res.status(400).json({ error: 'Write at least one room number.' }); return; }
+    const names = list.map(r => r.name.toLowerCase());
+    if (new Set(names).size !== names.length) { res.status(400).json({ error: 'The same room number is there twice.' }); return; }
     const teacherId = b.teacherId ? String(b.teacherId) : null;
     if (teacherId) {
       const { rows } = await query('SELECT 1 FROM teachers WHERE id = $1 AND madrasah_id = $2', [teacherId, mid]);
       if (!rows.length) { res.status(400).json({ error: 'Teacher not found.' }); return; }
     }
-    const { rows: same } = await query('SELECT id::text AS id FROM du_rooms WHERE madrasah_id = $1 AND lower(name) = lower($2)', [mid, name]);
-    if (same.some(r => r.id !== String(b.id || ''))) { res.status(409).json({ error: 'There is already a room with that name.' }); return; }
+    const { rows: taken } = await query('SELECT name FROM du_rooms WHERE madrasah_id = $1 AND lower(block) = lower($2) AND lower(level) = lower($3) AND lower(name) = ANY($4)',
+      [mid, block, level, names]);
+    if (taken.length) { res.status(409).json({ error: `There is already a room ${taken.map(t => t.name).join(', ')} there.` }); return; }
+    await transaction(async c => {
+      for (const r of list) {
+        await c.query(`INSERT INTO du_rooms (madrasah_id, block, level, name, beds, teacher_id, sort_order)
+                       VALUES ($1,$2,$3,$4,$5,$6, (SELECT COALESCE(max(sort_order), 0) + 1 FROM du_rooms WHERE madrasah_id = $1))`,
+          [mid, block, level, r.name, r.beds, teacherId]);
+      }
+    });
+    res.status(200).json({ ok: true, added: list.length });
+    return;
+  }
+
+  if (req.method === 'POST' && action === 'room') {
+    if (headOnly()) return;
+    const b = req.body || {};
+    const name = str(b.name, 40);
+    const block = str(b.block, 40), level = str(b.level, 40);
+    const beds = Math.max(0, Math.min(500, parseInt(b.beds, 10) || 0));
+    if (!name) { res.status(400).json({ error: 'Give the room a number or name.' }); return; }
+    const teacherId = b.teacherId ? String(b.teacherId) : null;
+    if (teacherId) {
+      const { rows } = await query('SELECT 1 FROM teachers WHERE id = $1 AND madrasah_id = $2', [teacherId, mid]);
+      if (!rows.length) { res.status(400).json({ error: 'Teacher not found.' }); return; }
+    }
+    const { rows: same } = await query('SELECT id::text AS id FROM du_rooms WHERE madrasah_id = $1 AND lower(block) = lower($2) AND lower(level) = lower($3) AND lower(name) = lower($4)',
+      [mid, block, level, name]);
+    if (same.some(r => r.id !== String(b.id || ''))) { res.status(409).json({ error: `There is already a room ${name} there.` }); return; }
     if (b.id) {
       const { rows: inRoom } = await query('SELECT count(*)::int AS n FROM du_room_places WHERE room_id = $1 AND madrasah_id = $2', [b.id, mid]);
       if (beds < inRoom[0].n) { res.status(400).json({ error: `${inRoom[0].n} boarders are in this room — move some out first.` }); return; }
-      const { rowCount } = await query('UPDATE du_rooms SET name = $1, beds = $2, teacher_id = $3 WHERE id = $4 AND madrasah_id = $5', [name, beds, teacherId, b.id, mid]);
+      const { rowCount } = await query('UPDATE du_rooms SET name = $1, beds = $2, teacher_id = $3, block = $4, level = $5 WHERE id = $6 AND madrasah_id = $7',
+        [name, beds, teacherId, block, level, b.id, mid]);
       if (!rowCount) { res.status(404).json({ error: 'Room not found.' }); return; }
     } else {
-      await query(`INSERT INTO du_rooms (madrasah_id, name, beds, teacher_id, sort_order)
-                   VALUES ($1,$2,$3,$4, (SELECT COALESCE(max(sort_order), 0) + 1 FROM du_rooms WHERE madrasah_id = $1))`, [mid, name, beds, teacherId]);
+      await query(`INSERT INTO du_rooms (madrasah_id, name, beds, teacher_id, block, level, sort_order)
+                   VALUES ($1,$2,$3,$4,$5,$6, (SELECT COALESCE(max(sort_order), 0) + 1 FROM du_rooms WHERE madrasah_id = $1))`, [mid, name, beds, teacherId, block, level]);
     }
     res.status(200).json({ ok: true });
     return;
@@ -231,11 +299,11 @@ const handler = requireAuth(async (req, res) => {
       res.status(200).json({ ok: true });
       return;
     }
-    const { rows: [room] } = await query('SELECT id, name, beds FROM du_rooms WHERE id = $1 AND madrasah_id = $2', [b.roomId, mid]);
+    const { rows: [room] } = await query('SELECT id, block, level, name, beds FROM du_rooms WHERE id = $1 AND madrasah_id = $2', [b.roomId, mid]);
     if (!room) { res.status(404).json({ error: 'Room not found.' }); return; }
     const { rows: [{ n }] } = await query('SELECT count(*)::int AS n FROM du_room_places WHERE room_id = $1 AND madrasah_id = $2 AND NOT (student_id = ANY($3))', [room.id, mid, ids]);
     if (n + ids.length > room.beds) {
-      res.status(400).json({ error: `${room.name} has ${room.beds} bed${room.beds === 1 ? "" : "s"} and ${n} ${n === 1 ? "is" : "are"} taken — room for ${Math.max(0, room.beds - n)} more.` });
+      res.status(400).json({ error: `${roomTitle(room)} has ${room.beds} bed${room.beds === 1 ? "" : "s"} and ${n} ${n === 1 ? "is" : "are"} taken — room for ${Math.max(0, room.beds - n)} more.` });
       return;
     }
     await query(`INSERT INTO du_room_places (student_id, madrasah_id, room_id) SELECT unnest($1::text[]), $2, $3
