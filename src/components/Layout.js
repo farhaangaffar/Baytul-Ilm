@@ -24,7 +24,7 @@ const navItems = [
   // A Darul Uloom's reports are on Exams & reports, so it has no separate Reports page.
   { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup', maktab:true },
   { label:'Aalim course',       path:'/course',     icon:Library,       darulUloom:true, duSection:'Setup' },
-  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap },
+  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, duLabel:'Classes & Staff' }, // a Darul Uloom says "staff"
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
   // Only the platform owner (the person who runs this service for every madrasah).
@@ -49,7 +49,7 @@ export default function Layout({ children, title, subtitle }) {
   // Teachers only get their own pages (and no section headings).
   const visibleNav = isOwner
     ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom))
-      .map(i => (isDarulUloom && i.duSection ? { ...i, section: i.duSection } : i))
+      .map(i => (isDarulUloom ? { ...i, section: i.duSection || i.section, label: i.duLabel || i.label } : i))
     : navItems.filter(i => (i.teacher || (i.boarding && user?.boardingDuty)) && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);

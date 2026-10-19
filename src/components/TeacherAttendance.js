@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTeachers, getTeacherAttendance, setTeacherAttendance, isSchoolDay, getSpecialDays } from '../lib/store';
 import { LoadingState, ErrorState } from './DataState';
+import { useAuth } from '../lib/AuthContext';
 
 // Attendance → Teachers (head only): the teachers' register for a day — a line per teacher with
 // P / L / A (Late stamps the time when it's today), the day moved back and forward a school day at
@@ -19,6 +20,7 @@ function schoolDayFrom(date, dir, step = 1) {
 }
 
 export default function TeacherAttendance() {
+  const { isDarulUloom } = useAuth();
   const TODAY = iso(new Date());
   const [teachers, setTeachers] = useState(null);
   const [error, setError] = useState(null);
@@ -61,7 +63,7 @@ export default function TeacherAttendance() {
 
   if (error) return <ErrorState error={error} onRetry={load} />;
   if (!teachers) return <LoadingState />;
-  if (!teachers.length) return <div className="card" style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)' }}>Add your teachers on Classes &amp; Teachers first.</div>;
+  if (!teachers.length) return <div className="card" style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)' }}>{isDarulUloom ? 'Add your staff on Classes & Staff first.' : 'Add your teachers on Classes & Teachers first.'}</div>;
 
   const label = new Date(day + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   const closed = daysOff[day];

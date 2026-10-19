@@ -82,7 +82,7 @@ const HEAD = {
     'New? Tap "Use the usual Aalim years" to start from the usual years and their classical Islamic core texts — or "Add a year" (a new class, or one you already have). A year missing its usual texts has "Add the classical core texts".',
     'Tap a book to change it or its teacher, and to see how far the class has got (what teachers record on the Timetable). Any book can be typed in. "Add a subject" adds another.',
     '"Edit" under an open year renames it, moves it to another place, takes it out of the Aalim years, or deletes it if it has no students.',
-    'Hifdh and any other classes are on Classes & Teachers. A class there that should be a year (e.g. a 1st year made again) shows here as "Add … to the years".',
+    'Hifdh and any other classes are on Classes & Staff. A class there that should be a year (e.g. a 1st year made again) shows here as "Add … to the years".',
     'At the end of the year, "Move everyone up" moves each child up a year — tap a child to keep them back. The last year finish the course. You can undo it.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
@@ -159,7 +159,7 @@ const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
   'Home weekends: everyone goes home — tap a weekend to add anyone staying. The rest are signed out by themselves at the leave time.',
   'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
-  'Teachers ticked for Boarding duty (Classes & Teachers → a teacher → Edit) get this page too.',
+  'Staff ticked for Boarding duty (Classes & Staff → Staff → a name → Edit) get this page too.',
 ] };
 const BOARDING_TEACHER = { title: 'Boarding', steps: [
   'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. It\'s saved under your name.',
@@ -171,12 +171,14 @@ const BOARDING_TEACHER = { title: 'Boarding', steps: [
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
 const DU_HEAD = {
   '/boarding': BOARDING_HEAD,
-  '/classes': { title: 'Classes & Teachers', steps: [
-    'Add classes and teachers with the + buttons.',
-    'Each class or teacher is one line — tap it for the details. A teacher shows the books they teach in each year.',
+  '/classes': { title: 'Classes & Staff', steps: [
+    'Add classes and staff with the + buttons.',
+    'Each class or member of staff is one line — tap it for the details. A teacher shows the books they teach in each year.',
     'Each class has a Course: Aalim (one of the Aalim years — choose its place, its books are on the Aalim course page), Hifdh, Naazhirah, Qaa\'idah, or Mixed Qur\'aan levels.',
-    'Give a teacher, or a whole class, a login so they can sign in. Edit a teacher and choose Boarding duty: Yes to give them the Boarding page.',
+    'Give a member of staff, or a whole class, a login so they can sign in. Edit someone and choose Boarding duty: Yes to give them the Boarding page.',
   ] },
+  '/attendance': { ...HEAD['/attendance'], steps: HEAD['/attendance'].steps.map(t => (t.startsWith('Teachers (at the top)')
+    ? 'Staff (at the top): mark each member of staff P, L or A for the day — use ‹ › to go to another day. Their totals for the month are underneath.' : t)) },
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
     'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',

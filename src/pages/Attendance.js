@@ -150,12 +150,12 @@ export default function Attendance() {
 
   const whoTabs = isOwner && (
     <div className="ta-tabs">
-      {[['children', 'Children'], ['teachers', 'Teachers']].map(([k, l]) => (
+      {[['children', 'Children'], ['teachers', isDarulUloom ? 'Staff' : 'Teachers']].map(([k, l]) => (
         <button key={k} type="button" className={`line-row ${who === k ? 'on' : ''}`} onClick={() => pickWho(k)}>{l}</button>
       ))}
     </div>
   );
-  if (isOwner && who === 'teachers') return <Layout title="Attendance" subtitle="Teachers">{whoTabs}<TeacherAttendance /></Layout>;
+  if (isOwner && who === 'teachers') return <Layout title="Attendance" subtitle={isDarulUloom ? 'Staff' : 'Teachers'}>{whoTabs}<TeacherAttendance /></Layout>;
   if (loading) return <Layout title="Attendance"><LoadingState /></Layout>;
   if (error) return <Layout title="Attendance"><ErrorState error={error} onRetry={load} /></Layout>;
 

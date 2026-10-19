@@ -287,7 +287,7 @@ export default function Timetable() {
             </div>
           ) : <div className="card"><div className="card-sub">The timetable hasn't been made yet.</div></div>
         ) : !view ? (
-          <div className="card"><div className="card-sub">Add your classes first (Aalim course, or Classes & Teachers).</div></div>
+          <div className="card"><div className="card-sub">Add your classes first (Aalim course, or Classes & Staff).</div></div>
         ) : (
           <>
             <div className="class-bar">

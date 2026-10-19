@@ -335,7 +335,7 @@ function YearModal({ initial, place, count, teachers, others = [], initialExisti
   });
   const takeOut = () => run(async () => {
     await saveCourseYear({ classId: initial.id, name: f.name, teacherId: f.teacherId, position: 0 });
-    await onSaved(`${initial.name} taken out — it's still on Classes & Teachers`);
+    await onSaved(`${initial.name} taken out — it's still on Classes & Staff`);
   });
   const remove = () => run(async () => { await deleteClass(initial.id); await onSaved(`${initial.name} deleted`); });
 
