@@ -17,6 +17,7 @@ import { ChoiceBoxes } from '../components/StudentDetails';
 
 export default function ClassesTeachers() {
   const { isDarulUloom } = useAuth();
+  const pageTitle = isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // ?tab=teachers opens the Teachers tab (e.g. from the Getting started checklist).
@@ -63,8 +64,8 @@ export default function ClassesTeachers() {
     return teachers.find(t => t.id === id)?.name || 'Unassigned';
   }
 
-  if (loading) return <Layout title="Classes & Teachers"><LoadingState /></Layout>;
-  if (error) return <Layout title="Classes & Teachers"><ErrorState error={error} onRetry={load} /></Layout>;
+  if (loading) return <Layout title={pageTitle}><LoadingState /></Layout>;
+  if (error) return <Layout title={pageTitle}><ErrorState error={error} onRetry={load} /></Layout>;
 
   const activeStudents = students.filter(s => s.status === 'Active').length;
   // Classes with no teacher. A Darul Uloom's Aalim years don't count: with no report writer,
@@ -90,12 +91,12 @@ export default function ClassesTeachers() {
     const data = { ...form, subjects };
     delete data.subjectsText;
     try {
-      if (form.id) { await updateTeacher(form.id, data); showToast('Teacher updated'); }
-      else { await addTeacher(data); showToast('Teacher added'); }
+      if (form.id) { await updateTeacher(form.id, data); showToast(isDarulUloom ? 'Saved' : 'Teacher updated'); }
+      else { await addTeacher(data); showToast(isDarulUloom ? 'Staff member added' : 'Teacher added'); }
       await load();
       setTeacherModal(null);
     } catch (err) {
-      showToast(err.message || 'Could not save teacher');
+      showToast(err.message || 'Could not save');
     }
   }
 
@@ -116,21 +117,21 @@ export default function ClassesTeachers() {
   }
 
   return (
-    <Layout title="Classes & Teachers" subtitle="Manage classes and teaching staff">
+    <Layout title={pageTitle} subtitle={isDarulUloom ? 'Manage classes and staff' : 'Manage classes and teaching staff'}>
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         <button className={`btn ${tab === 'classes' ? 'btn-primary' : ''}`} onClick={() => setTab('classes')}>
           <BookOpen size={14} /> Classes ({classes.length})
         </button>
         <button className={`btn ${tab === 'teachers' ? 'btn-primary' : ''}`} onClick={() => setTab('teachers')}>
-          <Users size={14} /> Teachers ({teachers.length})
+          <Users size={14} /> {isDarulUloom ? 'Staff' : 'Teachers'} ({teachers.length})
         </button>
       </div>
 
       {/* The figures in one row of small grey boxes */}
       <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
         { text: String(classes.length), sub: 'Classes', className: 'ct-figure' },
-        { text: String(teachers.length), sub: 'Teachers', className: 'ct-figure' },
+        { text: String(teachers.length), sub: isDarulUloom ? 'Staff' : 'Teachers', className: 'ct-figure' },
         { text: String(activeStudents), sub: 'Students', className: 'ct-figure' },
         unassigned
           ? { text: String(unassigned), sub: 'No teacher', tone: 'amber', onClick: () => { setTab('classes'); setOnlyNoTeacher(true); setOpenId(''); } }
@@ -206,16 +207,16 @@ export default function ClassesTeachers() {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title">Teachers</div>
-              <div className="card-sub">{teachers.length} {teachers.length === 1 ? 'teacher' : 'teachers'}</div>
+              <div className="card-title">{isDarulUloom ? 'Staff' : 'Teachers'}</div>
+              <div className="card-sub">{teachers.length} {isDarulUloom ? (teachers.length === 1 ? 'member of staff' : 'staff') : (teachers.length === 1 ? 'teacher' : 'teachers')}</div>
             </div>
             <button className="btn btn-primary btn-sm" onClick={() => setTeacherModal({ name: '', phone: '', email: '', subjectsText: '' })}>
-              <Plus size={13} /> Add teacher
+              <Plus size={13} /> {isDarulUloom ? 'Add staff' : 'Add teacher'}
             </button>
           </div>
           {teachers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-              No teachers yet — click "Add teacher" to get started.
+              {isDarulUloom ? 'No staff yet — click "Add staff" to get started.' : 'No teachers yet — click "Add teacher" to get started.'}
             </div>
           ) : (
             <ReorderableGrid
@@ -267,7 +268,7 @@ export default function ClassesTeachers() {
                         </div>
                         <div className="box-row-3" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                           <InfoBox value={theirClasses.length || '—'} label={isDarulUloom ? 'Report writer' : theirClasses.length === 1 ? 'Class' : 'Classes'} />
-                          <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give this teacher a login'} />
+                          <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give them a login'} />
                         </div>
                         {isDarulUloom && t.boardingDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Boarding</span><span className="line-row-name">On boarding duty</span></div>}
                         {theirClasses.map(name => (
@@ -339,7 +340,7 @@ export default function ClassesTeachers() {
               <div className="text-muted text-sm">
                 {confirmDelete.type === 'class'
                   ? (studentCountForClass(confirmDelete.item.name) ? `Its ${studentCountForClass(confirmDelete.item.name)} ${studentCountForClass(confirmDelete.item.name) === 1 ? 'child moves' : 'children move'} to:` : 'It has no children.')
-                  : 'This teacher will be unassigned from any classes they teach.'}
+                  : 'They will be taken off any classes they teach.'}
               </div>
               {/* A class's children always go somewhere — never left in a class that no longer exists. */}
               {confirmDelete.type === 'class' && studentCountForClass(confirmDelete.item.name) > 0 && (
@@ -466,7 +467,7 @@ function TeacherModal({ initial, onClose, onSave }) {
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-header">
-          <div className="modal-title">{isNew ? 'Add teacher' : `Edit — ${initial.name}`}</div>
+          <div className="modal-title">{isNew ? (isDarulUloom ? 'Add a member of staff' : 'Add teacher') : `Edit — ${initial.name}`}</div>
           <button className="btn btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
@@ -486,7 +487,7 @@ function TeacherModal({ initial, onClose, onSave }) {
               </div>
             </div>
             <div className="form-group">
-              <label>Subjects taught</label>
+              <label>Subjects taught{isDarulUloom ? ' (if they teach)' : ''}</label>
               <input
                 value={form.subjectsText || ''}
                 onChange={e => setForm({ ...form, subjectsText: e.target.value })}
@@ -505,7 +506,7 @@ function TeacherModal({ initial, onClose, onSave }) {
         <div className="modal-footer">
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-teal" disabled={!isValid} onClick={() => onSave(form)}>
-            <Save size={13} /> {isNew ? 'Add teacher' : 'Save changes'}
+            <Save size={13} /> {isNew ? (isDarulUloom ? 'Add' : 'Add teacher') : 'Save changes'}
           </button>
         </div>
       </div>

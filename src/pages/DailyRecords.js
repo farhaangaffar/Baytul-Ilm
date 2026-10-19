@@ -116,6 +116,7 @@ function quranUpTo(type, data) {
 }
 
 function StudentList({ students, activeClass, classNames, setActiveClass, onSelect, attendance, allRecords, classTypes, quranAll }) {
+  const { isDarulUloom } = useAuth();
   // Excludes anyone whose enrollDate is still in the future (hasn't started yet) and
   // anyone marked Inactive (has left) — a left student's history stays fully visible
   // via their card in the Students page's "students who have left" section instead.
@@ -167,7 +168,7 @@ function StudentList({ students, activeClass, classNames, setActiveClass, onSele
       </div>
       {classStudents.length === 0 && (
         <div className="card text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
-          {activeClass ? `No children in ${activeClass} yet — add them on the Students page.` : 'No classes yet — add one on Classes & Teachers.'}
+          {activeClass ? `No children in ${activeClass} yet — add them on the Students page.` : `No classes yet — add one on ${isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers'}.`}
         </div>
       )}
     </div>

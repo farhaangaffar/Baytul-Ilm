@@ -803,7 +803,7 @@ function RoomModal({ room, rooms, teachers, count, onClose, onSave, onDelete }) 
           <div className="form-group"><label>Room number or name</label><input value={f.name} onChange={e => set('name', e.target.value)} maxLength={40} /></div>
           <div className="form-group"><label>Beds</label><input type="number" min={0} max={500} value={f.beds} onChange={e => set('beds', e.target.value)} /></div>
         </div>
-        <div className="form-group"><label>Teacher in charge</label>
+        <div className="form-group"><label>Staff in charge</label>
           <select value={f.teacherId} onChange={e => set('teacherId', e.target.value)}>
             <option value="">No one</option>
             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -851,7 +851,7 @@ function AddRoomsModal({ at, rooms, teachers, onClose, onSave }) {
           <button type="button" className="line-row add" style={{ marginTop: 8 }}
             onClick={() => setList(l => [...l, { name: nextRoomName(l[l.length - 1].name), beds: l[l.length - 1].beds }])}><Plus size={13} /> Another room</button>
         </div>
-        <div className="form-group"><label>Teacher in charge (of these rooms)</label>
+        <div className="form-group"><label>Staff in charge (of these rooms)</label>
           <select value={f.teacherId} onChange={e => set('teacherId', e.target.value)}>
             <option value="">No one</option>
             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -914,7 +914,7 @@ function LevelModal({ block, level, rooms, teachers, boarders, onClose, onSave, 
           <button type="button" className="line-row add" style={{ marginTop: 8 }}
             onClick={() => setList(l => [...l, { name: last ? nextRoomName(String(last.name)) : '', beds: last ? last.beds : 4 }])}><Plus size={13} /> Another room</button>
         </div>
-        <div className="form-group"><label>Teacher in charge (of these rooms)</label>
+        <div className="form-group"><label>Staff in charge (of these rooms)</label>
           <select value={teacherId} onChange={e => setTeacherId(e.target.value)}>
             {!same && <option value="keep">Leave as it is (different for each room)</option>}
             <option value="">No one</option>

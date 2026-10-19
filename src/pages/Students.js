@@ -360,7 +360,7 @@ export default function Students() {
         )}
         {classNames.length===0 && (
           <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>
-            No classes yet — add your classes on the Classes &amp; Teachers page, then enroll students into them, or tap Import to add a whole spreadsheet.
+            No classes yet — add your classes on the {isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers'} page, then enroll students into them, or tap Import to add a whole spreadsheet.
           </div>
         )}
 
@@ -637,6 +637,7 @@ export default function Students() {
 // Students → "Not in a class": children brought in from a spreadsheet (grouped by the class their
 // sheet named) or whose class was deleted. Tick some — or a whole group — and move them together.
 function NotInClass({ students, classNames, onOpen, onMove }) {
+  const { isDarulUloom } = useAuth();
   const [picked, setPicked] = useState([]);
   const [busy, setBusy] = useState(false);
   const groups = [];
@@ -689,7 +690,7 @@ function NotInClass({ students, classNames, onOpen, onMove }) {
               {classNames.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-        ) : <span className="text-muted">Add your classes on Classes &amp; Teachers first.</span>}
+        ) : <span className="text-muted">Add your classes on {isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers'} first.</span>}
       </div>
     </div>
   );

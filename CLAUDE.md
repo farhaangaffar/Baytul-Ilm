@@ -267,6 +267,10 @@ codebase (one codebase, not a fork).
   ticks itself, can be hidden). A Darul Uloom gets its own order: Settings → teachers → classes (with "We don't
   have any") → Aalim years & books → timetable → students → logins. The students step offers "Try it with 6 made-up students"
   (notes start "Made-up student to try the app"; they don't tick the step; "Remove the made-up students" deletes them).
+  **In a Darul Uloom, the staff list is "Staff", not "Teachers"** (the owner's wish — not everyone on it teaches): menu and
+  page "Classes & Staff" (`duLabel` in `Layout.js`), the Staff tab, "Add staff", Attendance → Children | Staff, Getting
+  started's "Add your staff" / "Staff logins", Boarding's "Staff in charge". "Teacher" stays where it means who teaches
+  (a lesson's teacher, a paper's teacher, "No teacher"). A maktab keeps "Teachers"; code names (`teachers`) are unchanged.
   **Darul Uloom screens are in plain English** (teachers, books, Head — not asatidha/kitaabs/Muhtamim) so
   non-Urdu-speaking Darul Ulooms follow them; subject names and "Aalim" stay; say "classical Islamic core texts", not the subcontinental "Dars-e-Nizami". Code names (`kitaab`) are unchanged.
 - **Privacy policy & terms** (`src/lib/legal.js` — the words, `PROVIDER`, `TERMS_VERSION`;

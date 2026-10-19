@@ -74,14 +74,16 @@ export default function GettingStarted({ students, classes, onChanged }) {
   const settingsStep = { label: 'Set your fees, days and reports', sub: 'Fee, how often you charge, which days you\'re open, and how often reports are made', path: '/settings', done: !!read(key(code, 'settings')) };
   const loginsStep = { label: 'Give your teachers logins', sub: 'One for each teacher, or one shared login for each class — whichever suits you', done: teacherLogins,
     choices: [{ label: 'Teacher logins', path: '/classes?tab=teachers' }, { label: 'Class logins', path: '/classes?tab=classes' }] };
+  const duLoginsStep = { ...loginsStep, label: 'Give your staff logins', sub: 'One for each member of staff, or one shared login for each class — whichever suits you',
+    choices: [{ label: 'Staff logins', path: '/classes?tab=teachers' }, loginsStep.choices[1]] };
   const steps = isDarulUloom ? [
     settingsStep,
-    { label: 'Add your teachers', sub: 'First, so each class, year and book can be given its teacher', path: '/classes?tab=teachers', done: teacherCount > 0 },
+    { label: 'Add your staff', sub: 'Teachers and other staff — first, so each class, year and book can be given its teacher', path: '/classes?tab=teachers', done: teacherCount > 0 },
     { label: 'Add your classes', sub: 'Hifz, Nazarah, Qaa\'idah… — any class that isn\'t an Aalim year', path: '/classes?tab=classes', done: noOthers || classes.some(c => !c.courseOrder),
       extra: { label: "We don't have any", onClick: () => { write(key(code, 'no_other_classes'), '1'); setNoOthers(true); } } },
     { label: 'Set up your Aalim years and books', sub: 'Your own year names and books — or start from the usual years and classical Islamic core texts and change them', path: '/course', done: classes.some(c => c.courseOrder) },
     { label: 'Make your timetable', sub: 'Your periods and times, then which book each class has when — fill one day and copy it', path: '/timetable', done: hasTimetable },
-    studentsStep, loginsStep,
+    studentsStep, duLoginsStep,
   ] : [
     { label: 'Add your teachers, then your classes', sub: 'Teachers first, so each new class can be given its teacher', path: '/classes?tab=teachers', done: classes.length > 0 },
     { label: 'Set your fees and madrasah days', sub: 'Default fee, how often you charge, and which days you\'re open', path: '/settings', done: !!read(key(code, 'settings')) },
