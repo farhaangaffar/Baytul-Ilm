@@ -393,11 +393,13 @@ function RoomChooser({ rooms, inRoom, people, withNone, onClose, onMove }) {
   const [busy, wrap] = useBusy();
   const free = r => Math.max(0, r.beds - inRoom(r).filter(b => !people.some(p => p.id === b.id)).length);
   const chosenRoom = rooms.find(r => r.id === pick);
+  // A room with some beds free can always be chosen; if it hasn't a bed for everyone ticked, say so.
+  const short = chosenRoom && free(chosenRoom) < people.length;
   return (
     <Shell title={`Move ${people.length} boarder${people.length === 1 ? '' : 's'}`} onClose={onClose} width={480}
       footer={<>
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" disabled={busy || !pick} onClick={wrap(() => onMove(pick))}>
+        <button className="btn btn-primary" disabled={busy || !pick || short} onClick={wrap(() => onMove(pick))}>
           {pick === 'none' ? 'Take out of the room' : chosenRoom ? `Move to ${roomLabel(chosenRoom.name)}` : 'Choose a room'}</button>
       </>}>
       <div className="bd-who">{people.map(p => <span key={p.id}>{nameOf(p)}</span>)}</div>
@@ -406,10 +408,10 @@ function RoomChooser({ rooms, inRoom, people, withNone, onClose, onMove }) {
           <div className="bd-pick-head">{f.block || 'Rooms'}{f.level && <small> · {levelLabel(f.level)}</small>}</div>
           {f.rooms.map(r => {
             const left = free(r);
-            const fits = left >= people.length;
+            const full = left === 0;
             const taken = r.beds - left;
             return (
-              <button key={r.id} type="button" className={`line-row bd-pick ${pick === r.id ? 'on' : ''} ${fits ? '' : 'full'}`} disabled={!fits}
+              <button key={r.id} type="button" className={`line-row bd-pick ${pick === r.id ? 'on' : ''} ${full ? 'full' : ''}`} disabled={full}
                 onClick={() => setPick(r.id)}>
                 <span className="line-row-name">{roomLabel(r.name)}</span>
                 {r.beds <= 12 && <span className="bd-dots" aria-hidden="true">{Array.from({ length: r.beds }, (_, i) => <i key={i} className={i >= taken ? 'free' : ''} />)}</span>}
@@ -419,6 +421,9 @@ function RoomChooser({ rooms, inRoom, people, withNone, onClose, onMove }) {
           })}
         </div>
       ))}
+      {short && (
+        <div className="bd-short">{roomLabel(chosenRoom.name)} has {free(chosenRoom)} bed{free(chosenRoom) === 1 ? '' : 's'} free — you've ticked {people.length}. Untick some, or choose a room with more space.</div>
+      )}
       {withNone && (
         <button type="button" className={`line-row bd-pick ${pick === 'none' ? 'on' : ''}`} style={{ marginTop: 12 }} onClick={() => setPick('none')}>
           <span className="line-row-name">Take out of the room</span>

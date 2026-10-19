@@ -189,8 +189,8 @@ codebase (one codebase, not a fork).
   `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page shows a line per section
   → its levels → room lines; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`) → "Move to a room" opens `RoomChooser` (the owner's
-  pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full, rooms without a
-  bed for everyone ticked faded); **Going home** — home weekends
+  pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
+  with some beds free stays clear and choosable, and if it hasn't a bed for everyone ticked an amber note says so); **Going home** — home weekends
   (`du_home_weekends`, head sets them, parents see the next ones), "Away now" (tick → Signed back in; Overdue tag) and Sign
   out (tick children or a whole floor → why, collected by, due back) (`du_leaves`, who signed out/in kept); **Health** — unwell
   or medicine given (`du_health_log`: what, how much, when, by whom; head deletes). A boarder's Students profile shows room,
