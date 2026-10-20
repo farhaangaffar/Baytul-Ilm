@@ -364,22 +364,31 @@ function ChargeModal({ ids, students, classes, today, onClose, onSave }) {
 
 // Import: paste from a spreadsheet (or choose an .xlsx / .csv) — each child's name and what they've paid so far this
 // year, and their yearly fee if it isn't the usual price. Matched by name.
+// Reads only three columns, found by their headings — the child's name (or first name + surname), Paid, and Fee if
+// there is one. Every other column is ignored, and nothing else about a child is ever changed. With no Name and Paid
+// headings nothing is read (a sheet without them is probably not a fee sheet).
 function splitSheet(text) {
   const lines = String(text || '').split(/\r?\n/).filter(l => l.trim());
-  if (!lines.length) return [];
+  if (!lines.length) return { rows: [], used: [], ignored: 0 };
   const tab = lines[0].includes('\t');
   const cells = lines.map(l => (tab ? l.split('\t') : l.split(',')).map(c => c.trim().replace(/^"|"$/g, '')));
-  const head = cells[0].map(h => h.toLowerCase());
+  const head = cells[0].map(h => h.toLowerCase().trim());
   const col = re => head.findIndex(h => re.test(h));
-  let name = col(/^(full )?name|student|child/), fore = col(/fore|first/), sur = col(/sur|last/), paid = col(/paid/), fee = col(/fee|year|total/);
-  const headed = paid >= 0 && (name >= 0 || fore >= 0);
-  if (!headed) { name = 0; paid = 1; fee = cells[0].length > 2 ? 2 : -1; fore = -1; sur = -1; }
-  const amount = v => String(v || '').replace(/[^0-9.-]/g, '');
-  return cells.slice(headed ? 1 : 0).map(r => ({
-    name: name >= 0 ? r[name] : `${r[fore] || ''} ${r[sur] || ''}`.trim(),
-    paid: amount(r[paid]) || '0',
-    fee: fee >= 0 && fee !== paid ? amount(r[fee]) : '',
-  })).filter(r => r.name);
+  const name = col(/^(full |child'?s |student'?s |pupil'?s )?name$|^(student|child|pupil)$/);
+  const fore = col(/^(fore ?name|first ?name)$/), sur = col(/^(sur ?name|last ?name|family name)$/);
+  const paid = col(/^(amount |total )?paid( so far)?( this year)?$/);
+  const fee = col(/^(yearly |annual |year |total )?fee( for the year)?$/);
+  if (paid < 0 || (name < 0 && (fore < 0 || sur < 0))) {
+    return { rows: [], used: [], ignored: 0, error: 'Needs a heading row with Name (or First name and Surname) and Paid.' };
+  }
+  const usedCols = [name, fore, sur, paid, fee].filter(c => c >= 0);
+  const amount = v => String(v || '').replace(/[£$€,\s]/g, '');
+  const rows = cells.slice(1).map(r => ({
+    name: name >= 0 ? (r[name] || '').trim() : `${r[fore] || ''} ${r[sur] || ''}`.trim(),
+    paid: amount(r[paid]),
+    fee: fee >= 0 ? amount(r[fee]) : '',
+  })).filter(r => r.name && r.paid !== '');
+  return { rows, used: usedCols.map(c => cells[0][c]), ignored: head.length - usedCols.length };
 }
 
 function ImportModal({ year, onClose, onDone }) {
@@ -387,7 +396,8 @@ function ImportModal({ year, onClose, onDone }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [busy, wrap] = useBusy();
-  const rows = splitSheet(text);
+  const sheet = splitSheet(text);
+  const rows = sheet.rows;
   async function file(e) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -415,11 +425,17 @@ function ImportModal({ year, onClose, onDone }) {
       ) : (
         <>
           <div className="text-muted" style={{ fontSize: 13, marginBottom: 10 }}>
-            One row per child: <b>Name</b>, <b>Paid</b> (paid so far this year), and <b>Fee</b> if their yearly fee isn't the usual price. Copy the columns from your spreadsheet and paste them here, or choose the file.
+            A sheet with the headings <b>Name</b> and <b>Paid</b> (paid so far this year) — and <b>Fee</b> if a child's yearly fee isn't the usual price. Only those columns are read; nothing else about a child is changed.
           </div>
           <textarea rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={'Name\tPaid\tFee\nYusuf Patel\t600\nAhmad Shah\t1200\t2000'} style={{ width: '100%', fontFamily: 'var(--font)', fontSize: 13 }} />
           <label className="btn btn-sm" style={{ marginTop: 8 }}><Upload size={13} />Choose a file<input type="file" accept=".xlsx,.csv,.txt" onChange={file} hidden /></label>
-          {rows.length > 0 && <div className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>{rows.length} row{rows.length === 1 ? '' : 's'} — e.g. {rows[0].name}: paid {money(Number(rows[0].paid) || 0)}{rows[0].fee ? `, fee ${money(Number(rows[0].fee))}` : ''}</div>}
+          {sheet.error && text.trim() && <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 8 }}>{sheet.error}</div>}
+          {rows.length > 0 && (
+            <div className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+              Reading only: <b>{sheet.used.join(', ')}</b>{sheet.ignored > 0 && ` — ${sheet.ignored} other column${sheet.ignored === 1 ? '' : 's'} ignored`}.<br />
+              {rows.length} child{rows.length === 1 ? '' : 'ren'} — e.g. {rows[0].name}: paid {money(Number(rows[0].paid) || 0)}{rows[0].fee ? `, fee ${money(Number(rows[0].fee))}` : ''}
+            </div>
+          )}
           {error && <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 8 }}>{error}</div>}
         </>
       )}

@@ -321,7 +321,8 @@ const handler = requireAuth(async (req, res) => {
   }
 
   // Import: each row a child's name and what they've paid so far this year (and, if given, their own yearly fee),
-  // matched by name. Replaces "paid before" — payments recorded in the app stay as they are.
+  // matched by name. Only "paid before" (and the own fee, when given) is written — nothing else about a child, and
+  // payments recorded in the app stay as they are.
   if (req.method === 'POST' && action === 'import') {
     const rows = (Array.isArray(b.rows) ? b.rows : []).slice(0, 2000);
     const { rows: kids } = await query("SELECT id, forename, surname FROM students WHERE madrasah_id = $1 AND status <> 'Waiting'", [mid]);
@@ -332,7 +333,8 @@ const handler = requireAuth(async (req, res) => {
     await transaction(async c => {
       for (const r of rows) {
         const ids = byName[norm(r.name)] || [];
-        const paid = num(r.paid), fee = r.fee === '' || r.fee === undefined || r.fee === null ? null : num(r.fee);
+        const blank = v => v === '' || v === undefined || v === null;
+        const paid = blank(r.paid) ? NaN : num(r.paid), fee = blank(r.fee) ? null : num(r.fee);
         if (ids.length !== 1 || !(paid >= 0) || (fee !== null && !(fee >= 0))) { unmatched.push({ name: str(r.name, 80), why: ids.length > 1 ? 'Two children with this name' : ids.length ? 'Amount not a number' : 'Not found' }); continue; }
         await c.query(`INSERT INTO du_fee_accounts (madrasah_id, year, student_id, paid_before, own_amount) VALUES ($1,$2,$3,$4,$5)
                        ON CONFLICT (madrasah_id, year, student_id) DO UPDATE SET paid_before = $4, own_amount = COALESCE($5, du_fee_accounts.own_amount)`,

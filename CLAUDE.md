@@ -235,12 +235,12 @@ codebase (one codebase, not a fork).
   every time (own amount — a bursary — or price less discount; only instalments from the month they joined, none after
   they left), plus extras (`du_fee_charges`: books, a trip — a child, a class or everyone); payments (`du_fee_payments`:
   any amount, method, date, note, a **receipt number** running on per madrasah, who recorded it) and "paid before"
-  (`du_fee_accounts.paid_before`, from **Import** — name, paid so far, fee if not the usual) go towards the oldest first →
+  (`du_fee_accounts.paid_before`, from **Import** — strictly fee-only: reads just the Name (or First name + Surname), Paid and Fee columns by their headings, nothing at all without Name and Paid headings, rows with no amount skipped, never anything else about a child) go towards the oldest first →
   each box paid / part / due / overdue / not due yet. The page: This year · Paid · Still to pay · Overdue boxes, Prices &
   ways to pay · Add a charge · Import lines, Class ▾, a line per child ("£340 of £3,040 paid", red "£300 overdue ·") →
   `ChildSheet` (boxes, instalments & extras as boxes, payments → receipt; Record a payment → receipt to WhatsApp / Print /
-  Copy; Change fee). Dashboard, Students (each child's "£x of £y paid", no per-month fee field), Stats (by class, paid
-  each month) and the parent portal (`forParent()` — `DuFeesCard`: paid, next, instalments, receipts) use it. In Backup
+  Copy; Change fee). Dashboard, Students (each child's "£x of £y paid", no per-month fee field), Stats (the same Fees tab as a
+  maktab's — `duToFees()` turns instalments into month records) and the parent portal (`forParent()` — `DuFeesCard`: paid, next, instalments, receipts) use it. In Backup
   (`duBackup.js`, `fees` — older backups leave fees alone) and demo `TABLES`; the DU demo has £3,000 / £1,500, three ways
   to pay, sibling discount on (the Patel brothers), a bursary, Books for everyone, most paid up and a few overdue
   (`demoDuFees()`).
