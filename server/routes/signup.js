@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 const { query } = require('../db');
 const { ensureUsersTable, normalizeLogin, validateNewCredentials, setSessionCookie } = require('../auth');
-const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, codeFromName, ensureSignupColumns, createMadrasah } = require('../newMadrasah');
-const { TERMS_VERSION } = require('./session');
+const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, codeFromName, ensureSignupColumns, createMadrasah, KINDS } = require('../newMadrasah');
+const { termsVersionFor } = require('./session');
 const { notifyPlatformOwner } = require('../notify');
 
 // A madrasah signing itself up from the front page ("Start free"). Open to anyone, so:
@@ -55,6 +55,8 @@ module.exports = async (req, res) => {
   const problem = validateNewCredentials(email, b.password);
   if (problem) { res.status(400).json({ error: problem }); return; }
   if (b.agree !== true) { res.status(400).json({ error: 'Please agree to the terms of use and privacy policy.' }); return; }
+  // A maktab (evening and weekend classes) or a Darul Uloom (full-time) — each has its own pages and price.
+  const kind = KINDS.includes(b.kind) ? b.kind : 'maktab';
 
   const hash = ipHash(req);
   const { rows: [{ n }] } = await query(
@@ -71,8 +73,8 @@ module.exports = async (req, res) => {
   let made;
   try {
     made = await createMadrasah({
-      name, code, headLogin: email, headPassword: b.password,
-      signup: { contactName: headName, contactEmail: email, contactPhone: phone, ipHash: hash, termsVersion: TERMS_VERSION },
+      name, code, headLogin: email, headPassword: b.password, kind,
+      signup: { contactName: headName, contactEmail: email, contactPhone: phone, ipHash: hash, termsVersion: termsVersionFor(kind) },
     });
   } catch (err) {
     // Someone took the same code a moment ago.
@@ -82,9 +84,9 @@ module.exports = async (req, res) => {
   const { madrasah, user } = made;
   // Let the platform owner know (phone notification / email) — never holds up or breaks the sign-up.
   await notifyPlatformOwner({
-    title: `New madrasah: ${name}`,
+    title: `New ${kind === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'}: ${name}`,
     body: phone ? `${headName} · ${phone}` : headName, // short, so it fits a phone's notification
-    emailText: `${name} has just signed up to Suhuf.\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
+    emailText: `${name}${kind === 'darul_uloom' ? ' (a Darul Uloom)' : ''} has just signed up to Suhuf.\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
   }).catch(() => {});
   setSessionCookie(res, user);
   res.status(201).json({ ok: true, code: madrasah.code });

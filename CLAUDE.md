@@ -104,10 +104,15 @@ codebase (one codebase, not a fork).
   times, exam marks and pass marks, fee amounts and instalments, rooms, home-weekend times are all set by
   each madrasah (sensible defaults, everything changeable). Never put a real school's names or data in code
   or the public demo. Only the platform owner sets the kind (Madaaris page → Add / Edit details;
-  changing it resets that madrasah's plan and price). Price: a Darul Uloom £500 a year (`PRICES` in
-  `server/newMadrasah.js`, `KIND_PRICES` in `src/lib/billing.js`). The front end checks
-  `useAuth().isDarulUloom`; a maktab must never see a Darul Uloom page. Sign-up and the front page
-  only offer it once the stages are done (the terms' Cost section and `TERMS_VERSION` change then).
+  changing it resets that madrasah's plan and price) — or the head picks it at sign-up. Price: a Darul Uloom £50 a month
+  or £500 a year for up to 500 students, more → call or message us (`PRICES` in `server/newMadrasah.js`, `KIND_PRICES` in
+  `src/lib/billing.js`; a new Darul Uloom starts on the yearly plan). The front end checks `useAuth().isDarulUloom`; a maktab
+  must never see a Darul Uloom page. **Launched:** sign-up asks Maktab or Darul Uloom (`/?start=darul-uloom` picks it), the
+  front page has a Darul Uloom section (`#darul-uloom`, `DU_PARTS`, screenshots `public/landing/du-*.jpg` from the DU demo
+  renamed "Madrasatul Huda") and both prices, and the terms' Cost section names both. **Terms are versioned per kind**
+  (`TERMS_VERSION` for maktabs, `DU_TERMS_VERSION` for Darul Ulooms — `termsVersionFor(kind)` in `server/routes/session.js`,
+  same strings in `src/lib/legal.js`): a change that only concerns Darul Ulooms bumps only theirs, so maktab heads aren't asked
+  again.
   **Aalim course page** (`/course`, menu "Aalim course", head only, `src/pages/Course.js`, `server/routes/course.js` — answers 403 for
   a maktab): a year group is an ordinary class with `classes.course_order` (1 = first year; NULL = not a
   course year, e.g. Hifdh), so attendance/fees/reports work unchanged. Each year's subjects & kitaabs are in
@@ -279,8 +284,9 @@ codebase (one codebase, not a fork).
   taken from the demo as "Madrasatul Huda"): shown at `/about`, and at `/` to anyone not signed
   in on a device with no madrasah code (no `?m=`, `?demo`, `?signin`) — staff and parents never
   see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then
-  £20 a month or £200 a year" for up to 200 children — more than 200: "message us" (also in the terms' Cost
-  section and on the sign-up page; size bands for larger madaaris to come). When a feature changes a lot, retake its screenshot. The parent portal and
+  £20 a month or £200 a year" for up to 200 children — more than 200: "message us"; a Darul Uloom £50 a month or £500 a
+  year for up to 500 students — more: call or message us (the pricing card shows both plans side by side; also in the
+  terms' Cost section and on the sign-up page). When a feature changes a lot, retake its screenshot. The parent portal and
   PDF reports carry a small "Made with Suhuf" credit (`MadeWith` in `Legal.js`, `footerText` in
   `src/lib/reportPdf.js`) linking to `/about`. Visitor counts (Vercel Web Analytics, no cookies,
   `src/lib/analytics.js` `countVisit()`, live site only): the front page, /privacy, /terms, `/demo` and
@@ -288,7 +294,8 @@ codebase (one codebase, not a fork).
   "Start free" opens the sign-up (`/?start`, below); "Message us on WhatsApp" goes to the owner's number
   (`WHATSAPP` in `Landing.js`, clicks counted as `/contact/whatsapp`); hello@suhuf.uk is the email.
 - **Self sign-up** ("Start free" on the front page and the sign-in screen of a new device → `/?start`,
-  `src/pages/Signup.js`, `server/routes/signup.js`): madrasah name, head's name, email (their login), phone,
+  `src/pages/Signup.js`, `server/routes/signup.js`): Maktab or Darul Uloom (two boxes, its price underneath; sent as `kind`,
+  recorded with that kind's terms version; the sign-up notification says "New Darul Uloom"), madrasah name, head's name, email (their login), phone,
   password, a sign-in code made from the name (changeable), and a tick for the terms (recorded, so no
   agree screen after). They're straight in as the head, free for 6 months. Guards: a hidden field only bots
   fill, max 3 sign-ups per address a day (`madaaris.signup_ip`, hashed). Creating a madrasah is shared with

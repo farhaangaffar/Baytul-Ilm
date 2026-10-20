@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet, Smartphone, Shield, CalendarDays,
-  ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, MessageCircle, Rocket } from 'lucide-react';
+  ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, MessageCircle, Rocket, Library, CalendarClock,
+  GraduationCap, BedDouble, Wrench } from 'lucide-react';
 import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
 import { LegalModal } from '../components/Legal';
 import { countVisit } from '../lib/analytics';
@@ -61,6 +62,17 @@ const MORE = [
   [Smartphone, 'An app on every phone', 'Installs from the browser on iPhone and Android. Nothing to download from an app store.'],
 ];
 
+// A Darul Uloom (a full-time madrasah) gets these on top of everything above (CLAUDE.md, "Darul Uloom").
+const DU_PARTS = [
+  [Library, 'Aalim years & books', 'Your own years and books — or start from the usual Aalim years and the classical core texts.'],
+  [CalendarClock, 'Timetable', 'Periods, lessons and rooms; teachers see their day and record what each lesson covered.'],
+  [GraduationCap, 'Exams & report cards', 'Your own marks and pass marks, positions and grades, and report cards sent to parents.'],
+  [BedDouble, 'Boarding', 'Rooms and beds, the night register, home weekends, signing in and out, and health notes.'],
+  [PoundSterling, 'Fees in instalments', 'A yearly fee paid monthly, termly or at once — bursaries, sibling discounts and receipts.'],
+  [Wrench, 'Maintenance', 'Jobs to fix around the building, for your maintenance staff to tick off.'],
+];
+const DU_SHOTS = [['/landing/du-timetable.jpg', 'The timetable'], ['/landing/du-exams.jpg', 'Exam results'], ['/landing/du-boarding.jpg', 'Boarding — tonight']];
+
 const FAQ = [
   ['Do teachers and parents need to download anything?', 'No. Suhuf works in the phone\'s browser and can be added to the home screen like an app in a few seconds — on iPhone and Android. It works on computers too.'],
   ['How do we start?', 'Tap Start free, enter your madrasah\'s name and your details, and you\'re in straight away — free for 6 months, no card needed. Questions first? Message us on WhatsApp.'],
@@ -68,7 +80,8 @@ const FAQ = [
   ['We already have our students in a spreadsheet. Can we use it?', 'Yes — paste the rows or upload the file. Suhuf works out the columns (names, classes, dates of birth, mother\'s and father\'s details), lets you check everything, and adds them all at once.'],
   ['How does the AI report work?', "It reads that child's lesson notes, Qur'aan progress and behaviour records for the month or term, and writes a short report paragraph. You can add instructions, edit every word, and nothing reaches parents until you press \"Add to report\"."],
   ['Who can see our data?', 'Only your madrasah. Each madrasah\'s records are kept completely separate; teachers only see their own classes, and parents only their own children. You can download everything at any time.'],
-  ['What does it cost?', 'Suhuf is free for your first 6 months. After that it\'s £20 a month, or £200 a year, for a madrasah of up to 200 children — however many teachers and parents use it. Over 200 children? Message us for a price. You pay by standing order; there\'s no contract, and you can leave whenever you like.'],
+  ['What does it cost?', 'Suhuf is free for your first 6 months. After that it\'s £20 a month, or £200 a year, for a madrasah of up to 200 children — however many teachers and parents use it. A Darul Uloom is £50 a month, or £500 a year, for up to 500 students. Bigger than that? Call or message us for a price. You pay by standing order; there\'s no contract, and you can leave whenever you like.'],
+  ['We\'re a full-time Darul Uloom. Does it work for us?', 'Yes. Choose "Darul Uloom" when you start: you get everything a maktab has, plus the Aalim years and their books, a timetable, exams and report cards, boarding, fees in instalments and a maintenance list — all set up your way, with your own years, periods, marks, rooms and fees. Try the Darul Uloom demo to see it.'],
   ['What if we stop using it?', 'Download a full backup and a spreadsheet of your students first; then your information is deleted. Nothing is held back.'],
 ];
 
@@ -112,6 +125,7 @@ export default function Landing({ onSignIn }) {
         </a>
         <nav className="lp-links">
           <a href="#features">Features</a>
+          <a href="#darul-uloom">Darul Uloom</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
         </nav>
@@ -120,7 +134,7 @@ export default function Landing({ onSignIn }) {
 
       <section className="lp-hero">
         <div className="lp-hero-text">
-          <div className="lp-pill">Built for UK madaaris</div>
+          <div className="lp-pill">For UK maktabs and Darul Ulooms</div>
           <h1>Your whole madrasah, in one simple app</h1>
           <p className="lp-lead">Registers, fees, Qur'aan progress, behaviour and AI-written reports — with a portal so parents can see how their child is doing.</p>
           <div className="lp-cta">
@@ -169,6 +183,24 @@ export default function Landing({ onSignIn }) {
           </div>
         </section>
 
+        <section id="darul-uloom" className="lp-section lp-du">
+          <div className="lp-center">
+            <div className="lp-tag"><GraduationCap size={15} />For Darul Ulooms</div>
+            <h2>Running a full-time Darul Uloom? It's all here too</h2>
+            <p className="lp-du-lead">Everything above, plus the pages a full-time madrasah needs — every year name, period, mark, room and fee set your way.</p>
+          </div>
+          <div className="lp-du-phones">{DU_SHOTS.map(([src, alt]) => <Phone key={src} src={src} alt={alt} />)}</div>
+          <div className="lp-grid">
+            {DU_PARTS.map(([I, t, d]) => (
+              <div key={t} className="lp-card"><div className="lp-card-icon"><I size={18} /></div><h3>{t}</h3><p>{d}</p></div>
+            ))}
+          </div>
+          <div className="lp-cta lp-cta-center" style={{ marginTop: 26 }}>
+            <a href="/?demo=darul-uloom" className="lp-btn lp-btn-primary"><PlayCircle size={17} />Try the Darul Uloom demo</a>
+            <a href="/?start=darul-uloom" className="lp-btn lp-btn-light"><Rocket size={16} />Start free</a>
+          </div>
+        </section>
+
         <section className="lp-section">
           <h2 className="lp-center">Made for everyone at your madrasah</h2>
           <div className="lp-grid lp-grid-3">
@@ -194,9 +226,22 @@ export default function Landing({ onSignIn }) {
           <div className="lp-price">
             <div className="lp-tag"><Sparkles size={15} />Simple pricing</div>
             <div className="lp-price-big">Free for 6 months</div>
-            <p>Then <strong>£20 a month</strong>, or <strong>£200 a year</strong> (two months free), for up to 200 children.</p>
-            <p className="lp-price-note">One price for the whole madrasah — for 60 children, that's about 33p a child a month.
-              More than 200 children? <a href={whatsappHref} target="_blank" rel="noopener noreferrer">Message us</a> for a price.</p>
+            <p>Then one price for the whole madrasah:</p>
+            <div className="lp-plans">
+              <div className="lp-plan">
+                <h3>Maktab</h3>
+                <div className="lp-plan-price"><strong>£20</strong> a month</div>
+                <div className="lp-plan-sub">or £200 a year (two months free)</div>
+                <div className="lp-plan-size">Up to 200 children</div>
+              </div>
+              <div className="lp-plan">
+                <h3>Darul Uloom</h3>
+                <div className="lp-plan-price"><strong>£50</strong> a month</div>
+                <div className="lp-plan-sub">or £500 a year (two months free)</div>
+                <div className="lp-plan-size">Up to 500 students</div>
+              </div>
+            </div>
+            <p className="lp-price-note">Bigger than that? <a href={`tel:+${WHATSAPP}`}>Call</a> or <a href={whatsappHref} target="_blank" rel="noopener noreferrer">message us</a> for a price.</p>
             <ul className="lp-points">
               {['Every feature included — AI reports too', 'Unlimited teachers and parent logins', 'Help getting set up', 'No contract — leave any time, take your data with you'].map(x => <li key={x}><Check size={15} />{x}</li>)}
             </ul>
