@@ -695,3 +695,11 @@ export const deleteHealthNote = id => boardingDelete('health', id);
 export const addRooms = (block, level, teacherId, rooms) => boardingPost('rooms', { block, level, teacherId, rooms });
 export const renameBoarding = (what, block, level, to) => boardingPost('rename', { what, block, level, to });
 export const weekendAnswer = (weekendId, studentIds, going) => boardingPost('answer', { weekendId, studentIds, going });
+
+// A Darul Uloom's maintenance list (server/routes/maintenance.js).
+const maintenancePost = (action, body) => apiFetch(`/api/maintenance?action=${action}`, { method: 'POST', body: JSON.stringify(body) });
+export const getMaintenance = () => apiFetch('/api/maintenance');
+export const saveMaintenanceJob = job => maintenancePost('job', job);
+export const markMaintenanceDone = (id, note) => maintenancePost('done', { id, note });
+export const reopenMaintenanceJob = id => maintenancePost('reopen', { id });
+export const deleteMaintenanceJob = id => apiFetch(`/api/maintenance?id=${encodeURIComponent(id)}`, { method: 'DELETE' });

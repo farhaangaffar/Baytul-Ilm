@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { appNavigate } from './BackToExit';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList, BedDouble } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList, BedDouble, Wrench } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -21,6 +21,7 @@ const navItems = [
   { label:'Timetable',          path:'/timetable',  icon:CalendarClock, teacher:true, darulUloom:true },
   { label:'Exams & reports',    path:'/exams',      icon:ClipboardList, teacher:true, darulUloom:true },
   { label:'Boarding',           path:'/boarding',   icon:BedDouble,     darulUloom:true, boarding:true }, // teachers: only those on boarding duty
+  { label:'Maintenance',        path:'/maintenance', icon:Wrench,       darulUloom:true, maintenance:true }, // teachers: only those ticked Maintenance
   // A Darul Uloom's reports are on Exams & reports, so it has no separate Reports page.
   { label:'Reports',            path:'/reports',    icon:FileText,      section:'Setup', maktab:true },
   { label:'Aalim course',       path:'/course',     icon:Library,       darulUloom:true, duSection:'Setup' },
@@ -50,7 +51,7 @@ export default function Layout({ children, title, subtitle }) {
   const visibleNav = isOwner
     ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom))
       .map(i => (isDarulUloom ? { ...i, section: i.duSection || i.section, label: i.duLabel || i.label } : i))
-    : navItems.filter(i => (i.teacher || (i.boarding && user?.boardingDuty)) && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));
+    : navItems.filter(i => ((i.teacher && !user?.maintenanceOnly) || (i.boarding && user?.boardingDuty) || (i.maintenance && user?.maintenanceDuty)) && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);
   const chipsRowRef = useRef(null);
 

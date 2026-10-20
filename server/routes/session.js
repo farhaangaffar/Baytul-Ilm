@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { ensureUsersTable, getUser, teacherClassNames } = require('../auth');
+const { ensureUsersTable, getUser, teacherClassNames, teachingClassNames } = require('../auth');
 const { ensureSignupColumns } = require('../newMadrasah');
 
 // Who is signed in (and, for a teacher or class login, which classes they can see),
@@ -38,19 +38,22 @@ module.exports = async (req, res) => {
   const classNames = user.role === 'teacher' ? await teacherClassNames(user) : null;
   const { rows: [m] } = await query('SELECT code, name, kind, terms_version FROM madaaris WHERE id = $1', [user.madrasahId]);
   // Heads agree to the terms once per version; not the platform owner (they wrote them) or a demo.
-  // A Darul Uloom teacher on boarding duty also gets the Boarding page.
-  let boardingDuty = false;
+  // A Darul Uloom teacher on boarding duty also gets the Boarding page; one on maintenance, the Maintenance page.
+  let boardingDuty = false, maintenanceDuty = false, maintenanceOnly = false;
   if (user.role === 'teacher' && user.teacherId && m.kind === 'darul_uloom') {
     await require('./teachers').ensure();
-    const { rows: t } = await query('SELECT boarding_duty FROM teachers WHERE id = $1 AND madrasah_id = $2', [user.teacherId, user.madrasahId]);
+    const { rows: t } = await query('SELECT boarding_duty, maintenance_duty FROM teachers WHERE id = $1 AND madrasah_id = $2', [user.teacherId, user.madrasahId]);
     boardingDuty = !!t[0]?.boarding_duty;
+    maintenanceDuty = !!t[0]?.maintenance_duty;
+    // Staff who are only on maintenance (no class, no lessons) open on the Maintenance page and don't see the teaching pages.
+    if (maintenanceDuty && !classNames.length) maintenanceOnly = !(await teachingClassNames(user)).length;
   }
   const termsNeeded = user.role === 'owner' && !user.platformAdmin && !user.demo && m.terms_version !== TERMS_VERSION;
   res.status(200).json({
     authenticated: true, setupRequired,
     user: {
       login: user.login, role: user.role, teacherId: user.teacherId, classId: user.classId, classNames,
-      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name, kind: m.kind }, termsNeeded, boardingDuty,
+      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name, kind: m.kind }, termsNeeded, boardingDuty, maintenanceDuty, maintenanceOnly,
     },
   });
 };

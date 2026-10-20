@@ -271,6 +271,7 @@ export default function ClassesTeachers() {
                           <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give them a login'} />
                         </div>
                         {isDarulUloom && t.boardingDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Boarding</span><span className="line-row-name">On boarding duty</span></div>}
+                        {isDarulUloom && t.maintenanceDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Maintenance</span><span className="line-row-name">Sees the maintenance list</span></div>}
                         {theirClasses.map(name => (
                           <div key={name} className="line-row ct-detail"><span className="course-kitaab-subject">{isDarulUloom ? 'Report writer' : 'Class teacher'}</span><span className="line-row-name">{name}</span></div>
                         ))}
@@ -499,6 +500,13 @@ function TeacherModal({ initial, onClose, onSave }) {
               <div className="form-group">
                 <label>Boarding duty</label>
                 <ChoiceBoxes options={['Yes', 'No']} value={form.boardingDuty ? 'Yes' : 'No'} onChange={v => setForm({ ...form, boardingDuty: v === 'Yes' })} />
+              </div>
+            )}
+            {/* …and those ticked Maintenance get the Maintenance page (things to fix around the school). */}
+            {isDarulUloom && (
+              <div className="form-group">
+                <label>Maintenance</label>
+                <ChoiceBoxes options={['Yes', 'No']} value={form.maintenanceDuty ? 'Yes' : 'No'} onChange={v => setForm({ ...form, maintenanceDuty: v === 'Yes' })} />
               </div>
             )}
           </div>

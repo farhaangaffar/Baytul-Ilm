@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS teachers (
   email       TEXT NOT NULL DEFAULT '',
   subjects    JSONB NOT NULL DEFAULT '[]',
   sort_order  INTEGER,
-  boarding_duty BOOLEAN NOT NULL DEFAULT false  -- a Darul Uloom: gets the Boarding page
+  boarding_duty BOOLEAN NOT NULL DEFAULT false,  -- a Darul Uloom: gets the Boarding page
+  maintenance_duty BOOLEAN NOT NULL DEFAULT false -- a Darul Uloom: gets the Maintenance page
 );
 CREATE INDEX IF NOT EXISTS idx_teachers_madrasah ON teachers (madrasah_id);
 
@@ -516,3 +517,19 @@ CREATE TABLE IF NOT EXISTS du_weekend_answers (       -- who's staying for a hom
   waiting     BOOLEAN NOT NULL DEFAULT false,         -- still here after the weekend's sign-out (not collected yet)
   PRIMARY KEY (weekend_id, student_id)
 );
+
+-- A Darul Uloom's maintenance list: things to fix around the school (the Maintenance page).
+CREATE TABLE IF NOT EXISTS du_maintenance (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  what        TEXT NOT NULL,
+  place       TEXT NOT NULL DEFAULT '',
+  urgent      BOOLEAN NOT NULL DEFAULT false,
+  note        TEXT NOT NULL DEFAULT '',
+  added_by    TEXT NOT NULL DEFAULT '',
+  added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  done_at     TIMESTAMPTZ,
+  done_by     TEXT NOT NULL DEFAULT '',
+  done_note   TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_du_maintenance_madrasah ON du_maintenance (madrasah_id);

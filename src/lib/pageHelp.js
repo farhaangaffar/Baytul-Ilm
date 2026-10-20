@@ -169,8 +169,21 @@ const BOARDING_TEACHER = { title: 'Boarding', steps: [
 ] };
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
+const MAINTENANCE_HEAD = { title: 'Maintenance', steps: [
+  '"Add a job" for anything to fix: what, where, and whether it\'s urgent. Urgent jobs go to the top in red.',
+  'Staff ticked Maintenance (Classes & Staff → Staff → a name → Edit) see this list and mark jobs done.',
+  'Tap a job to see it, mark it done, or Edit it. A job marked done by mistake can be put back on the list.',
+  'Jobs done are under "Done", with who did them and when.',
+] };
+const MAINTENANCE_STAFF = { title: 'Maintenance', steps: [
+  'These are the things to fix around the school — urgent ones at the top in red.',
+  'Tap a job to see where it is and any note from the head.',
+  'When it\'s fixed, tap "Mark done", say what you did if you like, and save.',
+] };
+
 const DU_HEAD = {
   '/boarding': BOARDING_HEAD,
+  '/maintenance': MAINTENANCE_HEAD,
   '/classes': { title: 'Classes & Staff', steps: [
     'Add classes and staff with the + buttons.',
     'Each class or member of staff is one line — tap it for the details. A teacher shows the books they teach in each year.',
@@ -190,6 +203,7 @@ const DU_HEAD = {
 // A Darul Uloom teacher: attendance and behaviour for every Aalim year they teach.
 const DU_TEACHER = {
   '/boarding': BOARDING_TEACHER,
+  '/maintenance': MAINTENANCE_STAFF,
   '/attendance': { title: 'Attendance', steps: [
     'Tap Class at the top and pick the year you\'re with — every Aalim year you teach is there.',
     'Tap P, L or A for each student. It\'s saved under your name ("Today\'s register taken by …").',

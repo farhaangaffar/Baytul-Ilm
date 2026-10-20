@@ -212,6 +212,16 @@ codebase (one codebase, not a fork).
   has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (two boarders
   staying for the next one), one boarder home now, two weeks of nights and health notes
   (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
+  **Maintenance** (`/maintenance`, menu "Maintenance", `src/pages/Maintenance.js`, `server/routes/maintenance.js`; 403 for a
+  maktab): things to fix around the school (`du_maintenance`: what, where, urgent, note, who added it; done_at/done_by/done_note).
+  The head adds, edits, deletes and puts back; staff ticked **Maintenance** (`teachers.maintenance_duty`, Yes/No in the staff
+  pop-up, DU only; the session's `maintenanceDuty`) see the list and **Mark done** with a note. Staff only on maintenance (no
+  class, no lessons — the session's `maintenanceOnly`) open on it and don't see the teaching pages. The page: To do · Urgent ·
+  Done this month boxes, a "To do" card of lines (urgent first then oldest; the sub-line starts with a red "Urgent ·" — no red
+  fill, the owner likes it calm), "Add a job" (head), a closed "Done" line (last year's) → tap a job for its pop-up (Where ·
+  Added · Urgent boxes, note, Mark done). No photos (database space). Where is a `PickField` of past places. In Backup
+  (`duBackup.js`, `maintenance` — older backups leave it alone) and demo `TABLES`; the DU demo has five jobs to do (two
+  urgent) and three done, Brother Bilal (no lessons) and Maulana Yusuf ticked Maintenance (`demoMaintenance()`).
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
