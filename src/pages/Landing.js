@@ -71,6 +71,7 @@ const DU_PARTS = [
   [PoundSterling, 'Fees in instalments', 'A yearly fee paid monthly, termly or at once — bursaries, sibling discounts and receipts.'],
   [Wrench, 'Maintenance', 'Jobs to fix around the building, for your maintenance staff to tick off.'],
 ];
+const DU_DESK = [['/landing/du-desk-timetable.jpg', 'The whole week\'s timetable on a computer'], ['/landing/du-desk-fees.jpg', 'Fees on a computer']];
 const DU_SHOTS = [['/landing/du-timetable.jpg', 'The timetable'], ['/landing/du-exams.jpg', 'Exam results'], ['/landing/du-boarding.jpg', 'Boarding — tonight']];
 
 const FAQ = [
@@ -84,6 +85,17 @@ const FAQ = [
   ['We\'re a full-time Darul Uloom. Does it work for us?', 'Yes. Choose "Darul Uloom" when you start: you get everything a maktab has, plus the Aalim years and their books, a timetable, exams and report cards, boarding, fees in instalments and a maintenance list — all set up your way, with your own years, periods, marks, rooms and fees. Try the Darul Uloom demo to see it.'],
   ['What if we stop using it?', 'Download a full backup and a spreadsheet of your students first; then your information is deleted. Nothing is held back.'],
 ];
+
+// A computer screen: the office runs a Darul Uloom from a desk.
+function Laptop({ src, alt }) {
+  return (
+    <figure className="lp-laptop">
+      <div className="lp-laptop-screen"><img src={src} alt={alt} loading="lazy" width="1280" height="800" /></div>
+      <div className="lp-laptop-base" />
+      <figcaption>{alt}</figcaption>
+    </figure>
+  );
+}
 
 function Phone({ src, alt, eager }) {
   return (
@@ -190,6 +202,7 @@ export default function Landing({ onSignIn }) {
             <p className="lp-du-lead">Everything above, plus the pages a full-time madrasah needs — every year name, period, mark, room and fee set your way.</p>
           </div>
           <div className="lp-du-phones">{DU_SHOTS.map(([src, alt]) => <Phone key={src} src={src} alt={alt} />)}</div>
+          <div className="lp-du-desk">{DU_DESK.map(([src, alt]) => <Laptop key={src} src={src} alt={alt} />)}</div>
           <div className="lp-grid">
             {DU_PARTS.map(([I, t, d]) => (
               <div key={t} className="lp-card"><div className="lp-card-icon"><I size={18} /></div><h3>{t}</h3><p>{d}</p></div>
