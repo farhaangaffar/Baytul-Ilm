@@ -292,21 +292,21 @@ function TickList({ groups, picked, setPicked, sub, actions }) {
   );
 }
 
-// ── Rooms, as lists (the owner's preference): a line per section → tap → the section's card, its levels as closed
-// lines → open a level for its room lines → tap a room → who's in it, put a boarder in, edit. Boarders not in a room
-// are one amber line → tick and "Move to a room".
+// ── Rooms, laid out like Tonight (the owner's choice): each section's heading (Edit section), then a card per floor,
+// closed to start — open one for its room lines (beds as dots) → tap a room → who's in it, put a boarder in, edit.
+// Boarders not in a room are one amber line → tick and "Move to a room".
 function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
   const { rooms, boarders } = data;
-  const [section, setSection] = useState(null);   // the section (its `block`) whose card is open
   const [roomId, setRoomId] = useState('');       // the room whose card is open
   const [placing, setPlacing] = useState(false);  // the "not in a room" card
+  const [openFloors, setOpenFloors] = useState([]); // floors opened (each starts closed, as on Tonight)
+  const toggleFloor = k => setOpenFloors(o => (o.includes(k) ? o.filter(x => x !== k) : [...o, k]));
   const inRoom = r => boarders.filter(b => b.roomId === r.id);
   const unplaced = boarders.filter(b => !b.roomId || !rooms.some(r => r.id === b.roomId));
   const lay = layout(rooms);
   const used = list => list.reduce((t, r) => t + inRoom(r).length, 0);
   const beds = list => list.reduce((t, r) => t + r.beds, 0);
   const room = rooms.find(r => r.id === roomId);
-  const open = section !== null && lay.find(x => x.block === section);
   return (
     <>
       {unplaced.length > 0 && (
@@ -315,27 +315,50 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
           <span className="line-row-sub">{head ? 'Place' : 'See'}</span><ChevronRight size={16} />
         </button>
       )}
-      <div className="card">
-        <div className="course-lines bd-two-lines">
-          {lay.map(x => {
-            const all = x.levels.flatMap(l => l.rooms);
-            return (
-              <button key={x.block || 'none'} type="button" className="line-row" onClick={() => setSection(x.block)}>
-                <span className="ct-two">
-                  <span className="line-row-name">{x.block || 'Rooms'}</span>
-                  <span className="line-row-sub">{x.levels.length} level{x.levels.length === 1 ? '' : 's'} · {all.length} room{all.length === 1 ? '' : 's'}</span>
-                </span>
-                <span className="line-row-sub">{used(all)} / {beds(all)} beds</span><ChevronRight size={16} />
-              </button>
-            );
-          })}
-          {!rooms.length && <div className="text-muted" style={{ fontSize: 13 }}>No rooms yet.</div>}
-          {head && <button type="button" className="line-row add" onClick={() => onAdd({ block: '', level: '' })}><Plus size={14} /> {rooms.length ? 'Add a section' : 'Add rooms'}</button>}
-        </div>
-      </div>
+      {lay.map(x => {
+        const all = x.levels.flatMap(l => l.rooms);
+        return (
+          <div key={x.block || 'none'} className="bd-section">
+            <div className="bd-sec-head">
+              <span className="bd-sec-name">{x.block || 'Rooms'}</span>
+              <span className="bd-room-count">{all.length} room{all.length === 1 ? '' : 's'} · {used(all)} / {beds(all)} beds</span>
+              {head && <button type="button" className="bd-title-edit" onClick={() => onRename({ what: 'block', block: x.block })}><Pencil size={12} />Edit section</button>}
+            </div>
+            <div className="bd-two" style={{ marginTop: 6 }}>
+              {x.levels.map(l => {
+                const key = `${x.block}|${l.level}`;
+                const isOpen = openFloors.includes(key);
+                return (
+                  <div className="card att-week" key={key}>
+                    <div className="bd-room-head">
+                      <button type="button" className="bd-floor-toggle" aria-expanded={isOpen} onClick={() => toggleFloor(key)}>
+                        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        <span className="bd-floor-title">{levelLabel(l.level) || 'Rooms'}</span>
+                        <span className="bd-room-count">{l.rooms.length} room{l.rooms.length === 1 ? '' : 's'} · {used(l.rooms)} / {beds(l.rooms)} beds</span>
+                      </button>
+                      {head && <button type="button" className="btn btn-sm" onClick={() => onRename({ what: 'level', block: x.block, level: l.level })}><Pencil size={12} />Edit</button>}
+                    </div>
+                    {isOpen && (
+                      <div className="course-lines" style={{ marginTop: 6 }}>
+                        {l.rooms.map(r => (
+                          <button key={r.id} type="button" className="line-row bd-room-line" onClick={() => setRoomId(r.id)}>
+                            <span className="line-row-name">{roomLabel(r.name)}</span>
+                            {roomDots(r, inRoom(r).length)}
+                            <span className="bd-free">{inRoom(r).length}/{r.beds}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {!rooms.length && <div className="card text-muted" style={{ fontSize: 13 }}>No rooms yet.</div>}
+      {head && <button type="button" className="line-row add" style={{ marginTop: 12 }} onClick={() => onAdd({ block: '', level: '' })}><Plus size={14} /> {rooms.length ? 'Add a section' : 'Add rooms'}</button>}
 
-      {open && !room && (
-        <SectionSheet section={open} head={head} inRoom={inRoom} used={used} beds={beds} onClose={() => setSection(null)}
           onRoom={r => setRoomId(r.id)} onAdd={onAdd} onRename={onRename} />
       )}
       {room && (
@@ -352,57 +375,6 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
 }
 
 const roomDots = (r, n) => r.beds <= 12 && <span className="bd-dots" aria-hidden="true">{Array.from({ length: r.beds }, (_, i) => <i key={i} className={i >= n ? 'free' : ''} />)}</span>;
-
-// A section's card: its figures, then its levels as closed lines — open one for its rooms.
-function SectionSheet({ section, head, inRoom, used, beds, onClose, onRoom, onAdd, onRename }) {
-  const [openLevel, setOpenLevel] = useState(null);
-  const all = section.levels.flatMap(l => l.rooms);
-  return (
-    <Shell onClose={onClose} width={480}
-      title={<span className="bd-sheet-title">{section.block || 'Rooms'}
-        {head && <button type="button" className="bd-title-edit" onClick={() => onRename({ what: 'block', block: section.block })}><Pencil size={12} />Edit section</button>}</span>}
-      footer={<button className="btn btn-primary" onClick={onClose}>Done</button>}>
-      <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={[
-        { text: all.length, sub: 'Rooms', className: 'ct-figure' },
-        { text: used(all), sub: 'Boarders', className: 'ct-figure' },
-        { text: beds(all) - used(all), sub: 'Free beds', tone: beds(all) - used(all) ? 'green' : undefined },
-      ]} />
-      <div className="course-lines" style={{ marginTop: 6 }}>
-        {section.levels.map(l => {
-          const on = openLevel === l.level;
-          return (
-            <React.Fragment key={l.level || 'none'}>
-              <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={() => setOpenLevel(on ? null : l.level)}>
-                <span className="ct-two">
-                  <span className="line-row-name">{levelLabel(l.level) || 'Rooms'}</span>
-                  <span className="line-row-sub">{l.rooms.length} room{l.rooms.length === 1 ? '' : 's'}</span>
-                </span>
-                <span className="line-row-sub">{used(l.rooms)} / {beds(l.rooms)}</span>
-                {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-              {on && (
-                <div className="course-open">
-                  {l.rooms.map(r => (
-                    <button key={r.id} type="button" className="line-row bd-room-line" onClick={() => onRoom(r)}>
-                      <span className="line-row-name">{roomLabel(r.name)}</span>
-                      {roomDots(r, inRoom(r).length)}
-                      <span className="bd-free">{inRoom(r).length}/{r.beds}</span>
-                    </button>
-                  ))}
-                  {head && (
-                    <div className="course-open-actions">
-                      <button type="button" className="line-row add" onClick={() => onRename({ what: 'level', block: section.block, level: l.level })}><Pencil size={13} /> Edit {levelLabel(l.level) || 'level'}</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </Shell>
-  );
-}
 
 // A room's card: who sleeps there (✕ to take them out), put a boarder in (type a name), edit.
 function RoomSheet({ room, people, boarders, rooms, head, teacherName, onClose, onEdit, onOut, onIn }) {

@@ -153,8 +153,8 @@ const PARENT = { title: 'How to use this page', steps: [
 const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
   'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
-  'Tap a section, then a level, then a room to see who sleeps there — ✕ takes someone out, "Put a boarder in this room" adds one. The amber line places boarders not in a room yet.',
-  '"Edit section" is next to the section\'s name at the top; "Edit <level>" is inside each open level. Edit level changes its name and every room in it — numbers, beds, ✕ to take a room off, "Another room" to add one. "Edit section" changes its name and each level\'s name (✕ takes a level off; "Another level" adds one with 4-bed rooms). Either can be removed with all its rooms (its boarders go to "Not in a room").',
+  'Each section has a card per floor, closed to start — tap a floor for its rooms, then a room to see who sleeps there (✕ takes someone out, "Put a boarder in this room" adds one). The amber line places boarders not in a room yet.',
+  '"Edit section" is by the section\'s name; each floor has its own Edit. A floor\'s Edit changes its name and every room in it — numbers, beds, ✕ to take a room off, "Another room" to add one. "Edit section" changes its name and each level\'s name (✕ takes a level off; "Another level" adds one with 4-bed rooms). Either can be removed with all its rooms (its boarders go to "Not in a room").',
   'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
   'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
   'Home weekends: everyone goes home — tap a weekend to add anyone staying. The rest are signed out by themselves at the leave time.',
