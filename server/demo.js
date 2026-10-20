@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -185,6 +185,53 @@ async function demoImported(c, mid, du, fee) {
       [newId('S'), mid, f, sn, du ? age + 6 : age, fee, `${g === 'Boy' ? 'Bilal' : 'Amina'} ${sn}`, `07700 9008${String(i).padStart(2, '0')}`, g,
         du ? (sheet === 'Weekday Boys' ? 'Year 1' : 'Year 2') : sheet]);
   }
+}
+
+// Fees (a Darul Uloom's yearly fee in instalments, src/pages/DuFees.js): boarders £3,000 and day students £1,500 a year,
+// three ways to pay (most monthly), a sibling discount (the Patel brothers), one bursary, Books for everyone in
+// September; most children are paid up to date, a few part paid, a couple of families behind (overdue).
+async function demoDuFees(c, mid, kids, today, r) {
+  const duFees = require('./routes/du-fees');
+  const year = duFees.yearOf(today), y = 2000 + Number(year.slice(0, 2));
+  const d = (yy, m, day = 1) => `${yy}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const plans = [
+    { id: 'year', name: 'Whole year', dues: [d(y, 9)] },
+    { id: 'terms', name: '3 terms', dues: [d(y, 9), d(y + 1, 1), d(y + 1, 4)] },
+    { id: 'months', name: '10 months', dues: [9, 10, 11, 12, 1, 2, 3, 4, 5, 6].map(m => d(m >= 9 ? y : y + 1, m)) },
+  ];
+  await c.query(`INSERT INTO du_fee_setup (madrasah_id, year, boarder_fee, day_fee, plans, default_plan, sibling_on, sibling_2, sibling_3)
+                 VALUES ($1, $2, 3000, 1500, $3, 'months', true, 10, 15)`, [mid, year, JSON.stringify(plans)]);
+  const current = kids.filter(k => !k.leave);
+  const accounts = [];
+  current.forEach((k, i) => {
+    if (i === 3) accounts.push([mid, year, k.id, 'months', 1200]);                    // a bursary
+    else if (i % 7 === 2) accounts.push([mid, year, k.id, 'year', null]);
+    else if (i % 7 === 5) accounts.push([mid, year, k.id, 'terms', null]);
+  });
+  if (accounts.length) await bulk(c, 'du_fee_accounts', ['madrasah_id', 'year', 'student_id', 'plan_id', 'own_amount'], accounts);
+  await bulk(c, 'du_fee_charges', ['madrasah_id', 'year', 'student_id', 'label', 'amount', 'due', 'added_by'],
+    current.map(k => [mid, year, k.id, 'Books', 40, d(y, 9, 15), 'Head']));
+  // Pay what's due — mostly on time, some part paid, the families "behind" missing the last couple.
+  let chain = Promise.resolve(); // one query at a time on the transaction's client
+  const one = (sql, p) => (chain = chain.then(() => c.query(sql, p)));
+  const { students } = await duFees.compute(mid, year, null, one);
+  const payments = [];
+  let receipt = 0;
+  const methods = ['Bank transfer', 'Bank transfer', 'Cash', 'Card'];
+  for (const s of students) {
+    const k = kids.find(x => x.id === s.id);
+    const due = s.items.filter(it => it.due <= today);
+    due.forEach((it, i) => {
+      const behind = k?.arrears && i >= due.length - 2;
+      if (behind || r.chance(0.04)) return;
+      const amount = i === due.length - 1 && r.chance(0.15) ? Math.round(it.amount / 2) : it.amount;
+      let on = plus(it.due, Math.floor(r() * 6));
+      if (on > today) on = today;
+      payments.push([mid, year, s.id, amount, on, r.pick(methods), '', 0, r.chance(0.7) ? 'Head' : 'Office']);
+    });
+  }
+  payments.sort((a, b) => a[4].localeCompare(b[4])).forEach(p => { p[7] = ++receipt; });
+  if (payments.length) await bulk(c, 'du_fee_payments', ['madrasah_id', 'year', 'student_id', 'amount', 'paid_on', 'method', 'note', 'receipt_no', 'recorded_by'], payments);
 }
 
 // Maintenance (the Maintenance page): a few things to fix around the school, two of them urgent, and some done
@@ -801,22 +848,8 @@ async function createDarulUloomDemo(ipHash) {
       ['madrasah_id', 'student_id', 'date', 'kind', 'from_surah', 'from_ayah', 'to_surah', 'to_ayah', 'lesson', 'grade', 'note'], quran);
     await bulk(c, 'quran_students', ['student_id', 'madrasah_id', 'prior_juz'], kids.filter(k => k.type === 'hifz').map(k => [k.id, mid, k.prior]));
 
-    // Monthly fees: earlier months mostly paid, this month part paid, a couple of families behind.
-    const off = months.filter(mo => mo.slice(5, 7) === '08');
-    if (off.length) await bulk(c, 'fee_months_off', ['madrasah_id', 'year', 'month_start'], off.map(mo => [mid, monthYear(mo), mo]));
-    const thisMonth = firstOf(today);
-    const fees = [];
-    for (const k of kids) {
-      for (const mo of months) {
-        if (mo.slice(5, 7) === '08') continue;
-        if (k.leave && mo > k.leave) break;
-        let paid = mo < thisMonth ? r.chance(0.96) : r.chance(0.55);
-        if (k.arrears && mo >= months[months.length - 2]) paid = false;
-        const paidDate = paid ? (mo < thisMonth ? plus(mo, Math.floor(r() * 6)) : (plus(mo, 2) > today ? today : plus(mo, 2))) : null;
-        fees.push([mid, monthYear(mo), k.id, 'month', mo, k.fee, paid ? 'Paid' : 'Pending', paidDate]);
-      }
-    }
-    await bulk(c, 'fees', ['madrasah_id', 'year', 'student_id', 'period', 'week_starting', 'amount', 'status', 'paid_date'], fees);
+    // Fees are added after the rest (demoDuFees), once the boarders are known.
+
 
     // No monthly reports: a Darul Uloom's reports are its exam report cards (below).
 
@@ -874,6 +907,7 @@ async function createDarulUloomDemo(ipHash) {
 
     await demoBoarding(c, mid, teacherIds, today, r);
     await demoMaintenance(c, mid, teacherIds);
+    await demoDuFees(c, mid, kids, today, r);
 
     // Logins: the head, Maulana Yusuf (1st year's class teacher, on boarding duty and maintenance), and the Patel family (two sons).
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));

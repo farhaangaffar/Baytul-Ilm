@@ -703,3 +703,14 @@ export const saveMaintenanceJob = job => maintenancePost('job', job);
 export const markMaintenanceDone = (id, note) => maintenancePost('done', { id, note });
 export const reopenMaintenanceJob = id => maintenancePost('reopen', { id });
 export const deleteMaintenanceJob = id => apiFetch(`/api/maintenance?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+// A Darul Uloom's fees (server/routes/du-fees.js): the yearly fee in instalments, extras, payments with receipts.
+const duFeesPost = (action, body) => apiFetch(`/api/du-fees?action=${action}`, { method: 'POST', body: JSON.stringify(body) });
+export const getDuFees = year => apiFetch(`/api/du-fees${year ? `?year=${encodeURIComponent(year)}` : ''}`);
+export const saveDuFeeSetup = setup => duFeesPost('setup', setup);
+export const saveDuFeeAccount = (year, studentId, account) => duFeesPost('account', { year, studentId, ...account });
+export const addDuFeeCharge = (year, studentIds, charge) => duFeesPost('charge', { year, studentIds, ...charge });
+export const deleteDuFeeCharge = id => apiFetch(`/api/du-fees?action=charge&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const recordDuFeePayment = (year, studentId, payment) => duFeesPost('payment', { year, studentId, ...payment });
+export const deleteDuFeePayment = id => apiFetch(`/api/du-fees?action=payment&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const importDuFees = (year, rows) => duFeesPost('import', { year, rows });

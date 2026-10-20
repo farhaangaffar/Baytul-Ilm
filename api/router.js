@@ -34,6 +34,7 @@ const routes = {
   timetable: require('../server/routes/timetable'),
   boarding: require('../server/routes/boarding'),
   maintenance: require('../server/routes/maintenance'),
+  'du-fees': require('../server/routes/du-fees'),
   users: require('../server/routes/users'),
 };
 

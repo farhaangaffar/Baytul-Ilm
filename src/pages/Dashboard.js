@@ -4,14 +4,17 @@ import { appNavigate } from '../components/BackToExit';
 import Layout from '../components/Layout';
 import GettingStarted from '../components/GettingStarted';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
+import { getDuFees, getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
 import { feeFrequency, currentFeePeriod, periodStarted } from '../lib/feePeriods';
 import { money } from '../lib/branding';
+import { useAuth } from '../lib/AuthContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isDarulUloom } = useAuth();
+  const [du, setDu] = useState(null); // a Darul Uloom's fee totals for the year (src/pages/DuFees.js)
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,16 +30,21 @@ export default function Dashboard() {
     try {
       const y = await currentSchoolYear();
       const [studentsData, classesData, feesData, attendanceData, termsData] = await Promise.all([
-        getStudents(), getClasses(), getFees(y), getAttendance(y),
+        getStudents(), getClasses(), isDarulUloom ? Promise.resolve([]) : getFees(y), getAttendance(y),
         feeFrequency() === 'termly' ? getTerms(y) : Promise.resolve([]),
         getSpecialDays().catch(() => null), // so this week's chart includes any extra days (e.g. a Ramadhaan Saturday)
       ]);
+      if (isDarulUloom) {
+        const d = await getDuFees().catch(() => null);
+        const sum = k => (d ? d.students.reduce((t, s) => t + s[k], 0) : 0);
+        setDu({ expected: sum('expected'), paid: sum('paid'), overdue: sum('overdue'), year: d?.year || '' });
+      }
       setYear(y); setStudents(studentsData); setClasses(classesData); setFees(feesData); setAttendance(attendanceData); setTerms(termsData);
     } catch (err) {
       setError(err);
     }
     setLoading(false);
-  }, []);
+  }, [isDarulUloom]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -69,7 +77,7 @@ export default function Dashboard() {
     }
   }
   const yearAttPct = yearMarked ? Math.round((yearPL / yearMarked) * 100) : 0;
-  const yearOutstanding = fees.filter(f => f.status !== 'Paid' && periodStarted(f)).reduce((s, f) => s + Number(f.amount), 0);
+  const yearOutstanding = du ? du.overdue : fees.filter(f => f.status !== 'Paid' && periodStarted(f)).reduce((s, f) => s + Number(f.amount), 0);
   function shiftWeek(dir) {
     const d = new Date(weekDates[0]+'T12:00:00'); d.setDate(d.getDate() + dir*7);
     setWeekAnchor(d.toISOString().split('T')[0]);
@@ -135,7 +143,7 @@ export default function Dashboard() {
         </div>
         <div className="stat-card-v2">
           <div className="n">{money(yearOutstanding)}</div>
-          <div className="l">Outstanding this year</div>
+          <div className="l">{du ? 'Fees overdue' : 'Outstanding this year'}</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/fees')}>View all →</div>
         </div>
       </div>
@@ -155,6 +163,20 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {du ? (
+        <div className="card ring-card">
+          <div className="card-title">Fees — {du.year ? `20${du.year.slice(0, 2)}–${du.year.slice(3)}` : 'this year'}</div>
+          <div className="card-sub">{money(du.expected)} for the year</div>
+          <div className="ring-wrap">
+            <div className="ring" style={{background:`conic-gradient(var(--blue) 0% ${du.expected ? Math.round(du.paid / du.expected * 100) : 0}%, #eef0f4 ${du.expected ? Math.round(du.paid / du.expected * 100) : 0}% 100%)`}}/>
+            <div className="ring-inner"><div className="n">{du.expected ? Math.round(du.paid / du.expected * 100) : 0}%</div><div className="l">Paid</div></div>
+          </div>
+          <div className="ring-breakdown">
+            <span><span className="dot" style={{background:'var(--blue)'}}/>Paid: {money(du.paid)}</span>
+            <span><span className="dot" style={{background:'var(--red)'}}/>Overdue: {money(du.overdue)}</span>
+          </div>
+        </div>
+        ) : (
         <div className="card ring-card">
           <div className="card-title">Fees — {feePeriod.label}</div>
           <div className="card-sub">{money(monthBilled)} due this {unit}</div>
@@ -167,6 +189,7 @@ export default function Dashboard() {
             <span><span className="dot" style={{background:'var(--text-soft)'}}/>Outstanding: {money(monthOutstanding)}</span>
           </div>
         </div>
+        )}
       </div>
 
       <div className="card">

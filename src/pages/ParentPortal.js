@@ -59,6 +59,40 @@ function Section({ title, children, right }) {
   );
 }
 
+// A Darul Uloom's fee for the year (server/routes/du-fees.js forParent): paid / still to pay / next, each instalment
+// as a box (green paid, red overdue), and each payment with its receipt number.
+function DuFeesCard({ fees }) {
+  const [open, setOpen] = useState(false);
+  const short = d => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const TONE = { paid: 'green', part: 'amber', due: 'amber', overdue: 'red' };
+  return (
+    <Section title="Fees" right={(fees.items.length > 0 || fees.payments.length > 0) && (
+      <button className="btn btn-sm" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}{open ? 'Hide' : 'Show all'}
+      </button>
+    )}>
+      <Tiles items={[[money(fees.expected), 'This year'], [money(fees.paid), 'Paid', fees.paid > 0 ? 'var(--green)' : undefined], [money(fees.owed), fees.overdue > 0 ? `${money(fees.overdue)} overdue` : 'Still to pay', fees.overdue > 0 ? 'var(--red)' : undefined]]} />
+      {fees.owed <= 0 && fees.expected > 0 && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 4 }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
+      {fees.owed > 0 && fees.nextDue && <div style={{ fontSize: 13, marginBottom: 4 }}>Next: <b>{money(fees.nextDue.amount)}</b> by {short(fees.nextDue.due)}</div>}
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={fees.items.map(it => ({
+            text: money(it.amount), wrap: 'words',
+            sub: `${it.kind === 'extra' ? it.label : short(it.due)} · ${it.status === 'paid' ? 'Paid' : it.status === 'overdue' ? 'Overdue' : it.paid > 0 ? `${money(it.paid, 0)} paid` : 'Not due yet'}`,
+            tone: TONE[it.status],
+          }))} />
+          {fees.payments.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-soft)', margin: '10px 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payments</div>}
+          {[...fees.payments].reverse().map(p => (
+            <BoxRow key={p.id} columns="repeat(3, minmax(0, 1fr))" cells={[
+              { label: true, text: money(p.amount) }, { text: short(p.paidOn), sub: p.method }, { text: `Receipt ${p.receiptNo}` },
+            ]} />
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function Tiles({ items }) {
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -287,7 +321,7 @@ function ChildView({ child, reasons, many }) {
 
       {data.boarding && <GoingHome boarding={data.boarding} />}
 
-      <OpenableSection title="Fees" summary={
+      {data.duFees ? <DuFeesCard fees={data.duFees} /> : isDarulUloom ? null : <OpenableSection title="Fees" summary={
         <>
           <Tiles items={[[money(owed), 'Owed', owed > 0 ? 'var(--red)' : undefined], [unpaid.length, 'Unpaid'], [money(paidTotal), 'Paid', paidTotal > 0 ? 'var(--green)' : undefined], [fees.length - unpaid.length, 'Settled']]} />
           {fees.length > 0 && unpaid.length === 0 && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 4 }}><Check size={13} style={{ verticalAlign: -2 }} /> All paid — thank you.</div>}
@@ -313,7 +347,7 @@ function ChildView({ child, reasons, many }) {
             </MonthRow>
           );
         })}
-      </OpenableSection>
+      </OpenableSection>}
 
       {data.quranType && <QuranProgressCard student={data.student} type={data.quranType} data={data.quran} />}
 

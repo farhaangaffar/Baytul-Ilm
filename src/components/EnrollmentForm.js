@@ -51,7 +51,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
     }
     if (step === LAST) {
       if (!form.class) e.class = 'Required';
-      if (!form.weeklyFee || Number(form.weeklyFee) <= 0) e.weeklyFee = 'Required';
+      if (!isDarulUloom && (!form.weeklyFee || Number(form.weeklyFee) <= 0)) e.weeklyFee = 'Required'; // a Darul Uloom's fee is its yearly fee (Fees)
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -133,7 +133,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
                 {saved?.class === 'Waiting list' ? (
                   <>{saved?.forename} {saved?.surname} has been added to the <strong>waiting list</strong>.</>
                 ) : (
-                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong> at {money(saved?.weeklyFee)} per {feeUnit()}.</>
+                  <>{saved?.forename} {saved?.surname} has been added to <strong>{saved?.class}</strong>{isDarulUloom ? '' : <> at {money(saved?.weeklyFee)} per {feeUnit()}</>}.</>
                 )}
               </div>
               <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-md)', padding: '12px 16px', textAlign: 'left', fontSize: 12, color: 'var(--text-muted)' }}>
@@ -174,7 +174,7 @@ export default function EnrollmentForm({ onClose, onSaved }) {
               <div className="form-section-title"><BookOpen size={14} />Class & fees</div>
               <div className="form-grid form-grid-2" style={{ marginTop: 14 }}>
                 {field('Class', 'class', 'text', true, [...classNames, 'Waiting list'])}
-                {field(`Fee per ${feeUnit()} (${currencySymbol()})`, 'weeklyFee', 'number', true)}
+                {!isDarulUloom && field(`Fee per ${feeUnit()} (${currencySymbol()})`, 'weeklyFee', 'number', true)}
               </div>
               {form.class === 'Waiting list' && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>

@@ -2,7 +2,8 @@ const { query, transaction } = require('./db');
 
 // A Darul Uloom's part of Settings → Backup: the Aalim years' places, each year's books, the
 // timetable and lessons recorded, exams with their papers, marks and comments, and boarding (rooms and who
-// is in them, home weekends, going home, night registers, unwell & medicine), and the maintenance list. Taken and put
+// is in them, home weekends, going home, night registers, unwell & medicine), the maintenance list and fees (each year's
+// prices and ways to pay, each child's own fee, extras and payments). Taken and put
 // back here (GET / POST /api/course?action=backup / restore) because these tables point at each
 // other by number: on restore every row gets a new number and the links are carried across.
 // Classes, teachers and students keep their own ids in a backup, so links to them stay as they are.
@@ -14,12 +15,13 @@ async function ensureTables() {
   await require('./routes/exams').ensure();
   await require('./routes/boarding').ensure();
   await require('./routes/maintenance').ensure();
+  await require('./routes/du-fees').ensure();
 }
 
 async function backup(mid) {
   await ensureTables();
   const all = sql => query(sql, [mid]).then(r => r.rows);
-  const [classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers, maintenance] = await Promise.all([
+  const [classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers, maintenance, feeSetup, feeAccounts, feeCharges, feePayments] = await Promise.all([
     all('SELECT id, course_order FROM classes WHERE madrasah_id = $1 AND course_order IS NOT NULL'),
     all('SELECT id, class_id, subject, kitaab, teacher_id, sort_order FROM du_subjects WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT id, name, starts, ends, is_break, days FROM du_periods WHERE madrasah_id = $1 ORDER BY id'),
@@ -39,8 +41,12 @@ async function backup(mid) {
     all('SELECT student_id, at, kind, note, medicine, dose, by_name FROM du_health_log WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT weekend_id, student_id, going, collector, answered_by, answered_at, waiting FROM du_weekend_answers WHERE madrasah_id = $1'),
     all('SELECT what, place, urgent, note, added_by, added_at, done_at, done_by, done_note FROM du_maintenance WHERE madrasah_id = $1 ORDER BY id'),
+    all('SELECT year, boarder_fee, day_fee, plans, default_plan, sibling_on, sibling_2, sibling_3 FROM du_fee_setup WHERE madrasah_id = $1'),
+    all('SELECT year, student_id, plan_id, own_amount, no_discount, paid_before FROM du_fee_accounts WHERE madrasah_id = $1'),
+    all(`SELECT year, student_id, label, amount, to_char(due, 'YYYY-MM-DD') AS due, added_by, added_at FROM du_fee_charges WHERE madrasah_id = $1 ORDER BY id`),
+    all(`SELECT year, student_id, amount, to_char(paid_on, 'YYYY-MM-DD') AS paid_on, method, note, receipt_no, recorded_by, created_at FROM du_fee_payments WHERE madrasah_id = $1 ORDER BY id`),
   ]);
-  return { classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers, maintenance };
+  return { classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers, maintenance, fees: { setup: feeSetup, accounts: feeAccounts, charges: feeCharges, payments: feePayments } };
 }
 
 // Replaces this madrasah's Darul Uloom records with the backup's, in one go (all or nothing).
@@ -138,6 +144,27 @@ async function restore(mid, b) {
       await c.query(`INSERT INTO du_health_log (madrasah_id, student_id, at, kind, note, medicine, dose, by_name)
                      VALUES ($1,$2, COALESCE($3::timestamptz, now()), $4,$5,$6,$7,$8)`,
         [mid, h.student_id, asText(h.at), h.kind, h.note || '', h.medicine || '', h.dose || '', h.by_name || '']);
+    }
+    // Fees — backups from before Darul Uloom fees leave them as they are.
+    if (b.fees && typeof b.fees === 'object') {
+      const f = b.fees, arr = k => (Array.isArray(f[k]) ? f[k] : []);
+      for (const t of ['du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup']) await c.query(`DELETE FROM ${t} WHERE madrasah_id = $1`, [mid]);
+      for (const x of arr('setup')) {
+        await c.query(`INSERT INTO du_fee_setup (madrasah_id, year, boarder_fee, day_fee, plans, default_plan, sibling_on, sibling_2, sibling_3) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [mid, x.year, x.boarder_fee || 0, x.day_fee || 0, JSON.stringify(x.plans || []), x.default_plan || '', !!x.sibling_on, x.sibling_2 ?? 10, x.sibling_3 ?? 15]);
+      }
+      for (const x of arr('accounts')) {
+        await c.query(`INSERT INTO du_fee_accounts (madrasah_id, year, student_id, plan_id, own_amount, no_discount, paid_before) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [mid, x.year, x.student_id, x.plan_id || '', x.own_amount, !!x.no_discount, x.paid_before || 0]);
+      }
+      for (const x of arr('charges')) {
+        await c.query(`INSERT INTO du_fee_charges (madrasah_id, year, student_id, label, amount, due, added_by, added_at) VALUES ($1,$2,$3,$4,$5,$6,$7, COALESCE($8::timestamptz, now()))`,
+          [mid, x.year, x.student_id, x.label, x.amount, x.due, x.added_by || '', asText(x.added_at)]);
+      }
+      for (const x of arr('payments')) {
+        await c.query(`INSERT INTO du_fee_payments (madrasah_id, year, student_id, amount, paid_on, method, note, receipt_no, recorded_by, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10::timestamptz, now()))`,
+          [mid, x.year, x.student_id, x.amount, x.paid_on, x.method || '', x.note || '', x.receipt_no, x.recorded_by || '', asText(x.created_at)]);
+      }
     }
     // Backups from before the maintenance list leave it as it is.
     if (Array.isArray(b.maintenance)) {

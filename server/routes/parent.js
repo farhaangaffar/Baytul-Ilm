@@ -78,6 +78,8 @@ module.exports = async (req, res) => {
     const exams = await publishedExams(mid, s).catch(() => []);
     // A Darul Uloom boarder: the next home weekends and their going-home record.
     const boarding = s.boarding === 'Boarder' ? await require('./boarding').forParent(mid, s).catch(() => null) : null;
+    // A Darul Uloom: this year's fee in instalments — what's paid, what's next, and receipts (routes/du-fees.js).
+    const duFees = await require('./du-fees').forParent(mid, s.id).catch(() => null);
     res.status(200).json({
       student: {
         id: s.id, forename: s.forename, surname: s.surname, class: s.class, status: s.status,
@@ -89,6 +91,7 @@ module.exports = async (req, res) => {
       quranType: ['hifz', 'nazira', 'qaida'].includes(prior.rows[0]?.quran_type) ? prior.rows[0].quran_type
         : (['hifz', 'nazira', 'qaida'].includes(cls.rows[0]?.quran_type) ? cls.rows[0].quran_type : null),
       attendance: att.rows.map(r => ({ year: r.year, date: r.date, status: r.status, lateTime: r.late_time })),
+      duFees,
       fees: fees.rows.map(r => ({ id: String(r.id), studentId: sid, year: r.year, period: r.period || 'week', weekStarting: r.week_starting, amount: Number(r.amount), status: r.status, paidDate: r.paid_date })),
       reports: sums.rows.map(r => ({ month: r.month, summary: r.summary, behavior: r.behavior, updatedAt: r.updated_at })),
       terms: terms.rows.map(t => ({ id: String(t.id), year: t.year, name: t.name, startDate: t.start_date, endDate: t.end_date })),

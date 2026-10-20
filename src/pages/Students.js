@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import ImportStudents from '../components/ImportStudents';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms } from '../lib/store';
 import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -65,17 +65,21 @@ export default function Students() {
   const [reportPick, setReportPick] = useState(null);   // the report chosen there
   const [reportTerms, setReportTerms] = useState([]); // term dates, for any termly reports in that list
   const [downloadingReport, setDownloadingReport] = useState(null);
+  const [duFees, setDuFees] = useState(null); // a Darul Uloom: each child's fee for the year, by id
 
   const fetchData = useCallback(async () => {
     const y = await currentSchoolYear();
-    const [studentsData, classNamesData, feesData, attendanceData] = await Promise.all([
-      getStudents(), getClassNames(), getFees(y), getAttendance(y),
+    const [studentsData, classNamesData, feesData, attendanceData, duData] = await Promise.all([
+      getStudents(), getClassNames(), isDarulUloom ? Promise.resolve([]) : getFees(y), getAttendance(y),
+      isDarulUloom ? getDuFees().catch(() => null) : Promise.resolve(null),
     ]);
     setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(ownedFees(feesData)); setAttendance(attendanceData);
+    // A Darul Uloom: each child's year (paid / still to pay) from its yearly fee in instalments (src/pages/DuFees.js).
+    setDuFees(duData ? Object.fromEntries(duData.students.map(x => [x.id, x])) : null);
     const leftIds = studentsData.filter(s=>s.status==='Inactive').map(s=>s.id);
     if (leftIds.length) getStudentTotals(leftIds).then(setLeftTotals).catch(()=>{/* pills are a bonus, not required to use the page */});
     else setLeftTotals({});
-  }, []);
+  }, [isDarulUloom]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -235,8 +239,9 @@ export default function Students() {
   // now, not part of today's roster.
   const rosterStudents = students.filter(s=>s.class!==WAITING_LIST && s.status!=='Inactive');
   const avgAtt = rosterStudents.length ? Math.round(rosterStudents.reduce((s,st)=>s+attendancePctFrom(attendance, st.id),0)/rosterStudents.length) : 0;
-  const collected = fees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
-  const owed = fees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const duList = duFees ? Object.values(duFees) : null;
+  const collected = duList ? duList.reduce((t,x)=>t+x.paid,0) : fees.filter(f=>f.status==='Paid').reduce((s,f)=>s+Number(f.amount),0);
+  const owed = duList ? duList.reduce((t,x)=>t+x.overdue,0) : fees.filter(f=>f.status!=='Paid').reduce((s,f)=>s+Number(f.amount),0);
   // Oldest first — whoever has waited longest is at the top.
   const waitingStudents = students.filter(s=>s.class===WAITING_LIST)
     .sort((a,b)=>String(a.addedAt||'').localeCompare(String(b.addedAt||'')) || `${a.forename} ${a.surname}`.localeCompare(`${b.forename} ${b.surname}`));
@@ -251,7 +256,7 @@ export default function Students() {
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active students</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
         <div className="stat-card-v2"><div className="n">{money(collected)}</div><div className="l">Fees collected</div></div>
-        <div className="stat-card-v2"><div className="n">{money(owed)}</div><div className="l">Outstanding</div></div>
+        <div className="stat-card-v2"><div className="n">{money(owed)}</div><div className="l">{duList ? 'Overdue' : 'Outstanding'}</div></div>
       </div>
 
       <div className="students-toolbar flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
@@ -317,7 +322,7 @@ export default function Students() {
           const isOpen = !!search || openClasses.includes(c);
           const classAtt = classStudents.length ? Math.round(classStudents.reduce((t,st)=>t+attendancePctFrom(attendance, st.id),0)/classStudents.length) : 0;
           const ids = new Set(classStudents.map(s=>s.id));
-          const classOwed = fees.filter(f=>ids.has(f.studentId) && f.status!=='Paid').reduce((t,f)=>t+Number(f.amount),0);
+          const classOwed = duList ? duList.filter(x=>ids.has(x.id)).reduce((t,x)=>t+x.overdue,0) : fees.filter(f=>ids.has(f.studentId) && f.status!=='Paid').reduce((t,f)=>t+Number(f.amount),0);
           return (
             <div key={c} className="card class-card">
               <button type="button" className="class-card-head" onClick={()=>!search && toggleClass(c)} aria-expanded={isOpen}>
@@ -341,7 +346,7 @@ export default function Students() {
                       <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
                         <div style={{minWidth:0}}>
                           <div className="student-compact-name">{s.forename} {s.surname}</div>
-                          <div className="student-compact-sub">{money(s.weeklyFee)}{feePer()} · {fmtDob(s.dob)}</div>
+                          <div className="student-compact-sub">{duFees ? (duFees[s.id] ? `${money(duFees[s.id].paid, 0)} of ${money(duFees[s.id].expected, 0)} paid` : 'Fee not set') : `${money(s.weeklyFee)}${feePer()}`} · {fmtDob(s.dob)}</div>
                         </div>
                         {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                       </div>
@@ -438,7 +443,7 @@ export default function Students() {
                     ...(selected.gender?[['Gender',selected.gender]]:[]),
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
-                    [`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`],
+                    ...(duFees ? (duFees[selected.id] ? [['Fees this year',`${money(duFees[selected.id].paid)} of ${money(duFees[selected.id].expected)} paid`]] : []) : [[`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`]]),
                     ['Status',selected.status],
                     ...(selected.appliedOnline?[['Applied online',selected.addedAt?formatDateGB(String(selected.addedAt).slice(0,10)):'Yes']]:[]),
                     ...(selected.parentUpdatedAt?[['Updated by parent',formatDateGB(String(selected.parentUpdatedAt).slice(0,10))]]:[]),
@@ -575,7 +580,7 @@ export default function Students() {
                     <option value={WAITING_LIST}>{WAITING_LIST}</option>
                   </select>
                 </div>
-                <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>
+                {!isDarulUloom && <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>}
               </div>
               <div className="form-group"><label>Notes</label><GrowingText minRows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})}/></div>
             </div>

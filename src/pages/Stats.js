@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getSchoolMonthRange, getTerms } from '../lib/store';
+import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getDuFees, getSchoolMonthRange, getTerms } from '../lib/store';
+import { useAuth } from '../lib/AuthContext';
+import BoxRow from '../components/BoxRow';
 import { feeFrequency, feePeriodsForYear, FREQUENCIES, ownedFees } from '../lib/feePeriods';
 import { CheckSquare, Coins } from 'lucide-react';
 import { money } from '../lib/branding';
@@ -76,6 +78,7 @@ function feeStatsForRange(fees, start, endExclusive) {
 }
 
 export default function Stats() {
+  const { isDarulUloom } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('attendance');
@@ -95,7 +98,7 @@ export default function Stats() {
       ]);
       setTerms(termsData);
       const entries = await Promise.all(yearsData.map(async y => {
-        const [attendance, fees] = await Promise.all([getAttendance(y), getFees(y)]);
+        const [attendance, fees] = await Promise.all([getAttendance(y), isDarulUloom ? Promise.resolve([]) : getFees(y)]);
         return [y, { attendance, fees }];
       }));
       setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData);
@@ -104,7 +107,7 @@ export default function Stats() {
       setError(err);
     }
     setLoading(false);
-  }, []);
+  }, [isDarulUloom]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -133,6 +136,7 @@ export default function Stats() {
 
       {tab === 'attendance'
         ? <AttendanceStats months={months} attendance={attendance} allStudentIds={allStudentIds} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />
+        : isDarulUloom ? <DuFeesStats year={year} classNames={classNames} />
         : <FeesStats year={year} terms={terms} fees={fees} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />}
     </Layout>
   );
@@ -267,6 +271,61 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// A Darul Uloom's fees for the year (its yearly fee in instalments, src/pages/DuFees.js): the year's figures, each
+// class's, and what was paid each month.
+function DuFeesStats({ year, classNames }) {
+  const [data, setData] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setData(null); getDuFees(year).then(setData).catch(() => setFailed(true)); }, [year]);
+  if (failed) return <div className="card text-muted">Could not load the fees.</div>;
+  if (!data) return <LoadingState />;
+  const list = data.students;
+  const sum = (rows, k) => rows.reduce((t, s) => t + s[k], 0);
+  const classes = [...classNames, ...new Set(list.filter(s => !classNames.includes(s.class)).map(s => s.class || 'Not in a class'))];
+  const months = {};
+  list.forEach(s => s.payments.forEach(p => { const m = p.paidOn.slice(0, 7); months[m] = (months[m] || 0) + p.amount; }));
+  const monthKeys = Object.keys(months).sort();
+  const top = Math.max(1, ...Object.values(months));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <BoxRow cells={[
+        { text: money(sum(list, 'expected'), 0), sub: 'This year', className: 'ct-figure' },
+        { text: money(sum(list, 'paid'), 0), sub: 'Paid', tone: 'green' },
+        { text: money(sum(list, 'owed'), 0), sub: 'Still to pay', className: 'ct-figure' },
+        { text: money(sum(list, 'overdue'), 0), sub: 'Overdue', ...(sum(list, 'overdue') > 0 ? { tone: 'red' } : { className: 'ct-figure' }) },
+      ]} />
+      <div className="card">
+        <div className="card-title" style={{ marginBottom: 10 }}>By class</div>
+        <div className="course-lines">
+          {classes.map(c => {
+            const rows = list.filter(s => (s.class || 'Not in a class') === c);
+            if (!rows.length) return null;
+            const exp = sum(rows, 'expected'), paid = sum(rows, 'paid'), over = sum(rows, 'overdue');
+            return (
+              <div key={c} className="line-row" style={{ cursor: 'default' }}>
+                <span className="ct-two"><span className="line-row-name">{c}</span>
+                  <span className="line-row-sub">{over > 0 && <b className="mt-urgent">{money(over, 0)} overdue · </b>}{money(paid, 0)} of {money(exp, 0)} paid</span></span>
+                <span className="line-row-sub">{exp ? Math.round(paid / exp * 100) : 0}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-title" style={{ marginBottom: 10 }}>Paid each month</div>
+        {monthKeys.map(m => (
+          <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, padding: '5px 0' }}>
+            <span style={{ width: 70, color: 'var(--text-muted)' }}>{new Date(`${m}-15`).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}</span>
+            <span style={{ flex: 1, background: '#eef0f4', borderRadius: 6, height: 12, overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${months[m] / top * 100}%`, background: 'var(--green)' }} /></span>
+            <span style={{ width: 80, textAlign: 'right', fontWeight: 600 }}>{money(months[m], 0)}</span>
+          </div>
+        ))}
+        {!monthKeys.length && <div className="text-muted" style={{ fontSize: 13 }}>No payments yet this year.</div>}
       </div>
     </div>
   );
