@@ -186,13 +186,13 @@ codebase (one codebase, not a fork).
   one free box to a choice of words) — a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its
   level) and beds, plus the teacher in charge. "Add rooms" adds a level's rooms in one pop-up ("Another room" suggests the next
   number, keeping its zeros: 001 → 002, 101 → 102); sections and levels can be renamed. A short level or room gets its word in front ("1" → Level 1, "12" → Room 12 —
-  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is kept simple (the owner's wish — lists, not blocks): one line per section
-  ("N levels · N rooms", "used / beds") → a pop-up (`SectionSheet`: Rooms · Boarders · Free beds boxes, its levels as closed
-  lines, a level opens to room lines — beds as dots, "3/4", no teacher name — plus "Edit <level>" inside the open level (`LevelModal`, `?action=level`:
-  its name and every room's number/beds in one list, ✕ / "Another room", teacher in charge — no separate Add rooms there); "Edit section" sits by the section's name in the pop-up's title, never the footer — the owner
-  found a footer button unclear once a level was open (`SectionModal`, `?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"
+  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is laid out like Tonight (the owner's choice): each section's heading ("N rooms · free / beds beds available",
+  **Edit section** beside it) and a card per floor, closed to start ("2 rooms · 0 / 10 beds available", its own **Edit**), opening to room
+  lines — beds as dots, "3/4", no teacher name (two across on computers). A floor's Edit is `LevelModal` (`?action=level`:
+  its name and every room's number/beds in one list, ✕ / "Another room", staff in charge — no separate Add rooms); Edit section is
+  `SectionModal` (`?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"
   adds one — a number of rooms, numbered by `newLevelRooms()` (level 2 → 201…, ground → 001…), 4 beds each); a section or level can be removed with all its rooms — `?action=group`, their boarders go to
-  "Not in a room") → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
+  "Not in a room". → tap a room (`RoomSheet`: In the room · Free beds · In charge boxes, its boarders with ✕, "Put a boarder in this
   room" with a name search, Edit room); an amber "N boarders not in a room" line opens `PlaceSheet`; and who sleeps where (`du_room_places`, one room each, never over the
   beds), "Not in a room" ticks (the `NotInClass` pattern, `TickList`; class groups in course order — `courseOrder`) → "Move to a room" opens `RoomChooser` (the owner's
   pick of three designs: a line per room under its section · level, beds as dots — green free — "N free"/Full; only a full room is faded — one
@@ -212,6 +212,19 @@ codebase (one codebase, not a fork).
   has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (two boarders
   staying for the next one), one boarder home now, two weeks of nights and health notes
   (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
+  **Maintenance** (`/maintenance`, menu "Maintenance", `src/pages/Maintenance.js`, `server/routes/maintenance.js`; 403 for a
+  maktab): things to fix around the school (`du_maintenance`: what, where, urgent, note, who added it; done_at/done_by/done_note).
+  The head adds, edits, deletes and puts back; staff ticked **Maintenance** (`teachers.maintenance_duty`, Yes/No in the staff
+  pop-up, DU only; the session's `maintenanceDuty`) see the list and **Mark done** with a note. Staff only on maintenance (no
+  class, no lessons — the session's `maintenanceOnly`) open on it and don't see the teaching pages. The page: To do · Urgent ·
+  Done this month boxes, a "To do" card of lines (urgent first then oldest; the sub-line starts with a red "Urgent ·" — no red
+  fill, the owner likes it calm), "Add a job" (head), a closed "Done" line (last year's) → tap a job for its pop-up (Where ·
+  Added · Urgent boxes, note, Mark done). No photos (database space). Where is a `PickField` of past places. In Backup
+  (`duBackup.js`, `maintenance` — older backups leave it alone) and demo `TABLES`; the DU demo has five jobs to do (two
+  urgent) and three done, Brother Bilal (no lessons) and Maulana Yusuf ticked Maintenance (`demoMaintenance()`).
+  **Boarding and Maintenance use the full width on computers** like every other page (the owner found them phone-narrow):
+  from 900px, cards two across (`.bd-two` — Tonight's floors, Going home's Not in / Home weekends, Maintenance's To do /
+  Done, where Done sits open), Rooms' section lines two across (`.bd-two-lines`); phones unchanged.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).

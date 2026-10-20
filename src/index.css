@@ -915,7 +915,15 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .no-class-move { position: sticky; bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px; margin-top: 4px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm); font-size: 13px; font-weight: 600; }
 
 /* Boarding (pages/Boarding.js): the night register reuses the attendance lines; rooms and going home reuse the tick lists. */
-.boarding-page { max-width: 760px; margin: 0 auto; }
+.boarding-page { }
+/* Boarding / Maintenance on computers: the full width, with cards (or lines) two across. Phones: one under another. */
+.bd-two { display: grid; gap: 12px; margin-top: 12px; align-items: start; }
+@media (min-width: 900px) {
+  .bd-two { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+  .bd-two-lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .bd-two-lines > .line-row.add, .bd-two-lines > .text-muted { grid-column: 1 / -1; }
+  .mt-cols { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
 .bd-mark { width: auto; min-width: 44px; padding: 0 9px; font-family: var(--font); font-size: 12.5px; }
 .bd-room-head { display: flex; align-items: center; gap: 10px; padding: 12px 0 6px; }
 .bd-room-count { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-right: auto; }
@@ -946,8 +954,17 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .line-row.bd-pick.on .bd-free { color: var(--teal-dark); }
 .line-row.bd-pick:disabled { opacity: 1; }
 .line-row.bd-pick.full { opacity: 0.5; }
+.mt-urgent { color: var(--red-text); font-weight: 700; }
+.mt-note { background: #f3f4f6; border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--ink); margin: 2px 0 8px; white-space: pre-wrap; }
+.bd-section + .bd-section { margin-top: 18px; }
+.bd-sec-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 2px 2px; }
+.bd-sec-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+.bd-sec-text { flex: 1; min-width: 0; }
+.bd-sec-head { flex-wrap: nowrap; }
+.bd-floor-toggle .ct-two { text-align: left; }
+.bd-sec-head .bd-title-edit { background: #fff; color: var(--ink); }
+.line-row.bd-expand-all { justify-content: center; gap: 6px; margin-top: 12px; font-weight: 600; font-size: 13px; color: var(--text-muted); background: #fff; }
 .bd-level-count { align-self: center; text-align: center; font-size: 13px; color: var(--text-muted); }
-.bd-sheet-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bd-title-edit { display: inline-flex; align-items: center; gap: 5px; background: #f3f4f6; border: 1px solid #e3e7ec; color: var(--text-soft); border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .bd-title-edit:hover { color: var(--text); }
 .bd-short { background: var(--amber-light); color: var(--amber-text); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; margin: -2px 0 8px; }

@@ -33,6 +33,7 @@ const routes = {
   terms: require('../server/routes/terms'),
   timetable: require('../server/routes/timetable'),
   boarding: require('../server/routes/boarding'),
+  maintenance: require('../server/routes/maintenance'),
   users: require('../server/routes/users'),
 };
 

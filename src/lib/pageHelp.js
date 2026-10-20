@@ -153,24 +153,37 @@ const PARENT = { title: 'How to use this page', steps: [
 const BOARDING_HEAD = { title: 'Boarding', steps: [
   'Boarders are the children whose details say "Boarder" (Students → a child → Edit → More details).',
   'Rooms: "Add rooms" — write the section (whatever you call it: Block A, East Wing…), the level, and each room\'s number and beds ("Another room" adds the next one).',
-  'Tap a section, then a level, then a room to see who sleeps there — ✕ takes someone out, "Put a boarder in this room" adds one. The amber line places boarders not in a room yet.',
-  '"Edit section" is next to the section\'s name at the top; "Edit <level>" is inside each open level. Edit level changes its name and every room in it — numbers, beds, ✕ to take a room off, "Another room" to add one. "Edit section" changes its name and each level\'s name (✕ takes a level off; "Another level" adds one with 4-bed rooms). Either can be removed with all its rooms (its boarders go to "Not in a room").',
-  'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
+  'Each section has a card per floor, closed to start — tap a floor for its rooms, then a room to see who sleeps there (✕ takes someone out, "Put a boarder in this room" adds one). The amber line places boarders not in a room yet.',
+  '"Edit section" is by the section\'s name; each floor has its own Edit. A floor\'s Edit changes its name and every room in it — numbers, beds, ✕ to take a room off, "Another room" to add one. "Edit section" changes its name and each level\'s name (✕ takes a level off; "Another level" adds one with 4-bed rooms). Either can be removed with all its rooms (its boarders go to "Not in a room").',
+  'Tonight: each floor is one line — tap it to open (or "Expand all" under the date), then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. Anyone signed out shows as Home.',
   'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
   'Home weekends: everyone goes home — tap a weekend to add anyone staying. The rest are signed out by themselves at the leave time.',
   'Health: "Write one down" when a boarder is unwell or given medicine. It shows on their profile on Students.',
   'Staff ticked for Boarding duty (Classes & Staff → Staff → a name → Edit) get this page too.',
 ] };
 const BOARDING_TEACHER = { title: 'Boarding', steps: [
-  'Tonight: each floor is one line — tap it to open, then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. It\'s saved under your name.',
+  'Tonight: each floor is one line — tap it to open (or "Expand all" under the date), then tap In, Missing (not here and not signed out) or Sick. "Rest are in" marks everyone left on that floor. It\'s saved under your name.',
   'Going home: Sign out or Sign in → type a name → tap it. "Not in" lists everyone out, with Back on each.',
   'Health: "Write one down" when a boarder is unwell or given medicine.',
   'Rooms and home weekends are set by the head.',
 ] };
 
 // A Darul Uloom head's pages that work differently: reports are each exam's report card.
+const MAINTENANCE_HEAD = { title: 'Maintenance', steps: [
+  '"Add a job" for anything to fix: what, where, and whether it\'s urgent. Urgent jobs go to the top in red.',
+  'Staff ticked Maintenance (Classes & Staff → Staff → a name → Edit) see this list and mark jobs done.',
+  'Tap a job to see it, mark it done, or Edit it. A job marked done by mistake can be put back on the list.',
+  'Jobs done are under "Done", with who did them and when.',
+] };
+const MAINTENANCE_STAFF = { title: 'Maintenance', steps: [
+  'These are the things to fix around the school — urgent ones at the top in red.',
+  'Tap a job to see where it is and any note from the head.',
+  'When it\'s fixed, tap "Mark done", say what you did if you like, and save.',
+] };
+
 const DU_HEAD = {
   '/boarding': BOARDING_HEAD,
+  '/maintenance': MAINTENANCE_HEAD,
   '/classes': { title: 'Classes & Staff', steps: [
     'Add classes and staff with the + buttons.',
     'Each class or member of staff is one line — tap it for the details. A teacher shows the books they teach in each year.',
@@ -190,6 +203,7 @@ const DU_HEAD = {
 // A Darul Uloom teacher: attendance and behaviour for every Aalim year they teach.
 const DU_TEACHER = {
   '/boarding': BOARDING_TEACHER,
+  '/maintenance': MAINTENANCE_STAFF,
   '/attendance': { title: 'Attendance', steps: [
     'Tap Class at the top and pick the year you\'re with — every Aalim year you teach is there.',
     'Tap P, L or A for each student. It\'s saved under your name ("Today\'s register taken by …").',

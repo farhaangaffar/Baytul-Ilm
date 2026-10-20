@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
+  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -184,6 +184,33 @@ async function demoImported(c, mid, du, fee) {
        VALUES ($1,$2,$3,$4, now()::date - ($5::int * 365 + 90), '', 'Active', $6, now()::date, $7, $8, $9, $10, now())`,
       [newId('S'), mid, f, sn, du ? age + 6 : age, fee, `${g === 'Boy' ? 'Bilal' : 'Amina'} ${sn}`, `07700 9008${String(i).padStart(2, '0')}`, g,
         du ? (sheet === 'Weekday Boys' ? 'Year 1' : 'Year 2') : sheet]);
+  }
+}
+
+// Maintenance (the Maintenance page): a few things to fix around the school, two of them urgent, and some done
+// recently. Brother Bilal (a member of staff who doesn't teach) and Maulana Yusuf (the demo's teacher login, so
+// the teacher view shows the page) are ticked for Maintenance.
+async function demoMaintenance(c, mid, teacherIds) {
+  const bilal = newId('T');
+  await c.query(`INSERT INTO teachers (id, madrasah_id, name, phone, email, subjects, sort_order, maintenance_duty)
+                 VALUES ($1, $2, 'Brother Bilal Ahmed', '07700 900299', 'bilal@example.com', '[]', 99, true)`, [bilal, mid]);
+  await c.query('UPDATE teachers SET maintenance_duty = true WHERE madrasah_id = $1 AND id = $2', [mid, teacherIds.yusuf]);
+  // [what, where, urgent, note, days ago added, days ago done (null = still to do), done note]
+  const jobs = [
+    ['No hot water in the showers', 'Block A, ground floor', true, 'Boiler shows a red light.', 1, null, ''],
+    ['Fire exit sign not lit', 'Main corridor', true, '', 2, null, ''],
+    ['Light flickering', '2nd year classroom', false, '', 3, null, ''],
+    ["Window won't close", 'Block B, room 001', false, 'The handle is loose.', 6, null, ''],
+    ['Dripping tap', 'Wudu area', false, 'The second tap from the left.', 10, null, ''],
+    ['Broken chair', 'Library', false, '', 9, 5, 'Replaced the leg.'],
+    ['Toilet blocked', 'Ground floor toilets', true, '', 13, 12, 'Cleared.'],
+    ['Whiteboard coming off the wall', '3rd year classroom', false, '', 24, 20, 'Screwed back to the wall.'],
+  ];
+  for (const [what, place, urgent, note, added, done, doneNote] of jobs) {
+    await c.query(`INSERT INTO du_maintenance (madrasah_id, what, place, urgent, note, added_by, added_at, done_at, done_by, done_note)
+                   VALUES ($1,$2,$3,$4,$5,'Head', now() - make_interval(days => $6), CASE WHEN $7::int IS NULL THEN NULL ELSE now() - make_interval(days => $7::int) END,
+                           CASE WHEN $7::int IS NULL THEN '' ELSE 'Brother Bilal Ahmed' END, $8)`,
+      [mid, what, place, urgent, note, added, done, doneNote]);
   }
 }
 
@@ -846,8 +873,9 @@ async function createDarulUloomDemo(ipHash) {
     await bulk(c, 'du_exam_comments', ['madrasah_id', 'exam_id', 'student_id', 'teacher_comment', 'head_comment', 'behavior'], commentRows);
 
     await demoBoarding(c, mid, teacherIds, today, r);
+    await demoMaintenance(c, mid, teacherIds);
 
-    // Logins: the head, Maulana Yusuf (1st year's class teacher, on boarding duty), and the Patel family (two sons).
+    // Logins: the head, Maulana Yusuf (1st year's class teacher, on boarding duty and maintenance), and the Patel family (two sons).
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'maulana.yusuf', $2, 'teacher', $3)`, [mid, pw(), teacherIds.yusuf]);

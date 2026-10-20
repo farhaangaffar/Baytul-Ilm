@@ -2,7 +2,7 @@ const { query, transaction } = require('./db');
 
 // A Darul Uloom's part of Settings → Backup: the Aalim years' places, each year's books, the
 // timetable and lessons recorded, exams with their papers, marks and comments, and boarding (rooms and who
-// is in them, home weekends, going home, night registers, unwell & medicine). Taken and put
+// is in them, home weekends, going home, night registers, unwell & medicine), and the maintenance list. Taken and put
 // back here (GET / POST /api/course?action=backup / restore) because these tables point at each
 // other by number: on restore every row gets a new number and the links are carried across.
 // Classes, teachers and students keep their own ids in a backup, so links to them stay as they are.
@@ -13,12 +13,13 @@ async function ensureTables() {
   await require('./routes/timetable').ensure();
   await require('./routes/exams').ensure();
   await require('./routes/boarding').ensure();
+  await require('./routes/maintenance').ensure();
 }
 
 async function backup(mid) {
   await ensureTables();
   const all = sql => query(sql, [mid]).then(r => r.rows);
-  const [classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers] = await Promise.all([
+  const [classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers, maintenance] = await Promise.all([
     all('SELECT id, course_order FROM classes WHERE madrasah_id = $1 AND course_order IS NOT NULL'),
     all('SELECT id, class_id, subject, kitaab, teacher_id, sort_order FROM du_subjects WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT id, name, starts, ends, is_break, days FROM du_periods WHERE madrasah_id = $1 ORDER BY id'),
@@ -37,8 +38,9 @@ async function backup(mid) {
     all(`SELECT student_id, to_char(date, 'YYYY-MM-DD') AS date, status, marked_by, marked_at FROM du_night_register WHERE madrasah_id = $1`),
     all('SELECT student_id, at, kind, note, medicine, dose, by_name FROM du_health_log WHERE madrasah_id = $1 ORDER BY id'),
     all('SELECT weekend_id, student_id, going, collector, answered_by, answered_at, waiting FROM du_weekend_answers WHERE madrasah_id = $1'),
+    all('SELECT what, place, urgent, note, added_by, added_at, done_at, done_by, done_note FROM du_maintenance WHERE madrasah_id = $1 ORDER BY id'),
   ]);
-  return { classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers };
+  return { classes, subjects, periods, lessons, logs, exams, papers, marks, comments, rooms, roomPlaces, homeWeekends, leaves, nights, health, weekendAnswers, maintenance };
 }
 
 // Replaces this madrasah's Darul Uloom records with the backup's, in one go (all or nothing).
@@ -136,6 +138,15 @@ async function restore(mid, b) {
       await c.query(`INSERT INTO du_health_log (madrasah_id, student_id, at, kind, note, medicine, dose, by_name)
                      VALUES ($1,$2, COALESCE($3::timestamptz, now()), $4,$5,$6,$7,$8)`,
         [mid, h.student_id, asText(h.at), h.kind, h.note || '', h.medicine || '', h.dose || '', h.by_name || '']);
+    }
+    // Backups from before the maintenance list leave it as it is.
+    if (Array.isArray(b.maintenance)) {
+      await c.query('DELETE FROM du_maintenance WHERE madrasah_id = $1', [mid]);
+      for (const m of b.maintenance) {
+        await c.query(`INSERT INTO du_maintenance (madrasah_id, what, place, urgent, note, added_by, added_at, done_at, done_by, done_note)
+                       VALUES ($1,$2,$3,$4,$5,$6, COALESCE($7::timestamptz, now()), $8::timestamptz, $9, $10)`,
+          [mid, m.what || '', m.place || '', !!m.urgent, m.note || '', m.added_by || '', asText(m.added_at), asText(m.done_at), m.done_by || '', m.done_note || '']);
+      }
     }
   });
 }

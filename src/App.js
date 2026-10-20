@@ -9,6 +9,7 @@ import ClassesTeachers from './pages/ClassesTeachers';
 import Course          from './pages/Course';
 import Timetable       from './pages/Timetable';
 import Boarding        from './pages/Boarding';
+import Maintenance from './pages/Maintenance';
 import Exams           from './pages/Exams';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
@@ -120,6 +121,8 @@ export default function App() {
   }
 
   const isOwner = session.user.role === 'owner';
+  // Staff only on maintenance (no class or lessons) open on the Maintenance page; other teachers on Attendance.
+  const teacherHome = session.user.maintenanceOnly ? '/maintenance' : '/attendance';
 
   // A head agrees to the terms for their madrasah before using the app.
   if (session.user.termsNeeded) {
@@ -140,7 +143,7 @@ export default function App() {
     <AuthProvider value={{ user: session.user }}>
       <SettingsProvider>
         <BrowserRouter>
-          <BackToExit home={isOwner ? '/' : '/attendance'} />
+          <BackToExit home={isOwner ? '/' : teacherHome} />
           {isOwner ? (
             <Routes>
               <Route path="/"           element={<Dashboard />} />
@@ -153,6 +156,7 @@ export default function App() {
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/boarding" element={<Boarding />} />}
+              {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/maintenance" element={<Maintenance />} />}
               <Route path="/reports"    element={session.user.madrasah?.kind === 'darul_uloom' ? <Navigate to="/exams" replace /> : <Reports />} />
               <Route path="/stats"      element={<Stats />} />
               <Route path="/settings"   element={<SettingsPage />} />
@@ -167,7 +171,8 @@ export default function App() {
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/timetable" element={<Timetable />} />}
               {session.user.madrasah?.kind === 'darul_uloom' && <Route path="/exams" element={<Exams />} />}
               {session.user.boardingDuty && <Route path="/boarding" element={<Boarding />} />}
-              <Route path="*"           element={<Navigate to="/attendance" replace />} />
+              {session.user.maintenanceDuty && <Route path="/maintenance" element={<Maintenance />} />}
+              <Route path="*"           element={<Navigate to={teacherHome} replace />} />
             </Routes>
           )}
         </BrowserRouter>
