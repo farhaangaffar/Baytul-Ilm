@@ -233,13 +233,14 @@ function Tonight({ data, date, outOf, mark, onDate, onMark }) {
           <button type="button" className="btn btn-icon btn-sm" aria-label="Night after" disabled={date >= today} onClick={() => onDate(shift(date, 1))}><ChevronRight size={16} /></button>
         </div>
       </div>
+      <div className="bd-two">
       {cards.map(c => {
         const present = c.list.filter(b => !outOf[b.id]);
         const unmarked = present.filter(b => !mark[b.id]);
         const missing = present.filter(b => mark[b.id]?.status === 'away').length;
         const isOpen = open.includes(c.key);
         return (
-          <div className="card att-week" key={c.key} style={{ marginTop: 12 }}>
+          <div className="card att-week" key={c.key}>
             <div className="bd-room-head">
               <button type="button" className="bd-floor-toggle" aria-expanded={isOpen} onClick={() => toggle(c.key)}>
                 {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -257,6 +258,7 @@ function Tonight({ data, date, outOf, mark, onDate, onMark }) {
           </div>
         );
       })}
+      </div>
     </>
   );
 }
@@ -314,7 +316,7 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
         </button>
       )}
       <div className="card">
-        <div className="course-lines">
+        <div className="course-lines bd-two-lines">
           {lay.map(x => {
             const all = x.levels.flatMap(l => l.rooms);
             return (
@@ -577,8 +579,9 @@ function GoingHome({ data, outOf, head, onOpen, onSign, onBack, onWeekendOpen, o
         { text: out.filter(late).length, sub: 'Late back', ...(out.some(late) ? { tone: 'red' } : { className: 'ct-figure' }) },
       ]} />
 
+      <div className="bd-two">
       {out.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card">
           <div className="card-title" style={{ marginBottom: 10 }}>Not in</div>
           <div className="course-lines">
             {out.length <= 12 ? sorted.map(line) : floorsOut.map(f => (
@@ -594,7 +597,7 @@ function GoingHome({ data, outOf, head, onOpen, onSign, onBack, onWeekendOpen, o
         </div>
       )}
 
-      <div className="card" style={{ marginTop: 12 }}>
+      <div className="card">
         <div className="card-title" style={{ marginBottom: 10 }}>Home weekends</div>
         <div className="course-lines">
           {upcoming.map(w => (
@@ -609,6 +612,7 @@ function GoingHome({ data, outOf, head, onOpen, onSign, onBack, onWeekendOpen, o
           {!upcoming.length && <div className="text-muted" style={{ fontSize: 13 }}>None coming up.</div>}
           {head && <button type="button" className="line-row add" onClick={onWeekendAdd}><Plus size={14} /> Add a home weekend</button>}
         </div>
+      </div>
       </div>
     </>
   );

@@ -22,12 +22,26 @@ function waiting(ts) {
   return `${Math.floor(days / 7)} weeks`;
 }
 
+// Computer-wide screens (as the CSS's 900px): Done sits open beside the list.
+function useWide() {
+  const query = '(min-width: 900px)';
+  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const on = () => setWide(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
+
 export default function Maintenance() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [modal, setModal] = useState(null); // { kind: 'job', job } (head: add/edit) · { kind: 'view', id }
   const [showDone, setShowDone] = useState(false);
   const [toast, setToast] = useState('');
+  const wide = useWide();
 
   const load = useCallback(async () => {
     setError(null);
@@ -51,6 +65,15 @@ export default function Maintenance() {
   const now = new Date();
   const doneThisMonth = done.filter(j => { const d = dayOf(j.doneAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }).length;
   const viewing = modal?.kind === 'view' && jobs.find(j => j.id === modal.id);
+  const doneLine = j => (
+    <button key={j.id} type="button" className="line-row" onClick={() => setModal({ kind: 'view', id: j.id })}>
+      <span className="ct-two">
+        <span className="line-row-name">{j.what}</span>
+        <span className="line-row-sub">{[j.place, `Done ${shortDate(j.doneAt)}${j.doneBy ? ` · ${j.doneBy}` : ''}`].filter(Boolean).join(' · ')}</span>
+      </span>
+      <Check size={15} style={{ color: 'var(--green)' }} />
+    </button>
+  );
 
   return (
     <Layout title={title} subtitle={open.length ? `${open.length} to do` : 'Nothing to fix'}>
@@ -61,7 +84,8 @@ export default function Maintenance() {
           { text: doneThisMonth, sub: 'Done this month', className: 'ct-figure', onClick: done.length ? () => setShowDone(true) : undefined },
         ]} />
 
-        <div className="card" style={{ marginTop: 8 }}>
+        <div className="bd-two mt-cols">
+        <div className="card">
           <div className="card-title" style={{ marginBottom: 10 }}>To do</div>
           <div className="course-lines">
             {open.map(j => (
@@ -78,7 +102,15 @@ export default function Maintenance() {
           </div>
         </div>
 
-        {done.length > 0 && (
+        {/* Done: one closed line on phones; on computers, open beside the list. */}
+        {done.length > 0 && wide && (
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 2 }}>Done</div>
+            <div className="card-sub" style={{ marginBottom: 10 }}>{done.length} job{done.length === 1 ? '' : 's'} in the last year</div>
+            <div className="course-lines">{done.map(doneLine)}</div>
+          </div>
+        )}
+        {done.length > 0 && !wide && (
           <div className="card">
             <div className="course-lines">
               <button type="button" className={`line-row ${showDone ? 'on' : ''}`} onClick={() => setShowDone(s => !s)}>
@@ -88,22 +120,11 @@ export default function Maintenance() {
                 </span>
                 {showDone ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
-              {showDone && (
-                <div className="course-open">
-                  {done.map(j => (
-                    <button key={j.id} type="button" className="line-row" onClick={() => setModal({ kind: 'view', id: j.id })}>
-                      <span className="ct-two">
-                        <span className="line-row-name">{j.what}</span>
-                        <span className="line-row-sub">{[j.place, `Done ${shortDate(j.doneAt)}${j.doneBy ? ` · ${j.doneBy}` : ''}`].filter(Boolean).join(' · ')}</span>
-                      </span>
-                      <Check size={15} style={{ color: 'var(--green)' }} />
-                    </button>
-                  ))}
-                </div>
-              )}
+              {showDone && <div className="course-open">{done.map(doneLine)}</div>}
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {viewing && (

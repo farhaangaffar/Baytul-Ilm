@@ -222,6 +222,9 @@ codebase (one codebase, not a fork).
   Added · Urgent boxes, note, Mark done). No photos (database space). Where is a `PickField` of past places. In Backup
   (`duBackup.js`, `maintenance` — older backups leave it alone) and demo `TABLES`; the DU demo has five jobs to do (two
   urgent) and three done, Brother Bilal (no lessons) and Maulana Yusuf ticked Maintenance (`demoMaintenance()`).
+  **Boarding and Maintenance use the full width on computers** like every other page (the owner found them phone-narrow):
+  from 900px, cards two across (`.bd-two` — Tonight's floors, Going home's Not in / Home weekends, Maintenance's To do /
+  Done, where Done sits open), Rooms' section lines two across (`.bd-two-lines`); phones unchanged.
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
