@@ -191,6 +191,7 @@ function Tonight({ data, date, outOf, mark, onDate, onMark }) {
     { key: 'none', title: 'Not in a room', rooms: [{ id: '', name: '', loose: true }] },
   ].map(c => ({ ...c, list: c.rooms.flatMap(r => (r.loose ? boarders.filter(b => !rooms.some(x => x.id === b.roomId)) : inRoom(r))) }))
     .filter(c => c.list.length);
+  const allOpen = cards.length > 0 && cards.every(c => open.includes(c.key));
   const line = b => {
     const leave = outOf[b.id];
     if (leave) {
@@ -233,6 +234,11 @@ function Tonight({ data, date, outOf, mark, onDate, onMark }) {
           <button type="button" className="btn btn-icon btn-sm" aria-label="Night after" disabled={date >= today} onClick={() => onDate(shift(date, 1))}><ChevronRight size={16} /></button>
         </div>
       </div>
+      {cards.length > 1 && (
+        <button type="button" className="line-row bd-expand-all" onClick={() => setOpen(allOpen ? [] : cards.map(c => c.key))}>
+          {allOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}{allOpen ? 'Collapse all' : 'Expand all'}
+        </button>
+      )}
       <div className="bd-two">
       {cards.map(c => {
         const present = c.list.filter(b => !outOf[b.id]);
