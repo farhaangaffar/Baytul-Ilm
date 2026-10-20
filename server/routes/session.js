@@ -5,8 +5,11 @@ const { ensureSignupColumns } = require('../newMadrasah');
 // Who is signed in (and, for a teacher or class login, which classes they can see),
 // which madrasah they belong to, plus whether the first owner account still needs
 // creating so the login screen can say so.
-// The terms version heads must have agreed to (TERMS_VERSION in src/lib/legal.js).
+// The terms version heads must have agreed to (TERMS_VERSION in src/lib/legal.js) — a Darul Uloom's own
+// (DU_TERMS_VERSION), so a change only for Darul Ulooms (their price) asks only their heads to agree again.
 const TERMS_VERSION = '2026-10';
+const DU_TERMS_VERSION = 'du-2026-10';
+const termsVersionFor = kind => (kind === 'darul_uloom' ? DU_TERMS_VERSION : TERMS_VERSION);
 let termsReady = false;
 async function ensureTermsColumns() {
   if (termsReady) return;
@@ -26,8 +29,9 @@ module.exports = async (req, res) => {
   if (req.query.action === 'accept-terms') {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
     if (!user || user.role !== 'owner') { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const { rows: [k] } = await query('SELECT kind FROM madaaris WHERE id = $1', [user.madrasahId]);
     await query('UPDATE madaaris SET terms_version = $1, terms_accepted_at = now(), terms_accepted_by = $2 WHERE id = $3',
-      [TERMS_VERSION, user.login, user.madrasahId]);
+      [termsVersionFor(k?.kind), user.login, user.madrasahId]);
     res.status(200).json({ ok: true });
     return;
   }
@@ -48,7 +52,7 @@ module.exports = async (req, res) => {
     // Staff who are only on maintenance (no class, no lessons) open on the Maintenance page and don't see the teaching pages.
     if (maintenanceDuty && !classNames.length) maintenanceOnly = !(await teachingClassNames(user)).length;
   }
-  const termsNeeded = user.role === 'owner' && !user.platformAdmin && !user.demo && m.terms_version !== TERMS_VERSION;
+  const termsNeeded = user.role === 'owner' && !user.platformAdmin && !user.demo && m.terms_version !== termsVersionFor(m.kind);
   res.status(200).json({
     authenticated: true, setupRequired,
     user: {
@@ -59,3 +63,4 @@ module.exports = async (req, res) => {
 };
 
 module.exports.TERMS_VERSION = TERMS_VERSION; // routes/signup.js records it when a madrasah signs itself up
+module.exports.termsVersionFor = termsVersionFor;

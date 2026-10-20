@@ -8,10 +8,16 @@ import { countVisit } from '../lib/analytics';
 
 // "Start free" (/?start, from the front page): a madrasah signs itself up — its name, the
 // head's name, email (their login), phone and a password — and is straight in as its head,
-// free for 6 months (server/routes/signup.js). The sign-in code is made from the name and can
-// be changed here.
+// free for 6 months (server/routes/signup.js). First it says what kind it is — a maktab (evening and weekend
+// classes) or a Darul Uloom (full-time; /?start=darul-uloom picks it), each with its own price. The sign-in code is
+// made from the name and can be changed here.
+const KINDS = [
+  ['maktab', 'Maktab', 'Evening & weekend classes', 'Free for 6 months, then £20 a month or £200 a year (up to 200 children). No card needed.'],
+  ['darul_uloom', 'Darul Uloom', 'A full-time madrasah', 'Free for 6 months, then £50 a month or £500 a year (up to 500 students). No card needed.'],
+];
 export default function Signup({ onDone }) {
   const [f, setF] = useState({ madrasahName: '', headName: '', email: '', phone: '', password: '', website: '' });
+  const [kind, setKind] = useState(() => (new URLSearchParams(window.location.search).get('start') === 'darul-uloom' ? 'darul_uloom' : 'maktab'));
   const [code, setCode] = useState('');
   const [codeEdited, setCodeEdited] = useState(false);
   const [editingCode, setEditingCode] = useState(false);
@@ -43,7 +49,7 @@ export default function Signup({ onDone }) {
     if (!ready) return;
     setBusy(true); setError('');
     try {
-      const r = await signUp({ ...f, code, agree: true });
+      const r = await signUp({ ...f, code, kind, agree: true });
       setMadrasahCode(r.code);
       countVisit('/start/done');
       window.history.replaceState(null, '', '/');
@@ -66,9 +72,16 @@ export default function Signup({ onDone }) {
         <div style={{ textAlign: 'center', marginBottom: 18 }}>
           <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)' }}>{APP_NAME_ARABIC}</div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Start {APP_NAME} free</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Free for 6 months, then £20 a month (up to 200 children). No card needed.</div>
         </div>
-        {field("Your madrasah's name", 'madrasahName', { placeholder: 'e.g. Madrasatul Huda', autoFocus: true, maxLength: 80 })}
+        <div className="signup-kinds" role="radiogroup" aria-label="What kind of madrasah?">
+          {KINDS.map(([k, label, sub]) => (
+            <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
+              <b>{label}</b><span>{sub}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '-4px 0 14px', textAlign: 'center' }}>{KINDS.find(x => x[0] === kind)[3]}</div>
+        {field(kind === 'darul_uloom' ? "Your Darul Uloom's name" : "Your madrasah's name", 'madrasahName', { placeholder: 'e.g. Madrasatul Huda', autoFocus: true, maxLength: 80 })}
         {field('Your name', 'headName', { placeholder: 'The head or person in charge', autoComplete: 'name', maxLength: 80 })}
         {field('Email', 'email', { type: 'email', autoComplete: 'email', autoCapitalize: 'none', spellCheck: false }, 'This is how you sign in.')}
         {field('Phone (optional)', 'phone', { type: 'tel', autoComplete: 'tel', placeholder: 'So we can help you get set up' })}
