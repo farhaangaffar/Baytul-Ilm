@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getSchoolMonthRange, getTerms } from '../lib/store';
+import { getStudents, getClassNames, getAcademicYears, currentSchoolYear, getAttendance, getFees, getDuFees, getSchoolMonthRange, getTerms } from '../lib/store';
+import { useAuth } from '../lib/AuthContext';
 import { feeFrequency, feePeriodsForYear, FREQUENCIES, ownedFees } from '../lib/feePeriods';
 import { CheckSquare, Coins } from 'lucide-react';
 import { money } from '../lib/branding';
@@ -76,6 +77,7 @@ function feeStatsForRange(fees, start, endExclusive) {
 }
 
 export default function Stats() {
+  const { isDarulUloom } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('attendance');
@@ -95,7 +97,7 @@ export default function Stats() {
       ]);
       setTerms(termsData);
       const entries = await Promise.all(yearsData.map(async y => {
-        const [attendance, fees] = await Promise.all([getAttendance(y), getFees(y)]);
+        const [attendance, fees] = await Promise.all([getAttendance(y), isDarulUloom ? getDuFees(y).then(duToFees).catch(() => []) : getFees(y)]);
         return [y, { attendance, fees }];
       }));
       setStudents(studentsData); setClassNames(classNamesData); setYears(yearsData);
@@ -104,7 +106,7 @@ export default function Stats() {
       setError(err);
     }
     setLoading(false);
-  }, []);
+  }, [isDarulUloom]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -133,7 +135,7 @@ export default function Stats() {
 
       {tab === 'attendance'
         ? <AttendanceStats months={months} attendance={attendance} allStudentIds={allStudentIds} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />
-        : <FeesStats year={year} terms={terms} fees={fees} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />}
+        : <FeesStats frequency={isDarulUloom ? 'monthly' : undefined} year={year} terms={terms} fees={fees} students={students} classNames={classNames} years={years} dataByYear={dataByYear} />}
     </Layout>
   );
 }
@@ -272,8 +274,20 @@ function AttendanceStats({ months, attendance, allStudentIds, students, classNam
   );
 }
 
-function FeesStats({ year, terms, fees, students, classNames, years, dataByYear }) {
-  const frequency = feeFrequency();
+// A Darul Uloom's fees (its yearly fee in instalments, src/pages/DuFees.js) as fee records, so the Fees tab looks the
+// same as a maktab's: each instalment or extra in the month it's due, the paid part 'Paid' and the rest 'Pending'.
+function duToFees(d) {
+  const out = [];
+  (d?.students || []).forEach(s => s.items.forEach((it, i) => {
+    const base = { studentId: s.id, weekStarting: it.due, period: 'month' };
+    if (it.paid > 0) out.push({ ...base, id: `${s.id}-${i}-p`, amount: it.paid, status: 'Paid' });
+    if (it.amount - it.paid > 0) out.push({ ...base, id: `${s.id}-${i}`, amount: Math.round((it.amount - it.paid) * 100) / 100, status: 'Pending' });
+  }));
+  return out;
+}
+
+function FeesStats({ frequency: given, year, terms, fees, students, classNames, years, dataByYear }) {
+  const frequency = given || feeFrequency(); // a Darul Uloom's instalments are counted by the month they're due
   const bucketWord = frequency === 'termly' ? 'term' : 'month';
   const { buckets: months, start: yearStart, endExclusive: yearEnd } = feeBuckets(year, frequency, terms);
   const yearRange = feeStatsForRange(fees, yearStart, yearEnd);
@@ -309,7 +323,7 @@ function FeesStats({ year, terms, fees, students, classNames, years, dataByYear 
         <div className="card-header" style={{ marginBottom: 16 }}>
           <div>
             <div className="card-title">Fee collection trend</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>Collected vs outstanding by {bucketWord}, all classes{frequency !== 'weekly' ? ` · charged ${FREQUENCIES[frequency].adjective.toLowerCase()}` : ''}</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>Collected vs outstanding by {bucketWord}, all classes{frequency !== 'weekly' && !given ? ` · charged ${FREQUENCIES[frequency].adjective.toLowerCase()}` : ''}</div>
           </div>
         </div>
         <div className="axis-chart-scroll">

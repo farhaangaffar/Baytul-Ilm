@@ -225,6 +225,25 @@ codebase (one codebase, not a fork).
   **Boarding and Maintenance use the full width on computers** like every other page (the owner found them phone-narrow):
   from 900px, cards two across (`.bd-two` — Tonight's floors, Going home's Not in / Home weekends, Maintenance's To do /
   Done, where Done sits open), Rooms' section lines two across (`.bd-two-lines`); phones unchanged.
+  **Fees (Darul Uloom)** (`/fees` → `src/pages/DuFees.js`, `server/routes/du-fees.js`; head only; a maktab keeps `fees`
+  and Fees.js — never mixed: `?action=auto` adds nothing for a Darul Uloom): each academic year ('26-27') a **yearly fee** for
+  boarders and for day students, **ways to pay** (each a name and its due dates — the fee split equally; one used for
+  everyone unless a child is given another; starters: Whole year / 3 terms / 10 months) and an **optional sibling
+  discount** (each madrasah switches it on, its own %s for the 2nd and 3rd+ child; brothers and sisters found by a shared
+  parent phone or parent login, eldest pays in full) — `du_fee_setup`, carried over to the next year (dates moved on),
+  set in a pop-up (`DuFeeSetupModal`, also from Settings). **Show, don't store:** instalments are worked out by `compute()`
+  every time (own amount — a bursary — or price less discount; only instalments from the month they joined, none after
+  they left), plus extras (`du_fee_charges`: books, a trip — a child, a class or everyone); payments (`du_fee_payments`:
+  any amount, method, date, note, a **receipt number** running on per madrasah, who recorded it) and "paid before"
+  (`du_fee_accounts.paid_before`, from **Import** — strictly fee-only: reads just the Name (or First name + Surname), Paid and Fee columns by their headings, nothing at all without Name and Paid headings, rows with no amount skipped, never anything else about a child) go towards the oldest first →
+  each box paid / part / due / overdue / not due yet. The page: This year · Paid · Still to pay · Overdue boxes, Prices &
+  ways to pay · Add a charge · Import lines, Class ▾, a line per child ("£340 of £3,040 paid", red "£300 overdue ·") →
+  `ChildSheet` (boxes, instalments & extras as boxes, payments → receipt; Record a payment → receipt to WhatsApp / Print /
+  Copy; Change fee). Dashboard, Students (each child's "£x of £y paid", no per-month fee field), Stats (the same Fees tab as a
+  maktab's — `duToFees()` turns instalments into month records) and the parent portal (`forParent()` — `DuFeesCard`: paid, next, instalments, receipts) use it. In Backup
+  (`duBackup.js`, `fees` — older backups leave fees alone) and demo `TABLES`; the DU demo has £3,000 / £1,500, three ways
+  to pay, sibling discount on (the Patel brothers), a bursary, Books for everyone, most paid up and a few overdue
+  (`demoDuFees()`).
   **Darul Uloom demo** (`?demo=darul-uloom`, `createDarulUloomDemo()` in `server/demo.js`): the starter years
   with kitaabs and asatidha, a Hifdh class, ~40 made-up students (and two who have left), Mon–Fri attendance, monthly fees,
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).

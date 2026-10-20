@@ -187,6 +187,9 @@ module.exports = requireAuth(async (req, res) => {
     // student's own fee — once, when the period starts. Safe to call any number of
     // times: existing records and removed periods (fee_skips) are left alone.
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    // A Darul Uloom's fees are its yearly fee in instalments (routes/du-fees.js) — nothing is added here.
+    const { rows: [kindRow] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
+    if (kindRow?.kind === 'darul_uloom') { res.status(200).json({ ok: true, added: 0 }); return; }
     const { rows: cfg } = await query('SELECT fee_frequency, fee_auto, fee_auto_since FROM settings WHERE madrasah_id = $1', [mid]);
     if (cfg[0] && cfg[0].fee_auto !== false && cfg[0].fee_frequency === 'weekly') {
       // Weekly: every fee week of the school month now running (and any before it) is charged —

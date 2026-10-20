@@ -184,6 +184,13 @@ const MAINTENANCE_STAFF = { title: 'Maintenance', steps: [
 const DU_HEAD = {
   '/boarding': BOARDING_HEAD,
   '/maintenance': MAINTENANCE_HEAD,
+  '/fees': { title: 'Fees', steps: [
+    '"Prices & ways to pay": the yearly fee for boarders and day students, the ways parents can pay it (the whole year, termly, monthly — each with its dates) and, if you want one, a sibling discount.',
+    'Pick a class. Each child shows what they\'ve paid of their year\'s fee — red when something is overdue.',
+    'Tap a child: their instalments as boxes, extras and payments. "Record a payment" takes any amount and makes a numbered receipt to send by WhatsApp or print.',
+    '"Change fee" gives a child their own yearly fee (a bursary) or another way to pay. "Add a charge" adds books, a trip… for a child, a class or everyone.',
+    '"Import from a spreadsheet" brings in what each child has paid so far this year, if you kept fees somewhere else before.',
+  ] },
   '/classes': { title: 'Classes & Staff', steps: [
     'Add classes and staff with the + buttons.',
     'Each class or member of staff is one line — tap it for the details. A teacher shows the books they teach in each year.',

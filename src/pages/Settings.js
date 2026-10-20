@@ -3,7 +3,8 @@ import { GrowingText } from '../components/StudentDetails';
 import { LegalLinks } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents, getDuFees } from '../lib/store';
+import DuFeeSetupModal from '../components/DuFeeSetup';
 import { studentsRows, sheetLeft } from '../lib/studentSheet';
 import { xlsxBlob, downloadBlob } from '../lib/xlsx';
 import TermsCard from '../components/TermsCard';
@@ -59,6 +60,8 @@ export default function Settings() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
   const [savedFrequency, setSavedFrequency] = useState('weekly');
+  const [duSetup, setDuSetup] = useState(null); // a Darul Uloom's fees pop-up (prices & ways to pay)
+  const openDuFees = async () => { try { setDuSetup((await getDuFees()).setup); } catch (err) { setError(err); } };
   const [savedReportPeriod, setSavedReportPeriod] = useState('monthly');
   const [currentYear, setCurrentYear] = useState('');
   const [years, setYears] = useState([]);
@@ -341,6 +344,13 @@ export default function Settings() {
       <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:16}}>Fees</div>
         <div className="form-grid fees-grid">
+          {isDarulUloom ? (
+            <div className="form-group">
+              <Label k="du-fees">Fees</Label>
+              <button type="button" className="btn" style={{justifyContent:'center'}} onClick={openDuFees}>Prices &amp; ways to pay</button>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>A yearly fee for boarders and day students, paid in instalments.</span>
+            </div>
+          ) : (
           <div className="form-group">
             <Label k="frequency">Fees are charged</Label>
             <select value={(savedFrequency || 'weekly')} onChange={e=>changeFrequency(e.target.value)}>
@@ -350,6 +360,7 @@ export default function Settings() {
             </select>
             {savedFrequency === 'termly' && <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Add your term dates under Terms.</span>}
           </div>
+          )}
           <div className="form-group">
             <Label k="currency">Currency</Label>
             <select value={CURRENCY_OPTIONS.includes(form.currencySymbol) ? form.currencySymbol : 'other'}
@@ -364,6 +375,7 @@ export default function Settings() {
                 style={{marginTop:6}}/>
             )}
           </div>
+          {!isDarulUloom && <>
           <div className="form-group">
             <Label k="fee">Default fee per {FREQUENCIES[(savedFrequency || 'weekly')].unit}</Label>
             <input type="number" min="0" step="0.50" value={form.defaultWeeklyFee}
@@ -383,12 +395,13 @@ export default function Settings() {
               </span>
             )}
           </div>
+          </>}
         </div>
       </div>
       {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
-      {years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
+      {!isDarulUloom && years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
       {/* Fee months — monthly fees added automatically: which months are charged */}
-      {years.length > 0 && savedFrequency === 'monthly' && form.feeAuto !== false && <FeeMonthsCard years={years} defaultYear={currentYear} />}
+      {!isDarulUloom && years.length > 0 && savedFrequency === 'monthly' && form.feeAuto !== false && <FeeMonthsCard years={years} defaultYear={currentYear} />}
 
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>
@@ -482,6 +495,7 @@ export default function Settings() {
         </div>
       )}
 
+      {duSetup && <DuFeeSetupModal setup={duSetup} onClose={() => setDuSetup(null)} onSaved={() => { setDuSetup(null); showToast('Fees saved'); }} />}
       {toast&&<div className="toast">✓ {toast}</div>}
     </Layout>
   );

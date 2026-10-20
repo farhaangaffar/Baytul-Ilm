@@ -14,6 +14,7 @@ import { money, currencySymbol, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { feePer, feeFrequency, periodStarted } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
+import DuFees from './DuFees';
 import { FeeRowList, FeeTotals, shortDate } from '../components/FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
@@ -38,7 +39,9 @@ function yearMonthBounds(yearLabel) {
 
 // Weekly charging keeps this page as it was; monthly/termly use PeriodFees.
 export default function Fees() {
+  const { isDarulUloom } = useAuth();
   const frequency = feeFrequency();
+  if (isDarulUloom) return <DuFees />; // a yearly fee in instalments (src/pages/DuFees.js)
   return frequency === 'weekly' ? <WeeklyFees /> : <PeriodFees frequency={frequency} />;
 }
 
