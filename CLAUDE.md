@@ -186,8 +186,8 @@ codebase (one codebase, not a fork).
   one free box to a choice of words) — a level (`level`, any text, as many as they like), then each room's number or name (`name`, unique within its
   level) and beds, plus the teacher in charge. "Add rooms" adds a level's rooms in one pop-up ("Another room" suggests the next
   number, keeping its zeros: 001 → 002, 101 → 102); sections and levels can be renamed. A short level or room gets its word in front ("1" → Level 1, "12" → Room 12 —
-  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is laid out like Tonight (the owner's choice): each section's heading ("N rooms · used / beds",
-  **Edit section** beside it) and a card per floor, closed to start ("2 rooms · 10 / 10 beds", its own **Edit**), opening to room
+  `src/lib/boardingRooms.js`, matched in the server's `roomTitle()`); ground floors sort first. The page is laid out like Tonight (the owner's choice): each section's heading ("N rooms · free / beds beds available",
+  **Edit section** beside it) and a card per floor, closed to start ("2 rooms · 0 / 10 beds available", its own **Edit**), opening to room
   lines — beds as dots, "3/4", no teacher name (two across on computers). A floor's Edit is `LevelModal` (`?action=level`:
   its name and every room's number/beds in one list, ✕ / "Another room", staff in charge — no separate Add rooms); Edit section is
   `SectionModal` (`?action=section`: its name and each level's name in one list, ✕ removes a level, "Another level"

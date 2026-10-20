@@ -320,8 +320,10 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
         return (
           <div key={x.block || 'none'} className="bd-section">
             <div className="bd-sec-head">
-              <span className="bd-sec-name">{x.block || 'Rooms'}</span>
-              <span className="bd-room-count">{all.length} room{all.length === 1 ? '' : 's'} · {used(all)} / {beds(all)} beds</span>
+              <span className="ct-two bd-sec-text">
+                <span className="bd-sec-name">{x.block || 'Rooms'}</span>
+                <span className="bd-room-count">{all.length} room{all.length === 1 ? '' : 's'} · {beds(all) - used(all)} / {beds(all)} beds available</span>
+              </span>
               {head && <button type="button" className="bd-title-edit" onClick={() => onRename({ what: 'block', block: x.block })}><Pencil size={12} />Edit section</button>}
             </div>
             <div className="bd-two" style={{ marginTop: 6 }}>
@@ -333,8 +335,10 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
                     <div className="bd-room-head">
                       <button type="button" className="bd-floor-toggle" aria-expanded={isOpen} onClick={() => toggleFloor(key)}>
                         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        <span className="bd-floor-title">{levelLabel(l.level) || 'Rooms'}</span>
-                        <span className="bd-room-count">{l.rooms.length} room{l.rooms.length === 1 ? '' : 's'} · {used(l.rooms)} / {beds(l.rooms)} beds</span>
+                        <span className="ct-two">
+                          <span className="bd-floor-title">{levelLabel(l.level) || 'Rooms'}</span>
+                          <span className="bd-room-count">{l.rooms.length} room{l.rooms.length === 1 ? '' : 's'} · {beds(l.rooms) - used(l.rooms)} / {beds(l.rooms)} beds available</span>
+                        </span>
                       </button>
                       {head && <button type="button" className="btn btn-sm" onClick={() => onRename({ what: 'level', block: x.block, level: l.level })}><Pencil size={12} />Edit</button>}
                     </div>
@@ -358,9 +362,6 @@ function Rooms({ data, teacherName, head, onEdit, onAdd, onRename, onPlace }) {
       })}
       {!rooms.length && <div className="card text-muted" style={{ fontSize: 13 }}>No rooms yet.</div>}
       {head && <button type="button" className="line-row add" style={{ marginTop: 12 }} onClick={() => onAdd({ block: '', level: '' })}><Plus size={14} /> {rooms.length ? 'Add a section' : 'Add rooms'}</button>}
-
-          onRoom={r => setRoomId(r.id)} onAdd={onAdd} onRename={onRename} />
-      )}
       {room && (
         <RoomSheet room={room} people={inRoom(room)} boarders={boarders} rooms={rooms} head={head} teacherName={teacherName}
           onClose={() => setRoomId('')} onEdit={() => onEdit(room)}
