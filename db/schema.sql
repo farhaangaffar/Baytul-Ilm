@@ -49,6 +49,13 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at  TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS platform_kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- Demos started and madaaris signed up, per day ('demo' / 'demo_du' / 'signup' / 'signup_du') — Madaaris page.
+CREATE TABLE IF NOT EXISTS platform_counts (
+  day  DATE NOT NULL,
+  what TEXT NOT NULL,
+  n    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, what)
+);
 
 CREATE TABLE IF NOT EXISTS teachers (
   id          TEXT PRIMARY KEY,

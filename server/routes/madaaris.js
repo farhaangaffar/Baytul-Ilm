@@ -39,6 +39,18 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  // Demos started and madaaris signed up (platform_counts): this month, last month and all time, each split maktab / Darul Uloom.
+  if (req.query.action === 'counts') {
+    const { rows } = await query(`SELECT what,
+        COALESCE(sum(n) FILTER (WHERE day >= date_trunc('month', (now() AT TIME ZONE 'Europe/London')::date)), 0)::int AS "thisMonth",
+        COALESCE(sum(n) FILTER (WHERE day >= date_trunc('month', (now() AT TIME ZONE 'Europe/London')::date) - interval '1 month'
+                                  AND day < date_trunc('month', (now() AT TIME ZONE 'Europe/London')::date)), 0)::int AS "lastMonth",
+        sum(n)::int AS "allTime", min(day)::text AS since
+      FROM platform_counts GROUP BY what`);
+    res.status(200).json(Object.fromEntries(rows.map(r => [r.what, r])));
+    return;
+  }
+
   // Phone notifications when a madrasah signs up (this device): the public key to subscribe with,
   // saving / removing this phone's subscription, and a test notification.
   if (req.query.action === 'push-key') { res.status(200).json({ publicKey: (await vapidKeys()).publicKey, email: !!process.env.RESEND_API_KEY }); return; }

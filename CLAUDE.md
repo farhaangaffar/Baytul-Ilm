@@ -70,7 +70,9 @@ codebase (one codebase, not a fork).
   add / rename / switch off a madrasah, reset its head's password, delete one for ever (only once
   switched off, never your own, its code typed to confirm — every table in `TABLES`, `server/demo.js`); plus an AI credit card, a database-space bar (`?action=usage`, Neon free = 0.5 GB) —
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
-  demo link to copy or share). Each madrasah is free for 6 months (`madaaris.free_until`, set
+  demo link to copy or share; a **Demos & sign-ups** card — this month / last month / all time, each with its Darul Uloom
+  share, from `platform_counts` (`countEvent()` in `server/platform.js`, called when a new demo is made and on sign-up;
+  `?action=counts`), kept for good because Vercel's visitor figures only go back 31 days). Each madrasah is free for 6 months (`madaaris.free_until`, set
   when added, editable there; older rows count 6 months from `created_at`) — payment is by
   standing order, outside the app; the platform owner records each one on the Madaaris page.
   Each madrasah is a tidy card (name, children · classes · AI this month, payment state, and a bar
@@ -291,7 +293,7 @@ codebase (one codebase, not a fork).
   PDF reports carry a small "Made with Suhuf" credit (`MadeWith` in `Legal.js`, `footerText` in
   `src/lib/reportPdf.js`) linking to `/about`. Visitor counts (Vercel Web Analytics, no cookies,
   `src/lib/analytics.js` `countVisit()`, live site only): the front page, /privacy, /terms, `/demo` and
-  `/demo/<role>` — never pages inside a madrasah's app (auto-tracking is off on purpose).
+  `/demo/<role>` (the Darul Uloom demo as `/demo/darul-uloom` and `/demo/darul-uloom/<role>`) — never pages inside a madrasah's app (auto-tracking is off on purpose).
   "Start free" opens the sign-up (`/?start`, below); "Message us on WhatsApp" goes to the owner's number
   (`WHATSAPP` in `Landing.js`, clicks counted as `/contact/whatsapp`); hello@suhuf.uk is the email.
 - **Self sign-up** ("Start free" on the front page and the sign-in screen of a new device → `/?start`,

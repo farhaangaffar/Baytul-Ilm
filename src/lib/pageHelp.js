@@ -108,7 +108,7 @@ const HEAD = {
     'Payments always run from the 1st: free to the end of their 6th month, then each payment covers the next unpaid month.',
     'Add a madrasah with its head\'s login, then send them their code. Edit details, passwords and switching off are inside each one.',
     'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
-    'Your AI credit, database space and the demo link are at the bottom.',
+    'Your AI credit, database space, how many demos were tried and madaaris signed up (kept for good), and the demo link are at the bottom.',
   ] },
 };
 
