@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import SignupNotifications from '../components/SignupNotifications';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getIncome, getPayments, addPayment, deletePayment } from '../lib/store';
+import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment } from '../lib/store';
 import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
 import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail } from 'lucide-react';
@@ -48,6 +48,8 @@ export default function Madaaris() {
   const [toast, setToast] = useState('');
   const [dbBytes, setDbBytes] = useState(null);
   useEffect(() => { getDbUsage().then(u => setDbBytes(u.dbBytes)).catch(() => {}); }, []);
+  const [counts, setCounts] = useState(null);
+  useEffect(() => { getPlatformCounts().then(setCounts).catch(() => {}); }, []);
   const [income, setIncome] = useState(null);
   const loadIncome = useCallback(() => getIncome().then(setIncome).catch(() => {}), []);
   useEffect(() => { loadIncome(); }, [loadIncome]);
@@ -173,6 +175,8 @@ export default function Madaaris() {
           </div>
         );
       })()}
+
+      {counts && <CountsCard counts={counts} />}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo link</div>
@@ -394,6 +398,40 @@ function PasswordModal({ m, onClose, onSaved }) {
 
 // Everything about one madrasah: where it is with paying (one-tap payments, month boxes,
 // plan and price, payments received), who to contact, its size, and the manage buttons.
+// Demos tried and madaaris signed up (platform_counts, kept for good): this month · last month · all time, with how many of
+// each were Darul Uloom. Started-demo counts begin the day this card was added; sign-ups include every earlier self sign-up.
+function CountsCard({ counts }) {
+  const sum = (a, b, k) => (counts[a]?.[k] || 0) + (counts[b]?.[k] || 0);
+  const firstDemo = [counts.demo?.since, counts.demo_du?.since].filter(Boolean).sort()[0];
+  const rows = [['Demos tried', 'demo', 'demo_du'], ['Sign-ups', 'signup', 'signup_du']];
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demos & sign-ups</div>
+      <div className="card-sub" style={{ marginBottom: 12 }}>Kept for good — the visitor figures in Vercel only go back 31 days.</div>
+      {rows.map(([label, a, b]) => (
+        <div key={a} style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{label}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+            {[['thisMonth', 'This month'], ['lastMonth', 'Last month'], ['allTime', 'All time']].map(([k, l]) => {
+              const du = counts[b]?.[k] || 0;
+              return (
+                <div key={k} className="info-box">
+                  <strong>{sum(a, b, k)}</strong>
+                  <span className="info-box-label">{l}</span>
+                  <span className="info-box-label" style={{ fontSize: 11 }}>{du} Darul Uloom</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+        {firstDemo ? `Demos counted since ${formatDateGB(String(firstDemo).slice(0, 10))}.` : 'Demos are counted from today.'}
+      </div>
+    </div>
+  );
+}
+
 function DetailModal({ m, onClose, open, onChanged }) {
   const b = billing(m);
   const p = prices(m);

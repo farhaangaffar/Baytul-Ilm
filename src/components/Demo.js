@@ -37,12 +37,14 @@ async function enter(role, kind) {
 export function DemoChooser({ current, kind = 'maktab' }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  // Count a new visitor opening the demo, and who they chose to be (not switches inside one).
-  useEffect(() => { if (!current) countVisit('/demo'); }, [current]);
+  // Count a new visitor opening the demo, and who they chose to be (not switches inside one) — the Darul Uloom demo
+  // under its own name (/demo/darul-uloom, /demo/darul-uloom/head …), the maktab one as before (/demo, /demo/head …).
+  const base = kind === 'darul_uloom' ? '/demo/darul-uloom' : '/demo';
+  useEffect(() => { if (!current) countVisit(base); }, [current, base]);
 
   async function choose(role) {
     setBusy(role); setError('');
-    if (!current) countVisit(`/demo/${role}`);
+    if (!current) countVisit(`${base}/${role}`);
     try { await enter(role, kind); }
     catch (err) { setError(err.message || 'Could not open the demo — try again.'); setBusy(''); }
   }

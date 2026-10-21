@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { query } = require('../db');
 const { getUser, setSessionCookie } = require('../auth');
 const { ensureAllTables, clearExpired, tooMany, createDemo, createDarulUloomDemo } = require('../demo');
+const { countEvent } = require('../platform');
 
 // "Try the demo": POST {role: 'head' | 'teacher' | 'parent', kind?: 'darul_uloom'} signs the visitor in to a
 // private demo madrasah as that person (server/demo.js). Someone already in a demo
@@ -47,7 +48,9 @@ module.exports = async (req, res) => {
     const hash = ipHash(req);
     const busy = await tooMany(hash);
     if (busy) { res.status(429).json({ error: busy }); return; }
-    mid = (req.body || {}).kind === 'darul_uloom' ? await createDarulUloomDemo(hash) : await createDemo(hash);
+    const du = (req.body || {}).kind === 'darul_uloom';
+    mid = du ? await createDarulUloomDemo(hash) : await createDemo(hash);
+    await countEvent(du ? 'demo_du' : 'demo'); // the Madaaris page's "Demos & sign-ups"
   }
 
   const { rows } = await query(`SELECT * FROM users WHERE madrasah_id = $1 AND ${ROLE_SQL[role]} AND active ORDER BY id LIMIT 1`, [mid]);

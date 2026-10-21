@@ -4,6 +4,7 @@ const { ensureUsersTable, normalizeLogin, validateNewCredentials, setSessionCook
 const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, codeFromName, ensureSignupColumns, createMadrasah, KINDS } = require('../newMadrasah');
 const { termsVersionFor } = require('./session');
 const { notifyPlatformOwner } = require('../notify');
+const { countEvent } = require('../platform');
 
 // A madrasah signing itself up from the front page ("Start free"). Open to anyone, so:
 // a hidden field that only bots fill in, a limit of a few new madaaris per address a day,
@@ -82,6 +83,7 @@ module.exports = async (req, res) => {
     throw err;
   }
   const { madrasah, user } = made;
+  await countEvent(kind === 'darul_uloom' ? 'signup_du' : 'signup'); // the Madaaris page's "Demos & sign-ups"
   // Let the platform owner know (phone notification / email) — never holds up or breaks the sign-up.
   await notifyPlatformOwner({
     title: `New ${kind === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'}: ${name}`,
