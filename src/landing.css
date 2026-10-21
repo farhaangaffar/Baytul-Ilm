@@ -111,6 +111,8 @@
 .lp-du-phones { display: flex; justify-content: center; gap: 22px; margin: 34px 0; flex-wrap: wrap; }
 .lp-du-phones .lp-phone { width: 210px; }
 @media (max-width: 860px) { .lp-du-phones .lp-phone:not(:first-child) { display: none; } .lp-du-phones .lp-phone { width: 250px; } }
+/* Side by side, the headings take the same height ("Darul Uloom / Aalimiyyah" wraps) so the prices line up. */
+@media (min-width: 421px) { .lp-plan h3 { min-height: 2.6em; display: flex; align-items: center; justify-content: center; } }
 @media (max-width: 420px) { .lp-plans { grid-template-columns: 1fr; } }
 .lp-price .lp-points { justify-items: start; max-width: 380px; margin: 22px auto 0; text-align: left; }
 

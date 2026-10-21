@@ -9,11 +9,11 @@ import { countVisit } from '../lib/analytics';
 // "Start free" (/?start, from the front page): a madrasah signs itself up — its name, the
 // head's name, email (their login), phone and a password — and is straight in as its head,
 // free for 6 months (server/routes/signup.js). First it says what kind it is — a maktab (evening and weekend
-// classes) or a Darul Uloom (full-time; /?start=darul-uloom picks it), each with its own price. The sign-in code is
+// classes) or a Darul Uloom / Aalimiyyah course (full-time or part-time; /?start=darul-uloom picks it), each with its own price. The sign-in code is
 // made from the name and can be changed here.
 const KINDS = [
   ['maktab', 'Maktab', 'Evening & weekend classes', 'Free for 6 months, then £20 a month or £200 a year (up to 200 children). No card needed.'],
-  ['darul_uloom', 'Darul Uloom', 'A full-time madrasah', 'Free for 6 months, then £50 a month or £500 a year (up to 500 students). No card needed.'],
+  ['darul_uloom', 'Darul Uloom / Aalimiyyah', 'Full-time, or an Aalimiyyah course', 'Free for 6 months, then £50 a month or £500 a year (up to 500 students). No card needed.'],
 ];
 export default function Signup({ onDone }) {
   const [f, setF] = useState({ madrasahName: '', headName: '', email: '', phone: '', password: '', website: '' });
@@ -81,7 +81,7 @@ export default function Signup({ onDone }) {
           ))}
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '-4px 0 14px', textAlign: 'center' }}>{KINDS.find(x => x[0] === kind)[3]}</div>
-        {field(kind === 'darul_uloom' ? "Your Darul Uloom's name" : "Your madrasah's name", 'madrasahName', { placeholder: 'e.g. Madrasatul Huda', autoFocus: true, maxLength: 80 })}
+        {field("Your madrasah's name", 'madrasahName', { placeholder: 'e.g. Madrasatul Huda', autoFocus: true, maxLength: 80 })}
         {field('Your name', 'headName', { placeholder: 'The head or person in charge', autoComplete: 'name', maxLength: 80 })}
         {field('Email', 'email', { type: 'email', autoComplete: 'email', autoCapitalize: 'none', spellCheck: false }, 'This is how you sign in.')}
         {field('Phone (optional)', 'phone', { type: 'tel', autoComplete: 'tel', placeholder: 'So we can help you get set up' })}

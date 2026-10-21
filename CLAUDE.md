@@ -107,8 +107,9 @@ codebase (one codebase, not a fork).
   changing it resets that madrasah's plan and price) — or the head picks it at sign-up. Price: a Darul Uloom £50 a month
   or £500 a year for up to 500 students, more → call or message us (`PRICES` in `server/newMadrasah.js`, `KIND_PRICES` in
   `src/lib/billing.js`; a new Darul Uloom starts on the yearly plan). The front end checks `useAuth().isDarulUloom`; a maktab
-  must never see a Darul Uloom page. **Launched:** sign-up asks Maktab or Darul Uloom (`/?start=darul-uloom` picks it), the
-  front page has a Darul Uloom section (`#darul-uloom`, `DU_PARTS`, screenshots `public/landing/du-*.jpg` from the DU demo
+  must never see a Darul Uloom page. **Launched:** sign-up asks Maktab or "Darul Uloom / Aalimiyyah" (`/?start=darul-uloom` picks it — the same kind
+  and price also serves a madrasah running an Aalimiyyah course, full-time or part-time; the website names both), the
+  front page has a Darul Uloom & Aalimiyyah section (`#darul-uloom`, `DU_PARTS`, screenshots `public/landing/du-*.jpg` from the DU demo
   renamed "Madrasatul Huda") and both prices, and the terms' Cost section names both. **Terms are versioned per kind**
   (`TERMS_VERSION` for maktabs, `DU_TERMS_VERSION` for Darul Ulooms — `termsVersionFor(kind)` in `server/routes/session.js`,
   same strings in `src/lib/legal.js`): a change that only concerns Darul Ulooms bumps only theirs, so maktab heads aren't asked
