@@ -62,12 +62,12 @@ const MORE = [
   [Smartphone, 'An app on every phone', 'Installs from the browser on iPhone and Android. Nothing to download from an app store.'],
 ];
 
-// A Darul Uloom (a full-time madrasah) gets these on top of everything above (CLAUDE.md, "Darul Uloom").
+// A Darul Uloom, or a madrasah running an Aalimiyyah course (full-time or part-time), gets these on top of everything above (CLAUDE.md, "Darul Uloom").
 const DU_PARTS = [
   [Library, 'Aalim years & books', 'Your own years and books — or start from the usual Aalim years and the classical core texts.'],
   [CalendarClock, 'Timetable', 'Periods, lessons and rooms; teachers see their day and record what each lesson covered.'],
   [GraduationCap, 'Exams & report cards', 'Your own marks and pass marks, positions and grades, and report cards sent to parents.'],
-  [BedDouble, 'Boarding', 'Rooms and beds, the night register, home weekends, signing in and out, and health notes.'],
+  [BedDouble, 'Boarding', 'If you have boarders: rooms and beds, the night register, home weekends, signing in and out, and health notes.'],
   [PoundSterling, 'Fees in instalments', 'A yearly fee paid monthly, termly or at once — bursaries, sibling discounts and receipts.'],
   [Wrench, 'Maintenance', 'Jobs to fix around the building, for your maintenance staff to tick off.'],
 ];
@@ -81,8 +81,8 @@ const FAQ = [
   ['We already have our students in a spreadsheet. Can we use it?', 'Yes — paste the rows or upload the file. Suhuf works out the columns (names, classes, dates of birth, mother\'s and father\'s details), lets you check everything, and adds them all at once.'],
   ['How does the AI report work?', "It reads that child's lesson notes, Qur'aan progress and behaviour records for the month or term, and writes a short report paragraph. You can add instructions, edit every word, and nothing reaches parents until you press \"Add to report\"."],
   ['Who can see our data?', 'Only your madrasah. Each madrasah\'s records are kept completely separate; teachers only see their own classes, and parents only their own children. You can download everything at any time.'],
-  ['What does it cost?', 'Suhuf is free for your first 6 months. After that it\'s £20 a month, or £200 a year, for a madrasah of up to 200 children — however many teachers and parents use it. A Darul Uloom is £50 a month, or £500 a year, for up to 500 students. Bigger than that? Call or message us for a price. You pay by standing order; there\'s no contract, and you can leave whenever you like.'],
-  ['We\'re a full-time Darul Uloom. Does it work for us?', 'Yes. Choose "Darul Uloom" when you start: you get everything a maktab has, plus the Aalim years and their books, a timetable, exams and report cards, boarding, fees in instalments and a maintenance list — all set up your way, with your own years, periods, marks, rooms and fees. Try the Darul Uloom demo to see it.'],
+  ['What does it cost?', 'Suhuf is free for your first 6 months. After that it\'s £20 a month, or £200 a year, for a madrasah of up to 200 children — however many teachers and parents use it. A Darul Uloom, or a madrasah running an Aalimiyyah course, is £50 a month, or £500 a year, for up to 500 students. Bigger than that? Call or message us for a price. You pay by standing order; there\'s no contract, and you can leave whenever you like.'],
+  ['We\'re a Darul Uloom, or we teach an Aalimiyyah course. Does it work for us?', 'Yes — full-time or part-time. Choose "Darul Uloom / Aalimiyyah" when you start: you get everything a maktab has, plus the Aalim years and their books, a timetable, exams and report cards, boarding, fees in instalments and a maintenance list — all set up your way, with your own years, periods, marks, rooms and fees. Use only the parts you need. Try the Darul Uloom demo to see it.'],
   ['What if we stop using it?', 'Download a full backup and a spreadsheet of your students first; then your information is deleted. Nothing is held back.'],
 ];
 
@@ -137,7 +137,7 @@ export default function Landing({ onSignIn }) {
         </a>
         <nav className="lp-links">
           <a href="#features">Features</a>
-          <a href="#darul-uloom">Darul Uloom</a>
+          <a href="#darul-uloom">Aalimiyyah</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
         </nav>
@@ -146,7 +146,7 @@ export default function Landing({ onSignIn }) {
 
       <section className="lp-hero">
         <div className="lp-hero-text">
-          <div className="lp-pill">For UK maktabs and Darul Ulooms</div>
+          <div className="lp-pill">For UK maktabs, Darul Ulooms and Aalimiyyah courses</div>
           <h1>Your whole madrasah, in one simple app</h1>
           <p className="lp-lead">Registers, fees, Qur'aan progress, behaviour and AI-written reports — with a portal so parents can see how their child is doing.</p>
           <div className="lp-cta">
@@ -197,9 +197,9 @@ export default function Landing({ onSignIn }) {
 
         <section id="darul-uloom" className="lp-section lp-du">
           <div className="lp-center">
-            <div className="lp-tag"><GraduationCap size={15} />For Darul Ulooms</div>
-            <h2>Running a full-time Darul Uloom? It's all here too</h2>
-            <p className="lp-du-lead">Everything above, plus the pages a full-time madrasah needs — every year name, period, mark, room and fee set your way.</p>
+            <div className="lp-tag"><GraduationCap size={15} />For Darul Ulooms & Aalimiyyah courses</div>
+            <h2>Running a Darul Uloom or an Aalimiyyah course? It's all here too</h2>
+            <p className="lp-du-lead">Everything above, plus the pages an Aalim course needs, full-time or part-time — every year name, period, mark, room and fee set your way.</p>
           </div>
           <div className="lp-du-phones">{DU_SHOTS.map(([src, alt]) => <Phone key={src} src={src} alt={alt} />)}</div>
           <div className="lp-du-desk">{DU_DESK.map(([src, alt]) => <Laptop key={src} src={src} alt={alt} />)}</div>
@@ -248,7 +248,7 @@ export default function Landing({ onSignIn }) {
                 <div className="lp-plan-size">Up to 200 children</div>
               </div>
               <div className="lp-plan">
-                <h3>Darul Uloom</h3>
+                <h3>Darul Uloom / Aalimiyyah</h3>
                 <div className="lp-plan-price"><strong>£50</strong> a month</div>
                 <div className="lp-plan-sub">or £500 a year (two months free)</div>
                 <div className="lp-plan-size">Up to 500 students</div>
