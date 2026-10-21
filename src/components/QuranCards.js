@@ -241,18 +241,18 @@ function NewEntryModal({ studentId, kind, date, entries, onClose, onSaved }) {
         </div>
         <div className="modal-body">
           {lastLesson && (
-            <button type="button" className="btn" onClick={() => set({ lesson: lastLesson })}
+            <button type="button" className="btn" onClick={() => set({ lesson: lastLesson })} title={`Same as last time: ${lastLesson}`}
               style={{ width: '100%', height: 36, borderRadius: 999, justifyContent: 'center', fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
-              Same as last time: {lastLesson}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>Same as last time: {lastLesson}</span>
             </button>
           )}
           {(label.quarters || next) && (
             <>
               {label.quarters && <UnitToggle f={f} set={set} />}
               {next && (
-                <button type="button" className="btn" onClick={carryOn}
+                <button type="button" className="btn" onClick={carryOn} title={`Carry on from ${surahName(next.surah)} ${next.ayah}`}
                   style={{ width: '100%', height: 36, borderRadius: 999, justifyContent: 'center', fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
-                  Carry on from {surahName(next.surah)} {next.ayah}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>Carry on from {surahName(next.surah)} {next.ayah}</span>
                 </button>
               )}
             </>
