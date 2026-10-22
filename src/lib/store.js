@@ -117,6 +117,8 @@ export async function markAbsenceSeen(id) { return apiFetch(`/api/absences?id=${
 // ── Madaaris (platform owner only) ──
 export async function getDbUsage() { return apiFetch('/api/madaaris?action=usage'); }
 // Demos started and sign-ups: { demo, demo_du, signup, signup_du } each { thisMonth, lastMonth, allTime, since }.
+// "Recommend Suhuf": { code, joined: [{ name, joinedAt, rewarded }], freeMonths }.
+export async function getReferrals() { return apiFetch('/api/referrals'); }
 export async function getPlatformCounts() { return apiFetch('/api/madaaris?action=counts'); }
 export async function getMadaaris() { return apiFetch('/api/madaaris'); }
 // data: { name, code, headLogin, headPassword }

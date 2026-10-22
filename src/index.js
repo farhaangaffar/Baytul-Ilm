@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import './lib/installPrompt';
+import { rememberReferral } from './lib/referral';
+
+rememberReferral(); // a "Recommend Suhuf" link (?ref=<code>) — kept for when they sign up
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<React.StrictMode><App /></React.StrictMode>);

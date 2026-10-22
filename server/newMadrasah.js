@@ -62,6 +62,9 @@ async function ensureSignupColumns() {
   // What kind of school it is: 'maktab' (evening/weekend classes) or 'darul_uloom' (full-time,
   // which switches on the Darul Uloom pages). Only the platform owner changes it (Madaaris page).
   await query(`ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'maktab'`);
+  // Recommended by another madrasah (its link, suhuf.uk/?ref=<code>), and when that madrasah was given its free month for it.
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS referred_by INTEGER');
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS referral_reward_at TIMESTAMP');
   ready = true;
 }
 
@@ -90,4 +93,22 @@ async function createMadrasah({ name, code, headLogin, headPassword, signup, kin
   });
 }
 
-module.exports = { KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, currentYearLabel, codeTaken, codeFromName, ensureSignupColumns, createMadrasah };
+// A madrasah signed up through another's link: note who recommended it and give that madrasah a month free — its free
+// months (or, once paying, its payments) move on a month. Not for a demo, a switched-off madrasah or itself, and no
+// month when the sign-up came from the same address the recommending madrasah signed up from. Returns its name, or null.
+async function giveReferralMonth(newId, refCode, ipHash) {
+  const code = String(refCode || '').trim().toLowerCase();
+  if (!code) return null;
+  const { rows: [r] } = await query(
+    'SELECT id, name, signup_ip FROM madaaris WHERE lower(code) = $1 AND active AND demo_until IS NULL AND id <> $2', [code, newId]);
+  if (!r) return null;
+  const reward = !(ipHash && r.signup_ip === ipHash);
+  await query(`UPDATE madaaris SET referred_by = $1, referral_reward_at = ${reward ? 'now()' : 'NULL'} WHERE id = $2`, [r.id, newId]);
+  if (reward) {
+    await query(`UPDATE madaaris SET free_until = (COALESCE(free_until, (created_at + interval '6 months')::date) + interval '1 month')::date
+                 WHERE id = $1`, [r.id]);
+  }
+  return r.name;
+}
+
+module.exports = { giveReferralMonth, KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, currentYearLabel, codeTaken, codeFromName, ensureSignupColumns, createMadrasah };

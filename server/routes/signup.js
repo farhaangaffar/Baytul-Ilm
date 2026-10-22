@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { query } = require('../db');
 const { ensureUsersTable, normalizeLogin, validateNewCredentials, setSessionCookie } = require('../auth');
-const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, codeFromName, ensureSignupColumns, createMadrasah, KINDS } = require('../newMadrasah');
+const { CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, codeFromName, ensureSignupColumns, createMadrasah, KINDS, giveReferralMonth } = require('../newMadrasah');
 const { termsVersionFor } = require('./session');
 const { notifyPlatformOwner } = require('../notify');
 const { countEvent } = require('../platform');
@@ -14,7 +14,8 @@ const { countEvent } = require('../platform');
 //
 // GET ?name=Madrasatul Huda → { code } (a free sign-in code made from the name)
 // GET ?code=al-huda         → { available }
-// POST { madrasahName, code?, headName, email, phone?, password, agree, website (must be empty) }
+// POST { madrasahName, code?, headName, email, phone?, password, agree, website (must be empty), ref? (the code of the
+//        madrasah that recommended Suhuf — it gets a month free) }
 
 const PER_DAY = 3;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,11 +85,13 @@ module.exports = async (req, res) => {
   }
   const { madrasah, user } = made;
   await countEvent(kind === 'darul_uloom' ? 'signup_du' : 'signup'); // the Madaaris page's "Demos & sign-ups"
+  // Recommended by another madrasah? It gets a month free. Never holds up the sign-up.
+  const referrer = await giveReferralMonth(madrasah.id, b.ref, hash).catch(() => null);
   // Let the platform owner know (phone notification / email) — never holds up or breaks the sign-up.
   await notifyPlatformOwner({
     title: `New ${kind === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'}: ${name}`,
-    body: phone ? `${headName} · ${phone}` : headName, // short, so it fits a phone's notification
-    emailText: `${name}${kind === 'darul_uloom' ? ' (a Darul Uloom)' : ''} has just signed up to Suhuf.\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
+    body: `${phone ? `${headName} · ${phone}` : headName}${referrer ? ` · via ${referrer}` : ''}`, // short, so it fits a phone's notification
+    emailText: `${name}${kind === 'darul_uloom' ? ' (a Darul Uloom)' : ''} has just signed up to Suhuf.${referrer ? `\nRecommended by ${referrer} (they get a month free).` : ''}\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
   }).catch(() => {});
   setSessionCookie(res, user);
   res.status(201).json({ ok: true, code: madrasah.code });
