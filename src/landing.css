@@ -155,3 +155,17 @@
   .lp-footer-links { justify-content: center; }
 }
 @media (min-width: 861px) and (max-width: 1000px) { .lp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* The demo video: text beside a phone on computers, the phone under the text on phones. */
+.lp-video { display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: center; max-width: 980px; margin: 0 auto; }
+.lp-video h2 { margin: 10px 0 12px; }
+.lp-video p { color: var(--text-muted); line-height: 1.6; margin: 0 0 20px; }
+.lp-video-phone { width: 270px; position: relative; }
+.lp-video-play { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; border: none; border-radius: 999px; padding: 12px 20px; background: #111827; color: #fff; font: 700 15px var(--font, inherit); cursor: pointer; white-space: nowrap; box-shadow: 0 10px 30px rgba(17,24,39,.35); }
+.lp-video-play:hover { background: #1f2937; }
+.lp-video-phone video { display: block; width: 100%; height: auto; aspect-ratio: 390 / 844; border-radius: 26px; background: #f1f5f9; object-fit: cover; }
+@media (max-width: 860px) {
+  .lp-video { grid-template-columns: 1fr; gap: 26px; text-align: center; justify-items: center; }
+  .lp-video .lp-cta { justify-content: center; }
+  .lp-video-phone { width: 260px; }
+}

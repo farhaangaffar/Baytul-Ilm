@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet, Smartphone, Shield, CalendarDays,
   ClipboardList, BarChart3, KeyRound, ChevronDown, Check, LogIn, PlayCircle, MessageCircle, Rocket, Library, CalendarClock,
   GraduationCap, BedDouble, Wrench } from 'lucide-react';
@@ -127,6 +127,9 @@ export default function Landing({ onSignIn }) {
     if (b) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   }, [active]);
   const [legal, setLegal] = useState(null);
+  const videoRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const videoCounted = useRef(false); // count the video once per visit (/video in Vercel's visitor counts)
   const signIn = e => { e.preventDefault(); onSignIn(); };
 
   return (
@@ -162,6 +165,31 @@ export default function Landing({ onSignIn }) {
         <div className="lp-hero-art">
           <Phone src="/landing/dashboard.jpg" alt="The Suhuf dashboard on a phone" eager />
           <div className="lp-hero-second"><Phone src="/landing/quran.jpg" alt="Recording Qur'aan progress" eager /></div>
+        </div>
+      </section>
+
+      {/* The demo video (public/landing/suhuf-demo.mp4, made from the demo as "Madrasatul Huda"): loads only when played. */}
+      <section id="video" className="lp-section lp-video">
+        <div className="lp-video-text">
+          <div className="lp-tag"><PlayCircle size={15} />See it in under a minute</div>
+          <h2>Registers, Qur'aan progress, reports and the parent portal</h2>
+          <p>A quick look at a day with {APP_NAME} on a phone — taking the register, recording a lesson, a report written for you, and what parents see.</p>
+          <div className="lp-cta">
+            <a href="/?demo" className="lp-btn lp-btn-primary"><PlayCircle size={17} />Try it yourself</a>
+            <a href="/?start" className="lp-btn lp-btn-light"><Rocket size={16} />Start free</a>
+          </div>
+        </div>
+        <div className="lp-phone lp-video-phone">
+          <video ref={videoRef} poster="/landing/suhuf-demo-poster.jpg" controls playsInline preload="none"
+            width="390" height="844" onPlay={() => { setPlaying(true); if (!videoCounted.current) { videoCounted.current = true; countVisit('/video'); } }}>
+            <source src="/landing/suhuf-demo.mp4" type="video/mp4" />
+            <source src="/landing/suhuf-demo.webm" type="video/webm" />
+          </video>
+          {!playing && (
+            <button type="button" className="lp-video-play" aria-label="Play the video" onClick={() => videoRef.current?.play()}>
+              <PlayCircle size={30} /><span>Watch · 49 s</span>
+            </button>
+          )}
         </div>
       </section>
 
