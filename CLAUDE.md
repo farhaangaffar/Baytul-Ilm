@@ -289,7 +289,7 @@ codebase (one codebase, not a fork).
   see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then
   £20 a month or £200 a year" for up to 200 children — more than 200: "message us"; a Darul Uloom £50 a month or £500 a
   year for up to 500 students — more: call or message us (the pricing card shows both plans side by side; also in the
-  terms' Cost section and on the sign-up page). When a feature changes a lot, retake its screenshot. The parent portal and
+  terms' Cost section and on the sign-up page). When a feature changes a lot, retake its screenshot. Under the hero, a **demo video** (`#video`: `public/landing/suhuf-demo.mp4` + `.webm` fallback, poster `suhuf-demo-poster.jpg`; 49 s, phone-shaped, recorded from the maktab demo as "Madrasatul Huda" with captions; `preload="none"`, a centred "Watch" button; plays counted once as `/video`). The parent portal and
   PDF reports carry a small "Made with Suhuf" credit (`MadeWith` in `Legal.js`, `footerText` in
   `src/lib/reportPdf.js`) linking to `/about`. Visitor counts (Vercel Web Analytics, no cookies,
   `src/lib/analytics.js` `countVisit()`, live site only): the front page, /privacy, /terms, `/demo` and
