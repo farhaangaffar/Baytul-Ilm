@@ -90,13 +90,16 @@ module.exports = requireAuth(async (req, res) => {
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id AND a.created_at >= date_trunc('month', now())) AS "aiThisMonth",
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id) AS "aiTotal",
         m.kind, m.billing_plan AS "billingPlan", m.billing_amount AS "billingAmount",
+        -- Recommendations ("Recommend Suhuf"): who recommended this one, and how many signed up through it.
+        (SELECT r.name FROM madaaris r WHERE r.id = m.referred_by) AS "referredBy", m.referral_reward_at IS NOT NULL AS "referralRewarded",
+        (SELECT count(*) FROM madaaris x WHERE x.referred_by = m.id AND x.demo_until IS NULL) AS referrals,
         -- Months paid for, counted on from the 1st after the free months (src/lib/billing.js).
         (SELECT COALESCE(sum(p.months), 0) FROM madrasah_payments p WHERE p.madrasah_id = m.id) AS "monthsPaid",
         (SELECT to_char(max(p.paid_on), 'YYYY-MM-DD') FROM madrasah_payments p WHERE p.madrasah_id = m.id) AS "lastPaid"
       FROM madaaris m WHERE m.demo_until IS NULL ORDER BY m.id`);
     res.status(200).json(rows.map(r => ({
       ...r, id: String(r.id), students: Number(r.students), teachers: Number(r.teachers), classes: Number(r.classes),
-      aiThisMonth: Number(r.aiThisMonth), aiTotal: Number(r.aiTotal), isYours: r.id === req.user.madrasahId,
+      aiThisMonth: Number(r.aiThisMonth), aiTotal: Number(r.aiTotal), referrals: Number(r.referrals), isYours: r.id === req.user.madrasahId,
       billingAmount: r.billingAmount === null ? (PRICES[r.kind] || PRICES.maktab)[r.billingPlan] ?? 20 : Number(r.billingAmount), monthsPaid: Number(r.monthsPaid),
     })));
     return;

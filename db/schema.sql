@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS madaaris (
   signup_ip     TEXT,                     -- hashed address, only to limit sign-ups from one place
   billing_plan   TEXT NOT NULL DEFAULT 'monthly', -- how it pays us: 'monthly' or 'yearly' (Madaaris page → Payments)
   billing_amount NUMERIC(8,2),            -- its price for that plan; NULL = £20 a month / £200 a year
-  kind           TEXT NOT NULL DEFAULT 'maktab' -- 'maktab' or 'darul_uloom' (full-time; gets the Darul Uloom pages)
+  kind           TEXT NOT NULL DEFAULT 'maktab', -- 'maktab' or 'darul_uloom' (full-time; gets the Darul Uloom pages)
+  referred_by    INTEGER,                 -- the madrasah that recommended this one ("Recommend Suhuf", ?ref=<code>)
+  referral_reward_at TIMESTAMP            -- when that madrasah was given its free month for it (NULL = none)
 );
 
 -- Running Suhuf itself (server/platform.js): what each madrasah has paid us, the phones that

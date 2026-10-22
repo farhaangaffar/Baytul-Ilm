@@ -25,6 +25,7 @@ const HEAD = {
     'The boxes on top: children, classes, and this year\'s attendance and fees still owed.',
     'Tap "View all" on a box to go to that page.',
     'The charts show this week\'s attendance and this month\'s (or term\'s) fees.',
+    'At the bottom, "Recommend Suhuf": send your link to another madrasah — you get a month free for each one that signs up.',
   ] },
   '/students': { title: 'Students', steps: [
     'Children are grouped by class — tap a class to open it.',

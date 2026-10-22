@@ -256,7 +256,7 @@ export default function Landing({ onSignIn }) {
             </div>
             <p className="lp-price-note">Bigger than that? <a href={`tel:+${WHATSAPP}`}>Call</a> or <a href={whatsappHref} target="_blank" rel="noopener noreferrer">message us</a> for a price.</p>
             <ul className="lp-points">
-              {['Every feature included — AI reports too', 'Unlimited teachers and parent logins', 'Help getting set up', 'No contract — leave any time, take your data with you'].map(x => <li key={x}><Check size={15} />{x}</li>)}
+              {['Every feature included — AI reports too', 'Unlimited teachers and parent logins', 'Help getting set up', 'Recommend another madrasah — get a month free', 'No contract — leave any time, take your data with you'].map(x => <li key={x}><Check size={15} />{x}</li>)}
             </ul>
             <div className="lp-cta lp-cta-center">
               <a href="/?start" className="lp-btn lp-btn-primary"><Rocket size={16} />Start free</a>

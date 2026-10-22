@@ -35,6 +35,7 @@ const routes = {
   boarding: require('../server/routes/boarding'),
   maintenance: require('../server/routes/maintenance'),
   'du-fees': require('../server/routes/du-fees'),
+  referrals: require('../server/routes/referrals'),
   users: require('../server/routes/users'),
 };
 

@@ -582,6 +582,8 @@ function DetailModal({ m, onClose, open, onChanged }) {
         {m.contactName && <div><span>Head</span>{m.contactName}</div>}
         {m.headLogin && <div><span>Login</span>{m.headLogin}</div>}
         <div><span>Code</span>{m.code}</div>
+        {m.referredBy && <div><span>Recommended by</span>{m.referredBy}{m.referralRewarded ? ' (given a month free)' : ' (same address — no free month)'}</div>}
+        {m.referrals > 0 && <div><span>Recommended</span>{m.referrals} madrasah{m.referrals === 1 ? '' : 's'}</div>}
         {(m.contactPhone || m.contactEmail) && (
           <div className="pay-contact-btns">
             {m.contactPhone && <a className="btn btn-sm" href={`https://wa.me/${whatsappNumber(m.contactPhone)}`} target="_blank" rel="noopener noreferrer"><MessageCircle size={13} /> WhatsApp</a>}

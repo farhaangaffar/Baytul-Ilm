@@ -5,6 +5,7 @@ import { setMadrasahCode } from '../lib/madrasahCode';
 import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
 import { LegalModal } from '../components/Legal';
 import { countVisit } from '../lib/analytics';
+import { referralCode } from '../lib/referral';
 
 // "Start free" (/?start, from the front page): a madrasah signs itself up — its name, the
 // head's name, email (their login), phone and a password — and is straight in as its head,
@@ -29,6 +30,13 @@ export default function Signup({ onDone }) {
   const set = k => e => { setF({ ...f, [k]: e.target.value }); setError(''); };
 
   useEffect(() => { countVisit('/start'); }, []);
+  // Recommended by another madrasah (its ?ref= link): say who — they get a month free when this one signs up.
+  const [ref] = useState(referralCode);
+  const [refName, setRefName] = useState('');
+  useEffect(() => {
+    if (!ref) return;
+    fetch(`/api/settings?m=${encodeURIComponent(ref)}`).then(r => (r.ok ? r.json() : {})).then(s => setRefName(s.schoolName || '')).catch(() => {});
+  }, [ref]);
   // Suggest a sign-in code from the madrasah's name (until they type their own).
   useEffect(() => {
     if (codeEdited || f.madrasahName.trim().length < 2) return undefined;
@@ -49,7 +57,7 @@ export default function Signup({ onDone }) {
     if (!ready) return;
     setBusy(true); setError('');
     try {
-      const r = await signUp({ ...f, code, kind, agree: true });
+      const r = await signUp({ ...f, code, kind, agree: true, ref });
       setMadrasahCode(r.code);
       countVisit('/start/done');
       window.history.replaceState(null, '', '/');
@@ -72,6 +80,7 @@ export default function Signup({ onDone }) {
         <div style={{ textAlign: 'center', marginBottom: 18 }}>
           <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)' }}>{APP_NAME_ARABIC}</div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Start {APP_NAME} free</div>
+          {refName && <div style={{ fontSize: 13, color: 'var(--green-text)', marginTop: 4 }}>Recommended by {refName}</div>}
         </div>
         <div className="signup-kinds" role="radiogroup" aria-label="What kind of madrasah?">
           {KINDS.map(([k, label, sub]) => (

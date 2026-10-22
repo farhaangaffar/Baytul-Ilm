@@ -296,6 +296,15 @@ codebase (one codebase, not a fork).
   `/demo/<role>` (the Darul Uloom demo as `/demo/darul-uloom` and `/demo/darul-uloom/<role>`) — never pages inside a madrasah's app (auto-tracking is off on purpose).
   "Start free" opens the sign-up (`/?start`, below); "Message us on WhatsApp" goes to the owner's number
   (`WHATSAPP` in `Landing.js`, clicks counted as `/contact/whatsapp`); hello@suhuf.uk is the email.
+- **Recommend Suhuf** (referrals): each head's Dashboard ends with a "Recommend Suhuf to another madrasah" line
+  (`src/components/Recommend.js`; not in a demo or for the platform owner) → pop-up with their link `suhuf.uk/?ref=<their code>`
+  (WhatsApp / Share / Copy, a ready message), Joined through you · Free months boxes and the list (`/api/referrals`). The `ref` is
+  remembered on the device for 90 days (`src/lib/referral.js`, `rememberReferral()` in `src/index.js`); sign-up shows "Recommended
+  by …" and sends it; `giveReferralMonth()` (`server/newMadrasah.js`) sets `madaaris.referred_by` and gives the recommending
+  madrasah **a month free** (`free_until` + 1 month — while paying, that moves their payments on a month), stamped in
+  `referral_reward_at` — not for a demo, a switched-off madrasah, or a sign-up from the same address the recommender signed up
+  from. The Madaaris page shows "Recommended by" / "Recommended N" in a madrasah's Contact; the sign-up notification says "via …".
+  The front page's pricing list says "Recommend another madrasah — get a month free".
 - **Self sign-up** ("Start free" on the front page and the sign-in screen of a new device → `/?start`,
   `src/pages/Signup.js`, `server/routes/signup.js`): Maktab or Darul Uloom (two boxes, its price underneath; sent as `kind`,
   recorded with that kind's terms version; the sign-up notification says "New Darul Uloom"), madrasah name, head's name, email (their login), phone,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { appNavigate } from '../components/BackToExit';
 import Layout from '../components/Layout';
 import GettingStarted from '../components/GettingStarted';
+import Recommend from '../components/Recommend';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getDuFees, getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
 import { feeFrequency, currentFeePeriod, periodStarted } from '../lib/feePeriods';
@@ -13,7 +14,7 @@ function isoToday() { return new Date().toISOString().split('T')[0]; }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { isDarulUloom } = useAuth();
+  const { isDarulUloom, user } = useAuth();
   const [du, setDu] = useState(null); // a Darul Uloom's fee totals for the year (src/pages/DuFees.js)
   const [weekAnchor, setWeekAnchor] = useState(isoToday());
   const [loading, setLoading] = useState(true);
@@ -231,6 +232,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {user?.role === 'owner' && !user.demo && !user.platformAdmin && <Recommend />}
     </Layout>
   );
 }
