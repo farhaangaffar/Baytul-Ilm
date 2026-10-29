@@ -234,6 +234,32 @@ function YourDetails({ child, details, onSaved, many }) {
   );
 }
 
+// Same "3 shown, rest hidden" pattern as Progress's Recent list — a date box and a
+// homework-text box per row.
+function HomeworkCard({ homework }) {
+  const [showAll, setShowAll] = useState(false);
+  const sorted = [...homework].sort((a, b) => b.date.localeCompare(a.date));
+  const recent = showAll ? sorted : sorted.slice(0, 3);
+  return (
+    <Section title="Homework">
+      {recent.map(h => {
+        const d = new Date(h.date + 'T12:00:00');
+        return (
+          <BoxRow key={h.date} columns="minmax(0, 0.6fr) minmax(0, 1.4fr)" cells={[
+            { label: true, text: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), sub: d.toLocaleDateString('en-GB', { weekday: 'short' }) },
+            { label: true, wrap: true, text: h.text },
+          ]} />
+        );
+      })}
+      {sorted.length > 3 && (
+        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
+          {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
+        </button>
+      )}
+    </Section>
+  );
+}
+
 function ChildView({ child, reasons, many }) {
   const { isDarulUloom } = useAuth(); // a Darul Uloom's reports are its exam report cards
   const [data, setData] = useState(null);
@@ -351,16 +377,7 @@ function ChildView({ child, reasons, many }) {
 
       {data.quranType && <QuranProgressCard student={data.student} type={data.quranType} data={data.quran} />}
 
-      {data.homework?.length > 0 && (
-        <Section title="Homework">
-          {data.homework.map(h => (
-            <div key={h.date} style={{ padding: '8px 0', borderTop: '1px solid var(--border)' }}>
-              <div className="text-muted" style={{ fontSize: 12 }}>{formatDateGB(h.date)}</div>
-              <div style={{ fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{h.text}</div>
-            </div>
-          ))}
-        </Section>
-      )}
+      {data.homework?.length > 0 && <HomeworkCard homework={data.homework} />}
 
       {(!isDarulUloom || data.reports.length > 0) && <Section title={isDarulUloom ? 'Earlier reports' : 'Reports'}>
         {data.reports.length === 0 && <div className="text-muted text-sm">No reports yet — they'll appear here once the madrasah has written one.</div>}
