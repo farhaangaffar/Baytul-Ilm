@@ -351,6 +351,17 @@ function ChildView({ child, reasons, many }) {
 
       {data.quranType && <QuranProgressCard student={data.student} type={data.quranType} data={data.quran} />}
 
+      {data.homework?.length > 0 && (
+        <Section title="Homework">
+          {data.homework.map(h => (
+            <div key={h.date} style={{ padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>{formatDateGB(h.date)}</div>
+              <div style={{ fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{h.text}</div>
+            </div>
+          ))}
+        </Section>
+      )}
+
       {(!isDarulUloom || data.reports.length > 0) && <Section title={isDarulUloom ? 'Earlier reports' : 'Reports'}>
         {data.reports.length === 0 && <div className="text-muted text-sm">No reports yet — they'll appear here once the madrasah has written one.</div>}
         {data.reports.map(r => {

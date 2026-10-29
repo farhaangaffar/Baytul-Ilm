@@ -57,8 +57,9 @@ module.exports = async (req, res) => {
   if (req.method === 'GET') {
     const sid = req.query.studentId;
     if (!mine.has(sid)) { res.status(403).json({ error: "You don't have access to this." }); return; }
+    await require('./homework').ensure();
     const one = (sql, params = []) => query(sql, [sid, mid, ...params]).catch(() => ({ rows: [] }));
-    const [st, att, fees, sums, terms, quran, prior, absences, cls] = await Promise.all([
+    const [st, att, fees, sums, terms, quran, prior, absences, cls, homework] = await Promise.all([
       one('SELECT * FROM students WHERE id = $1 AND madrasah_id = $2'),
       one("SELECT year, date, status, late_time FROM attendance WHERE student_id = $1 AND madrasah_id = $2 ORDER BY date"),
       one('SELECT id, year, period, week_starting, amount, status, paid_date FROM fees WHERE student_id = $1 AND madrasah_id = $2 ORDER BY week_starting'),
@@ -72,6 +73,7 @@ module.exports = async (req, res) => {
            JOIN classes c ON c.name = s.class AND c.madrasah_id = s.madrasah_id
            LEFT JOIN teachers t ON t.id = c.teacher_id
            WHERE s.id = $1 AND s.madrasah_id = $2`),
+      one(`SELECT date, text FROM homework WHERE student_id = $1 AND madrasah_id = $2 AND text <> '' ORDER BY date DESC LIMIT 20`),
     ]);
     const s = st.rows[0];
     if (!s) { res.status(404).json({ error: 'Not found' }); return; }
@@ -102,6 +104,7 @@ module.exports = async (req, res) => {
       absences: absences.rows,
       exams,
       boarding,
+      homework: homework.rows,
     });
     return;
   }

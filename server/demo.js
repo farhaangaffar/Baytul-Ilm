@@ -21,7 +21,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
   'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
-  'daily_records', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
+  'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
 
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees', 'homework'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -388,6 +388,14 @@ const COMMENTS = {
   ],
 };
 
+const HOMEWORK = [
+  'Revise today\'s lesson for tomorrow.',
+  'Read the set pages aloud to a parent at home.',
+  'Practise writing out today\'s lesson.',
+  'Learn the given duas by heart.',
+  'Revise last week\'s lesson before the next one.',
+];
+
 const LESSON_NOTES = {
   hifz: {
     good: ['Very fluent, no mistakes.', 'Strong — tajweed on the madd letters much better.', 'Knew it well, confident throughout.'],
@@ -525,7 +533,7 @@ async function createDemo(ipHash) {
     await demoTeacherAttendance(c, mid, Object.values(teacherIds), days, r, '17');
 
     // Attendance, daily records and Qur'aan progress, day by day.
-    const att = [], recs = [], quran = [];
+    const att = [], recs = [], quran = [], homework = [];
     const present = {};
     for (const k of kids) {
       const type = CLASSES.find(cl => cl.key === k.c).type;
@@ -546,6 +554,7 @@ async function createDemo(ipHash) {
           const [comment, positive, negative] = r.pick(COMMENTS[type]);
           recs.push([mid, k.id, d, comment, positive, negative]);
         }
+        if (r.chance(0.3)) homework.push([mid, k.id, d, r.pick(HOMEWORK)]);
         const grade = () => { const g = r(); return g < 0.6 ? 'good' : g < 0.82 ? 'okay' : g < 0.94 ? 'weak' : 'repeat'; };
         // Lesson notes on some entries, in the teacher's words, matched to the grade.
         const note = (g, kind) => (g === 'repeat' ? 'Repeat tomorrow.' : r.chance(0.4) ? r.pick(LESSON_NOTES[kind][g]) : '');
@@ -581,6 +590,7 @@ async function createDemo(ipHash) {
     }
     await bulk(c, 'attendance', ['madrasah_id', 'year', 'student_id', 'date', 'status', 'late_time'], att);
     await bulk(c, 'daily_records', ['madrasah_id', 'student_id', 'date', 'comment', 'positive', 'negative'], recs);
+    await bulk(c, 'homework', ['madrasah_id', 'student_id', 'date', 'text'], homework);
     await bulk(c, 'quran_progress',
       ['madrasah_id', 'student_id', 'date', 'kind', 'from_surah', 'from_ayah', 'to_surah', 'to_ayah', 'lesson', 'grade', 'note'], quran);
     await bulk(c, 'quran_students', ['student_id', 'madrasah_id', 'prior_juz'],
@@ -803,7 +813,7 @@ async function createDarulUloomDemo(ipHash) {
     await demoTeacherAttendance(c, mid, Object.values(teacherIds), days, r, '08');
 
     // Attendance and behaviour records for everyone; Qur'aan progress for the Hifdh class.
-    const att = [], recs = [], quran = [];
+    const att = [], recs = [], quran = [], homework = [];
     const present = {};
     const grade = () => { const g = r(); return g < 0.6 ? 'good' : g < 0.82 ? 'okay' : g < 0.94 ? 'weak' : 'repeat'; };
     for (const k of kids) {
@@ -822,6 +832,7 @@ async function createDarulUloomDemo(ipHash) {
           const [comment, positive, negative] = r.pick(k.type === 'hifz' ? COMMENTS.hifz : ALIM_COMMENTS);
           recs.push([mid, k.id, d, comment, positive, negative]);
         }
+        if (r.chance(0.3)) homework.push([mid, k.id, d, r.pick(HOMEWORK)]);
         if (k.type !== 'hifz') continue;
         const note = (g) => (g === 'repeat' ? 'Repeat tomorrow.' : r.chance(0.4) ? r.pick(LESSON_NOTES.hifz[g]) : '');
         const last = sabaqs[sabaqs.length - 1];
@@ -844,6 +855,7 @@ async function createDarulUloomDemo(ipHash) {
     }
     await bulk(c, 'attendance', ['madrasah_id', 'year', 'student_id', 'date', 'status', 'late_time'], att);
     await bulk(c, 'daily_records', ['madrasah_id', 'student_id', 'date', 'comment', 'positive', 'negative'], recs);
+    await bulk(c, 'homework', ['madrasah_id', 'student_id', 'date', 'text'], homework);
     await bulk(c, 'quran_progress',
       ['madrasah_id', 'student_id', 'date', 'kind', 'from_surah', 'from_ayah', 'to_surah', 'to_ayah', 'lesson', 'grade', 'note'], quran);
     await bulk(c, 'quran_students', ['student_id', 'madrasah_id', 'prior_juz'], kids.filter(k => k.type === 'hifz').map(k => [k.id, mid, k.prior]));

@@ -48,12 +48,12 @@ const HEAD = {
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
     'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Homework: pick a date to add or edit the homework set for that day.',
     'Behaviour: write a comment, positives and concerns for the day.',
-    'Report: write the month\'s summary — the AI reads the lesson notes and behaviour records.',
   ] },
   '/reports': { title: 'Reports', steps: [
     'Tap a class to see its children.',
-    '"Ready" means the summary is written. "Not written" takes you to write it.',
+    '"Ready" means the summary is written. "Not written" opens a pop-up to write it — the AI reads the lesson notes and behaviour records from Daily records.',
     'PDF downloads this month\'s report. History shows older ones.',
     '"Download all ready" gets the whole class at once.',
     'More than one academic year? A Year box appears — tap it to browse an earlier year.',
@@ -124,6 +124,7 @@ const TEACHER = {
   '/records': { title: 'Daily records', steps: [
     'Pick your class, then tap a child.',
     'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Homework: pick a date to add or edit the homework set for that day.',
     'Behaviour: write a comment, positives and concerns for the day.',
   ] },
   '/timetable': { title: 'Timetable', steps: [
@@ -144,6 +145,7 @@ const PARENT = { title: 'How to use this page', steps: [
   'If you have more than one child, choose one at the top.',
   'Attendance and Fees: tap "By month" to see each day or week.',
   'Progress shows their latest Qur\'aan lessons.',
+  'Homework shows what\'s been set recently.',
   'Reports: download a finished report as a PDF.',
   'Report an absence at the bottom to let the teacher know.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
@@ -203,6 +205,7 @@ const DU_HEAD = {
   '/records': { title: 'Daily records', steps: [
     'Pick a class, then tap a child.',
     'Qur\'aan: tap "+ Add" on a row to record today\'s lesson, with lesson notes and a grade.',
+    'Homework: pick a date to add or edit the homework set for that day.',
     'Behaviour: write a comment, positives and concerns for the day — they go into the report\'s comment.',
     'Report: their reports, one per exam, to download — they\'re written on Exams & reports.',
   ] },
@@ -219,6 +222,7 @@ const DU_TEACHER = {
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick the year, then tap a student.',
+    'Homework: pick a date to add or edit the homework set for that day. Another teacher may have written today already — add to it rather than replace it.',
     'Behaviour: write a comment, positives and concerns for the day. Another teacher may have written today already — add to it rather than replace it.',
   ] },
 };

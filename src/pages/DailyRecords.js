@@ -3,16 +3,14 @@ import { HealthNote, HealthDot } from '../components/StudentDetails';
 import Layout from '../components/Layout';
 import ClassBar from '../components/ClassBar';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { QuranEntryCard, QuranProgressCard, quranFactsForReport } from '../components/QuranCards';
+import { QuranEntryCard, QuranProgressCard } from '../components/QuranCards';
 import { rangeLabel, upToLabel, effectiveQuranType } from '../lib/quran';
-import { getClasses, getQuranProgress, getStudents, getClassNames, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, attendanceCountsFrom, attendanceCountsForMonth, getAttendance, currentSchoolYear, getAiSummaries, saveAiSummary, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth, getTerms, currentSchoolMonthKey as currentMonth } from '../lib/store';
-import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
-import { checkSummaryFit } from '../lib/summaryFit';
+import { getClasses, getQuranProgress, getStudents, getSettings, getStudentRecords, getDailyRecords, saveDailyRecord, deleteDailyRecord, getStudentHomework, saveHomework, deleteHomework, attendanceCountsFrom, getAttendance, currentSchoolYear, formatDateGB, academicYearOfMonth, hasEnrolledBy, getCurrentSchoolMonth } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
-import { Sparkles, ChevronDown, ChevronUp, Plus, ArrowLeft, Trash2, Check, X, Pencil } from 'lucide-react';
+import { Plus, ArrowLeft, Trash2, Check, X, Pencil } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import StudentExams from '../components/StudentExams';
-import HistoryBoxes, { YearBox, shortPeriodLabel } from '../components/HistoryBoxes';
+import { YearBox } from '../components/HistoryBoxes';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso) {
@@ -188,13 +186,12 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   const [quran, setQuran] = useState(initialQuran || null);
   const quranType = quran ? effectiveQuranType(classType, quran.quranType) : null;
   // Which tab is showing — remembered between students (and visits) on this device.
-  const tabs = [hasQuran&&['quran',"Qur'aan"],['day','Behaviour'],isOwner&&['report','Report']].filter(Boolean);
+  // A maktab writes its monthly/termly/yearly summary on the Reports page now; a Darul
+  // Uloom's "Report" tab is its exam report cards (StudentExams), unchanged.
+  const tabs = [hasQuran&&['quran',"Qur'aan"],['homework','Homework'],['day','Behaviour'],isOwner&&isDarulUloom&&['report','Report']].filter(Boolean);
   const [tabPick, setTabPick] = useState(()=>{ try { return localStorage.getItem('records_tab')||''; } catch { return ''; } });
   const tab = tabs.some(([k])=>k===tabPick) ? tabPick : tabs[0][0];
   function pickTab(k){ setTabPick(k); try { localStorage.setItem('records_tab',k); } catch { /* fine */ } }
-  // Which previous summary is open (only its title shows otherwise).
-  const [openSummary, setOpenSummary] = useState(null);
-  const [summaryYear, setSummaryYear] = useState(null);
   const refreshQuran = useCallback(async () => {
     if (!hasQuran) return;
     try { const q = await getQuranProgress(student.id); setQuran(q); onQuranChanged?.(student.id, q); } catch { /* the rest of the page still works */ }
@@ -229,36 +226,6 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
     const today = isoToday();
     setEditDate(records[today] !== undefined ? '' : today);
   }, [loadingRecords, records]);
-  // Reports are monthly (school month) or termly (Settings) — the summary below is
-  // written for, and saved against, the current month or term.
-  const termly = reportPeriodSetting() === 'termly';
-  const yearly = reportPeriodSetting() === 'yearly';
-  const [terms, setTerms] = useState([]);
-  const [termsLoaded, setTermsLoaded] = useState(!termly);
-  useEffect(() => {
-    if (!termly) return;
-    getTerms().then(setTerms).catch(() => {}).finally(() => setTermsLoaded(true));
-  }, [termly]);
-  const period = currentReportPeriod(terms);
-  // A school month runs from its first Monday to the next month's (so 2 Oct can still be
-  // September's), and a term between its dates — both carry start / endExclusive.
-  const inPeriod = d => !!period && d >= period.start && d < period.endExclusive;
-  const unitWord = termly ? 'term' : yearly ? 'year' : 'month';
-  const termlyNoTerms = termly && termsLoaded && !period;
-  const [aiSummary, setAiSummary] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiInstructions, setAiInstructions] = useState('');
-  const [previousSummaries, setPreviousSummaries] = useState([]);
-  const [savingSummary, setSavingSummary] = useState(false);
-  const [behavior, setBehavior] = useState('');
-  const [summaryFit, setSummaryFit] = useState(null);
-
-  useEffect(() => {
-    if (!aiSummary) { setSummaryFit(null); return; }
-    let cancelled = false;
-    checkSummaryFit(aiSummary).then(res => { if (!cancelled) setSummaryFit(res); });
-    return () => { cancelled = true; };
-  }, [aiSummary]);
   const [confirmDel, setConfirmDel] = useState(null);
   const [toast, setToast] = useState('');
 
@@ -268,25 +235,77 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
     catch (err) { showToast(err.message || 'Could not load records'); }
   }, [student.id]);
 
-  // Deliberately doesn't restore the current month's saved summary/instructions/
-  // behaviour into the compose box — once "Add to report" is clicked those are
-  // saved to the DB and cleared locally (see addToReport), and should stay
-  // cleared even after leaving and returning to this page. Nothing is ever
-  // saved to the DB before that point, so there's no unsaved work to restore.
-  // The saved result is still visible, read-only, in "Previous summaries" below.
-  const refreshSummaries = useCallback(async () => {
-    if (!isOwner) return;
-    try {
-      const all = await getAiSummaries(student.id);
-      setPreviousSummaries(all);
-    } catch { /* saved summaries are a bonus, not required to use the page */ }
-  }, [student.id, isOwner]);
-
   useEffect(() => {
     setLoadingRecords(true);
     refresh().finally(() => setLoadingRecords(false));
-    refreshSummaries();
-  }, [refresh, refreshSummaries]);
+  }, [refresh]);
+
+  // ── Homework — one child, one day, its own table and its own editor/history state,
+  // entirely separate from Behaviour's so deleting a homework day can never touch
+  // that day's behaviour comment, and vice versa.
+  const [homework, setHomework] = useState({});
+  const [loadingHomework, setLoadingHomework] = useState(true);
+  const [hwOpenYear, setHwOpenYear] = useState(null);
+  const [hwOpenMonth, setHwOpenMonth] = useState(null);
+  const [hwOpenDay, setHwOpenDay] = useState(null);
+  const [hwDayEditing, setHwDayEditing] = useState(false);
+  const [hwEditorVersion, setHwEditorVersion] = useState(0);
+  const [hwEditDate, setHwEditDate] = useState('');
+  const hwEditDateInitRef = useRef(false);
+  const [confirmDelHw, setConfirmDelHw] = useState(null);
+
+  const refreshHomework = useCallback(async () => {
+    try { setHomework(await getStudentHomework(student.id)); }
+    catch (err) { showToast(err.message || 'Could not load homework'); }
+  }, [student.id]);
+
+  useEffect(() => {
+    setLoadingHomework(true);
+    refreshHomework().finally(() => setLoadingHomework(false));
+  }, [refreshHomework]);
+
+  useEffect(() => {
+    if (loadingHomework || hwEditDateInitRef.current) return;
+    hwEditDateInitRef.current = true;
+    const today = isoToday();
+    setHwEditDate(homework[today] !== undefined ? '' : today);
+  }, [loadingHomework, homework]);
+
+  const hwLastSave = useRef(Promise.resolve());
+  const saveHwText = useCallback((date, value) => {
+    const done = saveHomework(student.id, date, value).then(refreshHomework).catch(err => showToast(err.message || 'Could not save'));
+    hwLastSave.current = done;
+    return done;
+  }, [student.id, refreshHomework]);
+
+  async function finishHwCardEdit() {
+    document.activeElement?.blur?.();
+    setHwDayEditing(false);
+    await hwLastSave.current;
+    setHwEditorVersion(v => v + 1);
+  }
+
+  async function addHwDay() {
+    if (!hwEditDate || homework[hwEditDate]) return;
+    try {
+      await saveHomework(student.id, hwEditDate, '');
+      await refreshHomework();
+      showToast(`Homework added for ${fmtDate(hwEditDate)}`);
+    } catch (err) {
+      showToast(err.message || 'Could not add homework');
+    }
+  }
+
+  async function doDeleteHw(date) {
+    try {
+      await deleteHomework(student.id, date);
+      await refreshHomework();
+      setConfirmDelHw(null);
+      showToast('Homework deleted');
+    } catch (err) {
+      showToast(err.message || 'Could not delete homework');
+    }
+  }
 
   // Stable field save — doesn't cause re-render of the textarea
   const saveField = useCallback((date, field, value) => {
@@ -343,68 +362,6 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
     }
   }
 
-  async function summarise() {
-    setAiLoading(true); setAiSummary('');
-    try {
-      // Fetch fresh rather than using local `records` — that state deliberately
-      // isn't refreshed after every keystroke (to avoid losing textarea focus),
-      // so it can be stale right after adding or editing an entry.
-      if (!period) { setAiSummary('Add your term dates in Settings → Terms first.'); setAiLoading(false); return; }
-      const freshRecords = await getStudentRecords(student.id);
-      const monthDates=Object.keys(freshRecords).filter(inPeriod).sort((a,b)=>b.localeCompare(a));
-      if (!monthDates.length && !hasQuran) {
-        setAiSummary(`No records found for this ${unitWord}. Add some lesson notes or behaviour records first.`);
-        setAiLoading(false);
-        return;
-      }
-      const entries=monthDates.map(d=>{
-        const e=freshRecords[d]||{};
-        return `${fmtDate(d)}:\n  Comment: ${e.comment||'None'}\n  Positives: ${e.positive||'None'}\n  Concerns: ${e.negative||'None'}`;
-      }).join('\n\n');
-      // Monthly: this year's attendance so far (as before). Termly: the term's own.
-      const year = termly || yearly ? period.yearLabel : await currentSchoolYear();
-      const attendanceForYear = await getAttendance(year);
-      const counts = termly || yearly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
-      // Qur'aan progress for the period, as exact figures the summary can quote.
-      const quranFacts = quranType ? quranFactsForReport(quranType, await getQuranProgress(student.id).catch(() => null), period) : '';
-      // Lesson notes (in quranFacts) are the main source; behaviour records come second.
-      const prompt=`You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : yearly ? 'end-of-year' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'aan progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'aan progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions?`\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}`:''}`;
-      const res = await fetch('/api/ai-summary', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ prompt, studentId: student.id })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'API error');
-      setAiSummary(data.summary || 'Unable to generate summary.');
-    } catch (err) {
-      setAiSummary(err.message || 'Could not generate a summary. Please try again.');
-    }
-    setAiLoading(false);
-  }
-
-  // Only picks the rating — it's saved with the summary on "Add to report". (Saving it on its
-  // own used to save whatever was in the summary box with it: an empty box wiped a report that
-  // was already added, and an unchecked draft became visible to parents.)
-  function setBehaviorRating(val) {
-    setBehavior(b => (b === val ? '' : val)); // click again to clear
-  }
-
-  async function addToReport() {
-    setSavingSummary(true);
-    try {
-      await saveAiSummary(student.id, period.key, { summary: aiSummary, instructions: aiInstructions, behavior });
-      // Cleared rather than reloaded from what was just saved — once pushed,
-      // this compose area is ready for the next report rather than sitting
-      // there showing what was already submitted.
-      setAiSummary(''); setAiInstructions(''); setBehavior('');
-      showToast('Added to report');
-    } catch (err) {
-      showToast(err.message || 'Could not save summary');
-    }
-    setSavingSummary(false);
-  }
-
   const dates = Object.keys(records).sort((a,b)=>a.localeCompare(b));
   const editEntry = getEntry(editDate);
   const editExists = editDate!==''&&records[editDate]!==undefined;
@@ -421,6 +378,19 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   });
   const years = Object.keys(byYear).sort().reverse();
 
+  // Same year > month grouping, for homework — its own dates/history, never merged with Behaviour's.
+  const hwDates = Object.keys(homework).sort((a,b)=>a.localeCompare(b));
+  const hwEditExists = hwEditDate!==''&&homework[hwEditDate]!==undefined;
+  const hwEditIsToday = hwEditDate!==''&&hwEditDate===isoToday();
+  const hwByYear = {};
+  hwDates.forEach(d => {
+    const monthKey = getCurrentSchoolMonth(d).start.slice(0,7);
+    const yr = academicYearOfMonth(monthKey);
+    (hwByYear[yr] = hwByYear[yr] || {});
+    (hwByYear[yr][monthKey] = hwByYear[yr][monthKey] || []).push(d);
+  });
+  const hwYears = Object.keys(hwByYear).sort().reverse();
+
   // History boxes — the same box style as the rest of the app.
   const histBox = (on) => ({
     border: `1px solid ${on ? 'var(--ink)' : '#dfe3e8'}`, background: on ? 'var(--ink)' : '#f3f4f6', color: on ? '#fff' : 'var(--ink)',
@@ -429,7 +399,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
   });
   const boxSub = { fontSize: 10.5, fontWeight: 500, opacity: 0.8, marginTop: 1 };
 
-  if (loadingRecords) return <LoadingState />;
+  if (loadingRecords || loadingHomework) return <LoadingState />;
 
   return (
     <div className="student-page">
@@ -455,6 +425,155 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
         {tab==='quran'&&(<>
           <QuranEntryCard student={student} type={quranType} classType={classType} data={quran} onChanged={refreshQuran} />
           {quranType && <QuranProgressCard student={student} type={quranType} data={quran} onChanged={refreshQuran} canEditPrior canEdit />}
+        </>)}
+        {tab==='homework'&&(<>
+          {/* Same fixed-position editor + history pattern as Behaviour, but a single
+              field and its own independent state — never touches a Behaviour record. */}
+          <div className="card">
+            <div className="flex items-center gap-2" style={{marginBottom:12}}>
+              <div className="card-title" style={{marginBottom:0,flex:1}}>{hwEditExists?'Edit day':'Add day'}</div>
+              {hwEditIsToday&&<span className="badge badge-teal">Today</span>}
+            </div>
+            <div className="flex items-center gap-2" style={{marginBottom:14}}>
+              <input type="date" value={hwEditDate} onChange={e=>setHwEditDate(e.target.value)}
+                style={{flex:1,padding:'8px 14px',border:'1px solid var(--border)',borderRadius:'var(--r-md)',fontFamily:'var(--font)',fontSize:13}}/>
+              {!hwEditExists&&<button className="btn btn-primary" onClick={addHwDay} disabled={!hwEditDate}><Plus size={14}/> Add day</button>}
+              {hwEditExists&&(
+                <button className="btn btn-icon btn-sm" style={{color:'var(--red)'}}
+                  title="Delete this day" onClick={()=>setConfirmDelHw(hwEditDate)}><Trash2 size={13}/></button>
+              )}
+            </div>
+
+            {hwEditExists?(
+              <>
+                {isDarulUloom && homework[hwEditDate]?.by && <div className="text-muted text-sm" style={{marginBottom:8}}>Last written by {homework[hwEditDate].by} — add to it rather than replace it.</div>}
+                <div className="form-group">
+                  <label>Homework set</label>
+                  <StableTextarea
+                    key={`${hwEditDate}-hw-${hwEditorVersion}`}
+                    initialValue={homework[hwEditDate]?.text||''}
+                    onSave={val=>saveHwText(hwEditDate,val)}
+                    placeholder="What homework was set for this day?"
+                  />
+                </div>
+                <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
+                  onClick={()=>setHwEditDate('')}><Check size={13}/>Done</button>
+              </>
+            ):(
+              <div style={{opacity:0.55}}>
+                <div className="form-group">
+                  <label>Homework set</label>
+                  <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:60}}>What homework was set for this day?</div>
+                </div>
+                <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Pick a date above to start a new entry, or click a day below to edit it</div>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-title" style={{marginBottom:10}}>Homework records</div>
+            {hwDates.length===0&&(
+              <div style={{textAlign:'center',padding:'12px 0',color:'var(--text-muted)',fontSize:13}}>No homework recorded yet. Use the form above to add one.</div>
+            )}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(110px, 1fr))',gap:6}}>
+              {hwYears.map(yr=>{
+                const n = Object.values(hwByYear[yr]).reduce((t,d)=>t+d.length,0);
+                return (
+                  <YearBox key={yr} label={yr} sub={`${n} day${n===1?'':'s'}`} open={hwOpenYear===yr} onClick={()=>setHwOpenYear(o=>o===yr?null:yr)}/>
+                );
+              })}
+            </div>
+            {hwOpenYear&&hwByYear[hwOpenYear]&&(
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:6,marginTop:8,paddingTop:8,borderTop:'1px dashed #d5dae0'}}>
+                {Object.keys(hwByYear[hwOpenYear]).sort().map(monthKey=>{
+                  const n = hwByYear[hwOpenYear][monthKey].length;
+                  const d = new Date(monthKey+'-15T12:00:00');
+                  return (
+                    <button key={monthKey} type="button" onClick={()=>{ setHwOpenDay(null); setHwOpenMonth(monthKey); }} style={{...histBox(false),background:'#fafbfc',minHeight:42}}>
+                      <span style={{fontWeight:600,fontSize:12.5}}>{d.toLocaleDateString('en-GB',{month:'short'})}</span>
+                      <span style={boxSub}>{n} day{n===1?'':'s'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {hwOpenMonth&&(()=>{
+            const yr = academicYearOfMonth(hwOpenMonth);
+            const days = [...(hwByYear[yr]?.[hwOpenMonth]||[])].sort();
+            return (
+              <div className="modal-overlay" onClick={e=>{ if (e.target===e.currentTarget) { finishHwCardEdit(); setHwOpenMonth(null); setHwOpenDay(null); } }}>
+                <div className="modal" style={{maxWidth:480}}>
+                  <div className="modal-header">
+                    <div>
+                      <div className="modal-title">{hwOpenDay ? fmtDate(hwOpenDay) : monthLabelFor(hwOpenMonth)}</div>
+                      <div style={{fontSize:12,color:'var(--text-muted)'}}>{student.forename} · {hwOpenDay ? monthLabelFor(hwOpenMonth) : `${days.length} day${days.length===1?'':'s'} recorded — tap one to read it`}</div>
+                    </div>
+                    <button className="btn btn-icon" onClick={()=>{ finishHwCardEdit(); setHwOpenMonth(null); setHwOpenDay(null); }}><X size={16}/></button>
+                  </div>
+                  <div className="modal-body">
+                    {hwOpenDay ? (()=>{
+                      const r = homework[hwOpenDay]||{};
+                      const back = (
+                        <button className="btn" style={{flex:1,justifyContent:'center'}} onClick={()=>{ finishHwCardEdit(); setHwOpenDay(null); }}>
+                          <ArrowLeft size={13}/> Back to {new Date(hwOpenMonth+'-15T12:00:00').toLocaleDateString('en-GB',{month:'long'})}
+                        </button>
+                      );
+                      if (hwDayEditing) return (
+                        <>
+                          <div className="form-group" style={{marginBottom:10}}>
+                            <label>Homework set</label>
+                            <StableTextarea key={`${hwOpenDay}-hw-card`} initialValue={r.text||''}
+                              onSave={val=>saveHwText(hwOpenDay,val)} placeholder="What homework was set for this day?"/>
+                          </div>
+                          <div style={{display:'flex',gap:8,marginTop:12}}>
+                            {back}
+                            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>{ finishHwCardEdit(); }}>
+                              <Check size={13}/> Done
+                            </button>
+                          </div>
+                        </>
+                      );
+                      return (
+                        <>
+                          <div style={{background:'#f3f4f6',borderRadius:8,padding:'10px 12px',marginBottom:8}}>
+                            <div style={{fontSize:10.5,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',marginBottom:4}}>Homework set</div>
+                            <div style={{fontSize:13,lineHeight:1.5,whiteSpace:'pre-wrap',color:r.text?'var(--ink)':'var(--text-soft)'}}>{r.text||'—'}</div>
+                          </div>
+                          {isDarulUloom && r.by && <div className="text-muted text-sm" style={{margin:'2px 0 8px'}}>Last written by {r.by}</div>}
+                          <div style={{display:'flex',gap:8,marginTop:4}}>
+                            {back}
+                            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>setHwDayEditing(true)}>
+                              <Pencil size={13}/> Edit
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })() : (
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(76px, 1fr))',gap:6}}>
+                        {days.map(date=>{
+                          const r = homework[date]||{};
+                          const dt = new Date(date+'T12:00:00');
+                          const isToday = date===isoToday();
+                          return (
+                            <button key={date} type="button" onClick={()=>{ setHwDayEditing(false); setHwOpenDay(date); }}
+                              style={{...histBox(false), minHeight:58, boxShadow:isToday?'0 0 0 2px var(--blue)':'none'}}>
+                              <span style={{fontSize:10.5,fontWeight:600,opacity:.75,textTransform:'uppercase'}}>{dt.toLocaleDateString('en-GB',{weekday:'short'})}</span>
+                              <span style={{fontWeight:700,fontSize:14}}>{dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                              <span style={{display:'flex',gap:3,marginTop:3,height:6}}>
+                                {r.text&&<span title="Homework set" style={{width:6,height:6,borderRadius:'50%',background:'var(--text-soft)'}}/>}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </>)}
         {tab==='day'&&(<>
           {/* The one, fixed-position editor — every day, new or existing, is added and
@@ -667,116 +786,10 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
               </div>
             );
           })()}
-          <div className="card">
-            <div className="card-title" style={{marginBottom:12}}>This {unitWord}</div>
-            {(()=>{
-              const md=Object.keys(records).filter(inPeriod);
-              return [['Days recorded',md.length,undefined],['With comments',md.filter(d=>records[d]?.comment).length,'var(--ink)'],['With positives',md.filter(d=>records[d]?.positive).length,'var(--green)'],['With concerns',md.filter(d=>records[d]?.negative).length,'var(--red)']].map(([l,v,col])=>(
-                <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                  <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col||'var(--text)'}}>{v}</span>
-                </div>
-              ));
-            })()}
-          </div>
         </>)}
-        {/* A Darul Uloom's report is its exam report card; a maktab writes monthly/termly/yearly summaries. */}
+        {/* A Darul Uloom's report is its exam report card. A maktab writes its monthly/
+            termly/yearly AI summary on the Reports page now, not here. */}
         {tab==='report'&&isDarulUloom&&<StudentExams student={student}/>}
-        {tab==='report'&&!isDarulUloom&&(<>
-          <div className="card">
-            <div className="card-title" style={{marginBottom:4}}>{termly ? 'Term summary' : yearly ? 'Year summary' : 'Monthly summary'}</div>
-            <div className="card-sub" style={{marginBottom:14}}>
-              {period ? <>AI report paragraph for {student.forename} — {period.label}</> : (termlyNoTerms ? 'Add your term dates in Settings → Terms to write termly reports.' : 'Loading…')}
-            </div>
-            {period && (<>
-
-            <div className="form-group" style={{marginBottom:14}}>
-              <label>Class behaviour (for report)</label>
-              <div className="flex gap-2" style={{marginTop:4,flexWrap:'wrap'}}>
-                {['Excellent','Good','Fair','Poor'].map(opt=>{
-                  const active = behavior===opt;
-                  return (
-                    <button key={opt} type="button" className="btn btn-sm" onClick={()=>setBehaviorRating(opt)}
-                      style={{flex:'1 1 80px',minWidth:0,justifyContent:'center',background:active?'var(--ink)':undefined,color:active?'#fff':undefined,borderColor:active?'var(--ink)':undefined}}>
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="form-group" style={{marginBottom:12}}>
-              <label>Instructions for the AI (optional)</label>
-              <textarea
-                value={aiInstructions}
-                onChange={e=>setAiInstructions(e.target.value)}
-                placeholder="e.g. focus on his Qur'aan memorisation progress, keep it brief…"
-                rows={2}
-                style={{width:'100%',border:'1px solid var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontFamily:'var(--font)',fontSize:13,resize:'vertical'}}
-              />
-            </div>
-
-            <button className="btn btn-ai" style={{width:'100%',justifyContent:'center',padding:'10px',marginBottom:14}} onClick={summarise} disabled={aiLoading}>
-              <Sparkles size={15}/>{aiLoading?'Generating…':(aiSummary?'Regenerate summary ↗':`Summarise this ${unitWord} ↗`)}
-            </button>
-            {aiLoading&&<div className="ai-summary-box"><div style={{color:'var(--teal-dark)',fontStyle:'italic',fontSize:13}}>Reading through {student.forename}'s records…</div></div>}
-            {aiSummary&&!aiLoading&&(
-              <div className="ai-summary-box">
-                <div className="ai-summary-title"><Sparkles size={13}/>Summary — {period.label}</div>
-                <textarea
-                  className="ai-summary-text"
-                  value={aiSummary}
-                  onChange={e=>setAiSummary(e.target.value)}
-                  rows={8}
-                  style={{width:'100%',border:'none',background:'transparent',resize:'vertical',outline:'none',padding:0,fontFamily:'inherit',fontSize:'inherit',lineHeight:'inherit',color:'inherit'}}
-                />
-                {summaryFit&&(
-                  <div style={{fontSize:11,marginTop:6,color:summaryFit.fits?'var(--text-muted)':'var(--red)'}}>
-                    {summaryFit.fits
-                      ? `Fits the report's summary box (${summaryFit.lines}/${summaryFit.maxLines} lines)`
-                      : `Won't fit the summary box — ${summaryFit.overflowLines} line${summaryFit.overflowLines===1?'':'s'} will spill onto a second page`}
-                  </div>
-                )}
-                <button className="btn btn-primary btn-sm" style={{width:'100%',justifyContent:'center',marginTop:10}} onClick={addToReport} disabled={savingSummary}>
-                  {savingSummary?'Saving…':'Add to report'}
-                </button>
-              </div>
-            )}
-            {!aiSummary&&!aiLoading&&(
-              <div style={{textAlign:'center',padding:'16px 0',color:'var(--text-muted)',fontSize:13}}>
-                <Sparkles size={24} style={{opacity:.2,marginBottom:8,display:'block',margin:'0 auto 8px'}}/>
-                Add lesson notes or behaviour records, then click above to write a summary for {student.forename}.
-              </div>
-            )}
-            </>)}
-          </div>
-          {previousSummaries.length>0&&(
-            <div className="card">
-              <div className="card-title" style={{marginBottom:10}}>Previous summaries</div>
-              {/* Year boxes → month (or term) boxes → that summary, in this card. */}
-              {(()=>{
-                const withP = previousSummaries.map(s=>({ ...s, _p: periodForKey(s.month, terms) }));
-                const yrs = [...new Set(withP.map(s=>s._p.yearLabel||'—'))].sort();
-                const inYear = withP.filter(s=>(s._p.yearLabel||'—')===summaryYear).sort((a,b)=>a._p.start.localeCompare(b._p.start));
-                const shown = withP.find(s=>s.month===openSummary);
-                return (<>
-                  <HistoryBoxes
-                    years={yrs.map(y=>{ const n=withP.filter(s=>(s._p.yearLabel||'—')===y).length; return { key:y, label:y, sub:`${n} summar${n===1?'y':'ies'}` }; })}
-                    open={summaryYear} onToggle={y=>{ setSummaryYear(o=>o===y?null:y); setOpenSummary(null); }}
-                    items={inYear.map(s=>({ key:s.month, label:shortPeriodLabel(s._p), sub:s.behavior||'' }))}
-                    active={openSummary} onPick={k=>setOpenSummary(o=>o===k?null:k)}/>
-                  {shown&&(
-                    <div style={{marginTop:10,background:'#f9fafb',borderRadius:10,padding:'10px 12px'}}>
-                      <div style={{display:'flex',justifyContent:'space-between',gap:8,fontWeight:600,fontSize:13,marginBottom:6}}>
-                        <span>{shown._p.label}</span>{shown.behavior&&<span className="text-muted" style={{fontWeight:500,fontSize:12}}>{shown.behavior}</span>}
-                      </div>
-                      <div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{shown.summary}</div>
-                    </div>
-                  )}
-                </>);
-              })()}
-            </div>
-          )}
-        </>)}
       </div>
 
       {confirmDel&&(
@@ -790,6 +803,21 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
             <div className="modal-footer" style={{justifyContent:'center'}}>
               <button className="btn" onClick={()=>setConfirmDel(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={()=>doDelete(confirmDel)}><Trash2 size={13}/>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDelHw&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDelHw(null)}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Trash2 size={24} color="var(--red)"/></div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Delete this homework?</div>
+              <div style={{color:'var(--text-muted)',fontSize:13}}>{fmtDate(confirmDelHw)}<br/><span style={{fontSize:12}}>This cannot be undone.</span></div>
+            </div>
+            <div className="modal-footer" style={{justifyContent:'center'}}>
+              <button className="btn" onClick={()=>setConfirmDelHw(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={()=>doDeleteHw(confirmDelHw)}><Trash2 size={13}/>Delete</button>
             </div>
           </div>
         </div>
@@ -844,7 +872,7 @@ export default function DailyRecords() {
       // Qur'aan progress only matters when some class tracks it; never blocks the page.
       if (Object.keys(types).length) getQuranProgress().then(q => { setQuranAll(q); setQuranAllLoaded(true); }).catch(() => {});
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
-      // ?student=<id> (from Reports' "Not written") opens that child straight away.
+      // ?student=<id> opens that child straight away (a deep link from elsewhere).
       const linked = new URLSearchParams(window.location.search).get('student');
       const s = linked && studentsData.find(x => x.id === linked);
       if (linked) window.history.replaceState(window.history.state, '', window.location.pathname);
@@ -875,7 +903,7 @@ export default function DailyRecords() {
   if (error) return <Layout title="Daily records"><ErrorState error={error} onRetry={load} /></Layout>;
 
   return (
-    <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?"Qur'aan, behaviour and reports":'Select a student to view or add records'}>
+    <Layout title={selectedStudent?`${selectedStudent.forename} ${selectedStudent.surname}`:'Daily records'} subtitle={selectedStudent?"Qur'aan, homework and behaviour":'Select a student to view or add records'}>
       {selectedStudent
         ?<StudentRecords student={selectedStudent} settings={settings} classType={classTypes[selectedStudent.class]}
           initialQuran={quranAll[selectedStudent.id] || (quranAllLoaded ? { entries: [], priorJuz: [], quranType: null } : null)} onQuranChanged={updateQuranFor}

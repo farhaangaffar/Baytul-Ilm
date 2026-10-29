@@ -506,6 +506,15 @@ export async function deleteDailyRecord(studentId, date) {
 }
 export async function getStudentRecords(studentId) { return apiFetch(`/api/daily-records?studentId=${encodeURIComponent(studentId)}`); }
 
+// ── Homework — one child, one day, own table (never touches a Behaviour record).
+export async function getStudentHomework(studentId) { return apiFetch(`/api/homework?studentId=${encodeURIComponent(studentId)}`); }
+export async function saveHomework(studentId, date, text) {
+  return apiFetch('/api/homework', { method: 'PUT', body: JSON.stringify({ studentId, date, text }) });
+}
+export async function deleteHomework(studentId, date) {
+  return apiFetch('/api/homework', { method: 'DELETE', body: JSON.stringify({ studentId, date }) });
+}
+
 // ── AI monthly summaries — saved separately from a one-off generation, so a
 // summary attached to a report survives navigating away and back. Shares
 // /api/ai-summary (singular) with the generation endpoint. ──
