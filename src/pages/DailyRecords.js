@@ -453,7 +453,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                     key={`${hwEditDate}-hw-${hwEditorVersion}`}
                     initialValue={homework[hwEditDate]?.text||''}
                     onSave={val=>saveHwText(hwEditDate,val)}
-                    placeholder="What homework was set for this day?"
+                    placeholder="Set a homework for this day"
                   />
                 </div>
                 <button className="btn btn-sm" style={{width:'100%',justifyContent:'center',marginTop:12}}
@@ -463,7 +463,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
               <div style={{opacity:0.55}}>
                 <div className="form-group">
                   <label>Homework set</label>
-                  <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:60}}>What homework was set for this day?</div>
+                  <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:60}}>Set a homework for this day</div>
                 </div>
                 <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Pick a date above to start a new entry, or click a day below to edit it</div>
               </div>
@@ -525,7 +525,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                           <div className="form-group" style={{marginBottom:10}}>
                             <label>Homework set</label>
                             <StableTextarea key={`${hwOpenDay}-hw-card`} initialValue={r.text||''}
-                              onSave={val=>saveHwText(hwOpenDay,val)} placeholder="What homework was set for this day?"/>
+                              onSave={val=>saveHwText(hwOpenDay,val)} placeholder="Set a homework for this day"/>
                           </div>
                           <div style={{display:'flex',gap:8,marginTop:12}}>
                             {back}
