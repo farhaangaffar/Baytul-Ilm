@@ -261,7 +261,8 @@ codebase (one codebase, not a fork).
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own
   children's attendance, fees, **finished** reports (saved summaries — never daily
-  comments) and Qur'an progress, and takes absence reports (`absence_reports`, shown to
+  comments), Qur'an progress and recent homework (the last 20 days with something set — the
+  teacher's own words, read straight from the `homework` table), and takes absence reports (`absence_reports`, shown to
   staff on Attendance via `server/routes/absences.js`). The front end gives them one
   page (`src/pages/ParentPortal.js`). Each madrasah switches the portal on in Settings.
   Never add parent access to a staff route — add what parents need to `parent.js`.
@@ -456,17 +457,26 @@ codebase (one codebase, not a fork).
   (an ayah's position 0–6235). The AI report
   summary is given exact Qur'an figures and the lesson notes (`quranFactsForReport`), then the
   behaviour records.
-- Daily records (a student's page) is in **tabs** — Qur'an (Input progress, Progress) |
-  Behaviour (the day editor — comment, positives, concerns; Behaviour records — academic-year boxes → month boxes → a card of
-  day boxes → that day's record in the same card; This month) | Report (owners: summary, previous
-  summaries) — each one centred column (`.student-page`), last tab remembered per device.
-  Qur'an entries are recorded and changed in pop-ups (`NewEntryModal` / `EditEntryModal`).
-  The owner disliked squashed side-by-side cards: give things room rather than more columns.
+- Daily records (a student's page) is in **tabs**, in this order — Qur'an (Input progress, Progress) |
+  **Homework** (the same day editor + history pattern as Behaviour, but a single field — what was
+  set for that day; own table `homework`, `server/routes/homework.js`, so deleting a homework day
+  can never also delete that day's Behaviour comment, or vice versa) | Behaviour (the day editor —
+  comment, positives, concerns; Behaviour records — academic-year boxes → month boxes → a card of
+  day boxes → that day's record in the same card) | **Report, a Darul Uloom only** (`StudentExams`,
+  its exam report cards — a maktab has no Report tab here any more) — each one centred column
+  (`.student-page`), last tab remembered per device. Qur'an entries are recorded and changed in
+  pop-ups (`NewEntryModal` / `EditEntryModal`). The owner disliked squashed side-by-side cards: give
+  things room rather than more columns.
+- **Writing a maktab's report** is done on the Reports page, not Daily records (the owner moved
+  it there to make room for Homework): "Not written" opens the same history/PDF pop-up straight
+  into a compose form (behaviour rating, instructions for the AI, "Summarise this month/term/year",
+  the summary box with "Add to report") instead of navigating away; a "Write a report" button in
+  the pop-up's header lets a Ready child get a fresh one too. The AI prompt itself is unchanged —
+  it reads that period's lesson notes, Qur'an progress and behaviour records from Daily records.
 - Reports page: `ClassBar` (same chooser as Attendance/Fees/Daily records, with the "N of M
   ready" count per class in its pop-up, and a Year box once there's more than one academic
-  year) → one card per child with boxes Ready/Not written · PDF · History; "Not written"
-  opens that child's Report tab (`/records?student=<id>`); history and the PDF preview are
-  in a pop-up (year boxes → month/term boxes → preview).
+  year) → one card per child with boxes Ready/Not written · PDF · History; both open the same
+  pop-up (history year/month boxes → preview, or — see above — the write-a-report form).
 - History anywhere (Records, Previous summaries, a left child's Previous reports) uses
   `src/components/HistoryBoxes.js`: year boxes oldest → newest (arrow on the left, text
   centred) → month/term boxes → the chosen one shown in the same card.

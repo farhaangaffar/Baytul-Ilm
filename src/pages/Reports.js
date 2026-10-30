@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { useNavigate } from 'react-router-dom';
 import ClassBar from '../components/ClassBar';
-import { getStudents, getClassNames, getAttendance, getFees, currentSchoolYear, getAcademicYears, academicYearStartISO, getAiSummariesForMonth, getAiSummaries, getTerms } from '../lib/store';
+import { getStudents, getClassNames, getClasses, getSettings, getAttendance, getFees, getStudentRecords, getQuranProgress, currentSchoolYear, getAcademicYears, academicYearStartISO, getAiSummariesForMonth, getAiSummaries, saveAiSummary, getTerms, attendanceCountsFrom, attendanceCountsForMonth, formatDateGB } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
 import { shortPeriodLabel } from '../components/HistoryBoxes';
 import { reportPeriodSetting, currentReportPeriod, periodForKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes as downloadBytes } from '../lib/reportPdf';
-import { FileText, Download, X } from 'lucide-react';
+import { effectiveQuranType } from '../lib/quran';
+import { quranFactsForReport } from '../components/QuranCards';
+import { checkSummaryFit } from '../lib/summaryFit';
+import { FileText, Download, X, Sparkles } from 'lucide-react';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(iso) {
+  try { return `${new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long'})} ${formatDateGB(iso)}`; }
+  catch { return iso; }
+}
 
 // Box styles shared with Daily records' history boxes: plain grey, dark when chosen,
 // light green when done.
@@ -30,8 +36,9 @@ export default function Reports() {
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
   const [classNames, setClassNames] = useState([]);
+  const [classTypes, setClassTypes] = useState({}); // class name → 'hifz' | 'nazira' | 'qaida', for the AI prompt's Qur'aan facts
+  const [settings, setSettings] = useState(null);
   const [activeClass, setActiveClass] = useState(() => { try { return localStorage.getItem('reports_class') || ''; } catch { return ''; } });
-  const navigate = useNavigate();
   // Attendance + fees per academic year, fetched as needed — a termly report (or an
   // older saved report) can belong to a different year than the current one.
   const yearData = useRef({});
@@ -52,6 +59,22 @@ export default function Reports() {
   const [generating, setGenerating] = useState('');
   const [toast, setToast] = useState('');
   const previewUrlRef = useRef('');
+  // Writing a new summary, inside the same history/preview modal — its own state,
+  // reset every time the modal opens for a (possibly different) child.
+  const [writing, setWriting] = useState(false);
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInstructions, setAiInstructions] = useState('');
+  const [behavior, setBehavior] = useState('');
+  const [savingSummary, setSavingSummary] = useState(false);
+  const [summaryFit, setSummaryFit] = useState(null);
+
+  useEffect(() => {
+    if (!aiSummary) { setSummaryFit(null); return; }
+    let cancelled = false;
+    checkSummaryFit(aiSummary).then(res => { if (!cancelled) setSummaryFit(res); });
+    return () => { cancelled = true; };
+  }, [aiSummary]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -59,12 +82,13 @@ export default function Reports() {
       const y = await currentSchoolYear();
       const termsData = reportPeriodSetting() === 'termly' ? await getTerms() : [];
       const p = currentReportPeriod(termsData);
-      const [studentsData, classNamesData, attendanceData, feesData, savedSummaries, yearsData] = await Promise.all([
-        getStudents(), getClassNames(), getAttendance(y), getFees(y), p ? getAiSummariesForMonth(p.key).catch(()=>[]) : Promise.resolve([]), getAcademicYears(),
+      const [studentsData, classNamesData, classesData, settingsData, attendanceData, feesData, savedSummaries, yearsData] = await Promise.all([
+        getStudents(), getClassNames(), getClasses(), getSettings(), getAttendance(y), getFees(y), p ? getAiSummariesForMonth(p.key).catch(()=>[]) : Promise.resolve([]), getAcademicYears(),
       ]);
       yearData.current = { [y]: { attendance: attendanceData, fees: feesData } };
       setCurrentYear(y); setBrowseYear(y); setAcademicYears(yearsData); setTerms(termsData); setPeriod(p);
-      setStudents(studentsData); setClassNames(classNamesData);
+      setStudents(studentsData); setClassNames(classNamesData); setSettings(settingsData);
+      setClassTypes(Object.fromEntries(classesData.filter(c => c.quranType).map(c => [c.name, c.quranType])));
       // The class last opened on this device, or the first one.
       setActiveClass(prev => prev && classNamesData.includes(prev) ? prev : (classNamesData[0] || ''));
       const map = {};
@@ -142,13 +166,85 @@ export default function Reports() {
   }
 
   // A child's report history, in a pop-up (the phone's back button closes it).
-  async function openHistory(student) {
+  // `startWriting` opens straight into the compose form — used for "Not written".
+  async function openHistory(student, startWriting) {
     setSelected(student.id); setOpenYear(null); setActiveMonth(undefined); setPreview('', null);
     setStudentReports([]); setHistoryLoading(true);
+    setWriting(!!startWriting); setAiSummary(''); setAiInstructions(''); setBehavior('');
     try { setStudentReports(await getAiSummaries(student.id)); } catch { /* shows "no reports" */ }
     setHistoryLoading(false);
   }
   const closeHistory = useBackToClose(!!selected, () => { setSelected(null); setPreview('', null); });
+
+  // Writes this child's AI summary for the current period — the same prompt and
+  // AI call Daily records used to make, just fetched here on demand rather than
+  // kept loaded for every student all the time.
+  async function summarise() {
+    const student = students.find(s => s.id === selected);
+    if (!student) return;
+    setAiLoading(true); setAiSummary('');
+    try {
+      if (!period) { setAiSummary('Add your term dates in Settings → Terms first.'); setAiLoading(false); return; }
+      const freshRecords = await getStudentRecords(student.id);
+      const inThisPeriod = d => d >= period.start && d < period.endExclusive;
+      const monthDates = Object.keys(freshRecords).filter(inThisPeriod).sort((a, b) => b.localeCompare(a));
+      const classType = classTypes[student.class];
+      const hasQuran = !!classType;
+      if (!monthDates.length && !hasQuran) {
+        setAiSummary(`No records found for this ${unit}. Add some lesson notes or behaviour records first.`);
+        setAiLoading(false);
+        return;
+      }
+      const entries = monthDates.map(d => {
+        const e = freshRecords[d] || {};
+        return `${fmtDate(d)}:\n  Comment: ${e.comment || 'None'}\n  Positives: ${e.positive || 'None'}\n  Concerns: ${e.negative || 'None'}`;
+      }).join('\n\n');
+      const termly = period.kind === 'term';
+      const yearly = period.kind === 'year';
+      const yr = termly || yearly ? period.yearLabel : currentYear;
+      const attendanceForYear = await getAttendance(yr);
+      const counts = termly || yearly ? attendanceCountsForMonth(attendanceForYear, student.id, period) : attendanceCountsFrom(attendanceForYear, student.id);
+      const quranProgress = hasQuran ? await getQuranProgress(student.id).catch(() => null) : null;
+      const quranType = hasQuran ? effectiveQuranType(classType, quranProgress?.quranType) : null;
+      const quranFacts = quranType ? quranFactsForReport(quranType, quranProgress, period) : '';
+      const prompt = `You are a helpful Madrasah assistant. Below are the records for ${student.forename} ${student.surname} at ${settings.schoolName} for ${period.label}.\n\nAttendance ${termly ? 'this term' : 'this year'}: ${counts.present} present, ${counts.late} late, ${counts.absent} absent.${quranFacts ? `\n\nQUR'AN PROGRESS AND LESSON NOTES (the main source for this report):\n${quranFacts}` : ''}${entries ? `\n\nBEHAVIOUR RECORDS:\n${entries}` : ''}\n\nWrite a warm, professional ${termly ? 'end-of-term' : yearly ? 'end-of-year' : 'monthly'} progress summary for this student suitable for their report. Base it mainly on the teacher's lesson notes and Qur'aan progress, and use the behaviour records for attitude and conduct. Cover: ${quranFacts ? "their Qur'aan progress (quote the figures above accurately, and draw on what the lesson notes say), " : ''}overall attitude and behaviour, key positives, any recurring concerns, and a brief recommendation. Keep it under 1000 characters (including spaces) so it fits the report's summary box — this is a hard limit, not a target to aim near. Plain prose in paragraph form only. Do not use bullet points, headings, titles, or any Markdown formatting — output plain text only.${aiInstructions ? `\n\nThe teacher has given these additional instructions for this summary — follow them: ${aiInstructions}` : ''}`;
+      const res = await fetch('/api/ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, studentId: student.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'API error');
+      setAiSummary(data.summary || 'Unable to generate summary.');
+    } catch (err) {
+      setAiSummary(err.message || 'Could not generate a summary. Please try again.');
+    }
+    setAiLoading(false);
+  }
+
+  // Only picks the rating — it's saved with the summary on "Add to report". (Saving it on its
+  // own used to save whatever was in the summary box with it: an empty box wiped a report that
+  // was already added, and an unchecked draft became visible to parents.)
+  function setBehaviorRating(val) {
+    setBehavior(b => (b === val ? '' : val)); // click again to clear
+  }
+
+  async function addToReport() {
+    const student = students.find(s => s.id === selected);
+    if (!student || !period) return;
+    setSavingSummary(true);
+    try {
+      await saveAiSummary(student.id, period.key, { summary: aiSummary, instructions: aiInstructions, behavior });
+      setCurrentSummaries(m => ({ ...m, [student.id]: { summary: aiSummary, behavior } }));
+      setAiSummary(''); setAiInstructions(''); setBehavior('');
+      setWriting(false);
+      showToast('Added to report');
+      setStudentReports(await getAiSummaries(student.id).catch(() => []));
+    } catch (err) {
+      showToast(err.message || 'Could not save summary');
+    }
+    setSavingSummary(false);
+  }
 
   async function quickDownload(student) {
     setGenerating(student.id);
@@ -200,12 +296,6 @@ export default function Reports() {
     showToast(`${readyInClass.length} report${readyInClass.length !== 1 ? 's' : ''} downloaded for ${activeClass}`);
   }
 
-  // "Not written" → that child's Report tab on Daily records, to write the summary.
-  function writeReport(s) {
-    try { localStorage.setItem('records_tab', 'report'); } catch { /* fine */ }
-    navigate(`/records?student=${encodeURIComponent(s.id)}`);
-  }
-
   return (
     <Layout title="Reports" subtitle={period ? `${period.label} reports` : 'PDF progress reports'}>
       <div className="text-muted text-sm mb-4">
@@ -238,8 +328,8 @@ export default function Reports() {
                     <div className="text-muted text-sm">{s.class}</div>
                   </div>
                   <div className="box-row-3">
-                    <button type="button" onClick={() => (ok ? openHistory(s) : writeReport(s))} style={{ ...box, ...(ok ? greenBox : null) }}
-                      title={ok ? `See ${s.forename}'s report` : `Write ${s.forename}'s summary on Daily records`}>
+                    <button type="button" onClick={() => openHistory(s, !ok)} style={{ ...box, ...(ok ? greenBox : null) }}
+                      title={ok ? `See ${s.forename}'s report` : `Write ${s.forename}'s summary`}>
                       <span style={{ fontWeight: 700, fontSize: 12.5 }}>{ok ? 'Ready' : 'Not written'}</span>
                       <span style={boxSub}>{ok ? `This ${unit}` : 'Write it →'}</span>
                     </button>
@@ -272,11 +362,79 @@ export default function Reports() {
                 <div className="modal-title">{preview.forename} {preview.surname}</div>
                 <div className="text-muted text-sm">{preview.class}</div>
               </div>
-              <button className="btn btn-sm" onClick={closeHistory} aria-label="Close"><X size={14} /></button>
+              <div className="flex items-center gap-2">
+                {!writing && <button className="btn btn-sm" onClick={() => { setWriting(true); setAiSummary(''); setAiInstructions(''); setBehavior(''); }}>Write a report</button>}
+                {writing && years.length > 0 && <button className="btn btn-sm" onClick={() => setWriting(false)}>View history</button>}
+                <button className="btn btn-sm" onClick={closeHistory} aria-label="Close"><X size={14} /></button>
+              </div>
             </div>
             <div className="modal-body">
-              {historyLoading ? <div className="text-muted text-sm">Loading…</div> : years.length === 0 ? (
-                <div className="text-muted text-sm">No reports saved yet for {preview.forename} — write a summary on their Daily records page first.</div>
+              {writing ? (
+                <>
+                  <div className="card-sub" style={{ marginBottom: 14 }}>
+                    {period ? <>AI report paragraph for {preview.forename} — {period.label}</> : 'Add your term dates in Settings → Terms to write reports.'}
+                  </div>
+                  {period && (<>
+                    <div className="form-group" style={{ marginBottom: 14 }}>
+                      <label>Class behaviour (for report)</label>
+                      <div className="flex gap-2" style={{ marginTop: 4, flexWrap: 'wrap' }}>
+                        {['Excellent', 'Good', 'Fair', 'Poor'].map(opt => {
+                          const active = behavior === opt;
+                          return (
+                            <button key={opt} type="button" className="btn btn-sm" onClick={() => setBehaviorRating(opt)}
+                              style={{ flex: '1 1 80px', minWidth: 0, justifyContent: 'center', background: active ? 'var(--ink)' : undefined, color: active ? '#fff' : undefined, borderColor: active ? 'var(--ink)' : undefined }}>
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 12 }}>
+                      <label>Instructions for the AI (optional)</label>
+                      <textarea
+                        value={aiInstructions}
+                        onChange={e => setAiInstructions(e.target.value)}
+                        placeholder="e.g. focus on his Qur'aan memorisation progress, keep it brief…"
+                        rows={2}
+                        style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '8px 10px', fontFamily: 'var(--font)', fontSize: 13, resize: 'vertical' }}
+                      />
+                    </div>
+                    <button className="btn btn-ai" style={{ width: '100%', justifyContent: 'center', padding: '10px', marginBottom: 14 }} onClick={summarise} disabled={aiLoading}>
+                      <Sparkles size={15} />{aiLoading ? 'Generating…' : (aiSummary ? 'Regenerate summary ↗' : `Summarise this ${unit} ↗`)}
+                    </button>
+                    {aiLoading && <div className="ai-summary-box"><div style={{ color: 'var(--teal-dark)', fontStyle: 'italic', fontSize: 13 }}>Reading through {preview.forename}'s records…</div></div>}
+                    {aiSummary && !aiLoading && (
+                      <div className="ai-summary-box">
+                        <div className="ai-summary-title"><Sparkles size={13} />Summary — {period.label}</div>
+                        <textarea
+                          className="ai-summary-text"
+                          value={aiSummary}
+                          onChange={e => setAiSummary(e.target.value)}
+                          rows={8}
+                          style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', outline: 'none', padding: 0, fontFamily: 'inherit', fontSize: 'inherit', lineHeight: 'inherit', color: 'inherit' }}
+                        />
+                        {summaryFit && (
+                          <div style={{ fontSize: 11, marginTop: 6, color: summaryFit.fits ? 'var(--text-muted)' : 'var(--red)' }}>
+                            {summaryFit.fits
+                              ? `Fits the report's summary box (${summaryFit.lines}/${summaryFit.maxLines} lines)`
+                              : `Won't fit the summary box — ${summaryFit.overflowLines} line${summaryFit.overflowLines === 1 ? '' : 's'} will spill onto a second page`}
+                          </div>
+                        )}
+                        <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 10 }} onClick={addToReport} disabled={savingSummary}>
+                          {savingSummary ? 'Saving…' : 'Add to report'}
+                        </button>
+                      </div>
+                    )}
+                    {!aiSummary && !aiLoading && (
+                      <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                        <Sparkles size={24} style={{ opacity: .2, marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
+                        Add lesson notes or behaviour records on Daily records, then click above to write a summary for {preview.forename}.
+                      </div>
+                    )}
+                  </>)}
+                </>
+              ) : historyLoading ? <div className="text-muted text-sm">Loading…</div> : years.length === 0 ? (
+                <div className="text-muted text-sm">No reports saved yet for {preview.forename} — click "Write a report" above to add one.</div>
               ) : (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 6 }}>
@@ -298,7 +456,7 @@ export default function Reports() {
                   </div>
                 </>
               )}
-              {activeMonth !== undefined && (
+              {!writing && activeMonth !== undefined && (
                 <div style={{ marginTop: 16, border: '1px solid #dfe3e8', borderRadius: 12, overflow: 'hidden' }}>
                   <div className="flex justify-between items-center" style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', gap: 8 }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{activeMonth ? periodForKey(activeMonth, terms).label : (period ? period.label : '')}</div>
