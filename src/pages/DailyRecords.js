@@ -73,11 +73,21 @@ function StableTextarea({ initialValue, onSave, placeholder, style }) {
   );
 }
 
+// Grows to fit what's typed instead of a manual drag handle — reset to 'auto' first so
+// a shrinking edit (deleting a line) is measured correctly, not stuck at its tallest.
+function autosize(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 function CommentBox({ initialValue, onSave, placeholder }) {
   const ref = useRef(null);
   const timer = useRef(null);
   useFlushOnUnmount(ref, timer, onSave);
+  useEffect(() => { autosize(ref.current); }, []); // fits existing text (editing a past entry) on mount
   const handleChange = () => {
+    autosize(ref.current);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => { timer.current = null; if(ref.current) onSave(ref.current.value); }, 400);
   };
@@ -95,7 +105,7 @@ function CommentBox({ initialValue, onSave, placeholder }) {
       onBlur={handleBlur}
       rows={2}
       style={{
-        resize:'vertical', border:'none', borderRadius:'var(--r-md)',
+        resize:'none', overflow:'hidden', border:'none', borderRadius:'var(--r-md)',
         padding:'8px 10px', fontFamily:'var(--font)', fontSize:13, width:'100%',
         color:'var(--text)', background:'#f9fafb', outline:'none',
         WebkitUserSelect:'text', userSelect:'text',
@@ -463,7 +473,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
               <div style={{opacity:0.55}}>
                 <div className="form-group">
                   <label>Homework set</label>
-                  <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:60}}>Set a homework for this day</div>
+                  <div style={{background:'#f9fafb',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:60}}>Set a homework for this day</div>
                 </div>
                 <div style={{textAlign:'center',marginTop:12,fontSize:12,color:'var(--text-soft)'}}>Pick a date above to start a new entry, or click a day below to edit it</div>
               </div>
@@ -638,7 +648,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
               <div style={{opacity:0.55}}>
                 <div className="form-group" style={{marginBottom:10}}>
                   <label>Daily comment</label>
-                  <div style={{border:'1px dashed var(--border)',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:44}}>General note for the day…</div>
+                  <div style={{background:'#f9fafb',borderRadius:'var(--r-md)',padding:'8px 10px',fontSize:13,color:'var(--text-soft)',minHeight:44}}>General note for the day…</div>
                 </div>
                 <div className="record-panels">
                   <div className="record-panel record-panel-pos">
