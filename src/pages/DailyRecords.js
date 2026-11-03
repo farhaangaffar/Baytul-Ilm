@@ -449,7 +449,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                 {isDarulUloom && homework[hwEditDate]?.by && <div className="text-muted text-sm" style={{marginBottom:8}}>Last written by {homework[hwEditDate].by} — add to it rather than replace it.</div>}
                 <div className="form-group">
                   <label>Homework set</label>
-                  <StableTextarea
+                  <CommentBox
                     key={`${hwEditDate}-hw-${hwEditorVersion}`}
                     initialValue={homework[hwEditDate]?.text||''}
                     onSave={val=>saveHwText(hwEditDate,val)}
@@ -524,7 +524,7 @@ function StudentRecords({ student, settings, classType, initialQuran, onQuranCha
                         <>
                           <div className="form-group" style={{marginBottom:10}}>
                             <label>Homework set</label>
-                            <StableTextarea key={`${hwOpenDay}-hw-card`} initialValue={r.text||''}
+                            <CommentBox key={`${hwOpenDay}-hw-card`} initialValue={r.text||''}
                               onSave={val=>saveHwText(hwOpenDay,val)} placeholder="Set a homework for this day"/>
                           </div>
                           <div style={{display:'flex',gap:8,marginTop:12}}>
