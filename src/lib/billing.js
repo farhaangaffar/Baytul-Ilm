@@ -4,8 +4,8 @@
 // months in order from there — when it was paid doesn't move anything.
 
 // What each kind of school pays by default (server/newMadrasah.js PRICES has the same).
-export const KIND_PRICES = { maktab: { monthly: 20, yearly: 200 }, darul_uloom: { monthly: 50, yearly: 500 } };
-export const KIND_LABELS = { maktab: 'Maktab', darul_uloom: 'Darul Uloom' };
+export const KIND_PRICES = { maktab: { monthly: 20, yearly: 200 }, darul_uloom: { monthly: 50, yearly: 500 }, school: { monthly: 50, yearly: 500 } };
+export const KIND_LABELS = { maktab: 'Maktab', darul_uloom: 'Darul Uloom', school: 'School' };
 export const defaultPrice = m => KIND_PRICES[m.kind] || KIND_PRICES.maktab;
 export const WARN_DAYS = 14; // yellow for the last two weeks
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

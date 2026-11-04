@@ -10,10 +10,13 @@ async function ensureColumns() {
   if (columnsReady) return;
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS quran_type TEXT');
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS course_order INTEGER'); // a Darul Uloom's years (routes/course.js)
+  await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS year_group INTEGER'); // a school's: Reception = 0 … Year 13 (routes/studies.js)
   columnsReady = true;
 }
 const QURAN_TYPES = ['hifz', 'nazira', 'qaida', 'mixed'];
-const COLS = 'id, name, teacher_id AS "teacherId", quran_type AS "quranType", course_order AS "courseOrder"';
+const COLS = 'id, name, teacher_id AS "teacherId", quran_type AS "quranType", course_order AS "courseOrder", year_group AS "yearGroup"';
+// A school's class: its year group (Reception = 0 … Year 13), or null.
+const yearGroupOf = v => (v === null || v === undefined || v === '' ? null : Math.max(0, Math.min(13, Math.round(Number(v)) || 0)));
 
 // A class's teacher must be one of the same madrasah's teachers.
 async function teacherOk(teacherId, mid) {
@@ -49,14 +52,14 @@ module.exports = requireAuth(async (req, res) => {
   if (!isOwner(req)) {
     if (id || req.method !== 'GET') { res.status(403).json({ error: "You don't have access to this." }); return; }
     const names = [...await teacherClassNames(req.user), ...await teachingClassNames(req.user)]; // + a Darul Uloom teacher's Aalim years
-    const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY course_order NULLS LAST, name`, [mid, names]);
+    const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 AND name = ANY($2) ORDER BY course_order NULLS LAST, year_group NULLS LAST, name`, [mid, names]);
     res.status(200).json(rows);
     return;
   }
 
   if (!id) {
     if (req.method === 'GET') {
-      const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 ORDER BY course_order NULLS LAST, name`, [mid]);
+      const { rows } = await query(`SELECT ${COLS} FROM classes WHERE madrasah_id = $1 ORDER BY course_order NULLS LAST, year_group NULLS LAST, name`, [mid]);
       res.status(200).json(rows);
       return;
     }
@@ -67,8 +70,8 @@ module.exports = requireAuth(async (req, res) => {
       if (!(await teacherOk(b.teacherId, mid))) { res.status(400).json({ error: 'Teacher not found' }); return; }
       const newId = b.id || 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const { rows } = await query(
-        `INSERT INTO classes (id, madrasah_id, name, teacher_id, quran_type) VALUES ($1,$2,$3,$4,$5) RETURNING ${COLS}`,
-        [newId, mid, b.name, b.teacherId || null, QURAN_TYPES.includes(b.quranType) ? b.quranType : null]
+        `INSERT INTO classes (id, madrasah_id, name, teacher_id, quran_type, year_group) VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${COLS}`,
+        [newId, mid, b.name, b.teacherId || null, QURAN_TYPES.includes(b.quranType) ? b.quranType : null, yearGroupOf(b.yearGroup)]
       );
       if (placeOf(b)) await placeInCourse(mid, newId, placeOf(b));
       res.status(201).json(rows[0]);
@@ -95,6 +98,7 @@ module.exports = requireAuth(async (req, res) => {
     if (b.quranType !== undefined) {
       values.push(QURAN_TYPES.includes(b.quranType) ? b.quranType : null); sets.push(`quran_type = $${values.length}`);
     }
+    if (b.yearGroup !== undefined) { values.push(yearGroupOf(b.yearGroup)); sets.push(`year_group = $${values.length}`); }
     if (!sets.length && placeOf(b) === null) { res.status(400).json({ error: 'No valid fields to update' }); return; }
     if (sets.length) {
       values.push(id, mid);

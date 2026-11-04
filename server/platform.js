@@ -39,7 +39,7 @@ async function ensurePlatformTables() {
   const { rowCount } = await query(`INSERT INTO platform_kv (key, value) VALUES ('counts_seeded', '1') ON CONFLICT DO NOTHING`);
   if (rowCount) {
     await query(`INSERT INTO platform_counts (day, what, n)
-      SELECT created_at::date, CASE WHEN kind = 'darul_uloom' THEN 'signup_du' ELSE 'signup' END, count(*)
+      SELECT created_at::date, CASE WHEN kind = 'darul_uloom' THEN 'signup_du' WHEN kind = 'school' THEN 'signup_school' ELSE 'signup' END, count(*)
       FROM madaaris WHERE self_signup AND demo_until IS NULL GROUP BY 1, 2
       ON CONFLICT (day, what) DO UPDATE SET n = platform_counts.n + EXCLUDED.n`);
   }

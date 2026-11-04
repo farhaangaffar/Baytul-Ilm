@@ -223,9 +223,52 @@ const DU_TEACHER = {
   ] },
 };
 
+// A school's Islamic Studies department (madaaris.kind 'school'): its own few pages.
+const STUDIES_STEPS = [
+  'Choose a class (Class ▾), then Surahs, Du\'aas or Practicals.',
+  'Each line is one surah, du\'aa or practical for the class\'s year group. Tap it to open the class underneath.',
+  'Tap Not yet, Working towards or Achieved by each pupil — or a box by "Everyone" for the whole class at once.',
+  'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
+  'Tap a pupil\'s name to see and mark everything of theirs.',
+];
+const SCHOOL_HEAD = {
+  '/': { title: 'Dashboard', steps: [
+    'The boxes on top: pupils, classes, and how much of this year\'s surahs, du\'aas and practicals are achieved or being worked towards.',
+    'Each class has a line with its year group, teacher and a bar — green achieved, amber working towards. Tap it to open the class on Islamic Studies.',
+    'At the bottom, "Recommend Suhuf": send your link to another school or madrasah — you get a month free for each one that signs up.',
+  ] },
+  '/students': { title: 'Pupils', steps: [
+    'Pupils are grouped by class — tap a class to open it. Each class shows its year group and how much of this year\'s Islamic Studies is achieved.',
+    'Import adds a whole spreadsheet of pupils — an export from your school\'s pupil database works. They land in "Not in a class": tick them and move them into a class.',
+    'Tap a pupil for their details; "Surahs, du\'aas & practicals" shows everything of theirs.',
+    'Switch the parent portal on in Settings, then set up each family\'s login from a pupil\'s card.',
+  ] },
+  '/studies': { title: 'Islamic Studies', steps: [
+    ...STUDIES_STEPS,
+    'The lists are yours: "Add a surah" (or du\'aa or practical) at the bottom, and Edit inside an open line to rename it, move it to another year or remove it.',
+  ] },
+  '/classes': { title: 'Classes & Teachers', steps: [
+    'Add your teachers first, then your classes — each with its year group (Reception to Year 13), so it gets that year\'s lists.',
+    'Tap a class or teacher for their details, Edit and Delete.',
+    'Logins: each teacher can have their own, and sees only their own classes.',
+  ] },
+  '/settings': { title: 'Settings', steps: [
+    'Your school\'s name and logo — everything saves by itself.',
+    'Parent portal: switch it on so parents can see their children\'s surahs, du\'aas and practicals.',
+    'Backup: download one now and then.',
+  ] },
+};
+const SCHOOL_TEACHER = { '/studies': { title: 'Islamic Studies', steps: STUDIES_STEPS } };
+const SCHOOL_PARENT = { title: 'How to use this page', steps: [
+  'If you have more than one child, choose one at the top.',
+  'Surahs, Du\'aas and Practicals: how many your child has achieved and is working towards. Tap "Show all" for each one.',
+  'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
+] };
+
 // → { title, steps: [...] } for this page and person, or null.
-export function pageHelp(pathname, role, darulUloom = false) {
-  const h = role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
+export function pageHelp(pathname, role, darulUloom = false, school = false) {
+  const h = school ? (role === 'parent' ? SCHOOL_PARENT : (role === 'owner' ? SCHOOL_HEAD : SCHOOL_TEACHER)[pathname] || (role === 'owner' && HEAD[pathname]))
+    : role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };
 }

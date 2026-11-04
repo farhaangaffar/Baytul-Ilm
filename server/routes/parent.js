@@ -80,6 +80,8 @@ module.exports = async (req, res) => {
     const boarding = s.boarding === 'Boarder' ? await require('./boarding').forParent(mid, s).catch(() => null) : null;
     // A Darul Uloom: this year's fee in instalments — what's paid, what's next, and receipts (routes/du-fees.js).
     const duFees = await require('./du-fees').forParent(mid, s.id).catch(() => null);
+    // A school: the child's Islamic Studies — surahs, du'aas and practicals, and where they are with each (routes/studies.js).
+    const studies = await require('./studies').forParent(mid, s).catch(() => null);
     res.status(200).json({
       student: {
         id: s.id, forename: s.forename, surname: s.surname, class: s.class, status: s.status,
@@ -102,6 +104,7 @@ module.exports = async (req, res) => {
       absences: absences.rows,
       exams,
       boarding,
+      studies,
     });
     return;
   }

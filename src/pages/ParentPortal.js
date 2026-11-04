@@ -116,12 +116,12 @@ function byMonth(items, dateOf) {
 const monthName = ym => new Date(ym + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
 // A card showing totals, with the full history tucked behind "Show by month".
-function OpenableSection({ title, summary, empty, children }) {
+function OpenableSection({ title, summary, empty, children, openLabel = 'By month' }) {
   const [open, setOpen] = useState(false);
   return (
     <Section title={title} right={!empty && (
       <button className="btn btn-sm" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}{open ? 'Hide' : 'By month'}
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}{open ? 'Hide' : openLabel}
       </button>
     )}>
       {summary}
@@ -234,6 +234,34 @@ function YourDetails({ child, details, onSaved, many }) {
   );
 }
 
+// A school's pupil (server/routes/studies.js forParent): their surahs, du'aas and practicals — this year's and earlier
+// years' — each Achieved, Working towards or Not yet. A card per list: the totals, the list behind "Show all".
+const STUDY_LISTS = [['surah', 'Surahs'], ['duaa', "Du'aas"], ['practical', 'Practicals']];
+const STUDY_LEVEL = { 2: ['Achieved', 'green'], 1: ['Working towards', 'amber'] };
+const studyYear = y => (y === 0 ? 'Reception' : `Year ${y}`);
+function StudiesCards({ studies }) {
+  const level = id => studies.progress.find(p => p.itemId === id)?.level || 0;
+  return STUDY_LISTS.map(([kind, title]) => {
+    const items = studies.items.filter(i => i.kind === kind);
+    const n = l => items.filter(i => level(i.id) === l).length;
+    return (
+      <OpenableSection key={kind} title={title} openLabel="Show all" summary={
+        <Tiles items={[[n(2), 'Achieved', 'var(--green)'], [n(1), 'Working towards', 'var(--amber)'], [n(0), 'Not yet'], [items.length, 'In all']]} />
+      } empty={items.length === 0 && 'Nothing on this list yet.'}>
+        {items.map((it, i) => (
+          <React.Fragment key={it.id}>
+            {(i === 0 || items[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{studyYear(it.yearGroup)}</div>}
+            <BoxRow columns="minmax(0, 1.6fr) minmax(0, 1fr)" cells={[
+              { label: true, text: it.name, sub: it.detail || undefined },
+              { text: (STUDY_LEVEL[level(it.id)] || ['Not yet'])[0], tone: (STUDY_LEVEL[level(it.id)] || [])[1] },
+            ]} />
+          </React.Fragment>
+        ))}
+      </OpenableSection>
+    );
+  });
+}
+
 function ChildView({ child, reasons, many }) {
   const { isDarulUloom } = useAuth(); // a Darul Uloom's reports are its exam report cards
   const [data, setData] = useState(null);
@@ -249,6 +277,8 @@ function ChildView({ child, reasons, many }) {
 
   if (error) return <div className="card" style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>;
   if (!data) return <div className="card text-muted" style={{ fontSize: 13 }}>Loading…</div>;
+  // A school: Islamic Studies only (no registers, fees or madrasah reports).
+  if (data.studies) return <><StudiesCards studies={data.studies} />{data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} />}</>;
 
   // Attendance: totals for this school year (from September); the days themselves are
   // tucked away by month.

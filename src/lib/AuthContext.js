@@ -11,5 +11,7 @@ export const AuthProvider = AuthContext.Provider;
 export function useAuth() {
   const { user } = useContext(AuthContext);
   return { user, isOwner: user?.role === 'owner', isTeacher: user?.role === 'teacher', isPlatformAdmin: !!user?.platformAdmin,
-    isDarulUloom: user?.madrasah?.kind === 'darul_uloom' };
+    isDarulUloom: user?.madrasah?.kind === 'darul_uloom',
+    // A school's Islamic Studies department (src/pages/Studies.js): no fees, registers or maktab pages.
+    isSchool: user?.madrasah?.kind === 'school' };
 }

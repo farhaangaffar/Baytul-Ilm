@@ -55,7 +55,7 @@ function logoImages(blob) {
 }
 
 export default function Settings() {
-  const { user, isDarulUloom } = useAuth();
+  const { user, isDarulUloom, isSchool } = useAuth(); // a school: no fees, registers or online applications
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
@@ -295,12 +295,12 @@ export default function Settings() {
   const showTerms = years.length > 0 && (savedFrequency === 'termly' || (!isDarulUloom && savedReportPeriod === 'termly'));
 
   return (
-    <Layout title="Settings" subtitle="Your madrasah, fees, classes and backups">
+    <Layout title="Settings" subtitle={isSchool ? 'Your school, parents and backups' : 'Your madrasah, fees, classes and backups'}>
       {/* Everything on this page saves by itself — no Save button. */}
 
       {/* Your madrasah */}
       <div className="card">
-        <div className="card-title" style={{marginBottom: user?.madrasah?.code ? 4 : 16}}>Your madrasah</div>
+        <div className="card-title" style={{marginBottom: user?.madrasah?.code ? 4 : 16}}>{isSchool ? 'Your school' : 'Your madrasah'}</div>
         {user?.madrasah?.code && (
           <div className="card-sub" style={{marginBottom:16}}>
             Sign-in code <strong style={{color:'var(--ink)'}}>{user.madrasah.code}</strong> — staff type this the first time on a device.
@@ -340,8 +340,8 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Fees */}
-      <div className="card" style={{marginTop:16}}>
+      {/* Fees (not for a school) */}
+      {!isSchool && <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:16}}>Fees</div>
         <div className="form-grid fees-grid">
           {isDarulUloom ? (
@@ -397,16 +397,17 @@ export default function Settings() {
           </div>
           </>}
         </div>
-      </div>
+      </div>}
       {/* Fee weeks — weekly fees added automatically: which weeks are charged */}
-      {!isDarulUloom && years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
+      {!isDarulUloom && !isSchool && years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
       {/* Fee months — monthly fees added automatically: which months are charged */}
-      {!isDarulUloom && years.length > 0 && savedFrequency === 'monthly' && form.feeAuto !== false && <FeeMonthsCard years={years} defaultYear={currentYear} />}
+      {!isDarulUloom && !isSchool && years.length > 0 && savedFrequency === 'monthly' && form.feeAuto !== false && <FeeMonthsCard years={years} defaultYear={currentYear} />}
 
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>
-        <div className="card-title" style={{marginBottom:16}}>Classes &amp; parents</div>
+        <div className="card-title" style={{marginBottom:16}}>{isSchool ? 'Parents' : <>Classes &amp; parents</>}</div>
         <div className="form-grid school-grid">
+          {!isSchool && <>
           <div className="form-group">
             <Label k="days">Madrasah days</Label>
             <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
@@ -436,23 +437,24 @@ export default function Settings() {
             </select>
             )}
           </div>
+          </>}
           <div className="form-group">
             <Label k="portal">Parent portal</Label>
             <select value={form.parentPortal ? 'on' : 'off'} onChange={e=>changeParentPortal(e.target.value==='on')}>
               <option value="off">Off</option>
               <option value="on">On — parents can sign in</option>
             </select>
-            {form.parentPortal && <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Set up each family's login from a student's profile.</span>}
+            {form.parentPortal && <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>Set up each family's login from a {isSchool ? 'pupil' : 'student'}'s profile.</span>}
           </div>
         </div>
       </div>
 
       {/* Online applications — the link parents use to apply (/join/<code>) and the madrasah's message on it */}
-      <JoinCard code={user?.madrasah?.code} message={form.joinMessage||''} onChange={v=>setForm(f=>({...f,joinMessage:v}))}
-        onSave={()=>saveField('join', { joinMessage: form.joinMessage||'' })} label={<Label k="join">Message at the top of the form</Label>}/>
+      {!isSchool && <JoinCard code={user?.madrasah?.code} message={form.joinMessage||''} onChange={v=>setForm(f=>({...f,joinMessage:v}))}
+        onSave={()=>saveField('join', { joinMessage: form.joinMessage||'' })} label={<Label k="join">Message at the top of the form</Label>}/>}
 
       {/* Days off — closed days (Eid etc.); Attendance shows them as closed */}
-      <DaysOffCard />
+      {!isSchool && <DaysOffCard />}
 
       {/* Terms — only needed (and shown) when fees are charged or reports are made termly */}
       {showTerms && <TermsCard years={years} defaultYear={currentYear} />}

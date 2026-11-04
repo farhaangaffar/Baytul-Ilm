@@ -128,7 +128,7 @@ export default function Madaaris() {
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ minWidth: 0 }}>
                   <span className="madrasah-card-name">{m.name}</span>
-                  {m.kind === 'darul_uloom' && <span className="badge badge-blue" style={{ marginLeft: 8, verticalAlign: '2px' }}>Darul Uloom</span>}
+                  {m.kind !== 'maktab' && KIND_LABELS[m.kind] && <span className="badge badge-blue" style={{ marginLeft: 8, verticalAlign: '2px' }}>{KIND_LABELS[m.kind]}</span>}
                   {isNew && <span className="badge badge-amber" style={{ marginLeft: 8, verticalAlign: '2px' }}>New</span>}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>{b.label}</span>
@@ -310,7 +310,7 @@ function AddModal({ onClose, onCreated }) {
         <label>Starting password (8+ characters)</label>
         <input type="text" value={f.headPassword} onChange={e => set('headPassword', e.target.value)} {...noAuto} />
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for 6 months{f.kind === 'darul_uloom' ? ', then £500 a year' : ''}.</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for 6 months{f.kind === 'darul_uloom' ? ', then £500 a year' : f.kind === 'school' ? ', then £500 a year for one form of entry (£800 two, £1,000 three — set it in Payments)' : ''}.</div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );
@@ -360,7 +360,7 @@ function EditModal({ m, onClose, onSaved }) {
       </div>
       {changes.code && <div style={{ fontSize: 11.5, color: 'var(--amber-text)' }}>Devices that remember the old code will need the new one typed in once.</div>}
       <div style={{ marginTop: 12 }}><KindChoice value={kind} onChange={k => { setKind(k); setError(''); }} /></div>
-      {changes.kind && <div style={{ fontSize: 11.5, color: 'var(--amber-text)', marginTop: -6 }}>Their plan and price change to a {KIND_LABELS[kind]}'s ({kind === 'darul_uloom' ? '£500 a year' : '£20 a month'}). Nothing they've entered is lost.</div>}
+      {changes.kind && <div style={{ fontSize: 11.5, color: 'var(--amber-text)', marginTop: -6 }}>Their plan and price change to a {KIND_LABELS[kind]}'s ({kind === 'darul_uloom' ? '£500 a year' : kind === 'school' ? '£500 a year — £800 for two forms, £1,000 for three' : '£20 a month'}). Nothing they've entered is lost.</div>}
       {!m.isYours && (
         <div className="form-group" style={{ marginTop: 12 }}>
           <label>Free until</label>
@@ -401,8 +401,8 @@ function PasswordModal({ m, onClose, onSaved }) {
 // Demos tried and madaaris signed up (platform_counts, kept for good): this month · last month · all time, with how many of
 // each were Darul Uloom. Started-demo counts begin the day this card was added; sign-ups include every earlier self sign-up.
 function CountsCard({ counts }) {
-  const sum = (a, b, k) => (counts[a]?.[k] || 0) + (counts[b]?.[k] || 0);
-  const firstDemo = [counts.demo?.since, counts.demo_du?.since].filter(Boolean).sort()[0];
+  const sum = (a, b, k) => (counts[a]?.[k] || 0) + (counts[b]?.[k] || 0) + (counts[`${a}_school`]?.[k] || 0);
+  const firstDemo = [counts.demo?.since, counts.demo_du?.since, counts.demo_school?.since].filter(Boolean).sort()[0];
   const rows = [['Demos tried', 'demo', 'demo_du'], ['Sign-ups', 'signup', 'signup_du']];
   return (
     <div className="card" style={{ marginBottom: 12 }}>
@@ -418,7 +418,7 @@ function CountsCard({ counts }) {
                 <div key={k} className="info-box">
                   <strong>{sum(a, b, k)}</strong>
                   <span className="info-box-label">{l}</span>
-                  <span className="info-box-label" style={{ fontSize: 11 }}>{du} Darul Uloom</span>
+                  <span className="info-box-label" style={{ fontSize: 11 }}>{du} Darul Uloom{counts[`${a}_school`]?.[k] ? ` · ${counts[`${a}_school`][k]} school` : ''}</span>
                 </div>
               );
             })}

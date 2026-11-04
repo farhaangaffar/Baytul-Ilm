@@ -4,6 +4,7 @@ import { appNavigate } from '../components/BackToExit';
 import Layout from '../components/Layout';
 import GettingStarted from '../components/GettingStarted';
 import Recommend from '../components/Recommend';
+import SchoolDashboard from './SchoolDashboard';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getDuFees, getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
 import { feeFrequency, currentFeePeriod, periodStarted } from '../lib/feePeriods';
@@ -12,7 +13,13 @@ import { useAuth } from '../lib/AuthContext';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
+// A school has its own Dashboard (no fees or registers — pages/SchoolDashboard.js).
 export default function Dashboard() {
+  const { isSchool } = useAuth();
+  return isSchool ? <SchoolDashboard /> : <MadrasahDashboard />;
+}
+
+function MadrasahDashboard() {
   const navigate = useNavigate();
   const { isDarulUloom, user } = useAuth();
   const [du, setDu] = useState(null); // a Darul Uloom's fee totals for the year (src/pages/DuFees.js)

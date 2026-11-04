@@ -84,14 +84,14 @@ module.exports = async (req, res) => {
     throw err;
   }
   const { madrasah, user } = made;
-  await countEvent(kind === 'darul_uloom' ? 'signup_du' : 'signup'); // the Madaaris page's "Demos & sign-ups"
+  await countEvent({ darul_uloom: 'signup_du', school: 'signup_school' }[kind] || 'signup'); // the Madaaris page's "Demos & sign-ups"
   // Recommended by another madrasah? It gets a month free. Never holds up the sign-up.
   const referrer = await giveReferralMonth(madrasah.id, b.ref, hash).catch(() => null);
   // Let the platform owner know (phone notification / email) — never holds up or breaks the sign-up.
   await notifyPlatformOwner({
-    title: `New ${kind === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'}: ${name}`,
+    title: `New ${{ darul_uloom: 'Darul Uloom', school: 'school' }[kind] || 'madrasah'}: ${name}`,
     body: `${phone ? `${headName} · ${phone}` : headName}${referrer ? ` · via ${referrer}` : ''}`, // short, so it fits a phone's notification
-    emailText: `${name}${kind === 'darul_uloom' ? ' (a Darul Uloom)' : ''} has just signed up to Suhuf.${referrer ? `\nRecommended by ${referrer} (they get a month free).` : ''}\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
+    emailText: `${name}${{ darul_uloom: ' (a Darul Uloom)', school: ' (a school)' }[kind] || ''} has just signed up to Suhuf.${referrer ? `\nRecommended by ${referrer} (they get a month free).` : ''}\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
   }).catch(() => {});
   setSessionCookie(res, user);
   res.status(201).json({ ok: true, code: madrasah.code });
