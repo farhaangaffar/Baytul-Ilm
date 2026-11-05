@@ -231,14 +231,15 @@ const DU_TEACHER = {
 const STUDIES_STEPS = [
   'Choose a class (Class ▾), then Surahs, Du\'aas or Practicals.',
   'Each line is one surah, du\'aa or practical for the class\'s year group. Tap it to open the class underneath.',
-  'Tap Not yet, Working towards or Achieved by each pupil — or a box by "Everyone" for the whole class at once.',
+  'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class at once.',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
+  'Pupils: a line for each child with their own progress — tap their name to see and mark this year\'s surahs, du\'aas and practicals underneath.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
 ];
 const SCHOOL_HEAD = {
   '/': { title: 'Dashboard', steps: [
     'The boxes on top: pupils, classes, and how much of this year\'s surahs, du\'aas and practicals are achieved or being worked towards.',
-    'Each class has a line with its year group, teacher and a bar — green achieved, amber working towards. Tap it to open the class on Islamic Studies.',
+    'Each class has a line with its year group, teacher and a bar — green achieved, amber completed with help. Tap it to open the class on Islamic Studies.',
     'At the bottom, "Recommend Suhuf": send your link to another school or madrasah — you get a month free for each one that signs up.',
   ] },
   '/students': { title: 'Pupils', steps: [
@@ -265,7 +266,7 @@ const SCHOOL_HEAD = {
 const SCHOOL_TEACHER = { '/studies': { title: 'Islamic Studies', steps: STUDIES_STEPS } };
 const SCHOOL_PARENT = { title: 'How to use this page', steps: [
   'If you have more than one child, choose one at the top.',
-  'Surahs, Du\'aas and Practicals: how many your child has achieved and is working towards. Tap "Show all" for each one.',
+  'Surahs, Du\'aas and Practicals: how many your child has achieved, completed with help, or not yet completed. Tap "Show all" for each one.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
 ] };
 

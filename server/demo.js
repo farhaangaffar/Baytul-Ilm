@@ -938,13 +938,15 @@ async function createDarulUloomDemo(ipHash) {
 }
 
 // ── The made-up school (a link ending ?demo=school) ──
-// An Islamic Studies department from Reception to Year 10: six classes with their teachers, about a dozen pupils
-// each, and the starter lists of surahs, du'aas and practicals (routes/studies.js) marked as a real school's
-// would be — earlier years' mostly achieved, this year's part way. Logins: the head, Ustadh Bilal (Year 4) and
-// the Hussain family (a girl in Year 2 and a boy in Year 6).
+// An Islamic Studies department from Reception to Year 10, some years in several forms (2A/2B, 4A/4B, 6A/6B/6C):
+// ten classes with their teachers, about a dozen pupils each, and the starter lists of surahs, du'aas and practicals (routes/studies.js) marked as a real school's
+// would be — earlier years' mostly achieved, this year's part way. Logins: the head, Ustadh Bilal (4A) and
+// the Hussain family (a girl in 2B and a boy in 6A).
 const SCHOOL_CLASSES = [
-  ['Reception', 0, 'Ustadha Maryam'], ['Year 2', 2, 'Ustadha Khadijah'], ['Year 4', 4, 'Ustadh Bilal'],
-  ['Year 6', 6, 'Ustadha Sumayyah'], ['Year 8', 8, 'Ustadh Hamza'], ['Year 10', 10, 'Ustadh Imran'],
+  ['Reception', 0, 'Ustadha Maryam'], ['2A', 2, 'Ustadha Khadijah'], ['2B', 2, 'Ustadha Aisha'],
+  ['4A', 4, 'Ustadh Bilal'], ['4B', 4, 'Ustadha Zainab'],
+  ['6A', 6, 'Ustadha Sumayyah'], ['6B', 6, 'Ustadh Yusuf'], ['6C', 6, 'Ustadha Hafsa'],
+  ['Year 8', 8, 'Ustadh Hamza'], ['Year 10', 10, 'Ustadh Imran'],
 ];
 const SCHOOL_NAMES = {
   m: ['Adam', 'Ibrahim', 'Musa', 'Yusuf', 'Zayd', 'Ilyas', 'Haroon', 'Umar', 'Ali', 'Bilal', 'Hamza', 'Isa', 'Dawud', 'Sulaiman'],
@@ -973,14 +975,14 @@ async function createSchoolDemo(ipHash) {
     await bulk(c, 'classes', ['id', 'madrasah_id', 'name', 'teacher_id', 'year_group'],
       SCHOOL_CLASSES.map(([name, year], i) => [newId('C'), mid, name, teacherIds[i], year]));
 
-    // Pupils: a dozen or so a class, boys and girls; the Hussain children in Year 2 and Year 6.
+    // Pupils: a dozen or so a class, boys and girls; the Hussain children in 2B and 6A.
     const pupils = [];
     let n = 0;
     for (const [name, year] of SCHOOL_CLASSES) {
       const count = 11 + Math.floor(r() * 4);
       for (let i = 0; i < count; i++, n++) {
         const g = i % 2 ? 'f' : 'm';
-        const family = (name === 'Year 2' && i === 1) || (name === 'Year 6' && i === 0);
+        const family = (name === '2B' && i === 1) || (name === '6A' && i === 0);
         pupils.push({ id: newId('S'), f: SCHOOL_NAMES[g][(n * 5 + i) % SCHOOL_NAMES[g].length], s: family ? 'Hussain' : SCHOOL_SURNAMES[(n * 7) % SCHOOL_SURNAMES.length],
           g, cls: name, year, family, order: n, born: plus(today, -Math.round((year + 4.5) * 365 + r() * 300)) });
       }
@@ -1010,7 +1012,7 @@ async function createSchoolDemo(ipHash) {
 
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);
-    await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'ustadh.bilal', $2, 'teacher', $3)`, [mid, pw(), teacherIds[2]]);
+    await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'ustadh.bilal', $2, 'teacher', $3)`, [mid, pw(), teacherIds[SCHOOL_CLASSES.findIndex(c => c[0] === '4A')]]);
     const { rows: [parent] } = await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'hussain.family', $2, 'parent') RETURNING id`, [mid, pw()]);
     await bulk(c, 'parent_students', ['user_id', 'student_id', 'madrasah_id'], pupils.filter(p => p.family).map(p => [parent.id, p.id, mid]));
     return mid;

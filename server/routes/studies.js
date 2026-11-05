@@ -4,7 +4,7 @@ const { STARTER } = require('../studiesStarter');
 
 // A school's Islamic Studies trackers (madaaris.kind = 'school'; src/pages/Studies.js): its own lists of surahs,
 // du'aas and practicals (is_items — each with the year group it's learnt in, Reception = 0 … Year 13), and where each
-// pupil is with each one (is_progress: 1 = Working towards, 2 = Achieved; no row = Not yet). A class sees the items of
+// pupil is with each one (is_progress: 1 = Completed with help, 2 = Achieved; no row = Incomplete). A class sees the items of
 // its year group and the years before (classes.year_group). Head: everything, and edits the lists; teachers: their
 // own classes. Parents see their child's in the portal (forParent, routes/parent.js).
 //
@@ -43,7 +43,7 @@ async function ensure() {
     madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
     student_id  TEXT NOT NULL,
     item_id     BIGINT NOT NULL,
-    level       SMALLINT NOT NULL,          -- 1 Working towards, 2 Achieved
+    level       SMALLINT NOT NULL,          -- 1 Completed with help, 2 Achieved
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by  TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (student_id, item_id)
@@ -191,7 +191,7 @@ const handler = requireAuth(async (req, res) => {
   if (action === 'mark' && req.method === 'POST') {
     const b = req.body || {};
     const level = Number(b.level);
-    if (![0, 1, 2].includes(level)) { res.status(400).json({ error: 'Choose Not yet, Working towards or Achieved.' }); return; }
+    if (![0, 1, 2].includes(level)) { res.status(400).json({ error: 'Choose Incomplete, Completed with help or Achieved.' }); return; }
     const { rows: [item] } = await query('SELECT id FROM is_items WHERE id = $1 AND madrasah_id = $2', [String(b.itemId || '0').replace(/\D/g, '') || '0', mid]);
     if (!item) { res.status(404).json({ error: 'That item has been removed.' }); return; }
     const scope = await accessScope(req);

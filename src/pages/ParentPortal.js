@@ -235,9 +235,9 @@ function YourDetails({ child, details, onSaved, many }) {
 }
 
 // A school's pupil (server/routes/studies.js forParent): their surahs, du'aas and practicals — this year's and earlier
-// years' — each Achieved, Working towards or Not yet. A card per list: the totals, the list behind "Show all".
+// years' — each Achieved, Completed with help or Incomplete. A card per list: the totals, the list behind "Show all".
 const STUDY_LISTS = [['surah', 'Surahs'], ['duaa', "Du'aas"], ['practical', 'Practicals']];
-const STUDY_LEVEL = { 2: ['Achieved', 'green'], 1: ['Working towards', 'amber'] };
+const STUDY_LEVEL = { 2: ['Achieved', 'green'], 1: ['Completed with help', 'amber'] };
 const studyYear = y => (y === 0 ? 'Reception' : `Year ${y}`);
 function StudiesCards({ studies }) {
   const level = id => studies.progress.find(p => p.itemId === id)?.level || 0;
@@ -246,14 +246,14 @@ function StudiesCards({ studies }) {
     const n = l => items.filter(i => level(i.id) === l).length;
     return (
       <OpenableSection key={kind} title={title} openLabel="Show all" summary={
-        <Tiles items={[[n(2), 'Achieved', 'var(--green)'], [n(1), 'Working towards', 'var(--amber)'], [n(0), 'Not yet'], [items.length, 'In all']]} />
+        <Tiles items={[[n(2), 'Achieved', 'var(--green)'], [n(1), 'With help', 'var(--amber)'], [n(0), 'Incomplete'], [items.length, 'In all']]} />
       } empty={items.length === 0 && 'Nothing on this list yet.'}>
         {items.map((it, i) => (
           <React.Fragment key={it.id}>
             {(i === 0 || items[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{studyYear(it.yearGroup)}</div>}
             <BoxRow columns="minmax(0, 1.6fr) minmax(0, 1fr)" cells={[
               { label: true, text: it.name, sub: it.detail || undefined },
-              { text: (STUDY_LEVEL[level(it.id)] || ['Not yet'])[0], tone: (STUDY_LEVEL[level(it.id)] || [])[1] },
+              { text: (STUDY_LEVEL[level(it.id)] || ['Incomplete'])[0], tone: (STUDY_LEVEL[level(it.id)] || [])[1] },
             ]} />
           </React.Fragment>
         ))}

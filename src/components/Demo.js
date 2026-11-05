@@ -27,11 +27,11 @@ const DU_ROLES = [
 // The made-up school's Islamic Studies department (?demo=school, server/demo.js createSchoolDemo).
 const SCHOOL_ROLES = [
   { role: 'head', icon: LayoutDashboard, title: 'Head of Islamic Studies', who: 'Demo School',
-    text: 'Every class from Reception to Year 10: surahs, du\'aas and practicals, the lists, pupils and teachers.' },
-  { role: 'teacher', icon: BookOpen, title: 'Teacher', who: 'Ustadh Bilal · Year 4',
+    text: 'Every class from Reception to Year 10, some in several forms (6A, 6B, 6C): surahs, du\'aas and practicals, the lists, pupils and teachers.' },
+  { role: 'teacher', icon: BookOpen, title: 'Teacher', who: 'Ustadh Bilal · 4A',
     text: 'His own class: marking surahs, du\'aas and practicals — one pupil or the whole class at once.' },
-  { role: 'parent', icon: Users, title: 'Parent', who: 'The Hussain family · Year 2 and Year 6',
-    text: 'Their children\'s surahs, du\'aas and practicals — what\'s achieved and what they\'re working towards.' },
+  { role: 'parent', icon: Users, title: 'Parent', who: 'The Hussain family · 2B and 6A',
+    text: 'Their children\'s surahs, du\'aas and practicals — what\'s achieved and what\'s completed with help.' },
 ];
 const rolesFor = kind => (kind === 'darul_uloom' ? DU_ROLES : kind === 'school' ? SCHOOL_ROLES : ROLES);
 

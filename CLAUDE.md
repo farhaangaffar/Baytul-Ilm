@@ -264,7 +264,7 @@ codebase (one codebase, not a fork).
   a DPA; first term free). Price by forms of entry, yearly: 1 form £500, 2 forms £800, 3 forms £1,000, 4+ message us
   (`PRICES.school` is the 1-form price; the platform owner sets the amount on the Madaaris page). A school has **its own short
   menu** (`schoolNav` in `Layout.js`; App.js routes): Dashboard (`src/pages/SchoolDashboard.js` — figures, a line per class with
-  its year's achieved / working-on bar, Getting started: teachers → classes with year groups → pupils → check the lists →
+  its year's achieved / with-help bar, Getting started: teachers → classes with year groups → pupils → check the lists →
   logins), **Pupils** (the Students page with no fees, attendance or waiting list; class lines show pupils · year group ·
   % achieved; a pupil opens their lists), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
   teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,
@@ -272,16 +272,17 @@ codebase (one codebase, not a fork).
   a school fees, registers, Qur'an daily records or maktab/Darul Uloom pages, and never show a maktab the school pages.
   **Islamic Studies**: each school's own lists (`is_items`: kind surah / duaa / practical, name, detail, the year group it's
   learnt in; the starter lists in `server/studiesStarter.js` — Reception to Year 11 — are added the first time,
-  `settings.studies_seeded`) and each pupil's mark (`is_progress`: 1 Working towards, 2 Achieved, no row = Not yet; who
-  marked it). A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
-  Du'aas | Practicals, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
-  Not yet · Working towards · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; tap a name → `PupilSheet` (everything of theirs). The head edits the lists (Edit inside a line, "Add a …").
-  Parents: `forParent()` → the portal shows Surahs / Du'aas / Practicals cards (Achieved · Working towards · Not yet · In
+  `settings.studies_seeded`) and each pupil's mark (`is_progress`: 1 Completed with help, 2 Achieved, no row = Incomplete — the owner's
+  words; who marked it). A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
+  Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
+  Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
+  class; Pupils is a line per child (this year's achieved per list, a bar) opening their own items underneath; tap a name →
+  `PupilSheet` (everything of theirs). The head edits the lists (Edit inside a line, "Add a …").
+  Parents: `forParent()` → the portal shows Surahs / Du'aas / Practicals cards (Achieved · With help · Incomplete · In
   all, "Show all") and Your details only. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
-  `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, Years 2, 4, 6, 8, 10 with their teachers,
-  ~75 pupils, the starter lists marked (earlier years mostly achieved, this year part way); logins head, Ustadh Bilal
-  (Year 4), the Hussain family (Year 2 and Year 6). Counted as `demo_school` / `signup_school`.
+  `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
+  ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
+  way); logins head, Ustadh Bilal (4A), the Hussain family (2B and 6A). Counted as `demo_school` / `signup_school`.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own

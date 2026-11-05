@@ -51,7 +51,7 @@ export default function SchoolDashboard() {
         { text: pupils, sub: 'Pupils', className: 'ct-figure', onClick: () => appNavigate(navigate, '/students') },
         { text: data.classes.length, sub: 'Classes', className: 'ct-figure', onClick: () => appNavigate(navigate, '/classes') },
         { text: `${pct(achieved, slots)}%`, sub: 'Achieved', tone: 'green' },
-        { text: `${pct(working, slots)}%`, sub: 'Working on', tone: 'amber' },
+        { text: `${pct(working, slots)}%`, sub: 'With help', tone: 'amber' },
       ]} />
 
       <div className="card" style={{ display: 'grid', gap: 6, marginTop: 10 }}>
@@ -66,7 +66,7 @@ export default function SchoolDashboard() {
                 <span className="line-row-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {[c.yearGroup === null ? 'No year group' : yearLabel(c.yearGroup) === c.class ? '' : yearLabel(c.yearGroup), `${c.pupils} pupils`, c.teacher].filter(Boolean).join(' · ')}
                 </span>
-                <span className="sd-bar" title={`${a}% achieved, ${w}% working towards`}>
+                <span className="sd-bar" title={`${a}% achieved, ${w}% completed with help`}>
                   <span style={{ width: `${a}%`, background: 'var(--green)' }} /><span style={{ width: `${w}%`, background: 'var(--amber)' }} />
                 </span>
               </span>

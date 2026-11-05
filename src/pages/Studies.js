@@ -1,8 +1,9 @@
 // A school's Islamic Studies trackers (server/routes/studies.js): its own lists of surahs, du'aas and practicals,
-// each learnt in a year group, and where every pupil is with each — Not yet · Working towards · Achieved.
-// Class ▾, then Surahs | Du'aas | Practicals; this year's items are lines (tap one to mark the class underneath,
-// one pupil at a time or everyone at once), earlier years' behind one closed line. Tap a pupil's name for all of
-// theirs. The head changes the lists (a line's Edit, "Add a …").
+// each learnt in a year group, and where every pupil is with each — Incomplete · Completed with help · Achieved.
+// Class ▾, then Surahs | Du'aas | Practicals | Pupils; this year's items are lines (tap one to mark the class underneath,
+// one pupil at a time or everyone at once), earlier years' behind one closed line. Pupils is a line per child with their
+// own progress — tap their name and this year's surahs, du'aas and practicals open underneath. Tap a pupil's name
+// anywhere for all of theirs. The head changes the lists (a line's Edit, "Add a …").
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
@@ -17,7 +18,7 @@ import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil } from 'lucide-re
 
 export const yearLabel = y => (y === null || y === undefined ? 'No year group' : y === 0 ? 'Reception' : `Year ${y}`);
 export const STUDY_KINDS = [['surah', 'Surahs', 'surah'], ['duaa', "Du'aas", "du'aa"], ['practical', 'Practicals', 'practical']];
-export const LEVELS = [[0, 'Not yet'], [1, 'Working towards'], [2, 'Achieved']];
+export const LEVELS = [[0, 'Incomplete'], [1, 'Completed with help'], [2, 'Achieved']];
 const TONE = { 1: 'amber', 2: 'green' };
 const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
 const recall = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
@@ -92,9 +93,10 @@ export default function Studies() {
     );
   }
 
-  const [, tabLabel, oneWord] = STUDY_KINDS.find(k => k[0] === tab) || STUDY_KINDS[0];
+  const byPupil = tab === 'pupils';
+  const [, tabLabel, oneWord] = STUDY_KINDS.find(k => k[0] === tab) || ['', 'Items', 'item'];
   const year = data?.yearGroup;
-  const items = (data?.items || []).filter(i => i.kind === tab);
+  const items = (data?.items || []).filter(i => byPupil || i.kind === tab);
   const now = items.filter(i => year === null || year === undefined || i.yearGroup === year);
   const earlier = year === null || year === undefined ? [] : items.filter(i => i.yearGroup < year);
   const pupils = data?.pupils || [];
@@ -123,7 +125,7 @@ export default function Studies() {
               <span>Everyone</span>
               <BoxRow fill columns="repeat(3, minmax(0, 1fr))" cells={LEVELS.map(([v, l]) => ({
                 text: l, wrap: 'words', onClick: busy || !pupils.length ? undefined : () => {
-                  if (window.confirm(`Mark all ${pupils.length} ${l === 'Not yet' ? 'back to Not yet' : `as ${l}`} for ${it.name}?`)) mark(it.id, pupils.map(p => p.id), v);
+                  if (window.confirm(`Mark all ${pupils.length} ${`as ${l}`} for ${it.name}?`)) mark(it.id, pupils.map(p => p.id), v);
                 },
               }))} />
             </div>
@@ -151,7 +153,7 @@ export default function Studies() {
         <ClassBar classes={classes.map(c => c.name)} active={cls} onPick={pickClass}
           notes={Object.fromEntries(classes.map(c => [c.name, yearLabel(c.yearGroup)]))} />
         <div className="pill-tabs bd-tabs st-tabs">
-          {STUDY_KINDS.map(([k, l]) => <button key={k} className={`pill-tab ${tab === k ? 'active' : ''}`} onClick={() => pickTab(k)}>{l}</button>)}
+          {[...STUDY_KINDS, ['pupils', 'Pupils']].map(([k, l]) => <button key={k} className={`pill-tab ${tab === k ? 'active' : ''}`} onClick={() => pickTab(k)}>{l}</button>)}
         </div>
 
         {!data ? <LoadingState /> : (
@@ -165,9 +167,60 @@ export default function Studies() {
               { text: pupils.length, sub: 'Pupils', className: 'ct-figure' },
               { text: now.length, sub: year === null || year === undefined ? tabLabel : 'This year', className: 'ct-figure' },
               { text: `${pct(now.reduce((t, it) => t + achievedOf(it), 0))}%`, sub: 'Achieved', tone: 'green' },
-              { text: `${pct(now.reduce((t, it) => t + workingOf(it), 0))}%`, sub: 'Working on', tone: 'amber' },
+              { text: `${pct(now.reduce((t, it) => t + workingOf(it), 0))}%`, sub: 'With help', tone: 'amber' },
             ]} />
 
+            {byPupil ? (
+              <div className="card" style={{ display: 'grid', gap: 6 }}>
+                <div className="card-title" style={{ marginBottom: 4 }}>Pupils{year === null || year === undefined ? '' : ` · ${yearLabel(year)}'s lists`}</div>
+                {pupils.map(p => {
+                  const open = openItem === `p:${p.id}`;
+                  const lv = it => levels[p.id]?.[it.id] || 0;
+                  const a = now.filter(it => lv(it) === 2).length, w = now.filter(it => lv(it) === 1).length;
+                  const pc = n => (now.length ? Math.round((n / now.length) * 100) : 0);
+                  return (
+                    <div key={p.id} style={{ display: 'grid', gap: 6 }}>
+                      <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setOpenItem(open ? null : `p:${p.id}`)}>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span className="line-row-name" style={{ display: 'block' }}>{p.name}</span>
+                          <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
+                            {STUDY_KINDS.map(([k, l]) => { const list = now.filter(it => it.kind === k); return `${l} ${list.filter(it => lv(it) === 2).length}/${list.length}`; }).join(' · ')}
+                          </span>
+                          <span className="sd-bar"><span style={{ width: `${pc(a)}%`, background: 'var(--green)' }} /><span style={{ width: `${pc(w)}%`, background: 'var(--amber)' }} /></span>
+                        </span>
+                        <span className="line-row-sub" style={{ fontWeight: 700, color: open ? undefined : 'var(--green-text)' }}>{pc(a)}%</span>
+                        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                      {open && (
+                        <div className="st-open">
+                          {STUDY_KINDS.map(([k, l]) => {
+                            const list = now.filter(it => it.kind === k);
+                            return list.length > 0 && (
+                              <React.Fragment key={k}>
+                                <div className="st-year">{l}</div>
+                                {list.map(it => (
+                                  <div key={it.id} className="st-pupil">
+                                    <span className="st-name st-item">{it.name}</span>
+                                    <LevelBoxes level={lv(it)} busy={busy} onPick={v => mark(it.id, [p.id], v)} />
+                                  </div>
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
+                          {earlier.length > 0 && (
+                            <button type="button" className="line-row" onClick={() => setModal({ kind: 'pupil', id: p.id })}>
+                              <span className="line-row-name">Earlier years</span>
+                              <span className="line-row-sub">{earlier.filter(it => lv(it) === 2).length} / {earlier.length} achieved</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {!pupils.length && <div className="text-muted" style={{ fontSize: 13 }}>No pupils in this class yet.</div>}
+              </div>
+            ) : (
             <div className="card" style={{ display: 'grid', gap: 6 }}>
               <div className="card-title" style={{ marginBottom: 4 }}>{year === null || year === undefined ? tabLabel : `${yearLabel(year)} ${tabLabel.toLowerCase()}`}</div>
               {now.map(itemLine)}
@@ -193,6 +246,7 @@ export default function Studies() {
                 </button>
               )}
             </div>
+            )}
           </>
         )}
       </div>
