@@ -1046,3 +1046,8 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .st-key { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
 .st-key span { display: inline-flex; align-items: center; gap: 5px; }
 .st-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.st-fig { font-weight: 600; }
+.st-fig.green { color: var(--green-text); }
+.st-fig.amber { color: var(--amber-text); }
+.st-fig.red { color: var(--red-text); }
+.line-row.on .st-fig { color: inherit; }

@@ -234,14 +234,13 @@ export default function Studies() {
                 {pupils.map(p => {
                   const open = openItem === `p:${p.id}`;
                   const t = tally(all, it => levelOf(p, it));
-                  const toDo = all.filter(it => [1, 2].includes(levelOf(p, it))).length;
                   return (
                     <div key={p.id} style={{ display: 'grid', gap: 6 }}>
                       <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setOpenItem(open ? null : `p:${p.id}`)}>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span className="line-row-name" style={{ display: 'block' }}>{p.name}</span>
                           <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-                            {t.pctAchieved}% achieved · {toDo ? `${toDo} to work on` : 'nothing to work on'}{t.notAssessed ? ` · ${t.notAssessed} not assessed` : ''}
+                            <span className="st-fig green">{t.pctAchieved}% achieved</span> · <span className="st-fig amber">{t.pctWithHelp}% with help</span> · <span className="st-fig red">{t.pctIncomplete}% incomplete</span>{t.notAssessed ? ` · ${t.notAssessed} not assessed` : ''}
                           </span>
                           <Bar t={t} />
                         </span>
