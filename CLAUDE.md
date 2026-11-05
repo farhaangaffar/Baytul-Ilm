@@ -279,7 +279,7 @@ codebase (one codebase, not a fork).
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; Pupils is a line per child (% achieved, how many to work on, a bar) opening **`PupilDetail`** — the four figures, "Class is
+  class; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed in light blue with a Close button, **`PupilDetail`** — the four figures, "Class is
   learning … N of M aayahs", To work on (incomplete then with-help chips), each list as a line with a soft coloured bar
   (year by year) and the class average, opening to every item to mark; a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column

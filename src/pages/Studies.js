@@ -235,13 +235,10 @@ export default function Studies() {
                   const open = openItem === `p:${p.id}`;
                   const t = tally(all, it => levelOf(p, it));
                   return (
-                    <div key={p.id} style={{ display: 'grid', gap: 6 }}>
+                    <div key={p.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
                       <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setOpenItem(open ? null : `p:${p.id}`)}>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span className="line-row-name" style={{ display: 'block' }}>{p.name}</span>
-                          <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-                            <span className="st-fig green">{t.pctAchieved}% achieved</span> · <span className="st-fig amber">{t.pctWithHelp}% with help</span> · <span className="st-fig red">{t.pctIncomplete}% incomplete</span>{t.notAssessed ? ` · ${t.notAssessed} not assessed` : ''}
-                          </span>
                           <Bar t={t} />
                         </span>
                         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -250,6 +247,7 @@ export default function Studies() {
                         <div className="st-open">
                           <PupilDetail items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
                             classAverage={classAverage} ayahs={data.ayahs} yearGroup={year} />
+                          <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={() => setOpenItem(null)}><ChevronUp size={13} />Close {p.name.split(' ')[0]}</button>
                         </div>
                       )}
                     </div>
