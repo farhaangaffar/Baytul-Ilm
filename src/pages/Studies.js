@@ -19,7 +19,7 @@ import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil } from 'lucide-re
 export const yearLabel = y => (y === null || y === undefined ? 'No year group' : y === 0 ? 'Reception' : `Year ${y}`);
 export const STUDY_KINDS = [['surah', 'Surahs', 'surah'], ['duaa', "Du'aas", "du'aa"], ['practical', 'Practicals', 'practical']];
 export const LEVELS = [[0, 'Incomplete'], [1, 'Completed with help'], [2, 'Achieved']];
-const TONE = { 1: 'amber', 2: 'green' };
+const TONE = { 0: 'red', 1: 'amber', 2: 'green' }; // Incomplete soft red, with help soft amber, achieved soft green
 const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
 const recall = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 
@@ -27,7 +27,7 @@ const recall = (k, d) => { try { return localStorage.getItem(k) || d; } catch { 
 export function LevelBoxes({ level = 0, onPick, busy }) {
   return (
     <BoxRow fill columns="repeat(3, minmax(0, 1fr))" cells={LEVELS.map(([v, l]) => ({
-      text: l, wrap: 'words', tone: level === v && v ? TONE[v] : undefined, label: level === v && !v,
+      text: l, wrap: 'words', tone: level === v ? TONE[v] : undefined,
       onClick: busy || !onPick || level === v ? undefined : () => onPick(v),
     }))} />
   );
