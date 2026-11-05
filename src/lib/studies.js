@@ -9,7 +9,8 @@ export const STUDY_KINDS = [['surah', 'Surahs', 'surah'], ['duaa', "Du'aas", "du
 export const LEVELS = [[1, 'Incomplete', 'red'], [2, 'Completed with help', 'amber'], [3, 'Achieved', 'green']];
 export const LEVEL_NAME = { 0: 'Not assessed yet', 1: 'Incomplete', 2: 'Completed with help', 3: 'Achieved' };
 export const LEVEL_TONE = { 1: 'red', 2: 'amber', 3: 'green' };
-export const LEVEL_COLOUR = { 0: '#e5e8ec', 1: 'var(--red)', 2: 'var(--amber)', 3: 'var(--green)' };
+// Soft, like a picked box (the light shades).
+export const LEVEL_COLOUR = { 0: '#eceff3', 1: 'var(--red-light)', 2: 'var(--amber-light)', 3: 'var(--green-light)' };
 
 // How a set of items stands: counts, and percentages of what's been assessed (as the school's sheets work them out).
 export function tally(items, levelOf) {

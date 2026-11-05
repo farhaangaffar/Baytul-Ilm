@@ -190,7 +190,9 @@ function AbsenceForm({ child, reasons, onSent }) {
 
 // The details the madrasah holds for this child that the family can keep up to date:
 // contacts, home, emergency contact, health and going home (POST /api/parent?action=details).
-function YourDetails({ child, details, onSaved, many }) {
+// A school's (Islamic Studies only — not the school's full records): the child's name, class and date of birth, and the
+// parents' contacts — no address, health or going home.
+function YourDetails({ child, details, onSaved, many, school = false, student }) {
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -204,9 +206,11 @@ function YourDetails({ child, details, onSaved, many }) {
   }
   return (
     <Section title="Your details" right={<button className="btn btn-sm" onClick={() => { setForm({ ...details }); setSaved(false); }}><Pencil size={12} />Check &amp; update</button>}>
-      {saved && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Saved — the madrasah will see the changes.{many ? ' Contacts and address are the same for all your children.' : ''}</div>}
-      <HealthNote student={details} />
-      {[['Contact 1', contact(1)], ['Contact 2', contact(2)], ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Address', [details.address, details.postcode].filter(Boolean).join(', ')]]
+      {saved && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Saved — the {school ? 'school' : 'madrasah'} will see the changes.{many ? ` Contacts${school ? '' : ' and address'} are the same for all your children.` : ''}</div>}
+      {!school && <HealthNote student={details} />}
+      {(school
+        ? [['Name', `${child.forename} ${child.surname || ''}`.trim()], ['Class', student?.class || child.class], ['Date of birth', student?.dob ? formatDateGB(student.dob) : ''], ['Contact 1', contact(1)], ['Contact 2', contact(2)]]
+        : [['Contact 1', contact(1)], ['Contact 2', contact(2)], ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Address', [details.address, details.postcode].filter(Boolean).join(', ')]])
         .filter(([, v]) => v).map(([l, v]) => (
           <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderTop: '1px solid var(--border)', fontSize: 12.5 }}>
             <span className="text-muted">{l}</span><span style={{ textAlign: 'right', overflowWrap: 'anywhere' }}>{v}</span>
@@ -221,7 +225,9 @@ function YourDetails({ child, details, onSaved, many }) {
             </div>
             <div className="modal-body">
               <ParentInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} required />
-              <DetailInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} isDarulUloom={false} only={['family', 'emergency', 'health', 'home']} />
+              {school
+                ? <div className="text-muted" style={{ fontSize: 12.5 }}>For anything else (name, date of birth, class), please tell the school.</div>
+                : <DetailInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} isDarulUloom={false} only={['family', 'emergency', 'health', 'home']} />}
               {error && <div style={{ fontSize: 13, color: 'var(--red)' }}>{error}</div>}
             </div>
             <div className="modal-footer">
@@ -236,7 +242,7 @@ function YourDetails({ child, details, onSaved, many }) {
 }
 
 // A school's pupil (server/routes/studies.js forParent): everything of theirs, as the school sees it (PupilDetail in
-// pages/Studies.js, read only) — the figures, what to work on, each list's coloured boxes and the surah the class is on.
+// pages/Studies.js, read only) — the figures, what to work on, each list's bar and the surah the class is on.
 function StudiesCards({ studies }) {
   const level = it => studies.progress.find(p => p.itemId === it.id)?.level || 0;
   return (
@@ -262,7 +268,7 @@ function ChildView({ child, reasons, many }) {
   if (error) return <div className="card" style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>;
   if (!data) return <div className="card text-muted" style={{ fontSize: 13 }}>Loading…</div>;
   // A school: Islamic Studies only (no registers, fees or madrasah reports).
-  if (data.studies) return <><StudiesCards studies={data.studies} />{data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} />}</>;
+  if (data.studies) return <><StudiesCards studies={data.studies} />{data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} school student={data.student} />}</>;
 
   // Attendance: totals for this school year (from September); the days themselves are
   // tucked away by month.

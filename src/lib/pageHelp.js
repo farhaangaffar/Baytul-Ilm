@@ -234,7 +234,7 @@ const STUDIES_STEPS = [
   'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class. Tap a lit box again to take the mark off (Not assessed yet).',
   'A surah also shows the class\'s weekly tracker: tap the aayahs the class has covered (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
-  'Pupils: a line for each child — tap their name for everything of theirs: their figures, what to work on, each list as coloured boxes with the class average, and the surah the class is on.',
+  'Pupils: a line for each child — tap their name for everything of theirs: their figures, what to work on, each list as a coloured bar with the class average, and the surah the class is on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
 ];
 const SCHOOL_HEAD = {

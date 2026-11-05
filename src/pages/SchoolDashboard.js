@@ -12,6 +12,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getStudents, getClasses, getStudiesSummary, formatDateGB } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { yearLabel } from './Studies';
+import { LEVEL_COLOUR } from '../lib/studies';
 import { ChevronRight } from 'lucide-react';
 
 export default function SchoolDashboard() {
@@ -74,7 +75,7 @@ export default function SchoolDashboard() {
                   {[c.yearGroup === null ? 'No year group' : yearLabel(c.yearGroup) === c.class ? '' : yearLabel(c.yearGroup), `${c.pupils} pupils`, c.teacher].filter(Boolean).join(' · ')}
                 </span>
                 <span className="sd-bar" title={`${a}% of those assessed achieved`}>
-                  <span style={{ width: w(c.achieved), background: 'var(--green)' }} /><span style={{ width: w(c.withHelp), background: 'var(--amber)' }} /><span style={{ width: w(c.incomplete), background: 'var(--red)' }} />
+                  <span style={{ width: w(c.achieved), background: LEVEL_COLOUR[3] }} /><span style={{ width: w(c.withHelp), background: LEVEL_COLOUR[2] }} /><span style={{ width: w(c.incomplete), background: LEVEL_COLOUR[1] }} />
                 </span>
               </span>
               <span className="line-row-sub" style={{ fontWeight: 700, color: 'var(--green-text)' }}>{a}%</span>

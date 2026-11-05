@@ -3,7 +3,7 @@
 // Achieved, or Not assessed yet. Class ▾, then Surahs | Du'aas | Practicals | Pupils. Each item is a line (tap it to mark
 // the class underneath, one pupil at a time or everyone at once); a surah also shows the class's weekly tracker — the
 // aayahs covered so far. Earlier years' items sit behind one closed line. Pupils is a line per child; tap their name for
-// everything of theirs (PupilDetail): figures, what to work on, each list as coloured boxes and the class's average. The
+// everything of theirs (PupilDetail): figures, what to work on, each list as a soft coloured bar and the class's average. The
 // head changes the lists (Edit inside a line, "Add a …") and can bring marks in from the school's spreadsheets (Import).
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Layout from '../components/Layout';
@@ -307,7 +307,7 @@ export default function Studies() {
 }
 
 // Everything about one child: the four figures; what to work on (incomplete, then with help); each list as a line with
-// its coloured boxes (one per surah / du'aa / practical, year by year) and the class's average, opening to every item to
+// its soft coloured bar and the class's average, opening to every item to
 // mark; and the surah the class is on. Used under a name on the Pupils tab and in the pupil's pop-up.
 export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
   const [open, setOpen] = useState('');
@@ -350,12 +350,7 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
                   {classAverage[k] !== null && classAverage[k] !== undefined ? ` · class average ${classAverage[k]}%` : ''}
                   {kt.notAssessed ? ` · ${kt.notAssessed} not assessed` : ''}
                 </span>
-                <span className="st-strip">
-                  {list.map((it, i) => (
-                    <i key={it.id} className={i && list[i - 1].yearGroup !== it.yearGroup ? 'gap' : ''} title={`${it.name} · ${LEVEL_NAME[levelOf(it)]}`}
-                      style={{ background: LEVEL_COLOUR[levelOf(it)] }} />
-                  ))}
-                </span>
+                <Bar t={kt} />
               </span>
               {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
@@ -417,9 +412,9 @@ function ItemModal({ item, onClose, onSaved }) {
                 placeholder={f.kind === 'surah' ? 'e.g. Al-Ikhlas' : f.kind === 'duaa' ? 'e.g. Before eating' : 'e.g. Wudhu'} /></div>
             {f.kind === 'surah' && (
               <div className="form-group"><label>Which surah</label>
-                <select value={f.surah} onChange={e => { setSurahPicked(true); setF(x => ({ ...x, surah: e.target.value })); }}>
-                  <option value="">Not a whole surah (e.g. Ayat al-Kursi)</option>
-                  {SURAHS.map(([n, a], i) => <option key={n} value={i + 1}>{i + 1}. {n} · {a} aayahs</option>)}
+                <select value={f.surah} style={f.surah ? undefined : { color: 'var(--text-muted)', fontSize: 12, paddingLeft: 12 }} onChange={e => { setSurahPicked(true); setF(x => ({ ...x, surah: e.target.value })); }}>
+                  <option value="">Select an entire surah or parts of a surah</option>
+                  {SURAHS.map(([n, a], i) => <option key={n} value={i + 1} style={{ color: 'var(--ink)' }}>{i + 1}. {n} · {a} aayahs</option>)}
                 </select></div>
             )}
             <div className="form-group"><label>Detail (optional)</label>
