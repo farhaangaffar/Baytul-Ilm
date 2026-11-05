@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo — or a
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
-  'ai_usage', 'absence_reports', 'is_progress', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
+  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
@@ -972,8 +972,9 @@ async function createSchoolDemo(ipHash) {
     const teacherIds = SCHOOL_CLASSES.map(() => newId('T'));
     await bulk(c, 'teachers', ['id', 'madrasah_id', 'name', 'phone', 'email', 'subjects', 'sort_order'],
       SCHOOL_CLASSES.map(([, , t], i) => [teacherIds[i], mid, t, '', '', '[]', i]));
+    const classIds = SCHOOL_CLASSES.map(() => newId('C'));
     await bulk(c, 'classes', ['id', 'madrasah_id', 'name', 'teacher_id', 'year_group'],
-      SCHOOL_CLASSES.map(([name, year], i) => [newId('C'), mid, name, teacherIds[i], year]));
+      SCHOOL_CLASSES.map(([name, year], i) => [classIds[i], mid, name, teacherIds[i], year]));
 
     // Pupils: a dozen or so a class, boys and girls; the Hussain children in 2B and 6A.
     const pupils = [];
@@ -993,22 +994,39 @@ async function createSchoolDemo(ipHash) {
         p.family ? '07700 900600' : `07700 9${String(20000 + p.order * 41).slice(-5)}`, `${p.family ? 'Rabia' : r.pick(PARENT_NAMES.f)} ${p.s}`,
         0, plus(today, -400), 'Active', p.order, p.g === 'f' ? 'Girl' : 'Boy', 'Father', 'Mother']));
 
-    // The starter lists, and each pupil's marks: earlier years' items mostly achieved, this year's part way.
+    // The starter lists, and each pupil's marks (1 Incomplete, 2 With help, 3 Achieved, none = not assessed yet): earlier
+    // years' items nearly all assessed and mostly achieved; this year's first items assessed, the later ones mostly not yet.
     await studies.addStarter(c, mid);
-    const { rows: items } = await c.query('SELECT id, year_group FROM is_items WHERE madrasah_id = $1', [mid]);
+    const { rows: items } = await c.query('SELECT id, kind, year_group, surah FROM is_items WHERE madrasah_id = $1 ORDER BY year_group, sort, id', [mid]);
     const progress = [];
     for (const p of pupils) {
       const teacher = SCHOOL_CLASSES.find(x => x[0] === p.cls)[2];
-      const keen = 0.75 + r() * 0.25; // some pupils further on than others
+      const keen = 0.7 + r() * 0.3; // some pupils further on than others
       for (const it of items) {
         if (it.year_group > p.year) continue;
+        const mine = items.filter(x => x.kind === it.kind && x.year_group === it.year_group);
+        const k = mine.indexOf(it) / Math.max(1, mine.length);
+        const earlier = it.year_group < p.year;
+        if (r() > (earlier ? 0.97 : k < 0.5 ? 0.9 : 0.3)) continue; // not assessed yet
         const x = r();
-        const level = it.year_group < p.year ? (x < 0.9 * keen + 0.08 ? 2 : x < 0.97 ? 1 : 0)
-          : (x < 0.45 * keen ? 2 : x < 0.8 ? 1 : 0);
-        if (level) progress.push([mid, p.id, it.id, level, teacher, `${plus(today, -Math.floor(r() * (it.year_group < p.year ? 300 : 40)))}T12:00:00Z`]);
+        const level = x < (earlier ? 0.88 : 0.6) * keen + 0.05 ? 3 : x < 0.9 ? 2 : 1;
+        progress.push([mid, p.id, it.id, level, teacher, `${plus(today, -Math.floor(r() * (earlier ? 300 : 40)))}T12:00:00Z`]);
       }
     }
     await bulk(c, 'is_progress', ['madrasah_id', 'student_id', 'item_id', 'level', 'updated_by', 'updated_at'], progress);
+    // Each class's weekly tracker: this year's first surahs fully covered, the next one part way, the rest not started.
+    const { AYAHS } = require('./surahAyahs');
+    const covered = [];
+    SCHOOL_CLASSES.forEach(([, year, teacher], ci) => {
+      const surahs = items.filter(it => it.kind === 'surah' && it.year_group === year && it.surah);
+      const done = Math.floor(surahs.length / 2);
+      surahs.forEach((it, i) => {
+        const n = AYAHS[it.surah - 1];
+        const upTo = i < done ? n : i === done ? Math.max(1, Math.round(n * (0.3 + r() * 0.4))) : 0;
+        if (upTo) covered.push([mid, classIds[ci], it.id, Array.from({ length: upTo }, (_, j) => j + 1), teacher]);
+      });
+    });
+    await bulk(c, 'is_class_ayahs', ['madrasah_id', 'class_id', 'item_id', 'ayahs', 'updated_by'], covered);
 
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);

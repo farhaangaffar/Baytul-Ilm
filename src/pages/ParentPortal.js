@@ -10,6 +10,7 @@ import { money } from '../lib/branding';
 import { countedFees } from '../lib/feePeriods';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
+import { PupilDetail } from './Studies';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import InstallBanner from '../components/InstallBanner';
 import InstallSteps from '../components/InstallSteps';
@@ -234,88 +235,13 @@ function YourDetails({ child, details, onSaved, many }) {
   );
 }
 
-// A school's pupil (server/routes/studies.js forParent): their surahs, du'aas and practicals — this year's and earlier
-// years' — each Achieved, Completed with help or Incomplete. A card per list: the totals, the list behind "Show all".
-const STUDY_LISTS = [['surah', 'Surahs'], ['duaa', "Du'aas"], ['practical', 'Practicals']];
-const STUDY_LEVEL = { 2: ['Achieved', 'green'], 1: ['Completed with help', 'amber'], 0: ['Incomplete', 'red'] };
-const studyYear = y => (y === 0 ? 'Reception' : `Year ${y}`);
+// A school's pupil (server/routes/studies.js forParent): everything of theirs, as the school sees it (PupilDetail in
+// pages/Studies.js, read only) — the figures, what to work on, each list's coloured boxes and the surah the class is on.
 function StudiesCards({ studies }) {
-  const level = id => studies.progress.find(p => p.itemId === id)?.level || 0;
-  return STUDY_LISTS.map(([kind, title]) => {
-    const items = studies.items.filter(i => i.kind === kind);
-    const n = l => items.filter(i => level(i.id) === l).length;
-    return (
-      <OpenableSection key={kind} title={title} openLabel="Show all" summary={
-        <Tiles items={[[n(2), 'Achieved', 'var(--green)'], [n(1), 'With help', 'var(--amber)'], [n(0), 'Incomplete', 'var(--red)'], [items.length, 'In all']]} />
-      } empty={items.length === 0 && 'Nothing on this list yet.'}>
-        {items.map((it, i) => (
-          <React.Fragment key={it.id}>
-            {(i === 0 || items[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{studyYear(it.yearGroup)}</div>}
-            <BoxRow columns="minmax(0, 1.6fr) minmax(0, 1fr)" cells={[
-              { label: true, text: it.name, sub: it.detail || undefined },
-              { text: (STUDY_LEVEL[level(it.id)] || ['Incomplete'])[0], tone: (STUDY_LEVEL[level(it.id)] || [])[1] },
-            ]} />
-          </React.Fragment>
-        ))}
-      </OpenableSection>
-    );
-  });
-}
-
-// Same box look as BoxRow's label boxes (src/components/BoxRow.js) — written out here
-// rather than reused, because this row needs a per-entry expand/collapse that BoxRow's
-// plain text cells don't support.
-const hwBox = {
-  background: '#f3f4f6', border: '1px solid transparent', color: 'var(--ink)', fontWeight: 600,
-  borderRadius: 8, padding: '5px 4px', minHeight: 40, textAlign: 'center', display: 'flex',
-  flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden', minWidth: 0,
-};
-
-// A long homework note would otherwise stretch its date box into a tall, mostly-empty
-// column (both boxes sit in the same grid row and stretch to match height) — so it's
-// clamped to 3 lines with its own "Show more", detected by actual overflow rather than
-// a guessed character count, so nothing long enough to need it is ever silently clipped.
-function HomeworkRow({ h }) {
-  const [expanded, setExpanded] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const textRef = useRef(null);
-  useEffect(() => {
-    const el = textRef.current;
-    if (el) setOverflows(el.scrollHeight > el.clientHeight + 1);
-  }, [h.text]);
-  const d = new Date(h.date + 'T12:00:00');
+  const level = it => studies.progress.find(p => p.itemId === it.id)?.level || 0;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.6fr) minmax(0, 1.4fr)', gap: 6, marginBottom: 6 }}>
-      <div style={hwBox}>
-        <div>{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
-        <div style={{ fontSize: 10.5, fontWeight: 500, opacity: .85 }}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
-      </div>
-      <button type="button" onClick={overflows ? () => setExpanded(v => !v) : undefined}
-        style={{ ...hwBox, fontFamily: 'var(--font)', cursor: overflows ? 'pointer' : 'default' }}>
-        <div ref={textRef} style={{
-          overflowWrap: 'break-word',
-          ...(expanded ? null : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
-        }}>{h.text}</div>
-        {overflows && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--teal-dark)', marginTop: 3 }}>{expanded ? 'Show less' : 'Show more'}</div>}
-      </button>
-    </div>
-  );
-}
-
-// Same "3 shown, rest hidden" pattern as Progress's Recent list — a date box and a
-// homework-text box per row.
-function HomeworkCard({ homework }) {
-  const [showAll, setShowAll] = useState(false);
-  const sorted = [...homework].sort((a, b) => b.date.localeCompare(a.date));
-  const recent = showAll ? sorted : sorted.slice(0, 3);
-  return (
-    <Section title="Homework">
-      {recent.map(h => <HomeworkRow key={h.date} h={h} />)}
-      {sorted.length > 3 && (
-        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
-          {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
-        </button>
-      )}
+    <Section title="Islamic Studies">
+      <PupilDetail items={studies.items} levelOf={level} readOnly ayahs={studies.ayahs} yearGroup={studies.yearGroup} />
     </Section>
   );
 }

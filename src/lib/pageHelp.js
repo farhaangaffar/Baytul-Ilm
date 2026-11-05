@@ -231,9 +231,10 @@ const DU_TEACHER = {
 const STUDIES_STEPS = [
   'Choose a class (Class ▾), then Surahs, Du\'aas or Practicals.',
   'Each line is one surah, du\'aa or practical for the class\'s year group. Tap it to open the class underneath.',
-  'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class at once.',
+  'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class. Tap a lit box again to take the mark off (Not assessed yet).',
+  'A surah also shows the class\'s weekly tracker: tap the aayahs the class has covered (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
-  'Pupils: a line for each child with their own progress — tap their name to see and mark this year\'s surahs, du\'aas and practicals underneath.',
+  'Pupils: a line for each child — tap their name for everything of theirs: their figures, what to work on, each list as coloured boxes with the class average, and the surah the class is on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
 ];
 const SCHOOL_HEAD = {
@@ -251,6 +252,7 @@ const SCHOOL_HEAD = {
   '/studies': { title: 'Islamic Studies', steps: [
     ...STUDIES_STEPS,
     'The lists are yours: "Add a surah" (or du\'aa or practical) at the bottom, and Edit inside an open line to rename it, move it to another year or remove it.',
+    '"Import marks from your spreadsheets": choose your Surah or Du\'aa workbook (.xlsx) — pupils are matched by name, columns by surah or du\'aa, and new ones can be added to your list.',
   ] },
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add your teachers first, then your classes — each with its year group (Reception to Year 13), so it gets that year\'s lists.',
@@ -266,7 +268,7 @@ const SCHOOL_HEAD = {
 const SCHOOL_TEACHER = { '/studies': { title: 'Islamic Studies', steps: STUDIES_STEPS } };
 const SCHOOL_PARENT = { title: 'How to use this page', steps: [
   'If you have more than one child, choose one at the top.',
-  'Surahs, Du\'aas and Practicals: how many your child has achieved, completed with help, or not yet completed. Tap "Show all" for each one.',
+  'Islamic Studies: how your child is doing — achieved, completed with help, incomplete — what to work on, and the surah the class is learning. Tap a list to see every surah, du\'aa or practical.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
 ] };
 

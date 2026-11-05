@@ -718,6 +718,9 @@ export const getMaintenance = () => apiFetch('/api/maintenance');
 // A school's Islamic Studies (server/routes/studies.js).
 export const getStudiesClass = cls => apiFetch(`/api/studies?class=${encodeURIComponent(cls)}`);
 export const getStudiesSummary = () => apiFetch('/api/studies?action=summary');
+export const saveClassAyahs = (className, itemId, ayahs) => apiFetch('/api/studies?action=ayahs', { method: 'POST', body: JSON.stringify({ className, itemId, ayahs }) });
+export const importStudiesMarks = marks => apiFetch('/api/studies?action=import', { method: 'POST', body: JSON.stringify({ marks }) });
+export const getStudiesItems = () => apiFetch('/api/studies');
 export const getStudiesPupil = id => apiFetch(`/api/studies?studentId=${encodeURIComponent(id)}`);
 export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies?action=mark', { method: 'POST', body: JSON.stringify({ itemId, studentIds, level }) });
 export const saveStudiesItem = item => apiFetch('/api/studies?action=item', { method: 'POST', body: JSON.stringify(item) });

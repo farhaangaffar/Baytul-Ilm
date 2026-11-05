@@ -348,9 +348,9 @@ export default function Students() {
                 <span className="class-card-stats">
                   <span><strong>{classStudents.length}</strong> {isSchool ? (classStudents.length===1?'pupil':'pupils') : `student${classStudents.length===1?'':'s'}`}</span>
                   {/* Always all three, so every class's line has the same shape (on phones, three boxes). */}
-                  {isSchool ? (() => { const st = studies[c]; const of = st ? st.items * st.pupils : 0; return <>
+                  {isSchool ? (() => { const st = studies[c]; return <>
                   <span><strong>{st && st.yearGroup !== null ? yearLabel(st.yearGroup) : '—'}</strong> year group</span>
-                  <span><strong>{of ? `${Math.round((st.achieved || 0) * 100 / of)}%` : '—'}</strong> achieved</span>
+                  {(() => { const done = st ? (st.achieved || 0) + (st.withHelp || 0) + (st.incomplete || 0) : 0; return <span><strong>{done ? `${Math.round((st.achieved || 0) * 100 / done)}%` : '—'}</strong> achieved</span>; })()}
                   </>; })() : <>
                   <span><strong>{classStudents.length>0 ? `${classAtt}%` : '—'}</strong> attendance</span>
                   <span style={classOwed>0 ? {color:'var(--red-text)'} : undefined}><strong>{money(classOwed)}</strong> owed</span>

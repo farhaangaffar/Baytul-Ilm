@@ -631,3 +631,15 @@ CREATE TABLE IF NOT EXISTS is_progress (
   PRIMARY KEY (student_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_is_progress_madrasah ON is_progress (madrasah_id, item_id);
+-- is_progress.level: 1 Incomplete, 2 Completed with help, 3 Achieved (no row = not assessed yet).
+ALTER TABLE is_items ADD COLUMN IF NOT EXISTS surah INTEGER;
+CREATE TABLE IF NOT EXISTS is_class_ayahs (
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  class_id    TEXT NOT NULL,
+  item_id     BIGINT NOT NULL,
+  ayahs       INTEGER[] NOT NULL DEFAULT '{}',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by  TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (class_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_is_class_ayahs_madrasah ON is_class_ayahs (madrasah_id);

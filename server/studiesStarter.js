@@ -1,6 +1,7 @@
 // A school's Islamic Studies starter lists (server/routes/studies.js, "Use the starter lists"): the surahs, du'aas and
 // practicals usually learnt in each year group, Reception (0) to Year 11. Every school changes, removes and adds to
-// them — nothing here belongs to one school. [name, detail, year group].
+// them — nothing here belongs to one school. [name, detail, year group] (a whole surah also gets its number, from "Surah N",
+// so its aayahs show on the class's weekly tracker).
 
 const SURAHS = [
   ['Al-Fatihah', 'Surah 1', 0], ['Al-Ikhlas', 'Surah 112', 0], ['Al-Falaq', 'Surah 113', 0], ['An-Nas', 'Surah 114', 0],
@@ -43,7 +44,7 @@ const PRACTICALS = [
 ];
 
 const STARTER = [
-  ...SURAHS.map(([n, d, y]) => ['surah', n, d, y]),
+  ...SURAHS.map(([n, d, y]) => ['surah', n, d, y, /^Surah (\d+)$/.test(d) ? Number(d.slice(6)) : null]),
   ...DUAAS.map(([n, d, y]) => ['duaa', n, d, y]),
   ...PRACTICALS.map(([n, d, y]) => ['practical', n, d, y]),
 ];
