@@ -309,9 +309,9 @@ export default function Studies() {
 // mark; and the surah the class is on. Used under a name on the Pupils tab and in the pupil's pop-up.
 export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
   const [open, setOpen] = useState('');
+  const [workOpen, setWorkOpen] = useState('');
   const t = tally(items, levelOf);
   const toWork = [...items.filter(it => levelOf(it) === 1), ...items.filter(it => levelOf(it) === 2)];
-  const kindName = k => (STUDY_KINDS.find(x => x[0] === k) || [])[1];
   // The surah the class is learning now: this year's first surah not fully covered.
   const learning = items.filter(it => it.kind === 'surah' && it.surah && (yearGroup === null || yearGroup === undefined || it.yearGroup === yearGroup))
     .find(it => (ayahs[it.id] || []).length < surahAyahs(it.surah));
@@ -324,15 +324,37 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
           <span>{(ayahs[learning.id] || []).length} of {surahAyahs(learning.surah)} aayahs</span>
         </div>
       )}
+      {/* To work on: a closed line per list (surahs, du'aas, practicals), so a long list stays tidy; tap to see them. */}
       <div className="st-year">To work on{toWork.length ? ` · ${toWork.length}` : ''}</div>
-      {toWork.length ? (
-        <div className="st-chips">
-          {toWork.slice(0, 24).map(it => (
-            <span key={it.id} className={`st-chip ${LEVEL_TONE[levelOf(it)]}`} title={`${kindName(it.kind)} · ${LEVEL_NAME[levelOf(it)]}`}>{it.name}</span>
-          ))}
-          {toWork.length > 24 && <span className="st-chip">+{toWork.length - 24} more</span>}
-        </div>
-      ) : <div className="text-muted" style={{ fontSize: 13 }}>Nothing incomplete or needing help.</div>}
+      <div className="st-work">
+        {STUDY_KINDS.map(([k, l]) => {
+          const list = toWork.filter(it => it.kind === k);
+          const inc = list.filter(it => levelOf(it) === 1).length, help = list.length - inc;
+          const isOpen = workOpen === k && list.length > 0;
+          return (
+            <div key={k} className={`st-work-line ${isOpen ? 'open' : ''}`}>
+              <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} disabled={!list.length} onClick={() => setWorkOpen(isOpen ? '' : k)}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="line-row-name">{l}</span>
+                  <span className="line-row-sub" style={{ display: 'block' }}>
+                    {list.length ? [inc && `${inc} incomplete`, help && `${help} with help`].filter(Boolean).join(' · ') : 'Nothing to work on'}
+                  </span>
+                </span>
+                {list.length > 0 && <span className="st-work-count">{list.length}</span>}
+                {list.length > 0 && (isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+              </button>
+              {isOpen && (
+                <div className="st-chips">
+                  {list.map(it => (
+                    <span key={it.id} className={`st-chip ${LEVEL_TONE[levelOf(it)]}`} title={LEVEL_NAME[levelOf(it)]}>{it.name}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="st-year" style={{ marginTop: 6 }}>All their marks</div>
       {STUDY_KINDS.map(([k, l]) => {
         const list = items.filter(it => it.kind === k);
         if (!list.length) return null;

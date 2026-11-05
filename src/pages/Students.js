@@ -446,8 +446,6 @@ export default function Students() {
         </>
       )}
 
-      {studiesPupil && <PupilSheet id={studiesPupil} onClose={()=>setStudiesPupil(null)} />}
-
       {/* View modal */}
       {selected&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeSelected()}>
@@ -492,7 +490,7 @@ export default function Students() {
                 <div>
                   {isSchool ? <>
                   <div className="form-section-title" style={{marginBottom:10}}>Islamic Studies</div>
-                  <button type="button" className="line-row" onClick={()=>{ setStudiesPupil(selected.id); closeSelected(); }}>
+                  <button type="button" className="line-row" onClick={()=>setStudiesPupil(selected.id)}>
                     <span className="line-row-name">Surahs, du'aas &amp; practicals</span><span className="line-row-sub">Open</span>
                   </button>
                   </> : <>
@@ -569,6 +567,9 @@ export default function Students() {
           </div>
         </div>
       )}
+
+      {/* A school pupil's surahs, du'aas & practicals — on top of their card, which is there again on closing */}
+      {studiesPupil && <PupilSheet id={studiesPupil} onClose={()=>setStudiesPupil(null)} />}
 
       {/* Edit modal */}
       {editing&&editForm&&(

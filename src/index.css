@@ -1018,6 +1018,12 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .st-open { display: grid; gap: 8px; padding: 6px 2px 10px; }
 /* A pupil opened on the Pupils tab: boxed in light blue, with room above and below, so where one child ends is clear. */
 .st-pupil-wrap { display: grid; gap: 6px; }
+/* A child's To work on: a line each for surahs, du'aas and practicals, opening to their chips. */
+.st-work { display: grid; gap: 6px; }
+.st-work-line { display: grid; gap: 8px; }
+.st-work-line .line-row:disabled { opacity: 0.6; cursor: default; }
+.st-work-line.open .st-chips { padding: 0 4px 6px; }
+.st-work-count { min-width: 26px; padding: 2px 8px; border-radius: 99px; background: var(--red-light); color: var(--red-text); font-size: 12px; font-weight: 700; text-align: center; }
 .st-pupil-wrap.open { border: 1.5px solid var(--teal-mid); border-radius: var(--r-md); padding: 6px 8px 4px; margin: 8px 0 12px; background: var(--teal-faint); }
 .st-pupil-wrap.open > .line-row { border-color: transparent; }
 .st-everyone, .st-pupil { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }

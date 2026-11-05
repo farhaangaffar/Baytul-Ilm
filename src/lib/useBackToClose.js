@@ -10,21 +10,26 @@ import { useEffect, useRef } from 'react';
 // button, an overlay click, etc.) instead of calling your close-state setter directly —
 // that keeps one pushState paired with exactly one close, so back never takes two presses
 // to actually leave the page.
+//
+// Cards can sit on top of each other (a pupil's card, then their Islamic Studies over it): each history entry
+// carries its depth, and back closes only the card whose entry was popped — the top one.
 export function useBackToClose(isOpen, onClose) {
   const pushedRef = useRef(false);
+  const depthRef = useRef(0);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
     if (isOpen && !pushedRef.current) {
-      window.history.pushState({ __card: true }, '');
+      depthRef.current = (window.history.state?.__depth || 0) + 1;
+      window.history.pushState({ __card: true, __depth: depthRef.current }, '');
       pushedRef.current = true;
     }
   }, [isOpen]);
 
   useEffect(() => {
-    function handlePopState() {
-      if (pushedRef.current) {
+    function handlePopState(e) {
+      if (pushedRef.current && (e.state?.__depth || 0) < depthRef.current) {
         pushedRef.current = false;
         onCloseRef.current();
       }
