@@ -275,12 +275,12 @@ codebase (one codebase, not a fork).
   `settings.studies_seeded`) and each pupil's mark (`is_progress`, the school's own 1-2-3 from its spreadsheets: 1 Incomplete, 2 Completed with help,
   3 Achieved, no row = **Not assessed yet** — four states, the owner's ask; percentages are of what's been assessed, as their sheets
   do; colours soft red / amber / green / grey; tapping a lit box clears it). A surah item has its number (`is_items.surah`), so
-  each class has a **weekly tracker** — the aayahs covered (`is_class_ayahs`, `?action=ayahs`, an aayah grid inside the item's line,
+  each class has a **weekly tracker** — the aayahs covered (`is_class_ayahs`, `?action=ayahs`, an aayah grid inside the item's line — tapping an aayah marks it and every one before it; tapping the last again steps back one —
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
   class; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed in light blue with a Close button, **`PupilDetail`** — the four figures, "Class is
-  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete then with-help chips), "All their marks", each list as a line with a soft coloured bar
+  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete then with-help chips — the first 8, then "Show all N"), "All their marks", each list as a line with a soft coloured bar
   (year by year) and the class average, opening to every item to mark; a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
   per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /

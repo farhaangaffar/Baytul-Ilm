@@ -59,11 +59,13 @@ function Figures({ t }) {
   );
 }
 
-// The class's weekly tracker for one surah: a box per aayah, tapped when the class has covered it.
+// The class's weekly tracker for one surah: a box per aayah. Tapping one marks it and every aayah before it covered
+// (the class has reached it); tapping the last one covered again steps back one.
 function AyahTracker({ surah, covered = [], onChange, busy }) {
   const n = surahAyahs(surah);
   const set = new Set(covered);
-  const toggle = a => { const next = new Set(set); next.has(a) ? next.delete(a) : next.add(a); onChange([...next].sort((x, y) => x - y)); };
+  const upTo = a => Array.from({ length: a }, (_, i) => i + 1);
+  const toggle = a => onChange(set.size === a && set.has(a) && upTo(a).every(x => set.has(x)) ? upTo(a - 1) : upTo(a));
   return (
     <div className="st-ayahs">
       <div className="st-ayahs-head">
@@ -310,6 +312,8 @@ export default function Studies() {
 export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
   const [open, setOpen] = useState('');
   const [workOpen, setWorkOpen] = useState('');
+  const [workAll, setWorkAll] = useState(false); // a long list shows its first few until "Show all"
+  const FEW = 8;
   const t = tally(items, levelOf);
   const toWork = [...items.filter(it => levelOf(it) === 1), ...items.filter(it => levelOf(it) === 2)];
   // The surah the class is learning now: this year's first surah not fully covered.
@@ -333,7 +337,7 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
           const isOpen = workOpen === k && list.length > 0;
           return (
             <div key={k} className={`st-work-line ${isOpen ? 'open' : ''}`}>
-              <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} disabled={!list.length} onClick={() => setWorkOpen(isOpen ? '' : k)}>
+              <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} disabled={!list.length} onClick={() => { setWorkOpen(isOpen ? '' : k); setWorkAll(false); }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="line-row-name">{l}</span>
                   <span className="line-row-sub" style={{ display: 'block' }}>
@@ -345,9 +349,14 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
               </button>
               {isOpen && (
                 <div className="st-chips">
-                  {list.map(it => (
+                  {(workAll ? list : list.slice(0, FEW)).map(it => (
                     <span key={it.id} className={`st-chip ${LEVEL_TONE[levelOf(it)]}`} title={LEVEL_NAME[levelOf(it)]}>{it.name}</span>
                   ))}
+                  {list.length > FEW && (
+                    <button type="button" className="st-chip st-chip-more" onClick={() => setWorkAll(a => !a)}>
+                      {workAll ? 'Show fewer' : `Show all ${list.length}`}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
