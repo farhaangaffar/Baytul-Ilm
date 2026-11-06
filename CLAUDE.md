@@ -285,7 +285,7 @@ codebase (one codebase, not a fork).
   chips (N with help · N incomplete · N not assessed), then a line per list (Surahs / Du'aas / Practicals: "21 of 25 achieved", then
   two bars — the pupil's first name with their coloured bar and %, and "Class" with a grey bar and the class's %, both of what's
   been assessed; `.pd-row`) opening to every item to mark — a white card per year (`.pd-year`), newest first, the pupil's own year
-  with a light-blue edge and a "This year" tag, each with "N of M achieved", then "<Name>'s average N%" on the left · "Class average N%" on the right (`classAverage.all`; none in the parent portal), "Class is
+  with a light-blue edge and a "This year" tag, each with "N of M achieved", then "<Name>'s average N%" on the left · "Class average N%" on the right (`classAverage.all`; parents see the class bars and average too — `classAverageOf()`, the whole class's figure only), "Class is
   learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete
   then with-help chips — the first 8, then "Show all N"); a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
@@ -314,7 +314,7 @@ codebase (one codebase, not a fork).
   "Print the whole class". Report maths in `src/lib/studiesReport.js` (`reportOf`). **Send to parents** (head, every class
   at once) → the portal's "Reports" lines (`forParent()` in school-reports.js via studies.js, with `allItems`). In Backup
   (studies.js `reports`) and demo `TABLES`; the school demo has an Autumn point three weeks back, sent, every pupil rated.
-  Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
+  Parents: `forParent()` → the portal shows `PupilDetail` read-only (with the class averages) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
   way); logins head, Ustadh Bilal (4A), the Hussain family (2B and 6A). Counted as `demo_school` / `signup_school`.

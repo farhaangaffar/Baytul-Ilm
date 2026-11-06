@@ -272,7 +272,7 @@ function StudiesCards({ studies, child }) {
         </Section>
       )}
       <Section title="Islamic Studies">
-        <PupilDetail name={child.forename} items={studies.items} levelOf={level} readOnly ayahs={studies.ayahs} yearGroup={studies.yearGroup} />
+        <PupilDetail name={child.forename} items={studies.items} levelOf={level} readOnly classAverage={studies.classAverage || {}} ayahs={studies.ayahs} yearGroup={studies.yearGroup} />
       </Section>
       {view && <ReportModal one={view} onClose={() => setView(null)} />}
     </>
