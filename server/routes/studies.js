@@ -351,7 +351,11 @@ const handler = requireAuth(async (req, res) => {
          JOIN is_items i ON i.id = p.item_id AND i.madrasah_id = p.madrasah_id
          WHERE p.madrasah_id = $1 AND s.class = $2 AND s.status = 'Active' AND ($3::int IS NULL OR i.year_group <= $3) GROUP BY i.kind`, [mid, p.class, year]);
       res.status(200).json({ pupil: { ...p, yearGroup: year }, items: await items(mid, year), progress, ayahs: await classAyahs(mid, p.class),
-        classAverage: Object.fromEntries(avg.map(a => [a.kind, a.assessed ? Math.round((a.achieved / a.assessed) * 100) : null])) });
+        classAverage: (() => {
+          const sum = k => avg.reduce((t, a) => t + a[k], 0);
+          return { ...Object.fromEntries(avg.map(a => [a.kind, a.assessed ? Math.round((a.achieved / a.assessed) * 100) : null])),
+            all: sum('assessed') ? Math.round((sum('achieved') / sum('assessed')) * 100) : null }; // every list together
+        })() });
       return;
     }
     if (req.query.class !== undefined) {

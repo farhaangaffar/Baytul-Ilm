@@ -281,9 +281,12 @@ codebase (one codebase, not a fork).
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** — the four figures, "Class is
-  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete then with-help chips — the first 8, then "Show all N"), "All their marks", each list as a line with a soft coloured bar
-  (year by year) and the class average, opening to every item to mark; a name elsewhere → `PupilSheet` (the same, as a pop-up).
+  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — one big "N% achieved · X of Y assessed",
+  chips (N with help · N incomplete · N not assessed), then a line per list (Surahs / Du'aas / Practicals: "21 / 25", %, a bar of
+  what's been assessed with the class average as a dark mark — `.pd-mark`) opening to every item to mark (year by year), then
+  "Their average N%" on the left · "Class average N%" on the right (`classAverage.all`; none in the parent portal), "Class is
+  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete
+  then with-help chips — the first 8, then "Show all N"); a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
   per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /
   `surahNumber()` (`src/lib/studies.js` — "Faatihah" = Al-Fatihah, "Lahab" = Al-Masad), unknown columns added with a chosen year,

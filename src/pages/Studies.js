@@ -161,8 +161,8 @@ export default function Studies() {
   // This year's items × the class's pupils, for the figures.
   const classTally = tally(now.flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
   // The class's average for each list (their year and earlier), to compare a child with.
-  const classAverage = Object.fromEntries(STUDY_KINDS.map(([k]) => {
-    const t = tally(all.filter(i => i.kind === k).flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
+  const classAverage = Object.fromEntries([...STUDY_KINDS.map(([k]) => k), 'all'].map(k => {
+    const t = tally(all.filter(i => k === 'all' || i.kind === k).flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
     return [k, t.assessed ? t.pctAchieved : null];
   }));
 
@@ -330,9 +330,60 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
   // The surah the class is learning now: this year's first surah not fully covered.
   const learning = items.filter(it => it.kind === 'surah' && it.surah && (yearGroup === null || yearGroup === undefined || it.yearGroup === yearGroup))
     .find(it => (ayahs[it.id] || []).length < surahAyahs(it.surah));
+  const has = v => v !== null && v !== undefined;
   return (
     <div style={{ display: 'grid', gap: 8 }}>
-      <Figures t={t} />
+      {/* One headline number (achieved, of what's been assessed), the rest as counts — the owner's pick. */}
+      <div className="pd-head">
+        <div className="pd-big">{t.pctAchieved}%</div>
+        <div className="pd-sub">achieved · {t.achieved} of {t.assessed} assessed</div>
+      </div>
+      <div className="st-chips">
+        {t.withHelp > 0 && <span className="st-chip amber">{t.withHelp} with help</span>}
+        {t.incomplete > 0 && <span className="st-chip red">{t.incomplete} incomplete</span>}
+        {t.notAssessed > 0 && <span className="st-chip">{t.notAssessed} not assessed</span>}
+      </div>
+      {/* A line per list — tap to see and mark every item. The dark mark on the bar is the class average. */}
+      {STUDY_KINDS.map(([k, l]) => {
+        const list = items.filter(it => it.kind === k);
+        if (!list.length) return null;
+        const kt = tally(list, levelOf);
+        const isOpen = open === k;
+        return (
+          <div key={k} style={{ display: 'grid', gap: 6 }}>
+            <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : k)}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="pd-line">
+                  <span className="line-row-name">{l}</span>
+                  <span className="pd-count">{kt.achieved} / {kt.assessed}</span>
+                  <b className="pd-pct">{kt.assessed ? `${kt.pctAchieved}%` : '—'}</b>
+                </span>
+                <span className="pd-bar">
+                  {/* Of what's been assessed, like the % — so the bar, the % and the class mark line up. */}
+                  <Bar t={{ ...kt, total: kt.assessed }} />
+                  {has(classAverage[k]) && <i className="pd-mark" style={{ left: `${classAverage[k]}%` }} title={`Class average ${classAverage[k]}%`} />}
+                </span>
+              </span>
+              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {isOpen && list.map((it, i) => (
+              <React.Fragment key={it.id}>
+                {(i === 0 || list[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{yearLabel(it.yearGroup)}</div>}
+                <div className="st-pupil">
+                  <span className="st-name st-item">{it.name}</span>
+                  {readOnly ? <BoxRow fill columns="1fr" cells={[{ text: LEVEL_NAME[levelOf(it)], tone: LEVEL_TONE[levelOf(it)] }]} />
+                    : <LevelBoxes level={levelOf(it)} busy={busy} onPick={v => onPick(it, v)} />}
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        );
+      })}
+      {/* Their average on the left, the class's on the right (the mark on each bar). */}
+      <div className="pd-avgs">
+        <span>Their average <b>{t.assessed ? `${t.pctAchieved}%` : '—'}</b></span>
+        {has(classAverage.all) && <span><i className="pd-mark-key" />Class average <b>{classAverage.all}%</b></span>}
+      </div>
       {learning && (
         <div className="st-learning">
           <span>Class is learning <b>{learning.name}</b></span>
@@ -374,39 +425,6 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
           );
         })}
       </div>
-      <div className="st-year" style={{ marginTop: 6 }}>All their marks</div>
-      {STUDY_KINDS.map(([k, l]) => {
-        const list = items.filter(it => it.kind === k);
-        if (!list.length) return null;
-        const kt = tally(list, levelOf);
-        const isOpen = open === k;
-        return (
-          <div key={k} style={{ display: 'grid', gap: 6 }}>
-            <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : k)}>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="line-row-name" style={{ display: 'block' }}>{l} · {kt.achieved} of {kt.total} achieved</span>
-                <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-                  {kt.assessed ? `${kt.pctAchieved}% of those assessed` : 'None assessed yet'}
-                  {classAverage[k] !== null && classAverage[k] !== undefined ? ` · class average ${classAverage[k]}%` : ''}
-                  {kt.notAssessed ? ` · ${kt.notAssessed} not assessed` : ''}
-                </span>
-                <Bar t={kt} />
-              </span>
-              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {isOpen && list.map((it, i) => (
-              <React.Fragment key={it.id}>
-                {(i === 0 || list[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{yearLabel(it.yearGroup)}</div>}
-                <div className="st-pupil">
-                  <span className="st-name st-item">{it.name}</span>
-                  {readOnly ? <BoxRow fill columns="1fr" cells={[{ text: LEVEL_NAME[levelOf(it)], tone: LEVEL_TONE[levelOf(it)] }]} />
-                    : <LevelBoxes level={levelOf(it)} busy={busy} onPick={v => onPick(it, v)} />}
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
-        );
-      })}
       <div className="st-key">
         {[3, 2, 1, 0].map(l => <span key={l}><i style={{ background: LEVEL_COLOUR[l] }} />{LEVEL_NAME[l]}</span>)}
       </div>

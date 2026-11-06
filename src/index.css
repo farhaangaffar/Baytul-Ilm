@@ -1069,3 +1069,19 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 @media (min-width: 700px) {
   .sr-pupil { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 12px; }
 }
+
+/* A pupil's detail (Islamic Studies → Pupils, their pop-up, the parent portal): one headline number, chips for the rest,
+   a line per list with the class average as a dark mark on its bar, then their average · the class's. */
+.pd-head { display: grid; gap: 2px; }
+.pd-big { font-size: 34px; font-weight: 700; color: var(--green-text); line-height: 1; }
+.pd-sub { font-size: 12.5px; color: var(--text-muted); }
+.pd-line { display: flex; align-items: center; gap: 10px; }
+.pd-line .line-row-name { flex: 1; min-width: 0; }
+.pd-count { font-size: 12.5px; color: var(--text-muted); }
+.pd-pct { font-size: 13px; min-width: 38px; text-align: right; }
+.pd-bar { position: relative; display: block; margin-top: 8px; }
+.pd-bar .sd-bar { margin-top: 0; }
+.pd-mark { position: absolute; top: -3px; width: 2px; height: 14px; margin-left: -1px; background: var(--ink); border-radius: 2px; }
+.pd-avgs { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--text-muted); padding: 0 2px; }
+.pd-avgs b { color: var(--ink); }
+.pd-mark-key { display: inline-block; width: 2px; height: 11px; background: var(--ink); border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
