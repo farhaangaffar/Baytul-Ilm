@@ -373,16 +373,27 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
               </span>
               {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
-            {isOpen && list.map((it, i) => (
-              <React.Fragment key={it.id}>
-                {(i === 0 || list[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{yearLabel(it.yearGroup)}</div>}
-                <div className="st-pupil">
-                  <span className="st-name st-item">{it.name}</span>
-                  {readOnly ? <BoxRow fill columns="1fr" cells={[{ text: LEVEL_NAME[levelOf(it)], tone: LEVEL_TONE[levelOf(it)] }]} />
-                    : <LevelBoxes level={levelOf(it)} busy={busy} onPick={v => onPick(it, v)} />}
+            {/* Each year in its own white card, newest first; the pupil's own year marked "This year" (the owner's pick). */}
+            {isOpen && [...new Set(list.map(it => it.yearGroup))].sort((x, y) => (y ?? -1) - (x ?? -1)).map(yg => {
+              const mine = list.filter(it => it.yearGroup === yg);
+              const now = yg === yearGroup;
+              return (
+                <div key={String(yg)} className={`pd-year ${now ? 'now' : ''}`}>
+                  <div className="pd-year-head">
+                    <span>{yearLabel(yg)}</span>
+                    {now && <span className="pd-tag">This year</span>}
+                    <span className="pd-year-count">{mine.filter(it => levelOf(it) === 3).length} of {mine.length} achieved</span>
+                  </div>
+                  {mine.map(it => (
+                    <div key={it.id} className="st-pupil">
+                      <span className="st-name st-item">{it.name}</span>
+                      {readOnly ? <BoxRow fill columns="1fr" cells={[{ text: LEVEL_NAME[levelOf(it)], tone: LEVEL_TONE[levelOf(it)] }]} />
+                        : <LevelBoxes level={levelOf(it)} busy={busy} onPick={v => onPick(it, v)} />}
+                    </div>
+                  ))}
                 </div>
-              </React.Fragment>
-            ))}
+              );
+            })}
           </div>
         );
       })}
