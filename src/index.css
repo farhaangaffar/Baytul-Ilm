@@ -1059,3 +1059,13 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .ny-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
 .ny-from { font-size: 13.5px; }
 .ny-row select, .ny-row input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fafbfc; font-family: var(--font); font-size: 13px; color: var(--ink); }
+
+/* A school's Reports page: a pupil's line — name, "N achieved · +N since last time", bar — then the three effort boxes
+   (on phones underneath; side by side from 700px, like Islamic Studies' pupil rows). */
+.sr-pupil { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 0; border-top: 1px solid var(--border); }
+.sr-name { display: grid; gap: 2px; background: none; border: none; padding: 0; text-align: left; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer; min-width: 0; }
+.sr-name .sd-bar { margin-top: 4px; }
+.st-chip.green { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+@media (min-width: 700px) {
+  .sr-pupil { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 12px; }
+}

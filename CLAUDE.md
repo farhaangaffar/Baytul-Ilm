@@ -297,6 +297,17 @@ codebase (one codebase, not a fork).
   (with items or a class) opening to its surahs / du'aas / practicals — tap one → `ItemModal` (change "Learnt in" or remove),
   "Add a … to Year N". **Surahs show in teaching order** everywhere (`SURAH_ORDER` in studies.js): Al-Faatihah, then An-Naas
   back towards An-Naba (114 → 78), then ones that aren't a whole surah.
+  **Reports (stage 2)** (menu "Reports", head + teachers; `src/pages/SchoolReports.js`, `server/routes/school-reports.js`;
+  just stats — the owner's choice: no tests, no comments): Settings → **Reports are made** each term or once a year
+  (`settings.studies_reports`). The head **takes an assessment point** (`is_assessments`: Autumn / Spring / Summer, or End
+  of year; name unique per academic year) — a snapshot of every Active pupil's marks (`is_assessment_pupils.marks`, JSONB
+  itemId → level, with their class and year group then); "Update marks" re-saves until it's sent. Open a point → Class ▾ →
+  a line per pupil (achieved of this year's, "+N since last time" vs the previous point, the soft bar) with **effort** boxes
+  Excellent · Good · Needs to improve (their teacher or the head; tap again to clear). Tap a name → `ReportModal` (figures,
+  effort, since last time, earlier years, each list's chips) with a PDF (`src/lib/studiesReportPdf.js`, one A4 per pupil);
+  "Print the whole class". Report maths in `src/lib/studiesReport.js` (`reportOf`). **Send to parents** (head, every class
+  at once) → the portal's "Reports" lines (`forParent()` in school-reports.js via studies.js, with `allItems`). In Backup
+  (studies.js `reports`) and demo `TABLES`; the school demo has an Autumn point three weeks back, sent, every pupil rated.
   Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part

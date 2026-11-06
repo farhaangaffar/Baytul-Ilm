@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo — or a
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
-  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_year_moves', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
+  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees', 'homework', 'studies'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees', 'homework', 'studies', 'school-reports'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -1014,6 +1014,23 @@ async function createSchoolDemo(ipHash) {
       }
     }
     await bulk(c, 'is_progress', ['madrasah_id', 'student_id', 'item_id', 'level', 'updated_by', 'updated_at'], progress);
+    // An Autumn assessment taken three weeks ago and sent to parents (Reports page): a little behind where they are now
+    // (some of this year's achieved were still with help, or not assessed yet), and each pupil's effort rated.
+    const { yearOf } = require('./routes/school-reports');
+    const { rows: [autumn] } = await c.query(
+      `INSERT INTO is_assessments (madrasah_id, year, name, taken_at, taken_by, published_at) VALUES ($1, $2, 'Autumn', $3, 'Head', now() - interval '20 days') RETURNING id`,
+      [mid, yearOf(), plus(today, -21)]);
+    const itemYear = Object.fromEntries(items.map(it => [it.id, it.year_group]));
+    const was = {};
+    for (const [, sid, iid, level] of progress) {
+      const p = pupils.find(x => x.id === sid);
+      let l = level;
+      if (itemYear[iid] === p.year && r() < 0.35) l = level === 3 ? 2 : 0; // since then: more marked and achieved
+      if (l) (was[sid] = was[sid] || {})[iid] = l;
+    }
+    const efforts = () => { const x = r(); return x < 0.35 ? 'Excellent' : x < 0.85 ? 'Good' : 'Needs to improve'; };
+    await bulk(c, 'is_assessment_pupils', ['assessment_id', 'madrasah_id', 'student_id', 'class', 'year_group', 'marks', 'effort', 'effort_by'],
+      pupils.map(p => [autumn.id, mid, p.id, p.cls, p.year, JSON.stringify(was[p.id] || {}), efforts(), SCHOOL_CLASSES.find(x => x[0] === p.cls)[2]]));
     // Each class's weekly tracker: this year's first surahs fully covered, the next one part way, the rest not started.
     const { AYAHS } = require('./surahAyahs');
     const covered = [];
