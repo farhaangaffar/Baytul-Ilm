@@ -279,13 +279,21 @@ codebase (one codebase, not a fork).
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed in light blue with a Close button, **`PupilDetail`** — the four figures, "Class is
+  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** — the four figures, "Class is
   learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete then with-help chips — the first 8, then "Show all N"), "All their marks", each list as a line with a soft coloured bar
   (year by year) and the class average, opening to every item to mark; a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
   per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /
   `surahNumber()` (`src/lib/studies.js` — "Faatihah" = Al-Fatihah, "Lahab" = Al-Masad), unknown columns added with a chosen year,
-  non-year sheets ("2025") unticked; `?action=import`. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …").
+  non-year sheets ("2025") unticked; `?action=import`. **Moving pupils** (marks are per pupil, so they follow them): a school pupil's card has "Move to another class" and
+  "Has left the school" / "Back at the school" (left pupils are under the Left box/card, shown for a school even when empty);
+  **New school year** (`src/components/SchoolNewYear.js`, a line at the bottom of Pupils, head; `?action=new-year` /
+  `undo-year`, logged in `is_year_moves`): one pop-up, a row per class with pupils — into a new class (name guessed: 6A → 7A,
+  Reception → Year 1; made with the year group + 1), into any class, stay together a year up (year group + 1, its aayah tracker
+  cleared), place one by one (→ "Not in a class", grouped "Last year: 6A" via `sheet_class`, for classes mixed up), left the
+  school, or leave as it is; the pupils in each class are taken before anything moves, so 6A → 7A and 7A → 8A work together;
+  the last year (6, 11, 13 with no class above) defaults to left. Undo puts back pupils not changed since, year groups, and
+  deletes new classes still empty. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …").
   Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part

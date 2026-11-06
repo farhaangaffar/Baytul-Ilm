@@ -136,7 +136,7 @@ module.exports = requireAuth(async (req, res) => {
     // A Darul Uloom year's subjects and kitaabs go with it (routes/course.js).
     const { rows: [t] } = await query(`SELECT to_regclass('public.du_subjects') IS NOT NULL AS ok`);
     if (t.ok) await query('DELETE FROM du_subjects WHERE class_id = $1 AND madrasah_id = $2', [id, mid]);
-    for (const table of ['du_lessons', 'du_lesson_logs']) { // the Darul Uloom timetable, where it exists
+    for (const table of ['du_lessons', 'du_lesson_logs', 'is_class_ayahs']) { // a Darul Uloom's timetable / a school's aayah tracker, where they exist
       const { rows: [tt] } = await query(`SELECT to_regclass('public.${table}') IS NOT NULL AS ok`);
       if (tt.ok) await query(`DELETE FROM ${table} WHERE class_id = $1 AND madrasah_id = $2`, [id, mid]);
     }

@@ -172,7 +172,7 @@ export default function Studies() {
     const n = it.kind === 'surah' && it.surah ? surahAyahs(it.surah) : 0;
     const covered = data?.ayahs?.[it.id] || [];
     return (
-      <div key={it.id} style={{ display: 'grid', gap: 6 }}>
+      <div key={it.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
         <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setOpenItem(open ? null : it.id)}>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
@@ -201,11 +201,14 @@ export default function Studies() {
               </div>
             ))}
             {!pupils.length && <div className="text-muted" style={{ fontSize: 13 }}>No pupils in this class yet.</div>}
-            {isOwner && (
-              <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setModal({ kind: 'item', item: it })}>
-                <Pencil size={12} /> Edit {oneWord}
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: isOwner ? 'space-between' : 'center' }}>
+              {isOwner && (
+                <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'item', item: it })}>
+                  <Pencil size={12} /> Edit {oneWord}
+                </button>
+              )}
+              <button type="button" className="btn btn-sm" onClick={() => setOpenItem(null)}><ChevronUp size={13} />Close {it.name}</button>
+            </div>
           </div>
         )}
       </div>

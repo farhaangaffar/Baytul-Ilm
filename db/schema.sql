@@ -643,3 +643,11 @@ CREATE TABLE IF NOT EXISTS is_class_ayahs (
   PRIMARY KEY (class_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_is_class_ayahs_madrasah ON is_class_ayahs (madrasah_id);
+-- Each new-school-year move (Pupils → New school year), so it can be undone.
+CREATE TABLE IF NOT EXISTS is_year_moves (
+  id          BIGSERIAL PRIMARY KEY,
+  madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+  moved_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  undone      BOOLEAN NOT NULL DEFAULT false,
+  changes     JSONB NOT NULL
+);

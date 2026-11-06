@@ -720,6 +720,9 @@ export const getStudiesClass = cls => apiFetch(`/api/studies?class=${encodeURICo
 export const getStudiesSummary = () => apiFetch('/api/studies?action=summary');
 export const saveClassAyahs = (className, itemId, ayahs) => apiFetch('/api/studies?action=ayahs', { method: 'POST', body: JSON.stringify({ className, itemId, ayahs }) });
 export const importStudiesMarks = marks => apiFetch('/api/studies?action=import', { method: 'POST', body: JSON.stringify({ marks }) });
+export const getSchoolYearMove = () => apiFetch('/api/studies?action=new-year');
+export const moveSchoolYear = moves => apiFetch('/api/studies?action=new-year', { method: 'POST', body: JSON.stringify({ moves }) });
+export const undoSchoolYear = () => apiFetch('/api/studies?action=undo-year', { method: 'POST', body: '{}' });
 export const getStudiesItems = () => apiFetch('/api/studies');
 export const getStudiesPupil = id => apiFetch(`/api/studies?studentId=${encodeURIComponent(id)}`);
 export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies?action=mark', { method: 'POST', body: JSON.stringify({ itemId, studentIds, level }) });

@@ -1054,3 +1054,8 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .st-key { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
 .st-key span { display: inline-flex; align-items: center; gap: 5px; }
 .st-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* A school's New school year pop-up: a row per class — where it is now, then where its pupils go. */
+.ny-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
+.ny-from { font-size: 13.5px; }
+.ny-row select, .ny-row input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fafbfc; font-family: var(--font); font-size: 13px; color: var(--ink); }

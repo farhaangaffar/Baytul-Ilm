@@ -16,6 +16,7 @@ import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
 import { DetailInputs, DetailLines, HealthNote, HealthDot, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
 import { useAuth } from '../lib/AuthContext';
 import { PupilSheet, yearLabel } from './Studies';
+import SchoolYearLine from '../components/SchoolNewYear';
 import BoarderRecord from '../components/BoarderRecord';
 
 const WAITING_LIST = 'Waiting list';
@@ -143,6 +144,21 @@ export default function Students() {
     setDownloadingReport(null);
   }
 
+  // A school pupil: into another class, or left / back (their Islamic Studies marks stay with them either way).
+  async function moveSelected(className) {
+    const s = selected;
+    try { await updateStudent(s.id, { class: className }); setSelected({ ...s, class: className }); await silentRefresh(); showToast(`${s.forename} moved to ${className}`); }
+    catch (err) { showToast(err.message || 'Could not move them'); }
+  }
+  async function setLeft(s, left) {
+    if (left && !window.confirm(`Mark ${s.forename} ${s.surname} as left the school? Their marks are kept, and you can put them back.`)) return;
+    try {
+      await updateStudent(s.id, left ? { status: 'Inactive', leaveDate: new Date().toISOString().split('T')[0] } : { status: 'Active', leaveDate: null });
+      closeSelected(); await silentRefresh();
+      showToast(left ? `${s.forename} is now under Left` : `${s.forename} is back in ${s.class}`);
+    } catch (err) { showToast(err.message || 'Could not save'); }
+  }
+
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
   function startEdit(s) { setEditForm({...s}); setEditing(s.id); closeSelected(); }
 
@@ -264,7 +280,7 @@ export default function Students() {
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Pupils</div></div>
         <div className="stat-card-v2"><div className="n">{classNames.length}</div><div className="l">Classes</div></div>
         <div className="stat-card-v2"><div className="n">{noClassStudents.length}</div><div className="l">Not in a class</div></div>
-        <div className="stat-card-v2"><div className="n">{leftStudents.length}</div><div className="l">Left</div></div>
+        <div className="stat-card-v2" style={{cursor:'pointer'}} onClick={()=>{ setLeftExpanded(true); setTimeout(()=>document.getElementById('left-card')?.scrollIntoView({behavior:'smooth'}),50); }}><div className="n">{leftStudents.length}</div><div className="l">Left</div></div>
         </> : <>
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active students</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
@@ -391,17 +407,27 @@ export default function Students() {
           </div>
         )}
 
-        {leftStudents.length>0&&(
-          <div className="card" style={{marginTop:20}}>
+        {isSchool && <SchoolYearLine onDone={silentRefresh}/>}
+        {(leftStudents.length>0 || isSchool)&&(
+          <div className="card" id="left-card" style={{marginTop:20}}>
             <div onClick={()=>setLeftExpanded(e=>!e)}
               style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontWeight:700,fontSize:13}}>
               {leftExpanded?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
-              Students who have left ({leftStudents.length})
+              {word} who have left ({leftStudents.length})
             </div>
+            {leftExpanded&&isSchool&&!leftStudents.length&&<div className="text-muted" style={{fontSize:13,marginTop:10}}>No one yet. Open a pupil and tap "Has left the school".</div>}
             {leftExpanded&&(
               <div className="grid-2" style={{marginTop:16}}>
                 {leftStudents.map(s=>{
                   const t = leftTotals[s.id] || {present:0,late:0,absent:0,paid:0,owed:0,recordsCount:0};
+                  if (isSchool) return (
+                    <button key={s.id} type="button" className="line-row" onClick={()=>setSelected(s)}>
+                      <span style={{flex:1,minWidth:0}}>
+                        <span className="line-row-name" style={{display:'block'}}>{s.forename} {s.surname}</span>
+                        <span className="line-row-sub" style={{display:'block'}}>{s.class}{s.leaveDate?` · Left ${formatDateGB(s.leaveDate)}`:''}</span>
+                      </span>
+                    </button>
+                  );
                   return (
                     <div key={s.id} className="card" style={{cursor:'pointer'}} onClick={()=>setSelected(s)}>
                       <div style={{marginBottom:10}}>
@@ -493,6 +519,23 @@ export default function Students() {
                   <button type="button" className="line-row" onClick={()=>setStudiesPupil(selected.id)}>
                     <span className="line-row-name">Surahs, du'aas &amp; practicals</span><span className="line-row-sub">Open</span>
                   </button>
+                  {/* Moving class or leaving: their marks always stay with them. */}
+                  <div className="form-section-title" style={{margin:'14px 0 10px'}}>Class</div>
+                  {selected.status==='Inactive' ? (
+                    <button type="button" className="line-row" onClick={()=>setLeft(selected,false)}>
+                      <span className="line-row-name">Back at the school</span><span className="line-row-sub">Put back in {selected.class}</span>
+                    </button>
+                  ) : <div style={{display:'grid',gap:6}}>
+                    <div className="waiting-move">
+                      <select value="" onChange={e=>e.target.value&&moveSelected(e.target.value)} aria-label="Move to another class">
+                        <option value="">Move to another class…</option>
+                        {classNames.filter(c=>c!==selected.class).map(c=><option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <button type="button" className="line-row" onClick={()=>setLeft(selected,true)}>
+                      <span className="line-row-name">Has left the school</span><span className="line-row-sub">Kept under "Left"</span>
+                    </button>
+                  </div>}
                   </> : <>
                   <div className="form-section-title" style={{marginBottom:10}}>Attendance{selected.status==='Inactive'?' (all time)':''}</div>
                   {(()=>{
@@ -508,7 +551,7 @@ export default function Students() {
                   </>}
                 </div>
               </div>
-              {selected.status==='Inactive'&&(
+              {selected.status==='Inactive'&&!isSchool&&(
                 <>
                   <div className="form-section-title" style={{marginBottom:10}}>Previous reports</div>
                   <div className="mb-4">
@@ -597,8 +640,8 @@ export default function Students() {
                     setEditForm({...editForm,status,leaveDate});
                   }}>
                     <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Waiting list">Waiting list</option>
+                    <option value="Inactive">{isSchool ? 'Left the school' : 'Inactive'}</option>
+                    {!isSchool && <option value="Waiting list">Waiting list</option>}
                   </select>
                 </div>
                 {editForm.status==='Inactive'&&(
@@ -607,7 +650,7 @@ export default function Students() {
               </div>
               <ParentInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))}/>
               <DetailInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))} isDarulUloom={isDarulUloom} only={['family','emergency','health','home','du']}/>
-              <div className="form-section-title" style={{marginBottom:12}}>Class & fees</div>
+              <div className="form-section-title" style={{marginBottom:12}}>{isSchool ? 'Class' : 'Class & fees'}</div>
               <div className="form-grid form-grid-2 mb-5">
                 <div className="form-group"><label>Class</label>
                   <select value={editForm.class} onChange={e=>setEditForm({...editForm,class:e.target.value})}>
@@ -682,7 +725,7 @@ function NotInClass({ students, classNames, onOpen, onMove }) {
   const [busy, setBusy] = useState(false);
   const groups = [];
   students.forEach(s => {
-    const label = s.class ? `Was in ${s.class}` : s.sheetClass ? `On the spreadsheet: ${s.sheetClass}` : 'No class given';
+    const label = s.class ? `Was in ${s.class}` : s.sheetClass ? (s.sheetClass.startsWith('Last year: ') ? s.sheetClass : `On the spreadsheet: ${s.sheetClass}`) : 'No class given';
     let g = groups.find(x => x.label === label);
     if (!g) groups.push(g = { label, list: [] });
     g.list.push(s);

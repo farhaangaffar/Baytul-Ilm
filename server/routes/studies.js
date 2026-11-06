@@ -21,6 +21,13 @@ const { STARTER } = require('../studiesStarter');
 // POST ?action=item           { id?, kind, name, detail, yearGroup, surah? }   (head) → { id }
 // DELETE ?action=item&id=     (head) — with its marks
 // POST ?action=starter        (head) — adds starter items not already there (matched by kind + name)
+// GET ?action=new-year       (head) → { classes: [{ id, name, yearGroup, pupils }], lastMove: { id, movedOn, count } | null }
+// POST ?action=new-year       (head) { moves: [{ from: classId, to }] } — the new school year: each class's pupils go
+//                               to another class ({ classId }), a new one ({ name }), stay with the class a year up
+//                               ({ up: true }), into "Not in a class" to place one by one ({ sort: true }), leave the
+//                               school ({ left: true }) or stay as they are ({ stay: true }). Marks stay with each
+//                               pupil; logged in is_year_moves so it can be undone.
+// POST ?action=undo-year      (head) — puts the last move back (pupils not changed since; new classes left empty go)
 // GET ?action=backup / POST ?action=restore (head) — this school's lists and marks in Settings → Backup (classes'
 //                               year groups come back with the classes themselves)
 
@@ -64,6 +71,16 @@ async function ensure() {
     PRIMARY KEY (class_id, item_id)
   )`);
   await query('CREATE INDEX IF NOT EXISTS idx_is_class_ayahs_madrasah ON is_class_ayahs (madrasah_id)');
+  // Each new-school-year move, so it can be undone: changes = { students: [{ id, fromClass, toClass, fromStatus,
+  // toStatus, fromLeave, toLeave, fromSheet, toSheet }], created: [classId], bumped: [{ id, from, to }], classes: the classes
+// as they were (so undo brings back any deleted since) }.
+  await query(`CREATE TABLE IF NOT EXISTS is_year_moves (
+    id          BIGSERIAL PRIMARY KEY,
+    madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+    moved_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    undone      BOOLEAN NOT NULL DEFAULT false,
+    changes     JSONB NOT NULL
+  )`);
   ready = true;
 }
 
@@ -169,6 +186,127 @@ const handler = requireAuth(async (req, res) => {
     });
     res.status(200).json({ ok: true });
     return;
+  }
+
+  if (action === 'new-year' || action === 'undo-year') {
+    if (!isOwner(req)) { res.status(403).json({ error: 'Only the head can move classes up.' }); return; }
+    if (req.method === 'GET') {
+      const { rows: classes } = await query(
+        `SELECT c.id, c.name, c.year_group AS "yearGroup",
+           (SELECT count(*)::int FROM students s WHERE s.madrasah_id = c.madrasah_id AND s.class = c.name AND s.status = 'Active') AS pupils
+         FROM classes c WHERE c.madrasah_id = $1 ORDER BY c.year_group NULLS LAST, c.name`, [mid]);
+      const { rows: [move] } = await query(
+        `SELECT id::text, to_char(moved_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD') AS "movedOn", jsonb_array_length(changes->'students') AS count
+         FROM is_year_moves WHERE madrasah_id = $1 AND NOT undone ORDER BY id DESC LIMIT 1`, [mid]);
+      res.status(200).json({ classes, lastMove: move || null });
+      return;
+    }
+    if (req.method === 'POST' && action === 'new-year') {
+      const moves = Array.isArray((req.body || {}).moves) ? req.body.moves : [];
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+      const result = await transaction(async c => {
+        const { rows: classes } = await c.query('SELECT id, name, year_group, teacher_id FROM classes WHERE madrasah_id = $1 FOR UPDATE', [mid]);
+        const byId = new Map(classes.map(k => [k.id, k]));
+        const byName = new Map(classes.map(k => [k.name.toLowerCase(), k]));
+        // Who is in each class now — taken before anything moves, so 6A → 7A and 7A → 8A both work.
+        const { rows: pupils } = await c.query(
+          `SELECT id, class, status, to_char(leave_date, 'YYYY-MM-DD') AS leave, sheet_class FROM students
+           WHERE madrasah_id = $1 AND status = 'Active'`, [mid]);
+        const created = [], bumped = [], changes = [];
+        const seen = new Set();
+        for (const m of moves) {
+          const from = byId.get(String(m?.from || ''));
+          const to = m?.to || {};
+          if (!from || seen.has(from.id) || to.stay) continue;
+          seen.add(from.id);
+          const up = from.year_group === null ? null : Math.min(13, from.year_group + 1);
+          let target = null; // the class name they go to
+          if (to.classId) target = byId.get(String(to.classId))?.name || null;
+          else if (to.name) {
+            const name = str(to.name, 60);
+            if (!name) continue;
+            let k = byName.get(name.toLowerCase());
+            if (!k) {
+              k = { id: 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, year_group: up };
+              await c.query('INSERT INTO classes (id, madrasah_id, name, year_group) VALUES ($1, $2, $3, $4)', [k.id, mid, k.name, k.year_group]);
+              byId.set(k.id, k); byName.set(name.toLowerCase(), k); created.push(k.id);
+            }
+            target = k.name;
+          } else if (to.up) {
+            if (up !== null && up !== from.year_group) {
+              await c.query('UPDATE classes SET year_group = $1 WHERE id = $2 AND madrasah_id = $3', [up, from.id, mid]);
+              await c.query('DELETE FROM is_class_ayahs WHERE madrasah_id = $1 AND class_id = $2', [mid, from.id]); // a new year's surahs
+              bumped.push({ id: from.id, from: from.year_group, to: up });
+            }
+            continue; // the pupils stay in the class
+          }
+          for (const p of pupils.filter(x => x.class === from.name)) {
+            const base = { id: p.id, fromClass: p.class, fromStatus: p.status, fromLeave: p.leave, fromSheet: p.sheet_class };
+            if (to.left) changes.push({ ...base, toClass: p.class, toStatus: 'Inactive', toLeave: today, toSheet: p.sheet_class });
+            else if (to.sort) changes.push({ ...base, toClass: '', toStatus: 'Active', toLeave: p.leave, toSheet: `Last year: ${from.name}`.slice(0, 60) });
+            else if (target && target !== p.class) changes.push({ ...base, toClass: target, toStatus: 'Active', toLeave: p.leave, toSheet: p.sheet_class });
+          }
+        }
+        if (!changes.length && !bumped.length) return { error: 'Nothing to move.' };
+        for (const ch of changes) {
+          await c.query('UPDATE students SET class = $1, status = $2, leave_date = $3, sheet_class = $4 WHERE id = $5 AND madrasah_id = $6',
+            [ch.toClass, ch.toStatus, ch.toLeave, ch.toSheet, ch.id, mid]);
+        }
+        await c.query('INSERT INTO is_year_moves (madrasah_id, changes) VALUES ($1, $2)', [mid, JSON.stringify({ students: changes, created, bumped, classes })]);
+        // Classes nobody is in any more, to mention (the head deletes them on Classes & Teachers if they're not needed).
+        const { rows: empty } = await c.query(
+          `SELECT c.id, c.name FROM classes c WHERE c.madrasah_id = $1
+             AND NOT EXISTS (SELECT 1 FROM students s WHERE s.madrasah_id = c.madrasah_id AND s.class = c.name AND s.status = 'Active')
+           ORDER BY c.year_group NULLS LAST, c.name`, [mid]);
+        return {
+          moved: changes.filter(ch => ch.toStatus === 'Active' && ch.toClass).length,
+          toSort: changes.filter(ch => ch.toStatus === 'Active' && !ch.toClass).length,
+          left: changes.filter(ch => ch.toStatus === 'Inactive').length,
+          newClasses: created.map(id => byId.get(id).name),
+          emptyClasses: empty,
+        };
+      });
+      if (result.error) { res.status(400).json({ error: result.error }); return; }
+      res.status(200).json({ ok: true, ...result });
+      return;
+    }
+    if (req.method === 'POST' && action === 'undo-year') {
+      const result = await transaction(async c => {
+        const { rows: [move] } = await c.query(
+          'SELECT id, changes FROM is_year_moves WHERE madrasah_id = $1 AND NOT undone ORDER BY id DESC LIMIT 1 FOR UPDATE', [mid]);
+        if (!move) return { error: 'There is no move to undo.' };
+        const { students = [], created = [], bumped = [], classes = [] } = move.changes;
+        // Classes deleted since (e.g. the empty ones after the move) come back first, as they were.
+        for (const k of classes) {
+          await c.query(
+            `INSERT INTO classes (id, madrasah_id, name, year_group, teacher_id)
+             SELECT $1, $2, $3, $4, (SELECT id FROM teachers WHERE id = $5 AND madrasah_id = $2)
+             WHERE NOT EXISTS (SELECT 1 FROM classes WHERE madrasah_id = $2 AND (id = $1 OR name = $3))`,
+            [k.id, mid, k.name, k.year_group, k.teacher_id]);
+        }
+        let n = 0;
+        for (const ch of students) {
+          const { rowCount } = await c.query(
+            `UPDATE students SET class = $1, status = $2, leave_date = $3, sheet_class = $4
+             WHERE id = $5 AND madrasah_id = $6 AND class = $7 AND status = $8 AND leave_date IS NOT DISTINCT FROM $9::date`,
+            [ch.fromClass, ch.fromStatus, ch.fromLeave, ch.fromSheet || '', ch.id, mid, ch.toClass, ch.toStatus, ch.toLeave]);
+          n += rowCount;
+        }
+        for (const b of bumped) await c.query('UPDATE classes SET year_group = $1 WHERE id = $2 AND madrasah_id = $3 AND year_group = $4', [b.from, b.id, mid, b.to]);
+        // New classes go again if no one is in them now.
+        for (const id of created) {
+          await c.query(
+            `DELETE FROM classes c WHERE c.id = $1 AND c.madrasah_id = $2
+               AND NOT EXISTS (SELECT 1 FROM students s WHERE s.madrasah_id = c.madrasah_id AND s.class = c.name)
+               AND NOT EXISTS (SELECT 1 FROM users u WHERE u.madrasah_id = c.madrasah_id AND u.class_id = c.id)`, [id, mid]);
+        }
+        await c.query('UPDATE is_year_moves SET undone = true WHERE id = $1 AND madrasah_id = $2', [move.id, mid]);
+        return { restored: n, skipped: students.length - n };
+      });
+      if (result.error) { res.status(400).json({ error: result.error }); return; }
+      res.status(200).json({ ok: true, ...result });
+      return;
+    }
   }
 
   if (req.method === 'GET') {
