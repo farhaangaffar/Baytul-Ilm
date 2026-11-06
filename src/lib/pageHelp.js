@@ -248,7 +248,7 @@ const SCHOOL_HEAD = {
     'Import adds a whole spreadsheet of pupils — an export from your school\'s pupil database works. They land in "Not in a class": tick them and move them into a class.',
     'Tap a pupil for their details; "Surahs, du\'aas & practicals" shows everything of theirs.',
     'A pupil who changes class: open them and choose "Move to another class". Leaving: "Has left the school" — they go under Left (tap the Left box), marks kept.',
-    'At the end of the year, "New school year" (bottom of the page) moves every class at once: up into the next class, staying together, placed one by one, or leaving. Their marks go with them, and it can be undone.',
+    'End of the year: first add next year\'s classes on Classes & Teachers, then "New school year" (bottom of the page) — choose which class each class goes into, or "Left the school". Marks go with every pupil, and it can be undone.',
     'Switch the parent portal on in Settings, then set up each family\'s login from a pupil\'s card.',
   ] },
   '/studies': { title: 'Islamic Studies', steps: [

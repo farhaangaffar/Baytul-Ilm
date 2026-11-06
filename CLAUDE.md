@@ -288,12 +288,12 @@ codebase (one codebase, not a fork).
   non-year sheets ("2025") unticked; `?action=import`. **Moving pupils** (marks are per pupil, so they follow them): a school pupil's card has "Move to another class" and
   "Has left the school" / "Back at the school" (left pupils are under the Left box/card, shown for a school even when empty);
   **New school year** (`src/components/SchoolNewYear.js`, a line at the bottom of Pupils, head; `?action=new-year` /
-  `undo-year`, logged in `is_year_moves`): one pop-up, a row per class with pupils — into a new class (name guessed: 6A → 7A,
-  Reception → Year 1; made with the year group + 1), into any class, stay together a year up (year group + 1, its aayah tracker
-  cleared), place one by one (→ "Not in a class", grouped "Last year: 6A" via `sheet_class`, for classes mixed up), left the
-  school, or leave as it is; the pupils in each class are taken before anything moves, so 6A → 7A and 7A → 8A work together;
-  the last year (6, 11, 13 with no class above) defaults to left. Undo puts back pupils not changed since, year groups, and
-  deletes new classes still empty. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …").
+  `undo-year`, logged in `is_year_moves`) — kept simple (the owner found choices confusing): the school makes next year's
+  classes first on Classes & Teachers, then one pop-up has a row per class with pupils and one box: "Into <class>",
+  "Left the school" or "Not moving" (guessed: the class a year up by name — 6A → 7A, Reception → Year 1 — if it exists;
+  the top year → left). Pupils going elsewhere are moved on their own card afterwards. The pupils in each class are taken
+  before anything moves, so 6A → 7A and 7A → 8A work together. Undo puts back pupils not changed since (and any class
+  deleted since). The server also accepts new-class / stay-together / one-by-one moves, unused by the pop-up for now. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …").
   Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
