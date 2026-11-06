@@ -17,7 +17,7 @@ import { reportOf, EFFORTS } from '../lib/studiesReport';
 import { buildStudiesReports } from '../lib/studiesReportPdf';
 import { downloadPdfBytes } from '../lib/reportPdf';
 import { LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, yearLabel } from '../lib/studies';
-import { ChevronDown, ChevronUp, Plus, X, FileDown, Send, RefreshCw, Trash2, Printer } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X, FileDown, Trash2, Printer } from 'lucide-react';
 
 const recall = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
@@ -203,24 +203,18 @@ function Assessment({ a, classes, isOwner, onChanged, onDeleted }) {
           </button>
         )}
         {isOwner && <>
-          <button type="button" className="line-row" disabled={!!busy}
-            onClick={() => act('send', () => publishAssessment(a.id, !a.publishedAt))}>
-            <Send size={15} />
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span className="line-row-name" style={{ display: 'block' }}>{a.publishedAt ? 'Take back from parents' : 'Send to parents'}</span>
-              <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>{a.publishedAt ? `Sent ${formatDateGB(String(a.publishedAt).slice(0, 10))} — every class` : 'Every class at once — shows in the parent portal with its PDF'}</span>
-            </span>
-          </button>
-          {!a.publishedAt && (
-            <button type="button" className="line-row" disabled={!!busy}
-              onClick={() => window.confirm('Save everyone\'s marks again as they are now? Effort ratings stay.') && act('retake', () => retakeAssessment(a.id))}>
-              <RefreshCw size={15} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="line-row-name" style={{ display: 'block' }}>Update marks</span>
-                <span className="line-row-sub" style={{ display: 'block' }}>Marked more since {formatDateGB(a.takenAt)}? Save them into this assessment</span>
-              </span>
-            </button>
-          )}
+          {/* Two boxes side by side: when the marks were saved (tap to save them again, until sent) · sent to parents. */}
+          <BoxRow columns="repeat(2, minmax(0, 1fr))" cells={[
+            a.publishedAt
+              ? { text: `Updated ${formatDateGB(a.takenAt)}`, sub: 'Marks saved', wrap: 'words' }
+              : { text: 'Update marks', sub: `Updated ${formatDateGB(a.takenAt)}`, wrap: 'words',
+                  onClick: busy ? undefined : () => window.confirm('Save everyone\'s marks again as they are now? Effort ratings stay.') && act('retake', () => retakeAssessment(a.id)) },
+            a.publishedAt
+              ? { text: 'Sent to parents', sub: 'Tap to take back', tone: 'green', wrap: 'words',
+                  onClick: busy ? undefined : () => window.confirm('Take these reports back from the parent portal?') && act('send', () => publishAssessment(a.id, false)) }
+              : { text: 'Send to parents', sub: 'Every class', wrap: 'words',
+                  onClick: busy ? undefined : () => window.confirm('Send every class\'s reports to the parent portal?') && act('send', () => publishAssessment(a.id, true)) },
+          ]} />
           <button type="button" className="btn btn-sm" style={{ justifySelf: 'start', color: 'var(--red)' }} disabled={!!busy}
             onClick={() => window.confirm(`Delete ${a.name} ${yearName(a.year)} and its reports? Pupils' marks on Islamic Studies stay as they are.`) && act('delete', async () => { await deleteAssessment(a.id); onDeleted(); })}>
             <Trash2 size={12} /> Delete this assessment
