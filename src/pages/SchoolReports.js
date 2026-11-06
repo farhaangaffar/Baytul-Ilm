@@ -63,24 +63,24 @@ export default function SchoolReports() {
     <Layout title="Reports" subtitle="Islamic Studies">
       <div className="card" style={{ display: 'grid', gap: 6 }}>
         <div className="card-title" style={{ marginBottom: 4 }}>Assessments</div>
-        <div className="text-muted" style={{ fontSize: 13, marginBottom: 4 }}>
-          {list.period === 'year' ? 'Reports once a year' : 'Reports each term'} · each assessment saves where every pupil is on their surahs, du'aas and practicals.
-        </div>
-        {list.assessments.map(a => {
+        {list.assessments.map((a, i) => {
           const open = openId === a.id;
           return (
-            <div key={a.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
+            <React.Fragment key={a.id}>
+            {(i === 0 || list.assessments[i - 1].year !== a.year) && <div className="st-year">{yearName(a.year)}</div>}
+            <div className={`st-pupil-wrap ${open ? 'open' : ''}`}>
               <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => pick(a.id)}>
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span className="line-row-name" style={{ display: 'block' }}>{a.name} · {yearName(a.year)}</span>
-                  <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-                    {formatDateGB(a.takenAt)} · effort {a.rated} of {a.pupils} · {a.publishedAt ? <span style={{ color: 'var(--green-text)', fontWeight: 600 }}>Sent to parents</span> : 'Not sent yet'}
+                  <span className="line-row-name" style={{ display: 'block' }}>{a.name}</span>
+                  <span className="line-row-sub" style={{ display: 'block' }}>
+                    {a.publishedAt ? <span style={{ color: 'var(--green-text)', fontWeight: 600 }}>Sent</span> : 'Not sent'}
                   </span>
                 </span>
                 {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
               {open && <Assessment a={a} classes={classes} isOwner={isOwner} onChanged={load} onDeleted={() => { pick(a.id); load(); }} />}
             </div>
+            </React.Fragment>
           );
         })}
         {!list.assessments.length && <div className="text-muted" style={{ fontSize: 13 }}>No assessments yet.{isOwner ? '' : ' The head takes them.'}</div>}
