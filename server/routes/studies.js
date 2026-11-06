@@ -106,10 +106,14 @@ async function addStarter(c, mid) {
   return added;
 }
 
+// Surahs in the order they're usually taught: Al-Faatihah first, then An-Naas back towards An-Naba (114 → 78 …),
+// then any that aren't a whole surah (e.g. Ayat al-Kursi). Du'aas and practicals keep their own order.
+const SURAH_ORDER = `CASE WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END`;
+
 async function items(mid, upToYear = null) {
   const { rows } = await query(
     `SELECT ${ITEM_COLS} FROM is_items WHERE madrasah_id = $1 ${upToYear === null ? '' : 'AND year_group <= $2'}
-     ORDER BY year_group, sort, id`, upToYear === null ? [mid] : [mid, upToYear]);
+     ORDER BY year_group, ${SURAH_ORDER}, sort, id`, upToYear === null ? [mid] : [mid, upToYear]);
   return rows;
 }
 

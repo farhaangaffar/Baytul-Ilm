@@ -234,6 +234,7 @@ const STUDIES_STEPS = [
   'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class. Tap a lit box again to take the mark off (Not assessed yet).',
   'A surah also shows the class\'s weekly tracker: tap the last aayah the class has reached and every aayah before it is marked too (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
+  'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',
   'Pupils: a line for each child — tap their name for everything of theirs: their figures, what to work on (tap Surahs, Du\'aas or Practicals to see them), each list as a coloured bar with the class average, and the surah the class is on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
 ];

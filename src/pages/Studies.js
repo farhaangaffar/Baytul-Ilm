@@ -12,13 +12,13 @@ import ClassBar from '../components/ClassBar';
 import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes } from '../components/StudentDetails';
 import StudiesImport from '../components/StudiesImport';
-import { getClasses, getStudiesClass, getStudiesPupil, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs } from '../lib/store';
+import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { markStudiesVisited } from '../components/GettingStarted';
 import { useBackToClose } from '../lib/useBackToClose';
 import { yearLabel, STUDY_KINDS, LEVELS, LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, tally, surahNumber, surahAyahs } from '../lib/studies';
 import { SURAHS } from '../lib/quran';
-import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet, ListTree } from 'lucide-react';
 
 export { yearLabel, STUDY_KINDS };
 const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
@@ -288,7 +288,12 @@ export default function Studies() {
             </div>
             )}
             {isOwner && (
-              <button type="button" className="line-row add" style={{ marginTop: 10 }} onClick={() => setModal({ kind: 'import' })}>
+              <button type="button" className="line-row add" style={{ marginTop: 10 }} onClick={() => setModal({ kind: 'plan' })}>
+                <ListTree size={13} /> Year by year — what each year learns
+              </button>
+            )}
+            {isOwner && (
+              <button type="button" className="line-row add" style={{ marginTop: 6 }} onClick={() => setModal({ kind: 'import' })}>
                 <FileSpreadsheet size={13} /> Import marks from your spreadsheets
               </button>
             )}
@@ -301,6 +306,9 @@ export default function Studies() {
       )}
       {modal?.kind === 'pupil' && (
         <PupilSheet id={modal.id} onClose={() => setModal(null)} onChanged={load} />
+      )}
+      {modal?.kind === 'plan' && (
+        <YearPlan onClose={() => setModal(null)} onChanged={load} classYears={classes.map(c => c.yearGroup)} />
       )}
       {modal?.kind === 'import' && (
         <StudiesImport onClose={() => setModal(null)} onDone={load} />
@@ -407,6 +415,78 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
 }
 
 const YEARS = Array.from({ length: 14 }, (_, i) => i);
+
+// The head's whole plan at a glance: a line per year group (Reception up) opening to that year's surahs, du'aas and
+// practicals; tap one to change its year or remove it, or add one to that year (ItemModal over this pop-up).
+function YearPlan({ onClose, onChanged, classYears = [] }) {
+  const close = useBackToClose(true, onClose);
+  const [items, setItems] = useState(null);
+  const [open, setOpen] = useState(null);
+  const [edit, setEdit] = useState(null);
+  const [error, setError] = useState('');
+  const load = useCallback(() => getStudiesItems().then(d => setItems(d.items)).catch(e => setError(e.message || 'Could not load')), []);
+  useEffect(() => { load(); }, [load]);
+  // Every year with something to learn, and every year a class is in (even if its list is empty so far).
+  const years = [...new Set([...(items || []).map(i => i.yearGroup), ...classYears.filter(y => y !== null && y !== undefined)])]
+    .filter(y => y !== null && y !== undefined).sort((a, b) => a - b);
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 600 }}>
+        <div className="modal-header">
+          <div className="modal-title">Year by year</div>
+          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+        </div>
+        <div className="modal-body" style={{ display: 'grid', gap: 8 }}>
+          <div className="text-muted" style={{ fontSize: 13 }}>What each year group learns. Tap one to move it to another year or remove it.</div>
+          {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
+          {!items && !error && <LoadingState />}
+          {items && years.map(y => {
+            const mine = items.filter(i => i.yearGroup === y);
+            const isOpen = open === y;
+            const count = k => mine.filter(i => i.kind === k).length;
+            return (
+              <div key={y} className={`st-pupil-wrap ${isOpen ? 'open' : ''}`}>
+                <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? null : y)}>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="line-row-name" style={{ display: 'block' }}>{yearLabel(y)}</span>
+                    <span className="line-row-sub" style={{ display: 'block' }}>{STUDY_KINDS.map(([k, l, one]) => `${count(k)} ${count(k) === 1 ? one : l.toLowerCase()}`).join(' · ')}</span>
+                  </span>
+                  {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                {isOpen && (
+                  <div className="st-open">
+                    {STUDY_KINDS.map(([k, l, one]) => (
+                      <div key={k} style={{ display: 'grid', gap: 6 }}>
+                        <div className="st-year">{l}</div>
+                        {mine.filter(i => i.kind === k).map(it => (
+                          <button key={it.id} type="button" className="line-row" onClick={() => setEdit(it)}>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
+                              {it.detail && <span className="line-row-sub" style={{ display: 'block' }}>{it.detail}</span>}
+                            </span>
+                            <Pencil size={13} />
+                          </button>
+                        ))}
+                        <button type="button" className="line-row add" onClick={() => setEdit({ kind: k, yearGroup: y })}>
+                          <Plus size={13} /> Add a {one} to {yearLabel(y)}
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={() => setOpen(null)}><ChevronUp size={13} />Close {yearLabel(y)}</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {items && (
+            <div className="field-hint" style={{ fontSize: 12.5 }}>Another year group: add an item and choose its year in "Learnt in".</div>
+          )}
+        </div>
+      </div>
+      {edit && <ItemModal item={edit} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
+    </div>
+  );
+}
 
 // The head adds or changes a surah, du'aa or practical — its name, a short detail, the year group it's learnt in, and for
 // a whole surah which one it is (so the class's tracker shows its aayahs).

@@ -293,7 +293,10 @@ codebase (one codebase, not a fork).
   "Left the school" or "Not moving" (guessed: the class a year up by name — 6A → 7A, Reception → Year 1 — if it exists;
   the top year → left). Pupils going elsewhere are moved on their own card afterwards. The pupils in each class are taken
   before anything moves, so 6A → 7A and 7A → 8A work together. Undo puts back pupils not changed since (and any class
-  deleted since). The server also accepts new-class / stay-together / one-by-one moves, unused by the pop-up for now. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …").
+  deleted since). The server also accepts new-class / stay-together / one-by-one moves, unused by the pop-up for now. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …"). **Year by year** (`YearPlan` in Studies.js, head, a line at the bottom of Islamic Studies): a line per year group
+  (with items or a class) opening to its surahs / du'aas / practicals — tap one → `ItemModal` (change "Learnt in" or remove),
+  "Add a … to Year N". **Surahs show in teaching order** everywhere (`SURAH_ORDER` in studies.js): Al-Faatihah, then An-Naas
+  back towards An-Naba (114 → 78), then ones that aren't a whole surah.
   Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
