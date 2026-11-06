@@ -282,9 +282,9 @@ codebase (one codebase, not a fork).
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
   class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — one big "N% achieved · X of Y assessed",
-  chips (N with help · N incomplete · N not assessed), then a line per list (Surahs / Du'aas / Practicals: "21 / 25", %, a bar of
-  what's been assessed with the class average as a dark mark — `.pd-mark`) opening to every item to mark (year by year), then
-  "Their average N%" on the left · "Class average N%" on the right (`classAverage.all`; none in the parent portal), "Class is
+  chips (N with help · N incomplete · N not assessed), then a line per list (Surahs / Du'aas / Practicals: "21 of 25 achieved", then
+  two bars — the pupil's first name with their coloured bar and %, and "Class" with a grey bar and the class's %, both of what's
+  been assessed; `.pd-row`) opening to every item to mark (year by year), then "<Name>'s average N%" on the left · "Class average N%" on the right (`classAverage.all`; none in the parent portal), "Class is
   learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete
   then with-help chips — the first 8, then "Show all N"); a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column

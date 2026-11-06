@@ -250,7 +250,7 @@ export default function Studies() {
                       </button>
                       {open && (
                         <div className="st-open">
-                          <PupilDetail items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
+                          <PupilDetail name={p.name.split(' ')[0]} items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
                             classAverage={classAverage} ayahs={data.ayahs} yearGroup={year} />
                           <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={() => setOpenItem(null)}><ChevronUp size={13} />Close {p.name.split(' ')[0]}</button>
                         </div>
@@ -320,7 +320,7 @@ export default function Studies() {
 // Everything about one child: the four figures; what to work on (incomplete, then with help); each list as a line with
 // its soft coloured bar and the class's average, opening to every item to
 // mark; and the surah the class is on. Used under a name on the Pupils tab and in the pupil's pop-up.
-export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
+export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
   const [open, setOpen] = useState('');
   const [workOpen, setWorkOpen] = useState('');
   const [workAll, setWorkAll] = useState(false); // a long list shows its first few until "Show all"
@@ -343,7 +343,7 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
         {t.incomplete > 0 && <span className="st-chip red">{t.incomplete} incomplete</span>}
         {t.notAssessed > 0 && <span className="st-chip">{t.notAssessed} not assessed</span>}
       </div>
-      {/* A line per list — tap to see and mark every item. The dark mark on the bar is the class average. */}
+      {/* A line per list — tap to see and mark every item: the pupil's bar and %, and under it the class's (the owner's pick). */}
       {STUDY_KINDS.map(([k, l]) => {
         const list = items.filter(it => it.kind === k);
         if (!list.length) return null;
@@ -355,14 +355,21 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span className="pd-line">
                   <span className="line-row-name">{l}</span>
-                  <span className="pd-count">{kt.achieved} / {kt.assessed}</span>
+                  <span className="pd-count">{kt.achieved} of {kt.assessed} achieved</span>
+                </span>
+                {/* Both bars are of what's been assessed, like the %s. */}
+                <span className="pd-row">
+                  <span className="pd-who">{name}</span>
+                  <Bar t={{ ...kt, total: kt.assessed }} />
                   <b className="pd-pct">{kt.assessed ? `${kt.pctAchieved}%` : '—'}</b>
                 </span>
-                <span className="pd-bar">
-                  {/* Of what's been assessed, like the % — so the bar, the % and the class mark line up. */}
-                  <Bar t={{ ...kt, total: kt.assessed }} />
-                  {has(classAverage[k]) && <i className="pd-mark" style={{ left: `${classAverage[k]}%` }} title={`Class average ${classAverage[k]}%`} />}
-                </span>
+                {has(classAverage[k]) && (
+                  <span className="pd-row">
+                    <span className="pd-who">Class</span>
+                    <span className="pd-class"><i style={{ width: `${classAverage[k]}%` }} /></span>
+                    <span className="pd-pct pd-muted">{classAverage[k]}%</span>
+                  </span>
+                )}
               </span>
               {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
@@ -379,10 +386,10 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
           </div>
         );
       })}
-      {/* Their average on the left, the class's on the right (the mark on each bar). */}
+      {/* Their average on the left, the class's on the right. */}
       <div className="pd-avgs">
-        <span>Their average <b>{t.assessed ? `${t.pctAchieved}%` : '—'}</b></span>
-        {has(classAverage.all) && <span><i className="pd-mark-key" />Class average <b>{classAverage.all}%</b></span>}
+        <span>{name}'s average <b>{t.assessed ? `${t.pctAchieved}%` : '—'}</b></span>
+        {has(classAverage.all) && <span>Class average <b>{classAverage.all}%</b></span>}
       </div>
       {learning && (
         <div className="st-learning">
@@ -589,7 +596,7 @@ export function PupilSheet({ id, onClose, onChanged }) {
         <div className="modal-body">
           {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
           {!d && !error && <LoadingState />}
-          {d && <PupilDetail items={d.items} levelOf={level} onPick={pick} classAverage={d.classAverage} ayahs={d.ayahs} yearGroup={d.pupil.yearGroup} />}
+          {d && <PupilDetail name={d.pupil.name.split(' ')[0]} items={d.items} levelOf={level} onPick={pick} classAverage={d.classAverage} ayahs={d.ayahs} yearGroup={d.pupil.yearGroup} />}
         </div>
       </div>
     </div>
