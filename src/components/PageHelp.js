@@ -7,8 +7,8 @@ import { useAuth } from '../lib/AuthContext';
 // steps). The first time someone opens a page on a device it opens by itself; after that,
 // only from the button.
 export function usePageHelp(pathname, role) {
-  const { isDarulUloom } = useAuth();
-  const help = role ? pageHelp(pathname, role, isDarulUloom) : null;
+  const { isDarulUloom, isSchool } = useAuth();
+  const help = role ? pageHelp(pathname, role, isDarulUloom, isSchool) : null;
   const [open, setOpen] = useState(false);
   const key = `help_seen:${role}:${pathname}`;
   useEffect(() => {

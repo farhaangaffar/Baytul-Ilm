@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { appNavigate } from './BackToExit';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList, BedDouble, Wrench } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList, BedDouble, Wrench, BookMarked } from 'lucide-react';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -32,6 +32,17 @@ const navItems = [
   { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
 ];
 
+// A school's Islamic Studies department (madaaris.kind 'school') has its own short menu: no fees, registers or
+// maktab pages. Teachers get Islamic Studies only.
+const schoolNav = [
+  { label:'Dashboard',          path:'/',           icon:LayoutDashboard },
+  { label:'Pupils',             path:'/students',   icon:Users,         section:'Management' },
+  { label:'Islamic Studies',    path:'/studies',    icon:BookMarked,    teacher:true },
+  { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, section:'Setup' },
+  { label:'Settings',           path:'/settings',   icon:SettingsIcon },
+  { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
+];
+
 // Layout remounts fresh on every navigation (each page renders its own <Layout>), so the
 // chip row itself is a brand new DOM node each time — its scroll position can't just
 // "persist" like a normal element's would. Stashing it here (outside the component, so
@@ -44,11 +55,13 @@ export default function Layout({ children, title, subtitle }) {
   const { pathname } = useLocation();
   const settings = useSettings();
   const installPrompt = useInstallPrompt();
-  const { user, isOwner, isPlatformAdmin, isDarulUloom } = useAuth();
+  const { user, isOwner, isPlatformAdmin, isDarulUloom, isSchool } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   const pageHelp = usePageHelp(pathname, user?.role);
   // Teachers only get their own pages (and no section headings).
-  const visibleNav = isOwner
+  const visibleNav = isSchool
+    ? schoolNav.filter(i => (isOwner ? (!i.platform || isPlatformAdmin) : i.teacher)).map(i => (isOwner ? i : { ...i, section: undefined }))
+    : isOwner
     ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom))
       .map(i => (isDarulUloom ? { ...i, section: i.duSection || i.section, label: i.duLabel || i.label } : i))
     : navItems.filter(i => ((i.teacher && !user?.maintenanceOnly) || (i.boarding && user?.boardingDuty) || (i.maintenance && user?.maintenanceDuty)) && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));

@@ -10,6 +10,7 @@ import { money } from '../lib/branding';
 import { countedFees } from '../lib/feePeriods';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
+import { PupilDetail } from './Studies';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import InstallBanner from '../components/InstallBanner';
 import InstallSteps from '../components/InstallSteps';
@@ -116,12 +117,12 @@ function byMonth(items, dateOf) {
 const monthName = ym => new Date(ym + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
 // A card showing totals, with the full history tucked behind "Show by month".
-function OpenableSection({ title, summary, empty, children }) {
+function OpenableSection({ title, summary, empty, children, openLabel = 'By month' }) {
   const [open, setOpen] = useState(false);
   return (
     <Section title={title} right={!empty && (
       <button className="btn btn-sm" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}{open ? 'Hide' : 'By month'}
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}{open ? 'Hide' : openLabel}
       </button>
     )}>
       {summary}
@@ -189,7 +190,9 @@ function AbsenceForm({ child, reasons, onSent }) {
 
 // The details the madrasah holds for this child that the family can keep up to date:
 // contacts, home, emergency contact, health and going home (POST /api/parent?action=details).
-function YourDetails({ child, details, onSaved, many }) {
+// A school's (Islamic Studies only — not the school's full records): the child's name, class and date of birth, and the
+// parents' contacts — no address, health or going home.
+function YourDetails({ child, details, onSaved, many, school = false, student }) {
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -203,9 +206,11 @@ function YourDetails({ child, details, onSaved, many }) {
   }
   return (
     <Section title="Your details" right={<button className="btn btn-sm" onClick={() => { setForm({ ...details }); setSaved(false); }}><Pencil size={12} />Check &amp; update</button>}>
-      {saved && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Saved — the madrasah will see the changes.{many ? ' Contacts and address are the same for all your children.' : ''}</div>}
-      <HealthNote student={details} />
-      {[['Contact 1', contact(1)], ['Contact 2', contact(2)], ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Address', [details.address, details.postcode].filter(Boolean).join(', ')]]
+      {saved && <div style={{ fontSize: 13, color: 'var(--green-text)', marginBottom: 10 }}><Check size={13} style={{ verticalAlign: -2 }} /> Saved — the {school ? 'school' : 'madrasah'} will see the changes.{many ? ` Contacts${school ? '' : ' and address'} are the same for all your children.` : ''}</div>}
+      {!school && <HealthNote student={details} />}
+      {(school
+        ? [['Name', `${child.forename} ${child.surname || ''}`.trim()], ['Class', student?.class || child.class], ['Date of birth', student?.dob ? formatDateGB(student.dob) : ''], ['Contact 1', contact(1)], ['Contact 2', contact(2)]]
+        : [['Contact 1', contact(1)], ['Contact 2', contact(2)], ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Address', [details.address, details.postcode].filter(Boolean).join(', ')]])
         .filter(([, v]) => v).map(([l, v]) => (
           <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderTop: '1px solid var(--border)', fontSize: 12.5 }}>
             <span className="text-muted">{l}</span><span style={{ textAlign: 'right', overflowWrap: 'anywhere' }}>{v}</span>
@@ -220,7 +225,9 @@ function YourDetails({ child, details, onSaved, many }) {
             </div>
             <div className="modal-body">
               <ParentInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} required />
-              <DetailInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} isDarulUloom={false} only={['family', 'emergency', 'health', 'home']} />
+              {school
+                ? <div className="text-muted" style={{ fontSize: 12.5 }}>For anything else (name, date of birth, class), please tell the school.</div>
+                : <DetailInputs form={form} set={(k, v) => setForm(f => ({ ...f, [k]: v }))} isDarulUloom={false} only={['family', 'emergency', 'health', 'home']} />}
               {error && <div style={{ fontSize: 13, color: 'var(--red)' }}>{error}</div>}
             </div>
             <div className="modal-footer">
@@ -234,60 +241,13 @@ function YourDetails({ child, details, onSaved, many }) {
   );
 }
 
-// Same box look as BoxRow's label boxes (src/components/BoxRow.js) — written out here
-// rather than reused, because this row needs a per-entry expand/collapse that BoxRow's
-// plain text cells don't support.
-const hwBox = {
-  background: '#f3f4f6', border: '1px solid transparent', color: 'var(--ink)', fontWeight: 600,
-  borderRadius: 8, padding: '5px 4px', minHeight: 40, textAlign: 'center', display: 'flex',
-  flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden', minWidth: 0,
-};
-
-// A long homework note would otherwise stretch its date box into a tall, mostly-empty
-// column (both boxes sit in the same grid row and stretch to match height) — so it's
-// clamped to 3 lines with its own "Show more", detected by actual overflow rather than
-// a guessed character count, so nothing long enough to need it is ever silently clipped.
-function HomeworkRow({ h }) {
-  const [expanded, setExpanded] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const textRef = useRef(null);
-  useEffect(() => {
-    const el = textRef.current;
-    if (el) setOverflows(el.scrollHeight > el.clientHeight + 1);
-  }, [h.text]);
-  const d = new Date(h.date + 'T12:00:00');
+// A school's pupil (server/routes/studies.js forParent): everything of theirs, as the school sees it (PupilDetail in
+// pages/Studies.js, read only) — the figures, what to work on, each list's bar and the surah the class is on.
+function StudiesCards({ studies }) {
+  const level = it => studies.progress.find(p => p.itemId === it.id)?.level || 0;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.6fr) minmax(0, 1.4fr)', gap: 6, marginBottom: 6 }}>
-      <div style={hwBox}>
-        <div>{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
-        <div style={{ fontSize: 10.5, fontWeight: 500, opacity: .85 }}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
-      </div>
-      <button type="button" onClick={overflows ? () => setExpanded(v => !v) : undefined}
-        style={{ ...hwBox, fontFamily: 'var(--font)', cursor: overflows ? 'pointer' : 'default' }}>
-        <div ref={textRef} style={{
-          overflowWrap: 'break-word',
-          ...(expanded ? null : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
-        }}>{h.text}</div>
-        {overflows && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--teal-dark)', marginTop: 3 }}>{expanded ? 'Show less' : 'Show more'}</div>}
-      </button>
-    </div>
-  );
-}
-
-// Same "3 shown, rest hidden" pattern as Progress's Recent list — a date box and a
-// homework-text box per row.
-function HomeworkCard({ homework }) {
-  const [showAll, setShowAll] = useState(false);
-  const sorted = [...homework].sort((a, b) => b.date.localeCompare(a.date));
-  const recent = showAll ? sorted : sorted.slice(0, 3);
-  return (
-    <Section title="Homework">
-      {recent.map(h => <HomeworkRow key={h.date} h={h} />)}
-      {sorted.length > 3 && (
-        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
-          {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
-        </button>
-      )}
+    <Section title="Islamic Studies">
+      <PupilDetail items={studies.items} levelOf={level} readOnly ayahs={studies.ayahs} yearGroup={studies.yearGroup} />
     </Section>
   );
 }
@@ -307,6 +267,8 @@ function ChildView({ child, reasons, many }) {
 
   if (error) return <div className="card" style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>;
   if (!data) return <div className="card text-muted" style={{ fontSize: 13 }}>Loading…</div>;
+  // A school: Islamic Studies only (no registers, fees or madrasah reports).
+  if (data.studies) return <><StudiesCards studies={data.studies} />{data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} school student={data.student} />}</>;
 
   // Attendance: totals for this school year (from September); the days themselves are
   // tucked away by month.

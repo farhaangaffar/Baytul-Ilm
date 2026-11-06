@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo — or a
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
-  'ai_usage', 'absence_reports', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
+  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_year_moves', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
@@ -30,7 +30,7 @@ const TABLES = [
 async function ensureAllTables() {
   await ensureUsersTable();
   await ensureParentTables();
-  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees', 'homework'];
+  const routes = ['students', 'terms', 'attendance', 'teacher-attendance', 'classes', 'teachers', 'settings', 'ai-summary', 'fees', 'quran', 'days-off', 'course', 'timetable', 'exams', 'boarding', 'maintenance', 'du-fees', 'homework', 'studies'];
   for (const r of routes) await require(`./routes/${r}`).ensure();
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -937,4 +937,104 @@ async function createDarulUloomDemo(ipHash) {
   });
 }
 
-module.exports = { DEMO_HOURS, createDarulUloomDemo, TABLES, ensureAllTables, clearExpired, tooMany, createDemo, demoSummary, genderOf, rng };
+// ── The made-up school (a link ending ?demo=school) ──
+// An Islamic Studies department from Reception to Year 10, some years in several forms (2A/2B, 4A/4B, 6A/6B/6C):
+// ten classes with their teachers, about a dozen pupils each, and the starter lists of surahs, du'aas and practicals (routes/studies.js) marked as a real school's
+// would be — earlier years' mostly achieved, this year's part way. Logins: the head, Ustadh Bilal (4A) and
+// the Hussain family (a girl in 2B and a boy in 6A).
+const SCHOOL_CLASSES = [
+  ['Reception', 0, 'Ustadha Maryam'], ['2A', 2, 'Ustadha Khadijah'], ['2B', 2, 'Ustadha Aisha'],
+  ['4A', 4, 'Ustadh Bilal'], ['4B', 4, 'Ustadha Zainab'],
+  ['6A', 6, 'Ustadha Sumayyah'], ['6B', 6, 'Ustadh Yusuf'], ['6C', 6, 'Ustadha Hafsa'],
+  ['Year 8', 8, 'Ustadh Hamza'], ['Year 10', 10, 'Ustadh Imran'],
+];
+const SCHOOL_NAMES = {
+  m: ['Adam', 'Ibrahim', 'Musa', 'Yusuf', 'Zayd', 'Ilyas', 'Haroon', 'Umar', 'Ali', 'Bilal', 'Hamza', 'Isa', 'Dawud', 'Sulaiman'],
+  f: ['Aisha', 'Fatimah', 'Maryam', 'Zainab', 'Hafsa', 'Safiyyah', 'Ruqayyah', 'Sumayyah', 'Asiya', 'Khadijah', 'Layla', 'Hana', 'Amina', 'Noor'],
+};
+const SCHOOL_SURNAMES = ['Ahmed', 'Khan', 'Begum', 'Ali', 'Patel', 'Hussain', 'Rahman', 'Iqbal', 'Malik', 'Shah', 'Chaudhry', 'Mirza', 'Aziz', 'Farooq', 'Noor', 'Siddiqui'];
+
+async function createSchoolDemo(ipHash) {
+  const r = rng(crypto.randomBytes(4).readUInt32LE(0));
+  const today = iso(new Date());
+  const studies = require('./routes/studies');
+  return transaction(async c => {
+    const code = `demo-${crypto.randomBytes(5).toString('hex')}`;
+    const { rows: [m] } = await c.query(
+      `INSERT INTO madaaris (name, code, demo_until, demo_ip, kind) VALUES ('Demo School', $1, now() + interval '${DEMO_HOURS} hours', $2, 'school') RETURNING id`,
+      [code, ipHash]);
+    const mid = m.id;
+    await c.query(
+      `INSERT INTO settings (id, madrasah_id, school_name, school_name_arabic, currency_symbol, parent_portal, fee_auto, studies_seeded)
+       VALUES ($1, $1, 'Demo School', 'مدرسة تجريبية', '£', true, false, true)`, [mid]);
+    await bulk(c, 'academic_years', ['madrasah_id', 'year'], [[mid, yearLabel(today)]]);
+
+    const teacherIds = SCHOOL_CLASSES.map(() => newId('T'));
+    await bulk(c, 'teachers', ['id', 'madrasah_id', 'name', 'phone', 'email', 'subjects', 'sort_order'],
+      SCHOOL_CLASSES.map(([, , t], i) => [teacherIds[i], mid, t, '', '', '[]', i]));
+    const classIds = SCHOOL_CLASSES.map(() => newId('C'));
+    await bulk(c, 'classes', ['id', 'madrasah_id', 'name', 'teacher_id', 'year_group'],
+      SCHOOL_CLASSES.map(([name, year], i) => [classIds[i], mid, name, teacherIds[i], year]));
+
+    // Pupils: a dozen or so a class, boys and girls; the Hussain children in 2B and 6A.
+    const pupils = [];
+    let n = 0;
+    for (const [name, year] of SCHOOL_CLASSES) {
+      const count = 11 + Math.floor(r() * 4);
+      for (let i = 0; i < count; i++, n++) {
+        const g = i % 2 ? 'f' : 'm';
+        const family = (name === '2B' && i === 1) || (name === '6A' && i === 0);
+        pupils.push({ id: newId('S'), f: SCHOOL_NAMES[g][(n * 5 + i) % SCHOOL_NAMES[g].length], s: family ? 'Hussain' : SCHOOL_SURNAMES[(n * 7) % SCHOOL_SURNAMES.length],
+          g, cls: name, year, family, order: n, born: plus(today, -Math.round((year + 4.5) * 365 + r() * 300)) });
+      }
+    }
+    await bulk(c, 'students', ['id', 'madrasah_id', 'forename', 'surname', 'dob', 'class', 'parent1_name', 'parent1_phone', 'parent2_name',
+      'weekly_fee', 'enroll_date', 'status', 'sort_order', 'gender', 'parent1_relation', 'parent2_relation'],
+      pupils.map(p => [p.id, mid, p.f, p.s, p.born, p.cls, `${p.family ? 'Yusuf' : r.pick(PARENT_NAMES.m)} ${p.s}`,
+        p.family ? '07700 900600' : `07700 9${String(20000 + p.order * 41).slice(-5)}`, `${p.family ? 'Rabia' : r.pick(PARENT_NAMES.f)} ${p.s}`,
+        0, plus(today, -400), 'Active', p.order, p.g === 'f' ? 'Girl' : 'Boy', 'Father', 'Mother']));
+
+    // The starter lists, and each pupil's marks (1 Incomplete, 2 With help, 3 Achieved, none = not assessed yet): earlier
+    // years' items nearly all assessed and mostly achieved; this year's first items assessed, the later ones mostly not yet.
+    await studies.addStarter(c, mid);
+    const { rows: items } = await c.query('SELECT id, kind, year_group, surah FROM is_items WHERE madrasah_id = $1 ORDER BY year_group, sort, id', [mid]);
+    const progress = [];
+    for (const p of pupils) {
+      const teacher = SCHOOL_CLASSES.find(x => x[0] === p.cls)[2];
+      const keen = 0.7 + r() * 0.3; // some pupils further on than others
+      for (const it of items) {
+        if (it.year_group > p.year) continue;
+        const mine = items.filter(x => x.kind === it.kind && x.year_group === it.year_group);
+        const k = mine.indexOf(it) / Math.max(1, mine.length);
+        const earlier = it.year_group < p.year;
+        if (r() > (earlier ? 0.97 : k < 0.5 ? 0.9 : 0.3)) continue; // not assessed yet
+        const x = r();
+        const level = x < (earlier ? 0.88 : 0.6) * keen + 0.05 ? 3 : x < 0.9 ? 2 : 1;
+        progress.push([mid, p.id, it.id, level, teacher, `${plus(today, -Math.floor(r() * (earlier ? 300 : 40)))}T12:00:00Z`]);
+      }
+    }
+    await bulk(c, 'is_progress', ['madrasah_id', 'student_id', 'item_id', 'level', 'updated_by', 'updated_at'], progress);
+    // Each class's weekly tracker: this year's first surahs fully covered, the next one part way, the rest not started.
+    const { AYAHS } = require('./surahAyahs');
+    const covered = [];
+    SCHOOL_CLASSES.forEach(([, year, teacher], ci) => {
+      const surahs = items.filter(it => it.kind === 'surah' && it.year_group === year && it.surah);
+      const done = Math.floor(surahs.length / 2);
+      surahs.forEach((it, i) => {
+        const n = AYAHS[it.surah - 1];
+        const upTo = i < done ? n : i === done ? Math.max(1, Math.round(n * (0.3 + r() * 0.4))) : 0;
+        if (upTo) covered.push([mid, classIds[ci], it.id, Array.from({ length: upTo }, (_, j) => j + 1), teacher]);
+      });
+    });
+    await bulk(c, 'is_class_ayahs', ['madrasah_id', 'class_id', 'item_id', 'ayahs', 'updated_by'], covered);
+
+    const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
+    await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);
+    await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'ustadh.bilal', $2, 'teacher', $3)`, [mid, pw(), teacherIds[SCHOOL_CLASSES.findIndex(c => c[0] === '4A')]]);
+    const { rows: [parent] } = await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'hussain.family', $2, 'parent') RETURNING id`, [mid, pw()]);
+    await bulk(c, 'parent_students', ['user_id', 'student_id', 'madrasah_id'], pupils.filter(p => p.family).map(p => [parent.id, p.id, mid]));
+    return mid;
+  });
+}
+
+module.exports = { createSchoolDemo, DEMO_HOURS, createDarulUloomDemo, TABLES, ensureAllTables, clearExpired, tooMany, createDemo, demoSummary, genderOf, rng };

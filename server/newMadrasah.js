@@ -10,14 +10,17 @@ const CODE_PROBLEM = 'The madrasah code is 3–30 lowercase letters, numbers or 
 const normalizeCode = c => String(c || '').trim().toLowerCase();
 
 // The kinds of school, and what each pays us by default (CLAUDE.md; src/lib/billing.js has the same).
-const KINDS = ['maktab', 'darul_uloom'];
+// A school (an Islamic Studies department, primary or secondary) pays yearly by its size: £500 for one form of entry,
+// £800 for two, £1,000 for three (the platform owner sets the amount; more than three: agreed with them).
+const KINDS = ['maktab', 'darul_uloom', 'school'];
 const PRICES = {
   maktab: { monthly: 20, yearly: 200, plan: 'monthly' },
   darul_uloom: { monthly: 50, yearly: 500, plan: 'yearly' },
+  school: { monthly: 50, yearly: 500, plan: 'yearly' },
 };
 // A kind's default plan and price, as columns: a maktab leaves the price empty (the £20/£200 default).
-const kindBilling = kind => kind === 'darul_uloom'
-  ? { plan: 'yearly', amount: PRICES.darul_uloom.yearly } : { plan: 'monthly', amount: null };
+const kindBilling = kind => (kind === 'darul_uloom' || kind === 'school')
+  ? { plan: 'yearly', amount: PRICES[kind].yearly } : { plan: 'monthly', amount: null };
 
 // The academic year in progress today, in the app's "26-27" style (a school year
 // starts in September — see currentSchoolYear() in src/lib/store.js).

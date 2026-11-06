@@ -126,7 +126,7 @@ module.exports = requireAuth(async (req, res) => {
     if (!CODE_RE.test(code)) { res.status(400).json({ error: CODE_PROBLEM }); return; }
     const problem = validateNewCredentials(headLogin, b.headPassword);
     if (problem) { res.status(400).json({ error: problem }); return; }
-    if (b.kind !== undefined && !KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab or Darul Uloom.' }); return; }
+    if (b.kind !== undefined && !KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab, Darul Uloom or School.' }); return; }
     if (await codeTaken(code)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
     const { madrasah } = await createMadrasah({ name, code, headLogin, headPassword: b.headPassword, kind: b.kind });
     res.status(201).json({ ok: true, id: String(madrasah.id) });
@@ -187,7 +187,7 @@ module.exports = requireAuth(async (req, res) => {
     }
     if (b.kind !== undefined && b.kind !== found[0].kind) {
       // Changing the kind (e.g. set wrongly) also puts its plan and price back to that kind's.
-      if (!KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab or Darul Uloom.' }); return; }
+      if (!KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab, Darul Uloom or School.' }); return; }
       const bill = kindBilling(b.kind);
       values.push(b.kind); sets.push(`kind = $${values.length}`);
       if (b.billingPlan === undefined && b.billingAmount === undefined) {

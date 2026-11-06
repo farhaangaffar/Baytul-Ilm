@@ -257,6 +257,50 @@ codebase (one codebase, not a fork).
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
+- **School — Islamic Studies** (`madaaris.kind = 'school'`: the Islamic Studies department of a primary or secondary
+  school; the owner works in an Islamic school, which guides it — but build for every school). Built in stages (the owner's
+  plan, approved): 1 trackers ✓ → 2 assessments & reports → 3 lesson resources (**links** to Google Drive / OneDrive, no
+  uploads yet — storage costs) → 4 pupil logins & homework (part of the first launch) → 5 launch (front page, sign-up, terms,
+  a DPA; first term free). Price by forms of entry, yearly: 1 form £500, 2 forms £800, 3 forms £1,000, 4+ message us
+  (`PRICES.school` is the 1-form price; the platform owner sets the amount on the Madaaris page). A school has **its own short
+  menu** (`schoolNav` in `Layout.js`; App.js routes): Dashboard (`src/pages/SchoolDashboard.js` — figures, a line per class with
+  its year's achieved / with-help bar, Getting started: teachers → classes with year groups → pupils → check the lists →
+  logins), **Pupils** (the Students page with no fees, attendance or waiting list; class lines show pupils · year group ·
+  % achieved; a pupil opens their lists), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
+  teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,
+  Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). Never show
+  a school fees, registers, Qur'an daily records or maktab/Darul Uloom pages, and never show a maktab the school pages.
+  **Islamic Studies**: each school's own lists (`is_items`: kind surah / duaa / practical, name, detail, the year group it's
+  learnt in; the starter lists in `server/studiesStarter.js` — Reception to Year 11 — are added the first time,
+  `settings.studies_seeded`) and each pupil's mark (`is_progress`, the school's own 1-2-3 from its spreadsheets: 1 Incomplete, 2 Completed with help,
+  3 Achieved, no row = **Not assessed yet** — four states, the owner's ask; percentages are of what's been assessed, as their sheets
+  do; colours soft red / amber / green / grey; tapping a lit box clears it). A surah item has its number (`is_items.surah`), so
+  each class has a **weekly tracker** — the aayahs covered (`is_class_ayahs`, `?action=ayahs`, an aayah grid inside the item's line — tapping an aayah marks it and every one before it; tapping the last again steps back one —
+  "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
+  Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
+  Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
+  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** — the four figures, "Class is
+  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete then with-help chips — the first 8, then "Show all N"), "All their marks", each list as a line with a soft coloured bar
+  (year by year) and the class average, opening to every item to mark; a name elsewhere → `PupilSheet` (the same, as a pop-up).
+  **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
+  per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /
+  `surahNumber()` (`src/lib/studies.js` — "Faatihah" = Al-Fatihah, "Lahab" = Al-Masad), unknown columns added with a chosen year,
+  non-year sheets ("2025") unticked; `?action=import`. **Moving pupils** (marks are per pupil, so they follow them): a school pupil's card has "Move to another class" and
+  "Has left the school" / "Back at the school" (left pupils are under the Left box/card, shown for a school even when empty);
+  **New school year** (`src/components/SchoolNewYear.js`, a line at the bottom of Pupils, head; `?action=new-year` /
+  `undo-year`, logged in `is_year_moves`) — kept simple (the owner found choices confusing): the school makes next year's
+  classes first on Classes & Teachers, then one pop-up has a row per class with pupils and one box: "Into <class>",
+  "Left the school" or "Not moving" (guessed: the class a year up by name — 6A → 7A, Reception → Year 1 — if it exists;
+  the top year → left). Pupils going elsewhere are moved on their own card afterwards. The pupils in each class are taken
+  before anything moves, so 6A → 7A and 7A → 8A work together. Undo puts back pupils not changed since (and any class
+  deleted since). The server also accepts new-class / stay-together / one-by-one moves, unused by the pop-up for now. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …"). **Year by year** (`YearPlan` in Studies.js, head, a line at the bottom of Islamic Studies): a line per year group
+  (with items or a class) opening to its surahs / du'aas / practicals — tap one → `ItemModal` (change "Learnt in" or remove),
+  "Add a … to Year N". **Surahs show in teaching order** everywhere (`SURAH_ORDER` in studies.js): Al-Faatihah, then An-Naas
+  back towards An-Naba (114 → 78), then ones that aren't a whole surah.
+  Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
+  `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
+  ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
+  way); logins head, Ustadh Bilal (4A), the Hussain family (2B and 6A). Counted as `demo_school` / `signup_school`.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own

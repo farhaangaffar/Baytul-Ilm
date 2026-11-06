@@ -560,9 +560,11 @@ export async function exportAllData() {
   // a maktab has none (the route answers 403), so it's left out.
   const darulUloom = await apiFetch('/api/course?action=backup').catch(() => undefined);
   const teacherAttendance = await getTeacherAttendance().catch(() => []);
+  // A school's Islamic Studies lists and marks (server/routes/studies.js); not a school → left out.
+  const islamicStudies = await apiFetch('/api/studies?action=backup').catch(() => undefined);
   return {
     app: 'baytul-ilm-madrasah', exportedAt: new Date().toISOString(),
-    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom, teacherAttendance },
+    data: { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom, teacherAttendance, islamicStudies },
   };
 }
 async function fetchImageDataUrl(which) {
@@ -621,7 +623,7 @@ export async function importAllData(payload) {
     return;
   }
 
-  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom, teacherAttendance } = data;
+  const { years, students, classes, teachers, settings, dailyRecords, feesByYear, attendanceByYear, lateTimesByYear, aiSummaries, quran, darulUloom, teacherAttendance, islamicStudies } = data;
 
   for (const y of years || []) await addAcademicYear(y);
   for (const c of classes || []) await addClass(c).catch(() => {});
@@ -653,6 +655,7 @@ export async function importAllData(payload) {
   for (const t of teacherAttendance || []) await setTeacherAttendance(t.teacherId, t.date, t.status, t.lateTime).catch(() => {});
   // Last, once classes, teachers and students are back: a Darul Uloom's own records.
   if (darulUloom) await apiFetch('/api/course?action=restore', { method: 'POST', body: JSON.stringify(darulUloom) });
+  if (islamicStudies) await apiFetch('/api/studies?action=restore', { method: 'POST', body: JSON.stringify(islamicStudies) });
 }
 
 // ── Timetable (Darul Uloom; server/routes/timetable.js) ──
@@ -712,6 +715,19 @@ export const weekendAnswer = (weekendId, studentIds, going) => boardingPost('ans
 // A Darul Uloom's maintenance list (server/routes/maintenance.js).
 const maintenancePost = (action, body) => apiFetch(`/api/maintenance?action=${action}`, { method: 'POST', body: JSON.stringify(body) });
 export const getMaintenance = () => apiFetch('/api/maintenance');
+// A school's Islamic Studies (server/routes/studies.js).
+export const getStudiesClass = cls => apiFetch(`/api/studies?class=${encodeURIComponent(cls)}`);
+export const getStudiesSummary = () => apiFetch('/api/studies?action=summary');
+export const saveClassAyahs = (className, itemId, ayahs) => apiFetch('/api/studies?action=ayahs', { method: 'POST', body: JSON.stringify({ className, itemId, ayahs }) });
+export const importStudiesMarks = marks => apiFetch('/api/studies?action=import', { method: 'POST', body: JSON.stringify({ marks }) });
+export const getSchoolYearMove = () => apiFetch('/api/studies?action=new-year');
+export const moveSchoolYear = moves => apiFetch('/api/studies?action=new-year', { method: 'POST', body: JSON.stringify({ moves }) });
+export const undoSchoolYear = () => apiFetch('/api/studies?action=undo-year', { method: 'POST', body: '{}' });
+export const getStudiesItems = () => apiFetch('/api/studies');
+export const getStudiesPupil = id => apiFetch(`/api/studies?studentId=${encodeURIComponent(id)}`);
+export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies?action=mark', { method: 'POST', body: JSON.stringify({ itemId, studentIds, level }) });
+export const saveStudiesItem = item => apiFetch('/api/studies?action=item', { method: 'POST', body: JSON.stringify(item) });
+export const deleteStudiesItem = id => apiFetch(`/api/studies?action=item&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const saveMaintenanceJob = job => maintenancePost('job', job);
 export const markMaintenanceDone = (id, note) => maintenancePost('done', { id, note });
 export const reopenMaintenanceJob = id => maintenancePost('reopen', { id });

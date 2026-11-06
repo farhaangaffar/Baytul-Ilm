@@ -1011,3 +1011,51 @@ button.tt-lesson:hover { filter: brightness(0.97); }
 .signup-kinds button span { font-size: 11.5px; color: var(--text-muted); }
 .signup-kinds button.on { background: var(--teal-light); border-color: var(--teal); }
 .signup-kinds button.on span { color: var(--teal-dark); }
+
+/* A school's Islamic Studies (pages/Studies.js): three tabs, an item line opens its pupils underneath —
+   on phones the name on top, then three equal boxes; from 600px the name beside them. */
+.st-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; }
+.st-open { display: grid; gap: 8px; padding: 6px 2px 10px; }
+/* A pupil opened on the Pupils tab: boxed in light blue, with room above and below, so where one child ends is clear. */
+.st-pupil-wrap { display: grid; gap: 6px; }
+/* A child's To work on: a line each for surahs, du'aas and practicals, opening to their chips. */
+.st-work { display: grid; gap: 6px; }
+.st-work-line { display: grid; gap: 8px; }
+.st-work-line .line-row:disabled { opacity: 0.6; cursor: default; }
+.st-work-line.open .st-chips { padding: 0 4px 6px; }
+.st-work-count { min-width: 26px; padding: 2px 8px; border-radius: 99px; background: var(--red-light); color: var(--red-text); font-size: 12px; font-weight: 700; text-align: center; }
+.st-pupil-wrap.open { border: 1.5px solid var(--teal-mid); border-radius: var(--r-md); padding: 6px 8px 4px; margin: 8px 0 12px; background: var(--teal-faint); }
+.st-pupil-wrap.open > .line-row { border-color: transparent; }
+.st-everyone, .st-pupil { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.st-everyone > span { font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.st-name { background: none; border: none; padding: 0; text-align: left; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
+.st-item { cursor: default; font-weight: 500; }
+.st-year { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
+@media (min-width: 600px) {
+  .st-everyone, .st-pupil { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr); align-items: center; gap: 10px; }
+}
+/* A school's Dashboard (pages/SchoolDashboard.js): each class's achieved (green) and working towards (amber). */
+.sd-bar { display: flex; height: 8px; border-radius: 99px; background: #eceff3; overflow: hidden; margin-top: 7px; }
+.sd-bar > span { display: block; height: 100%; }
+/* Islamic Studies: the class's weekly aayah tracker, a child's detail (to-work-on chips, a list's bar, the key). */
+.st-ayahs { border: 1px solid #e3e7ec; border-radius: 10px; padding: 10px; background: #fff; }
+.st-ayahs-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+.st-ayah-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 5px; }
+.st-ayah { height: 34px; border-radius: 8px; border: 1px solid #dfe3e8; background: #fafbfc; font-family: var(--font); font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
+.st-ayah.on { background: var(--green-light); border-color: var(--green); color: var(--green-text); font-weight: 700; }
+.st-ayah:disabled { cursor: default; }
+.st-learning { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; padding: 9px 12px; border-radius: 10px; background: var(--teal-light); color: var(--teal-dark); }
+.st-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-chip { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: #f3f4f6; color: var(--text-muted); border: 1px solid transparent; }
+.st-chip.red { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+.st-chip.amber { background: var(--amber-light); border-color: var(--amber); color: var(--amber-text); }
+.st-chip-more { background: #fff; border-color: var(--border); color: var(--teal-dark); font-weight: 600; cursor: pointer; font-family: inherit; }
+.st-key { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.st-key span { display: inline-flex; align-items: center; gap: 5px; }
+.st-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* A school's New school year pop-up: a row per class — where it is now, then where its pupils go. */
+.ny-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
+.ny-from { font-size: 13.5px; }
+.ny-row select, .ny-row input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fafbfc; font-family: var(--font); font-size: 13px; color: var(--ink); }

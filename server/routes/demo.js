@@ -1,10 +1,10 @@
 const crypto = require('crypto');
 const { query } = require('../db');
 const { getUser, setSessionCookie } = require('../auth');
-const { ensureAllTables, clearExpired, tooMany, createDemo, createDarulUloomDemo } = require('../demo');
+const { ensureAllTables, clearExpired, tooMany, createDemo, createDarulUloomDemo, createSchoolDemo } = require('../demo');
 const { countEvent } = require('../platform');
 
-// "Try the demo": POST {role: 'head' | 'teacher' | 'parent', kind?: 'darul_uloom'} signs the visitor in to a
+// "Try the demo": POST {role: 'head' | 'teacher' | 'parent', kind?: 'darul_uloom' | 'school'} signs the visitor in to a
 // private demo madrasah as that person (server/demo.js). Someone already in a demo
 // just switches person within it; anyone else gets a fresh one. No password involved —
 // demo logins can't be signed in to any other way.
@@ -29,10 +29,11 @@ module.exports = async (req, res) => {
 
   const me = await getUser(req);
   // Someone in a demo switches person within it — unless they asked for the other kind of demo.
+  const kind = ['darul_uloom', 'school'].includes((req.body || {}).kind) ? req.body.kind : 'maktab';
   let mid = me && me.demo ? me.madrasahId : null;
   if (mid && (req.body || {}).kind) {
     const { rows: [cur] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
-    if ((cur?.kind || 'maktab') !== (req.body.kind === 'darul_uloom' ? 'darul_uloom' : 'maktab')) mid = null;
+    if ((cur?.kind || 'maktab') !== kind) mid = null;
   }
   // A Darul Uloom demo made before the timetable existed has none — start a fresh one instead.
   if (mid && (req.body || {}).kind === 'darul_uloom') {
@@ -48,9 +49,8 @@ module.exports = async (req, res) => {
     const hash = ipHash(req);
     const busy = await tooMany(hash);
     if (busy) { res.status(429).json({ error: busy }); return; }
-    const du = (req.body || {}).kind === 'darul_uloom';
-    mid = du ? await createDarulUloomDemo(hash) : await createDemo(hash);
-    await countEvent(du ? 'demo_du' : 'demo'); // the Madaaris page's "Demos & sign-ups"
+    mid = kind === 'darul_uloom' ? await createDarulUloomDemo(hash) : kind === 'school' ? await createSchoolDemo(hash) : await createDemo(hash);
+    await countEvent({ darul_uloom: 'demo_du', school: 'demo_school' }[kind] || 'demo'); // the Madaaris page's "Demos & sign-ups"
   }
 
   const { rows } = await query(`SELECT * FROM users WHERE madrasah_id = $1 AND ${ROLE_SQL[role]} AND active ORDER BY id LIMIT 1`, [mid]);

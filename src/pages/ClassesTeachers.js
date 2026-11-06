@@ -12,11 +12,20 @@ import BoxRow from '../components/BoxRow';
 import ReorderableGrid from '../components/ReorderableGrid';
 import { useAuth } from '../lib/AuthContext';
 import { CLASS_QURAN_OPTIONS } from '../lib/quran';
+import { yearLabel } from './Studies';
+
+// A school's class name usually says its year group: "Reception", "Year 4", "4B", "Y10 Boys".
+export function guessYearGroup(name) {
+  const n = String(name || '').toLowerCase();
+  if (/reception|\brec\b|\bfs2\b/.test(n)) return 0;
+  const m = /(?:year|yr|y)\s*(\d{1,2})\b/.exec(n) || /^(\d{1,2})\s*[a-z]?\b/.exec(n);
+  return m && Number(m[1]) <= 13 ? Number(m[1]) : null;
+}
 import { guessPlace } from '../lib/courseYears';
 import { ChoiceBoxes } from '../components/StudentDetails';
 
 export default function ClassesTeachers() {
-  const { isDarulUloom } = useAuth();
+  const { isDarulUloom, isSchool } = useAuth();
   const pageTitle = isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -132,7 +141,7 @@ export default function ClassesTeachers() {
       <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
         { text: String(classes.length), sub: 'Classes', className: 'ct-figure' },
         { text: String(teachers.length), sub: isDarulUloom ? 'Staff' : 'Teachers', className: 'ct-figure' },
-        { text: String(activeStudents), sub: 'Students', className: 'ct-figure' },
+        { text: String(activeStudents), sub: isSchool ? 'Pupils' : 'Students', className: 'ct-figure' },
         unassigned
           ? { text: String(unassigned), sub: 'No teacher', tone: 'amber', onClick: () => { setTab('classes'); setOnlyNoTeacher(true); setOpenId(''); } }
           : { text: '0', sub: 'No teacher', className: 'ct-figure' },
@@ -166,7 +175,8 @@ export default function ClassesTeachers() {
               {shownClasses.map(c => {
                 const on = openId === `c:${c.id}`;
                 const n = studentCountForClass(c.name);
-                const kind = c.courseOrder ? `Aalim · year ${c.courseOrder}`
+                const kind = isSchool ? (c.yearGroup === null || c.yearGroup === undefined ? 'No year group' : yearLabel(c.yearGroup))
+                  : c.courseOrder ? `Aalim · year ${c.courseOrder}`
                   : CLASS_QURAN_OPTIONS[c.quranType] ? (c.quranType === 'mixed' ? "Qur'aan (mixed)" : CLASS_QURAN_OPTIONS[c.quranType]) : '';
                 return (
                   <React.Fragment key={c.id}>
@@ -373,7 +383,10 @@ export default function ClassesTeachers() {
 const DU_COURSES = [['aalim', 'Aalim'], ['hifz', 'Hifdh'], ['nazira', 'Naazhirah'], ['qaida', "Qaa'idah"], ['mixed', "Mixed Qur'aan levels — set each student"]];
 
 function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
-  const { isDarulUloom } = useAuth();
+  const { isDarulUloom, isSchool } = useAuth();
+  // A school's class: its year group (Reception … Year 13), guessed from its name until picked.
+  const [yearGroup, setYearGroup] = useState(initial.id ? initial.yearGroup ?? '' : '');
+  const [yearPicked, setYearPicked] = useState(!!initial.id);
   const [form, setForm] = useState({ ...initial });
   const wasYear = !!initial.courseOrder;
   const [course, setCourse] = useState(wasYear ? 'aalim' : initial.quranType || (initial.id ? '' : 'aalim')); // a new class starts as an Aalim year
@@ -383,8 +396,12 @@ function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
   const isValid = form.name && form.name.trim().length > 0;
   const aalim = isDarulUloom && course === 'aalim';
   const places = wasYear ? yearCount : yearCount + 1; // the places it could take in the Aalim years
-  const setName = name => { setForm({ ...form, name }); if (!placePicked) setPlace(guessPlace(name, yearCount)); };
-  const save = () => onSave(isDarulUloom
+  const setName = name => {
+    setForm({ ...form, name });
+    if (!placePicked) setPlace(guessPlace(name, yearCount));
+    if (isSchool && !yearPicked) { const g = guessYearGroup(name); setYearGroup(g === null ? '' : g); }
+  };
+  const save = () => onSave(isSchool ? { ...form, yearGroup: yearGroup === '' ? null : Number(yearGroup) } : isDarulUloom
     ? { ...form, quranType: aalim ? '' : course, coursePlace: aalim ? Number(place) : wasYear ? 0 : undefined }
     : form);
 
@@ -402,7 +419,7 @@ function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
               <input
                 value={form.name}
                 onChange={e => setName(e.target.value)}
-                placeholder={isDarulUloom ? 'e.g. 1st year, Hifdh, Qaa\'idah' : 'e.g. Class 1, Class 3, Beginners…'}
+                placeholder={isSchool ? 'e.g. Year 4, 4B, Reception' : isDarulUloom ? 'e.g. 1st year, Hifdh, Qaa\'idah' : 'e.g. Class 1, Class 3, Beginners…'}
                 autoFocus
               />
             </div>
@@ -433,7 +450,17 @@ function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
                 {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
-            {!isDarulUloom && (
+            {isSchool && (
+            <div className="form-group">
+              <label>Year group</label>
+              <select value={yearGroup} onChange={e => { setYearPicked(true); setYearGroup(e.target.value); }}>
+                <option value="">— Choose —</option>
+                {Array.from({ length: 14 }, (_, y) => <option key={y} value={y}>{yearLabel(y)}</option>)}
+              </select>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>It gets that year's surahs, du'aas and practicals (and earlier years').</span>
+            </div>
+            )}
+            {!isDarulUloom && !isSchool && (
             <div className="form-group">
               <label>Qur'aan</label>
               <select value={form.quranType || ''} onChange={e => setForm({ ...form, quranType: e.target.value })}>

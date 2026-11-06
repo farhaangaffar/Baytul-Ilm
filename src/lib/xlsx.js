@@ -176,3 +176,39 @@ export async function xlsxToText(file) {
   });
   return rows.join('\n');
 }
+
+// An .xlsx File → every sheet, in order: [{ name, rows: [[cell text…]…] }] (values as shown, no date conversion) — for
+// a school's Islamic Studies import, whose workbooks keep one sheet per year group (src/components/StudiesImport.js).
+export async function xlsxSheets(file) {
+  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const dec = new TextDecoder(), parse = s => new DOMParser().parseFromString(s, 'application/xml');
+  const text = n => (files[n] ? dec.decode(files[n]) : '');
+  const shared = files['xl/sharedStrings.xml']
+    ? [...parse(text('xl/sharedStrings.xml')).getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join(''))
+    : [];
+  const rels = {};
+  try {
+    [...parse(text('xl/_rels/workbook.xml.rels')).getElementsByTagName('Relationship')].forEach(r => { rels[r.getAttribute('Id')] = `xl/${r.getAttribute('Target').replace(/^\/?(xl\/)?/, '')}`; });
+  } catch { /* none */ }
+  const out = [];
+  [...parse(text('xl/workbook.xml')).getElementsByTagName('sheet')].forEach((s, i) => {
+    const file = rels[s.getAttribute('r:id')] || `xl/worksheets/sheet${i + 1}.xml`;
+    if (!files[file]) return;
+    const rows = [];
+    [...parse(text(file)).getElementsByTagName('row')].forEach(r => {
+      const cells = [];
+      [...r.getElementsByTagName('c')].forEach(c => {
+        const t = c.getAttribute('t');
+        const vEl = c.getElementsByTagName('v')[0];
+        let val = '';
+        if (t === 's') val = shared[Number(vEl?.textContent)] ?? '';
+        else if (t === 'inlineStr') val = [...c.getElementsByTagName('t')].map(x => x.textContent).join('');
+        else if (vEl) val = vEl.textContent;
+        cells[colIndex(c.getAttribute('r') || colName(cells.length))] = String(val).trim();
+      });
+      rows[Number(r.getAttribute('r')) - 1 || rows.length] = Array.from(cells, x => x ?? '');
+    });
+    out.push({ name: s.getAttribute('name'), rows: Array.from(rows, x => x || []) });
+  });
+  return out;
+}

@@ -11,6 +11,7 @@ import Timetable       from './pages/Timetable';
 import Boarding        from './pages/Boarding';
 import Maintenance from './pages/Maintenance';
 import Exams           from './pages/Exams';
+import Studies         from './pages/Studies';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
@@ -105,7 +106,7 @@ export default function App() {
 
   // A demo link while signed in: offer the demo (the made-up children) unless already in that kind of demo.
   if (session.authenticated && params.has('demo')) {
-    const kind = params.get('demo') === 'darul-uloom' ? 'darul_uloom' : 'maktab';
+    const kind = { 'darul-uloom': 'darul_uloom', school: 'school' }[params.get('demo')] || 'maktab';
     if (!(session.user.demo && (session.user.madrasah?.kind || 'maktab') === kind)) {
       return <DemoScreen kind={kind} signedInAs={session.user.demo ? '' : session.user.madrasah?.name} />;
     }
@@ -122,7 +123,8 @@ export default function App() {
 
   const isOwner = session.user.role === 'owner';
   // Staff only on maintenance (no class or lessons) open on the Maintenance page; other teachers on Attendance.
-  const teacherHome = session.user.maintenanceOnly ? '/maintenance' : '/attendance';
+  const isSchool = session.user.madrasah?.kind === 'school';
+  const teacherHome = isSchool ? '/studies' : session.user.maintenanceOnly ? '/maintenance' : '/attendance';
 
   // A head agrees to the terms for their madrasah before using the app.
   if (session.user.termsNeeded) {
@@ -144,7 +146,26 @@ export default function App() {
       <SettingsProvider>
         <BrowserRouter>
           <BackToExit home={isOwner ? '/' : teacherHome} />
-          {isOwner ? (
+          {isSchool ? (
+            // A school's Islamic Studies department: its own few pages (no fees, registers or maktab pages); teachers
+            // get Islamic Studies only.
+            isOwner ? (
+              <Routes>
+                <Route path="/"         element={<Dashboard />} />
+                <Route path="/students" element={<Students />} />
+                <Route path="/studies"  element={<Studies />} />
+                <Route path="/classes"  element={<ClassesTeachers />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}
+                <Route path="*"         element={<Navigate to="/" replace />} />
+              </Routes>
+            ) : (
+              <Routes>
+                <Route path="/studies"  element={<Studies />} />
+                <Route path="*"         element={<Navigate to="/studies" replace />} />
+              </Routes>
+            )
+          ) : isOwner ? (
             <Routes>
               <Route path="/"           element={<Dashboard />} />
               <Route path="/students"   element={<Students />} />

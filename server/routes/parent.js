@@ -27,7 +27,11 @@ const COLUMN = {
 // Health and going home are the child's own; the rest (contacts, home, emergency contact) is the
 // family's, so it's updated for all of this login's children at once.
 const CHILD_ONLY = new Set(['allergies', 'medical', 'medication', 'walksHome']);
-const detailsOf = s => Object.fromEntries(PARENT_EDITABLE.map(k => [k, s[COLUMN[k][0]] || '']));
+// A school (Islamic Studies only — not the school's full records): just the contacts.
+const SCHOOL_EDITABLE = ['parent1Name', 'parent1Phone', 'parent2Name', 'parent2Phone', 'parent1Relation', 'parent1Email', 'parent2Relation', 'parent2Email'];
+const editable = school => (school ? SCHOOL_EDITABLE : PARENT_EDITABLE);
+const detailsOf = (s, school) => Object.fromEntries(editable(school).map(k => [k, s[COLUMN[k][0]] || '']));
+const isSchool = async mid => (await query('SELECT kind FROM madaaris WHERE id = $1', [mid])).rows[0]?.kind === 'school';
 
 // A Darul Uloom's published exams this child sat — their own report cards only.
 async function publishedExams(mid, s) {
@@ -82,12 +86,14 @@ module.exports = async (req, res) => {
     const boarding = s.boarding === 'Boarder' ? await require('./boarding').forParent(mid, s).catch(() => null) : null;
     // A Darul Uloom: this year's fee in instalments — what's paid, what's next, and receipts (routes/du-fees.js).
     const duFees = await require('./du-fees').forParent(mid, s.id).catch(() => null);
+    // A school: the child's Islamic Studies — surahs, du'aas and practicals, and where they are with each (routes/studies.js).
+    const studies = await require('./studies').forParent(mid, s).catch(() => null);
     res.status(200).json({
       student: {
         id: s.id, forename: s.forename, surname: s.surname, class: s.class, status: s.status,
-        enrollDate: s.enroll_date, leaveDate: s.leave_date, weeklyFee: Number(s.weekly_fee),
+        dob: s.dob || null, enrollDate: s.enroll_date, leaveDate: s.leave_date, weeklyFee: Number(s.weekly_fee),
       },
-      details: detailsOf(s),
+      details: detailsOf(s, !!studies),
       teacherName: cls.rows[0]?.teacher_name || '',
       // The child's own level if set, else their class's (a mixed class has none to show).
       quranType: ['hifz', 'nazira', 'qaida'].includes(prior.rows[0]?.quran_type) ? prior.rows[0].quran_type
@@ -105,6 +111,7 @@ module.exports = async (req, res) => {
       exams,
       boarding,
       homework: homework.rows,
+      studies,
     });
     return;
   }
@@ -141,10 +148,11 @@ module.exports = async (req, res) => {
       values.push(ids, mid);
       await query(`UPDATE students SET ${sets.join(', ')}, parent_updated_at = now() WHERE id = ANY($${values.length - 1}) AND madrasah_id = $${values.length}`, values);
     };
-    await update(PARENT_EDITABLE.filter(k => CHILD_ONLY.has(k)), [b.studentId]);
-    await update(PARENT_EDITABLE.filter(k => !CHILD_ONLY.has(k)), [...mine]);
+    const school = await isSchool(mid), keys = editable(school);
+    await update(keys.filter(k => CHILD_ONLY.has(k)), [b.studentId]);
+    await update(keys.filter(k => !CHILD_ONLY.has(k)), [...mine]);
     const { rows } = await query('SELECT * FROM students WHERE id = $1 AND madrasah_id = $2', [b.studentId, mid]);
-    res.status(200).json({ ok: true, details: rows[0] ? detailsOf(rows[0]) : {} });
+    res.status(200).json({ ok: true, details: rows[0] ? detailsOf(rows[0], school) : {} });
     return;
   }
 

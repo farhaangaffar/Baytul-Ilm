@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import ImportStudents from '../components/ImportStudents';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms, getStudiesSummary } from '../lib/store';
 import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -15,14 +15,21 @@ import { feeUnit, feePer, ownedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
 import { DetailInputs, DetailLines, HealthNote, HealthDot, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
 import { useAuth } from '../lib/AuthContext';
+import { PupilSheet, yearLabel } from './Studies';
+import SchoolYearLine from '../components/SchoolNewYear';
 import BoarderRecord from '../components/BoarderRecord';
 
 const WAITING_LIST = 'Waiting list';
 
 function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
 
+// A school (madaaris.kind 'school') calls them pupils and has no fees or registers: its class lines show each class's
+// year group and how much of this year's Islamic Studies is achieved, and a pupil opens their surahs, du'aas and practicals.
 export default function Students() {
-  const { isDarulUloom } = useAuth();
+  const { isDarulUloom, isSchool } = useAuth();
+  const [studies, setStudies] = useState({}); // a school: each class's Islamic Studies this year, by class name
+  const [studiesPupil, setStudiesPupil] = useState(null);
+  const word = isSchool ? 'Pupils' : 'Students';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
@@ -70,16 +77,17 @@ export default function Students() {
   const fetchData = useCallback(async () => {
     const y = await currentSchoolYear();
     const [studentsData, classNamesData, feesData, attendanceData, duData] = await Promise.all([
-      getStudents(), getClassNames(), isDarulUloom ? Promise.resolve([]) : getFees(y), getAttendance(y),
+      getStudents(), getClassNames(), isDarulUloom || isSchool ? Promise.resolve([]) : getFees(y), isSchool ? Promise.resolve({}) : getAttendance(y),
       isDarulUloom ? getDuFees().catch(() => null) : Promise.resolve(null),
     ]);
+    if (isSchool) getStudiesSummary().then(list => setStudies(Object.fromEntries(list.map(c => [c.class, c])))).catch(() => {});
     setYear(y); setStudents(studentsData); setClassNames(classNamesData); setFees(ownedFees(feesData)); setAttendance(attendanceData);
     // A Darul Uloom: each child's year (paid / still to pay) from its yearly fee in instalments (src/pages/DuFees.js).
     setDuFees(duData ? Object.fromEntries(duData.students.map(x => [x.id, x])) : null);
     const leftIds = studentsData.filter(s=>s.status==='Inactive').map(s=>s.id);
     if (leftIds.length) getStudentTotals(leftIds).then(setLeftTotals).catch(()=>{/* pills are a bonus, not required to use the page */});
     else setLeftTotals({});
-  }, [isDarulUloom]);
+  }, [isDarulUloom, isSchool]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -134,6 +142,21 @@ export default function Students() {
       showToast(err.message || 'Could not generate that report');
     }
     setDownloadingReport(null);
+  }
+
+  // A school pupil: into another class, or left / back (their Islamic Studies marks stay with them either way).
+  async function moveSelected(className) {
+    const s = selected;
+    try { await updateStudent(s.id, { class: className }); setSelected({ ...s, class: className }); await silentRefresh(); showToast(`${s.forename} moved to ${className}`); }
+    catch (err) { showToast(err.message || 'Could not move them'); }
+  }
+  async function setLeft(s, left) {
+    if (left && !window.confirm(`Mark ${s.forename} ${s.surname} as left the school? Their marks are kept, and you can put them back.`)) return;
+    try {
+      await updateStudent(s.id, left ? { status: 'Inactive', leaveDate: new Date().toISOString().split('T')[0] } : { status: 'Active', leaveDate: null });
+      closeSelected(); await silentRefresh();
+      showToast(left ? `${s.forename} is now under Left` : `${s.forename} is back in ${s.class}`);
+    } catch (err) { showToast(err.message || 'Could not save'); }
   }
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(''),2500); }
@@ -231,8 +254,8 @@ export default function Students() {
     setSaving(false);
   }
 
-  if (loading) return <Layout title="Students"><LoadingState /></Layout>;
-  if (error) return <Layout title="Students"><ErrorState error={error} onRetry={load} /></Layout>;
+  if (loading) return <Layout title={word}><LoadingState /></Layout>;
+  if (error) return <Layout title={word}><ErrorState error={error} onRetry={load} /></Layout>;
 
   const activeCount = students.filter(s=>s.status==='Active' && s.class!==WAITING_LIST).length;
   // Left students skew a "current" stat if included — they're a historical record
@@ -251,12 +274,19 @@ export default function Students() {
   const noClassStudents = students.filter(s=>s.status!=='Inactive' && s.class!==WAITING_LIST && !classNames.includes(s.class));
 
   return (
-    <Layout title="Students" subtitle={`${students.length} enrolled`}>
+    <Layout title={word} subtitle={`${students.length} enrolled`}>
       <div className="stat-grid-v2">
+        {isSchool ? <>
+        <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Pupils</div></div>
+        <div className="stat-card-v2"><div className="n">{classNames.length}</div><div className="l">Classes</div></div>
+        <div className="stat-card-v2"><div className="n">{noClassStudents.length}</div><div className="l">Not in a class</div></div>
+        <div className="stat-card-v2" style={{cursor:'pointer'}} onClick={()=>{ setLeftExpanded(true); setTimeout(()=>document.getElementById('left-card')?.scrollIntoView({behavior:'smooth'}),50); }}><div className="n">{leftStudents.length}</div><div className="l">Left</div></div>
+        </> : <>
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active students</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
         <div className="stat-card-v2"><div className="n">{money(collected)}</div><div className="l">Fees collected</div></div>
         <div className="stat-card-v2"><div className="n">{money(owed)}</div><div className="l">{duList ? 'Overdue' : 'Outstanding'}</div></div>
+        </>}
       </div>
 
       <div className="students-toolbar flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
@@ -268,12 +298,15 @@ export default function Students() {
           />
         </div>
         <div className="students-toolbar-tabs" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {/* A school has no waiting list (its pupils come from the school's own records). */}
+          {(!isSchool || waitingStudents.length > 0) && <>
           <button className={`btn ${view==='roster'?'btn-primary':''}`} style={view==='roster'?{background:'var(--blue)'}:undefined} onClick={()=>setView('roster')}>
             <Users size={14}/> Classes
           </button>
           <button className={`btn ${view==='waiting'?'btn-primary':''}`} style={view==='waiting'?{background:'var(--blue)'}:undefined} onClick={()=>setView('waiting')}>
             <Clock size={14}/> Waiting list{waitingStudents.length>0?` (${waitingStudents.length})`:''}
           </button>
+          </>}
           <button className="btn" onClick={()=>setShowImport(true)}><FileSpreadsheet size={14}/> Import</button>
           <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
         </div>
@@ -329,10 +362,15 @@ export default function Students() {
                 {isOpen?<ChevronUp size={16}/>:<ChevronDown size={16}/>}
                 <span className="class-card-name">{c}</span>
                 <span className="class-card-stats">
-                  <span><strong>{classStudents.length}</strong> student{classStudents.length===1?'':'s'}</span>
+                  <span><strong>{classStudents.length}</strong> {isSchool ? (classStudents.length===1?'pupil':'pupils') : `student${classStudents.length===1?'':'s'}`}</span>
                   {/* Always all three, so every class's line has the same shape (on phones, three boxes). */}
+                  {isSchool ? (() => { const st = studies[c]; return <>
+                  <span><strong>{st && st.yearGroup !== null ? yearLabel(st.yearGroup) : '—'}</strong> year group</span>
+                  {(() => { const done = st ? (st.achieved || 0) + (st.withHelp || 0) + (st.incomplete || 0) : 0; return <span><strong>{done ? `${Math.round((st.achieved || 0) * 100 / done)}%` : '—'}</strong> achieved</span>; })()}
+                  </>; })() : <>
                   <span><strong>{classStudents.length>0 ? `${classAtt}%` : '—'}</strong> attendance</span>
                   <span style={classOwed>0 ? {color:'var(--red-text)'} : undefined}><strong>{money(classOwed)}</strong> owed</span>
+                  </>}
                 </span>
               </button>
               {isOpen && (
@@ -346,7 +384,7 @@ export default function Students() {
                       <div className={`student-compact-card ${isDragging?'is-dragging':''}`} key={s.id} onClick={()=>setSelected(s)} {...cardAttrs}>
                         <div style={{minWidth:0}}>
                           <div className="student-compact-name">{s.forename} {s.surname}</div>
-                          <div className="student-compact-sub">{duFees ? (duFees[s.id] ? `${money(duFees[s.id].paid, 0)} of ${money(duFees[s.id].expected, 0)} paid` : 'Fee not set') : `${money(s.weeklyFee)}${feePer()}`} · {fmtDob(s.dob)}</div>
+                          <div className="student-compact-sub">{isSchool ? '' : <>{duFees ? (duFees[s.id] ? `${money(duFees[s.id].paid, 0)} of ${money(duFees[s.id].expected, 0)} paid` : 'Fee not set') : `${money(s.weeklyFee)}${feePer()}`} · </>}{fmtDob(s.dob)}</div>
                         </div>
                         {!search && <div className="drag-handle" {...handleProps} onClick={e=>e.stopPropagation()} title="Drag to reorder"><GripVertical size={15}/></div>}
                       </div>
@@ -369,23 +407,34 @@ export default function Students() {
           </div>
         )}
 
-        {leftStudents.length>0&&(
-          <div className="card" style={{marginTop:20}}>
+        {isSchool && <SchoolYearLine onDone={silentRefresh}/>}
+        {(leftStudents.length>0 || isSchool)&&(
+          <div className="card" id="left-card" style={{marginTop:20}}>
             <div onClick={()=>setLeftExpanded(e=>!e)}
               style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontWeight:700,fontSize:13}}>
               {leftExpanded?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
-              Students who have left ({leftStudents.length})
+              {word} who have left ({leftStudents.length})
             </div>
+            {leftExpanded&&isSchool&&!leftStudents.length&&<div className="text-muted" style={{fontSize:13,marginTop:10}}>No one yet. Open a pupil and tap "Has left the school".</div>}
             {leftExpanded&&(
               <div className="grid-2" style={{marginTop:16}}>
                 {leftStudents.map(s=>{
                   const t = leftTotals[s.id] || {present:0,late:0,absent:0,paid:0,owed:0,recordsCount:0};
+                  if (isSchool) return (
+                    <button key={s.id} type="button" className="line-row" onClick={()=>setSelected(s)}>
+                      <span style={{flex:1,minWidth:0}}>
+                        <span className="line-row-name" style={{display:'block'}}>{s.forename} {s.surname}</span>
+                        <span className="line-row-sub" style={{display:'block'}}>{s.class}{s.leaveDate?` · Left ${formatDateGB(s.leaveDate)}`:''}</span>
+                      </span>
+                    </button>
+                  );
                   return (
                     <div key={s.id} className="card" style={{cursor:'pointer'}} onClick={()=>setSelected(s)}>
                       <div style={{marginBottom:10}}>
                         <div style={{fontWeight:600,fontSize:14}}>{s.forename} {s.surname}</div>
                         <div className="text-muted text-sm">{s.class}{s.leaveDate?` · Left ${formatDateGB(s.leaveDate)}`:''}</div>
                       </div>
+                      {!isSchool && <>
                       {/* Attendance — same neutral-tile + colored-dot language as the
                           Daily Records / Attendance / Fees cards. */}
                       <div style={{display:'flex',gap:8,fontSize:12,marginBottom:8}}>
@@ -412,6 +461,7 @@ export default function Students() {
                           <div style={{color:'var(--text-muted)',fontSize:10}}>Records</div>
                         </div>
                       </div>
+                      </>}
                     </div>
                   );
                 })}
@@ -443,14 +493,15 @@ export default function Students() {
                     ...(selected.gender?[['Gender',selected.gender]]:[]),
                     ['Class',selected.class],
                     ['Enrolled',selected.enrollDate?formatDateGB(selected.enrollDate):'Not yet'],
-                    ...(duFees ? (duFees[selected.id] ? [['Fees this year',`${money(duFees[selected.id].paid)} of ${money(duFees[selected.id].expected)} paid`]] : []) : [[`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`]]),
+                    ...(isSchool ? [] : duFees ? (duFees[selected.id] ? [['Fees this year',`${money(duFees[selected.id].paid)} of ${money(duFees[selected.id].expected)} paid`]] : []) : [[`Fee per ${feeUnit()}`,`${money(selected.weeklyFee)}${feePer()}`]]),
                     ['Status',selected.status],
                     ...(selected.appliedOnline?[['Applied online',selected.addedAt?formatDateGB(String(selected.addedAt).slice(0,10)):'Yes']]:[]),
                     ...(selected.parentUpdatedAt?[['Updated by parent',formatDateGB(String(selected.parentUpdatedAt).slice(0,10))]]:[]),
                     // Extra history rows only for a left student — their attendance/fees
                     // totals below are already all-time, so the fuller picture (paid,
                     // owed, daily records) lives here too rather than only as pills.
-                    ...(selected.status==='Inactive'?[
+                    ...(selected.status==='Inactive' && isSchool ? [['Left',selected.leaveDate?formatDateGB(selected.leaveDate):'—']] : []),
+                    ...(selected.status==='Inactive' && !isSchool?[
                       ['Left',selected.leaveDate?formatDateGB(selected.leaveDate):'—'],
                       ['Fees paid (all time)',`${money((leftTotals[selected.id]?.paid||0))}`],
                       ['Fees owed (all time)',`${money((leftTotals[selected.id]?.owed||0))}`],
@@ -463,6 +514,29 @@ export default function Students() {
                   ))}
                 </div>
                 <div>
+                  {isSchool ? <>
+                  <div className="form-section-title" style={{marginBottom:10}}>Islamic Studies</div>
+                  <button type="button" className="line-row" onClick={()=>setStudiesPupil(selected.id)}>
+                    <span className="line-row-name">Surahs, du'aas &amp; practicals</span><span className="line-row-sub">Open</span>
+                  </button>
+                  {/* Moving class or leaving: their marks always stay with them. */}
+                  <div className="form-section-title" style={{margin:'14px 0 10px'}}>Class</div>
+                  {selected.status==='Inactive' ? (
+                    <button type="button" className="line-row" onClick={()=>setLeft(selected,false)}>
+                      <span className="line-row-name">Back at the school</span><span className="line-row-sub">Put back in {selected.class}</span>
+                    </button>
+                  ) : <div style={{display:'grid',gap:6}}>
+                    <div className="waiting-move">
+                      <select value="" onChange={e=>e.target.value&&moveSelected(e.target.value)} aria-label="Move to another class">
+                        <option value="">Move to another class…</option>
+                        {classNames.filter(c=>c!==selected.class).map(c=><option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <button type="button" className="line-row" onClick={()=>setLeft(selected,true)}>
+                      <span className="line-row-name">Has left the school</span><span className="line-row-sub">Kept under "Left"</span>
+                    </button>
+                  </div>}
+                  </> : <>
                   <div className="form-section-title" style={{marginBottom:10}}>Attendance{selected.status==='Inactive'?' (all time)':''}</div>
                   {(()=>{
                     const c = selected.status==='Inactive'
@@ -474,9 +548,10 @@ export default function Students() {
                       </div>
                     ));
                   })()}
+                  </>}
                 </div>
               </div>
-              {selected.status==='Inactive'&&(
+              {selected.status==='Inactive'&&!isSchool&&(
                 <>
                   <div className="form-section-title" style={{marginBottom:10}}>Previous reports</div>
                   <div className="mb-4">
@@ -536,6 +611,9 @@ export default function Students() {
         </div>
       )}
 
+      {/* A school pupil's surahs, du'aas & practicals — on top of their card, which is there again on closing */}
+      {studiesPupil && <PupilSheet id={studiesPupil} onClose={()=>setStudiesPupil(null)} />}
+
       {/* Edit modal */}
       {editing&&editForm&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEditing(null)}>
@@ -562,8 +640,8 @@ export default function Students() {
                     setEditForm({...editForm,status,leaveDate});
                   }}>
                     <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Waiting list">Waiting list</option>
+                    <option value="Inactive">{isSchool ? 'Left the school' : 'Inactive'}</option>
+                    {!isSchool && <option value="Waiting list">Waiting list</option>}
                   </select>
                 </div>
                 {editForm.status==='Inactive'&&(
@@ -572,7 +650,7 @@ export default function Students() {
               </div>
               <ParentInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))}/>
               <DetailInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))} isDarulUloom={isDarulUloom} only={['family','emergency','health','home','du']}/>
-              <div className="form-section-title" style={{marginBottom:12}}>Class & fees</div>
+              <div className="form-section-title" style={{marginBottom:12}}>{isSchool ? 'Class' : 'Class & fees'}</div>
               <div className="form-grid form-grid-2 mb-5">
                 <div className="form-group"><label>Class</label>
                   <select value={editForm.class} onChange={e=>setEditForm({...editForm,class:e.target.value})}>
@@ -580,7 +658,7 @@ export default function Students() {
                     <option value={WAITING_LIST}>{WAITING_LIST}</option>
                   </select>
                 </div>
-                {!isDarulUloom && <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>}
+                {!isDarulUloom && !isSchool && <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>}
               </div>
               <div className="form-group"><label>Notes</label><GrowingText minRows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})}/></div>
             </div>
@@ -647,7 +725,7 @@ function NotInClass({ students, classNames, onOpen, onMove }) {
   const [busy, setBusy] = useState(false);
   const groups = [];
   students.forEach(s => {
-    const label = s.class ? `Was in ${s.class}` : s.sheetClass ? `On the spreadsheet: ${s.sheetClass}` : 'No class given';
+    const label = s.class ? `Was in ${s.class}` : s.sheetClass ? (s.sheetClass.startsWith('Last year: ') ? s.sheetClass : `On the spreadsheet: ${s.sheetClass}`) : 'No class given';
     let g = groups.find(x => x.label === label);
     if (!g) groups.push(g = { label, list: [] });
     g.list.push(s);

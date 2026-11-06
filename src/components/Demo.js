@@ -24,7 +24,16 @@ const DU_ROLES = [
   { role: 'parent', icon: Users, title: 'Parent', who: 'The Patel family · two sons',
     text: 'Their sons\' attendance, fees, reports and Hifdh progress; reporting an absence.' },
 ];
-const rolesFor = kind => (kind === 'darul_uloom' ? DU_ROLES : ROLES);
+// The made-up school's Islamic Studies department (?demo=school, server/demo.js createSchoolDemo).
+const SCHOOL_ROLES = [
+  { role: 'head', icon: LayoutDashboard, title: 'Head of Islamic Studies', who: 'Demo School',
+    text: 'Every class from Reception to Year 10, some in several forms (6A, 6B, 6C): surahs, du\'aas and practicals, the lists, pupils and teachers.' },
+  { role: 'teacher', icon: BookOpen, title: 'Teacher', who: 'Ustadh Bilal · 4A',
+    text: 'His own class: marking surahs, du\'aas and practicals — one pupil or the whole class at once.' },
+  { role: 'parent', icon: Users, title: 'Parent', who: 'The Hussain family · 2B and 6A',
+    text: 'Their children\'s surahs, du\'aas and practicals — what\'s achieved and what\'s completed with help.' },
+];
+const rolesFor = kind => (kind === 'darul_uloom' ? DU_ROLES : kind === 'school' ? SCHOOL_ROLES : ROLES);
 
 const SIGNED_IN_ROLE = { owner: 'head', teacher: 'teacher', parent: 'parent' };
 
@@ -39,7 +48,7 @@ export function DemoChooser({ current, kind = 'maktab' }) {
   const [error, setError] = useState('');
   // Count a new visitor opening the demo, and who they chose to be (not switches inside one) — the Darul Uloom demo
   // under its own name (/demo/darul-uloom, /demo/darul-uloom/head …), the maktab one as before (/demo, /demo/head …).
-  const base = kind === 'darul_uloom' ? '/demo/darul-uloom' : '/demo';
+  const base = kind === 'darul_uloom' ? '/demo/darul-uloom' : kind === 'school' ? '/demo/school' : '/demo';
   useEffect(() => { if (!current) countVisit(base); }, [current, base]);
 
   async function choose(role) {
@@ -86,7 +95,7 @@ export function DemoScreen({ kind, signedInAs }) {
       <div className="card" style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
         <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Try the demo</div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
-          A made-up {kind === 'darul_uloom' ? 'Darul Uloom' : 'madrasah'} with made-up children — change anything; it's deleted after a day.
+          A made-up {kind === 'darul_uloom' ? 'Darul Uloom' : kind === 'school' ? 'school' : 'madrasah'} with made-up children — change anything; it's deleted after a day.
           {signedInAs && <> You're signed in to {signedInAs}; opening the demo signs you out of it on this device.</>}
         </div>
         <DemoChooser kind={kind} />

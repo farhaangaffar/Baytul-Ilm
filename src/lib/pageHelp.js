@@ -227,9 +227,58 @@ const DU_TEACHER = {
   ] },
 };
 
+// A school's Islamic Studies department (madaaris.kind 'school'): its own few pages.
+const STUDIES_STEPS = [
+  'Choose a class (Class ▾), then Surahs, Du\'aas or Practicals.',
+  'Each line is one surah, du\'aa or practical for the class\'s year group. Tap it to open the class underneath.',
+  'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class. Tap a lit box again to take the mark off (Not assessed yet).',
+  'A surah also shows the class\'s weekly tracker: tap the last aayah the class has reached and every aayah before it is marked too (or All).',
+  'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
+  'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',
+  'Pupils: a line for each child — tap their name for everything of theirs: their figures, what to work on (tap Surahs, Du\'aas or Practicals to see them), each list as a coloured bar with the class average, and the surah the class is on.',
+  'Tap a pupil\'s name to see and mark everything of theirs.',
+];
+const SCHOOL_HEAD = {
+  '/': { title: 'Dashboard', steps: [
+    'The boxes on top: pupils, classes, and how much of this year\'s surahs, du\'aas and practicals are achieved or being worked towards.',
+    'Each class has a line with its year group, teacher and a bar — green achieved, amber completed with help. Tap it to open the class on Islamic Studies.',
+    'At the bottom, "Recommend Suhuf": send your link to another school or madrasah — you get a month free for each one that signs up.',
+  ] },
+  '/students': { title: 'Pupils', steps: [
+    'Pupils are grouped by class — tap a class to open it. Each class shows its year group and how much of this year\'s Islamic Studies is achieved.',
+    'Import adds a whole spreadsheet of pupils — an export from your school\'s pupil database works. They land in "Not in a class": tick them and move them into a class.',
+    'Tap a pupil for their details; "Surahs, du\'aas & practicals" shows everything of theirs.',
+    'A pupil who changes class: open them and choose "Move to another class". Leaving: "Has left the school" — they go under Left (tap the Left box), marks kept.',
+    'End of the year: first add next year\'s classes on Classes & Teachers, then "New school year" (bottom of the page) — choose which class each class goes into, or "Left the school". Marks go with every pupil, and it can be undone.',
+    'Switch the parent portal on in Settings, then set up each family\'s login from a pupil\'s card.',
+  ] },
+  '/studies': { title: 'Islamic Studies', steps: [
+    ...STUDIES_STEPS,
+    'The lists are yours: "Add a surah" (or du\'aa or practical) at the bottom, and Edit inside an open line to rename it, move it to another year or remove it.',
+    '"Import marks from your spreadsheets": choose your Surah or Du\'aa workbook (.xlsx) — pupils are matched by name, columns by surah or du\'aa, and new ones can be added to your list.',
+  ] },
+  '/classes': { title: 'Classes & Teachers', steps: [
+    'Add your teachers first, then your classes — each with its year group (Reception to Year 13), so it gets that year\'s lists.',
+    'Tap a class or teacher for their details, Edit and Delete.',
+    'Logins: each teacher can have their own, and sees only their own classes.',
+  ] },
+  '/settings': { title: 'Settings', steps: [
+    'Your school\'s name and logo — everything saves by itself.',
+    'Parent portal: switch it on so parents can see their children\'s surahs, du\'aas and practicals.',
+    'Backup: download one now and then.',
+  ] },
+};
+const SCHOOL_TEACHER = { '/studies': { title: 'Islamic Studies', steps: STUDIES_STEPS } };
+const SCHOOL_PARENT = { title: 'How to use this page', steps: [
+  'If you have more than one child, choose one at the top.',
+  'Islamic Studies: how your child is doing — achieved, completed with help, incomplete — what to work on (tap Surahs, Du\'aas or Practicals to see them), and the surah the class is learning. Tap a list to see every surah, du\'aa or practical.',
+  'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
+] };
+
 // → { title, steps: [...] } for this page and person, or null.
-export function pageHelp(pathname, role, darulUloom = false) {
-  const h = role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
+export function pageHelp(pathname, role, darulUloom = false, school = false) {
+  const h = school ? (role === 'parent' ? SCHOOL_PARENT : (role === 'owner' ? SCHOOL_HEAD : SCHOOL_TEACHER)[pathname] || (role === 'owner' && HEAD[pathname]))
+    : role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };
 }
