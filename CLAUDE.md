@@ -268,7 +268,9 @@ codebase (one codebase, not a fork).
   logins), **Pupils** (the Students page with no fees, attendance or waiting list; class lines show pupils · year group ·
   % achieved; a pupil opens their lists), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
   teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,
-  Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). Never show
+  Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). A school's **Add a pupil** (`SchoolPupilForm` in `EnrollmentForm.js`) is one page — name, class, date of
+  birth, gender, two contacts — and its Edit pop-up has no address/health/home details or enrolment date (not the school's
+  full record — the owner's ask). Never show
   a school fees, registers, Qur'an daily records or maktab/Darul Uloom pages, and never show a maktab the school pages.
   **Islamic Studies**: each school's own lists (`is_items`: kind surah / duaa / practical, name, detail, the year group it's
   learnt in; the starter lists in `server/studiesStarter.js` — Reception to Year 11 — are added the first time,
