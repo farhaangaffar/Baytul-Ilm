@@ -268,7 +268,9 @@ codebase (one codebase, not a fork).
   logins), **Pupils** (the Students page with no fees, attendance or waiting list; class lines show pupils · year group ·
   % achieved; a pupil opens their lists), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
   teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,
-  Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). Never show
+  Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). A school's **Add a pupil** (`SchoolPupilForm` in `EnrollmentForm.js`) is one page — name, class, date of
+  birth, gender, two contacts — and its Edit pop-up has no address/health/home details or enrolment date (not the school's
+  full record — the owner's ask). Never show
   a school fees, registers, Qur'an daily records or maktab/Darul Uloom pages, and never show a maktab the school pages.
   **Islamic Studies**: each school's own lists (`is_items`: kind surah / duaa / practical, name, detail, the year group it's
   learnt in; the starter lists in `server/studiesStarter.js` — Reception to Year 11 — are added the first time,
@@ -279,9 +281,13 @@ codebase (one codebase, not a fork).
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** — the four figures, "Class is
-  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete then with-help chips — the first 8, then "Show all N"), "All their marks", each list as a line with a soft coloured bar
-  (year by year) and the class average, opening to every item to mark; a name elsewhere → `PupilSheet` (the same, as a pop-up).
+  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — one big "N% achieved · X of Y assessed",
+  chips (N with help · N incomplete · N not assessed), then a line per list (Surahs / Du'aas / Practicals: "21 of 25 achieved", then
+  two bars — the pupil's first name with their coloured bar and %, and "Class" with a grey bar and the class's %, both of what's
+  been assessed; `.pd-row`) opening to every item to mark — a white card per year (`.pd-year`), newest first, the pupil's own year
+  with a light-blue edge and a "This year" tag, each with "N of M achieved", then "<Name>'s average N%" on the left · "Class average N%" on the right (`classAverage.all`; none in the parent portal), "Class is
+  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete
+  then with-help chips — the first 8, then "Show all N"); a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
   per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /
   `surahNumber()` (`src/lib/studies.js` — "Faatihah" = Al-Fatihah, "Lahab" = Al-Masad), unknown columns added with a chosen year,
@@ -297,6 +303,17 @@ codebase (one codebase, not a fork).
   (with items or a class) opening to its surahs / du'aas / practicals — tap one → `ItemModal` (change "Learnt in" or remove),
   "Add a … to Year N". **Surahs show in teaching order** everywhere (`SURAH_ORDER` in studies.js): Al-Faatihah, then An-Naas
   back towards An-Naba (114 → 78), then ones that aren't a whole surah.
+  **Reports (stage 2)** (menu "Reports", head + teachers; `src/pages/SchoolReports.js`, `server/routes/school-reports.js`;
+  just stats — the owner's choice: no tests, no comments): Settings → **Reports are made** each term or once a year
+  (`settings.studies_reports`). The head **takes an assessment point** (`is_assessments`: Autumn / Spring / Summer, or End
+  of year; name unique per academic year) — a snapshot of every Active pupil's marks (`is_assessment_pupils.marks`, JSONB
+  itemId → level, with their class and year group then); "Update marks" re-saves until it's sent. Open a point → Class ▾ →
+  a line per pupil (achieved of this year's, "+N since last time" vs the previous point, the soft bar) with **effort** boxes
+  Excellent · Good · Needs to improve (their teacher or the head; tap again to clear). Tap a name → `ReportModal` (figures,
+  effort, since last time, earlier years, each list's chips) with a PDF (`src/lib/studiesReportPdf.js`, one A4 per pupil);
+  "Print the whole class". Report maths in `src/lib/studiesReport.js` (`reportOf`). **Send to parents** (head, every class
+  at once) → the portal's "Reports" lines (`forParent()` in school-reports.js via studies.js, with `allItems`). In Backup
+  (studies.js `reports`) and demo `TABLES`; the school demo has an Autumn point three weeks back, sent, every pupil rated.
   Parents: `forParent()` → the portal shows `PupilDetail` read-only (no class average) and Your details — for a school only the child's name, class, date of birth and the contacts (`SCHOOL_EDITABLE` in parent.js; no address, health or going home). Bars are soft (the light shades, `LEVEL_COLOUR`), like a picked box. In Backup (`?action=backup|restore`, `islamicStudies` in the backup file) and demo
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part

@@ -308,7 +308,7 @@ export default function Students() {
           </button>
           </>}
           <button className="btn" onClick={()=>setShowImport(true)}><FileSpreadsheet size={14}/> Import</button>
-          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> Enroll</button>
+          <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={()=>setShowEnroll(true)}><Plus size={14}/> {isSchool ? 'Add a pupil' : 'Enroll'}</button>
         </div>
       </div>
 
@@ -623,14 +623,14 @@ export default function Students() {
               <button className="btn btn-icon" onClick={()=>setEditing(null)}><X size={16}/></button>
             </div>
             <div className="modal-body">
-              <div className="form-section-title" style={{marginBottom:12}}>Student details</div>
+              <div className="form-section-title" style={{marginBottom:12}}>{isSchool ? 'Pupil details' : 'Student details'}</div>
               <div className="form-grid form-grid-2 mb-5">
                 {[['Forename','forename'],['Surname','surname']].map(([l,k])=>(
                   <div className="form-group" key={k}><label>{l}</label><input value={editForm[k]} onChange={e=>setEditForm({...editForm,[k]:e.target.value})}/></div>
                 ))}
                 <div className="form-group"><label>Date of birth</label><input type="date" value={editForm.dob} onChange={e=>setEditForm({...editForm,dob:e.target.value})}/></div>
                 <div className="form-group"><label>Gender</label><ChoiceBoxes options={['Boy','Girl']} value={editForm.gender||''} onChange={v=>setEditForm(f=>({...f,gender:v}))}/></div>
-                <div className="form-group"><label>Enrolment date</label><input type="date" value={editForm.enrollDate||''} onChange={e=>setEditForm({...editForm,enrollDate:e.target.value})}/></div>
+                {!isSchool && <div className="form-group"><label>Enrolment date</label><input type="date" value={editForm.enrollDate||''} onChange={e=>setEditForm({...editForm,enrollDate:e.target.value})}/></div>}
                 <div className="form-group"><label>Status</label>
                   <select value={editForm.status} onChange={e=>{
                     const status = e.target.value;
@@ -649,7 +649,8 @@ export default function Students() {
                 )}
               </div>
               <ParentInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))}/>
-              <DetailInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))} isDarulUloom={isDarulUloom} only={['family','emergency','health','home','du']}/>
+              {/* A school keeps just the basics and contacts (it isn't the school's full record). */}
+              {!isSchool && <DetailInputs form={editForm} set={(k,v)=>setEditForm(f=>({...f,[k]:v}))} isDarulUloom={isDarulUloom} only={['family','emergency','health','home','du']}/>}
               <div className="form-section-title" style={{marginBottom:12}}>{isSchool ? 'Class' : 'Class & fees'}</div>
               <div className="form-grid form-grid-2 mb-5">
                 <div className="form-group"><label>Class</label>

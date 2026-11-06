@@ -12,6 +12,7 @@ import Boarding        from './pages/Boarding';
 import Maintenance from './pages/Maintenance';
 import Exams           from './pages/Exams';
 import Studies         from './pages/Studies';
+import SchoolReports   from './pages/SchoolReports';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
@@ -154,6 +155,7 @@ export default function App() {
                 <Route path="/"         element={<Dashboard />} />
                 <Route path="/students" element={<Students />} />
                 <Route path="/studies"  element={<Studies />} />
+                <Route path="/reports"  element={<SchoolReports />} />
                 <Route path="/classes"  element={<ClassesTeachers />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}
@@ -162,6 +164,7 @@ export default function App() {
             ) : (
               <Routes>
                 <Route path="/studies"  element={<Studies />} />
+                <Route path="/reports"  element={<SchoolReports />} />
                 <Route path="*"         element={<Navigate to="/studies" replace />} />
               </Routes>
             )

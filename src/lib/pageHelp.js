@@ -235,8 +235,13 @@ const STUDIES_STEPS = [
   'A surah also shows the class\'s weekly tracker: tap the last aayah the class has reached and every aayah before it is marked too (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
   'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',
-  'Pupils: a line for each child — tap their name for everything of theirs: their figures, what to work on (tap Surahs, Du\'aas or Practicals to see them), each list as a coloured bar with the class average, and the surah the class is on.',
+  'Pupils: a line for each child — tap their name for everything of theirs: how much they\'ve achieved, each list with their bar and the class\'s underneath (tap a list to mark its items), their average and the class\'s, the surah the class is on, and what to work on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
+];
+const REPORTS_STEPS = [
+  'Each assessment (Autumn, Spring, Summer — or End of year, Settings) saves where every pupil is on their surahs, du\'aas and practicals.',
+  'Tap an assessment, choose a class (Class ▾), and tap Excellent, Good or Needs to improve by each pupil for effort (tap again to clear).',
+  'Tap a pupil\'s name for their report and its PDF; "Print the whole class" makes one PDF of them all.',
 ];
 const SCHOOL_HEAD = {
   '/': { title: 'Dashboard', steps: [
@@ -251,6 +256,11 @@ const SCHOOL_HEAD = {
     'A pupil who changes class: open them and choose "Move to another class". Leaving: "Has left the school" — they go under Left (tap the Left box), marks kept.',
     'End of the year: first add next year\'s classes on Classes & Teachers, then "New school year" (bottom of the page) — choose which class each class goes into, or "Left the school". Marks go with every pupil, and it can be undone.',
     'Switch the parent portal on in Settings, then set up each family\'s login from a pupil\'s card.',
+  ] },
+  '/reports': { title: 'Reports', steps: [
+    'Mark everyone on Islamic Studies, then "Take the Autumn assessment" (or Spring, Summer — End of year if you report once a year, Settings). It saves where every pupil is now.',
+    ...REPORTS_STEPS.slice(1),
+    'Marked more since? "Update marks" saves them again (until it\'s sent). "Send to parents" puts every class\'s reports in the parent portal.',
   ] },
   '/studies': { title: 'Islamic Studies', steps: [
     ...STUDIES_STEPS,
@@ -268,11 +278,12 @@ const SCHOOL_HEAD = {
     'Backup: download one now and then.',
   ] },
 };
-const SCHOOL_TEACHER = { '/studies': { title: 'Islamic Studies', steps: STUDIES_STEPS } };
+const SCHOOL_TEACHER = { '/studies': { title: 'Islamic Studies', steps: STUDIES_STEPS }, '/reports': { title: 'Reports', steps: REPORTS_STEPS } };
 const SCHOOL_PARENT = { title: 'How to use this page', steps: [
   'If you have more than one child, choose one at the top.',
   'Islamic Studies: how your child is doing — achieved, completed with help, incomplete — what to work on (tap Surahs, Du\'aas or Practicals to see them), and the surah the class is learning. Tap a list to see every surah, du\'aa or practical.',
-  'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
+  'Reports: each one the school has sent — tap it to see it and download the PDF.',
+  'Your details: tap "Check & update" to change your names, phone numbers and emails.',
 ] };
 
 // → { title, steps: [...] } for this page and person, or null.

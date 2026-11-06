@@ -723,6 +723,16 @@ export const importStudiesMarks = marks => apiFetch('/api/studies?action=import'
 export const getSchoolYearMove = () => apiFetch('/api/studies?action=new-year');
 export const moveSchoolYear = moves => apiFetch('/api/studies?action=new-year', { method: 'POST', body: JSON.stringify({ moves }) });
 export const undoSchoolYear = () => apiFetch('/api/studies?action=undo-year', { method: 'POST', body: '{}' });
+// A school's Islamic Studies reports (server/routes/school-reports.js).
+export const getSchoolReports = () => apiFetch('/api/school-reports');
+export const getSchoolReportClass = (id, cls) => apiFetch(`/api/school-reports?id=${encodeURIComponent(id)}&class=${encodeURIComponent(cls)}`);
+const srPost = (action, body) => apiFetch(`/api/school-reports?action=${action}`, { method: 'POST', body: JSON.stringify(body) });
+export const setSchoolReportPeriod = period => srPost('setting', { period });
+export const takeAssessment = name => srPost('take', { name });
+export const retakeAssessment = id => srPost('retake', { id });
+export const setEffort = (id, studentId, effort) => srPost('effort', { id, studentId, effort });
+export const publishAssessment = (id, published) => srPost('publish', { id, published });
+export const deleteAssessment = id => apiFetch(`/api/school-reports?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getStudiesItems = () => apiFetch('/api/studies');
 export const getStudiesPupil = id => apiFetch(`/api/studies?studentId=${encodeURIComponent(id)}`);
 export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies?action=mark', { method: 'POST', body: JSON.stringify({ itemId, studentIds, level }) });

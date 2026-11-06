@@ -11,6 +11,8 @@ import { countedFees } from '../lib/feePeriods';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import { PupilDetail } from './Studies';
+import { ReportModal } from './SchoolReports';
+import { reportOf } from '../lib/studiesReport';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import InstallBanner from '../components/InstallBanner';
 import InstallSteps from '../components/InstallSteps';
@@ -243,12 +245,37 @@ function YourDetails({ child, details, onSaved, many, school = false, student })
 
 // A school's pupil (server/routes/studies.js forParent): everything of theirs, as the school sees it (PupilDetail in
 // pages/Studies.js, read only) — the figures, what to work on, each list's bar and the surah the class is on.
-function StudiesCards({ studies }) {
+function StudiesCards({ studies, child }) {
   const level = it => studies.progress.find(p => p.itemId === it.id)?.level || 0;
+  const [view, setView] = useState(null);
+  const reports = studies.reports || [];
+  // A report the school has sent (routes/school-reports.js): just the stats, with its PDF.
+  const one = r => ({
+    name: `${child.forename} ${child.surname || ''}`.trim(), className: r.class, assessment: r, effort: r.effort,
+    report: reportOf({ items: studies.allItems || studies.items, marks: r.marks, previous: r.previous, yearGroup: r.yearGroup }),
+  });
   return (
-    <Section title="Islamic Studies">
-      <PupilDetail items={studies.items} levelOf={level} readOnly ayahs={studies.ayahs} yearGroup={studies.yearGroup} />
-    </Section>
+    <>
+      {reports.length > 0 && (
+        <Section title="Reports">
+          <div style={{ display: 'grid', gap: 6 }}>
+            {reports.map(r => (
+              <button key={r.id} type="button" className="line-row" onClick={() => setView(one(r))}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="line-row-name" style={{ display: 'block' }}>{r.name} · 20{String(r.year).replace('-', '–20')}</span>
+                  <span className="line-row-sub" style={{ display: 'block' }}>{r.class} · {formatDateGB(r.takenAt)}{r.effort ? ` · Effort: ${r.effort}` : ''}</span>
+                </span>
+                <span className="line-row-sub">Open</span>
+              </button>
+            ))}
+          </div>
+        </Section>
+      )}
+      <Section title="Islamic Studies">
+        <PupilDetail name={child.forename} items={studies.items} levelOf={level} readOnly ayahs={studies.ayahs} yearGroup={studies.yearGroup} />
+      </Section>
+      {view && <ReportModal one={view} onClose={() => setView(null)} />}
+    </>
   );
 }
 
@@ -268,7 +295,7 @@ function ChildView({ child, reasons, many }) {
   if (error) return <div className="card" style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>;
   if (!data) return <div className="card text-muted" style={{ fontSize: 13 }}>Loading…</div>;
   // A school: Islamic Studies only (no registers, fees or madrasah reports).
-  if (data.studies) return <><StudiesCards studies={data.studies} />{data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} school student={data.student} />}</>;
+  if (data.studies) return <><StudiesCards studies={data.studies} child={child} />{data.details && <YourDetails child={child} details={data.details} onSaved={load} many={many} school student={data.student} />}</>;
 
   // Attendance: totals for this school year (from September); the days themselves are
   // tucked away by month.
