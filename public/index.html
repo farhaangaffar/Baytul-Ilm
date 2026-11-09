@@ -11,6 +11,19 @@
     <meta property="og:title" content="Suhuf — your whole madrasah, in one simple app" />
     <meta property="og:description" content="Registers, fees, Qur'an progress, reports and a parent portal for madaaris, maktabs, Darul Ulooms and Aalimiyyah courses. Free for 6 months." />
     <meta property="og:url" content="https://www.suhuf.uk/" />
+    <!-- The one address search engines should list for each public page (Google Search Console flagged duplicates):
+         the front page is the same at /, /about, /?signin, /?ref=… and the old vercel.app address — all point to
+         www.suhuf.uk/; /privacy and /terms point to themselves. Set before the app loads, so crawlers always see it. -->
+    <link rel="canonical" id="canonical" href="https://www.suhuf.uk/" />
+    <script>
+      try {
+        var p = location.pathname.replace(/\/+$/, '');
+        if (p === '/privacy' || p === '/terms') {
+          document.getElementById('canonical').href = 'https://www.suhuf.uk' + p;
+          document.querySelector('meta[property="og:url"]').content = 'https://www.suhuf.uk' + p;
+        }
+      } catch (e) {}
+    </script>
     <!-- Served by api/settings so the installed app is named after the madrasah -->
     <link rel="manifest" href="/api/settings?manifest" />
     <!-- The madrasah's uploaded logo as a square icon, or the built-in one if none (see api/settings) -->
