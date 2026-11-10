@@ -135,6 +135,19 @@ async function yearGroupOfClass(mid, className) {
   return c?.year_group ?? null;
 }
 
+// The class's average for each list and all together (achieved of what's been assessed, their year and earlier) — to
+// compare a pupil with. Only the whole class's figure, never another child's marks (so parents see it too).
+async function classAverageOf(mid, className, year) {
+  const { rows: avg } = await query(
+    `SELECT i.kind, count(*) FILTER (WHERE p.level = 3)::int AS achieved, count(*)::int AS assessed
+     FROM is_progress p JOIN students s ON s.id = p.student_id AND s.madrasah_id = p.madrasah_id
+     JOIN is_items i ON i.id = p.item_id AND i.madrasah_id = p.madrasah_id
+     WHERE p.madrasah_id = $1 AND s.class = $2 AND s.status = 'Active' AND ($3::int IS NULL OR i.year_group <= $3) GROUP BY i.kind`, [mid, className, year]);
+  const pct = (a, n) => (n ? Math.round((a / n) * 100) : null);
+  const sum = k => avg.reduce((t, a) => t + a[k], 0);
+  return { ...Object.fromEntries(avg.map(a => [a.kind, pct(a.achieved, a.assessed)])), all: pct(sum('achieved'), sum('assessed')) };
+}
+
 // The aayahs a class has covered, by item id.
 async function classAyahs(mid, className) {
   const { rows } = await query(
@@ -154,7 +167,7 @@ const handler = requireAuth(async (req, res) => {
     const { rows: list } = await query('SELECT id::text AS id, kind, name, detail, year_group, sort, surah FROM is_items WHERE madrasah_id = $1 ORDER BY id', [mid]);
     const { rows: marks } = await query('SELECT student_id, item_id::text AS item_id, level, updated_by, updated_at FROM is_progress WHERE madrasah_id = $1', [mid]);
     const { rows: ayahs } = await query('SELECT class_id, item_id::text AS item_id, ayahs, updated_by, updated_at FROM is_class_ayahs WHERE madrasah_id = $1', [mid]);
-    res.status(200).json({ items: list, progress: marks, ayahs });
+    res.status(200).json({ items: list, progress: marks, ayahs, reports: await require('./school-reports').backup(mid) });
     return;
   }
   if (action === 'restore' && req.method === 'POST') {
@@ -186,6 +199,8 @@ const handler = requireAuth(async (req, res) => {
         await c.query('INSERT INTO is_class_ayahs (madrasah_id, class_id, item_id, ayahs, updated_by, updated_at) VALUES ($1,$2,$3,$4,$5,COALESCE($6::timestamptz, now())) ON CONFLICT DO NOTHING',
           [mid, String(a.class_id), ids[a.item_id], a.ayahs.map(Number).filter(n => n >= 1 && n <= 286), str(a.updated_by), a.updated_at || null]);
       }
+      // Assessment points and reports (older backups have none — leave them alone).
+      if (b.reports) await require('./school-reports').restore(c, mid, b.reports, Object.fromEntries(Object.entries(ids).map(([k, v]) => [String(k), String(v)])));
       await c.query('UPDATE settings SET studies_seeded = true WHERE madrasah_id = $1', [mid]);
     });
     res.status(200).json({ ok: true });
@@ -342,14 +357,8 @@ const handler = requireAuth(async (req, res) => {
         `SELECT id, forename || ' ' || surname AS name, class FROM students WHERE id = $1 AND madrasah_id = $2`, [sid, mid]);
       const year = await yearGroupOfClass(mid, p.class);
       const { rows: progress } = await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = $2`, [mid, sid]);
-      // The class's average for each list (achieved of what's been assessed, their year and earlier), to compare with.
-      const { rows: avg } = await query(
-        `SELECT i.kind, count(*) FILTER (WHERE p.level = 3)::int AS achieved, count(*)::int AS assessed
-         FROM is_progress p JOIN students s ON s.id = p.student_id AND s.madrasah_id = p.madrasah_id
-         JOIN is_items i ON i.id = p.item_id AND i.madrasah_id = p.madrasah_id
-         WHERE p.madrasah_id = $1 AND s.class = $2 AND s.status = 'Active' AND ($3::int IS NULL OR i.year_group <= $3) GROUP BY i.kind`, [mid, p.class, year]);
       res.status(200).json({ pupil: { ...p, yearGroup: year }, items: await items(mid, year), progress, ayahs: await classAyahs(mid, p.class),
-        classAverage: Object.fromEntries(avg.map(a => [a.kind, a.assessed ? Math.round((a.achieved / a.assessed) * 100) : null])) });
+        classAverage: await classAverageOf(mid, p.class, year) });
       return;
     }
     if (req.query.class !== undefined) {
@@ -478,7 +487,12 @@ async function forParent(mid, student) {
   await seedOnce(mid);
   const year = await yearGroupOfClass(mid, student.class);
   const { rows: progress } = await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = $2`, [mid, student.id]);
-  return { yearGroup: year, items: await items(mid, year), progress: progress.map(({ updatedBy, ...p }) => p), ayahs: await classAyahs(mid, student.class) };
+  return {
+    yearGroup: year, items: await items(mid, year), progress: progress.map(({ updatedBy, ...p }) => p), ayahs: await classAyahs(mid, student.class),
+    classAverage: await classAverageOf(mid, student.class, year), // the whole class's figures, to compare with
+    // Reports the school has sent to parents (routes/school-reports.js), with every item so older years' marks show.
+    reports: await require('./school-reports').forParent(mid, student.id), allItems: await items(mid),
+  };
 }
 
 module.exports = handler;

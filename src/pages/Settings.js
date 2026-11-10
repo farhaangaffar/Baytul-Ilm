@@ -3,7 +3,7 @@ import { GrowingText } from '../components/StudentDetails';
 import { LegalLinks } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents, getDuFees } from '../lib/store';
+import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents, getDuFees, getSchoolReports, setSchoolReportPeriod } from '../lib/store';
 import DuFeeSetupModal from '../components/DuFeeSetup';
 import { studentsRows, sheetLeft } from '../lib/studentSheet';
 import { xlsxBlob, downloadBlob } from '../lib/xlsx';
@@ -69,6 +69,8 @@ export default function Settings() {
   const [pendingRestore, setPendingRestore] = useState(null);
   // Everything saves by itself; a small "Saved" tick shows next to what just changed.
   const [savedKey, setSavedKey] = useState('');
+  const [studiesReports, setStudiesReports] = useState(''); // a school: 'term' | 'year' (routes/school-reports.js)
+  useEffect(() => { if (isSchool) getSchoolReports().then(d => setStudiesReports(d.period)).catch(() => {}); }, [isSchool]);
   const savedTimer = useRef(null);
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -402,6 +404,21 @@ export default function Settings() {
       {!isDarulUloom && !isSchool && years.length > 0 && (savedFrequency || 'weekly') === 'weekly' && form.feeAuto !== false && <FeeWeeksCard years={years} defaultYear={currentYear} />}
       {/* Fee months — monthly fees added automatically: which months are charged */}
       {!isDarulUloom && !isSchool && years.length > 0 && savedFrequency === 'monthly' && form.feeAuto !== false && <FeeMonthsCard years={years} defaultYear={currentYear} />}
+
+      {/* A school's reports: each term (Autumn, Spring, Summer) or once a year (Reports page) */}
+      {isSchool && studiesReports && <div className="card" style={{marginTop:16}}>
+        <div className="card-title" style={{marginBottom:16}}>Reports</div>
+        <div className="form-group">
+          <Label k="studiesReports">Reports are made</Label>
+          <select value={studiesReports} onChange={async e => {
+            const v = e.target.value; setStudiesReports(v);
+            try { await setSchoolReportPeriod(v); markSaved('studiesReports'); } catch (err) { showToast(err.message || 'Could not save'); }
+          }}>
+            <option value="term">Each term — Autumn, Spring, Summer</option>
+            <option value="year">Once a year — End of year</option>
+          </select>
+        </div>
+      </div>}
 
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>

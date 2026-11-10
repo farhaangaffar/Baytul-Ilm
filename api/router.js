@@ -38,6 +38,7 @@ const routes = {
   'du-fees': require('../server/routes/du-fees'),
   referrals: require('../server/routes/referrals'),
   studies: require('../server/routes/studies'),
+  'school-reports': require('../server/routes/school-reports'),
   users: require('../server/routes/users'),
 };
 

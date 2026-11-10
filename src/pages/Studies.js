@@ -161,8 +161,8 @@ export default function Studies() {
   // This year's items × the class's pupils, for the figures.
   const classTally = tally(now.flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
   // The class's average for each list (their year and earlier), to compare a child with.
-  const classAverage = Object.fromEntries(STUDY_KINDS.map(([k]) => {
-    const t = tally(all.filter(i => i.kind === k).flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
+  const classAverage = Object.fromEntries([...STUDY_KINDS.map(([k]) => k), 'all'].map(k => {
+    const t = tally(all.filter(i => k === 'all' || i.kind === k).flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
     return [k, t.assessed ? t.pctAchieved : null];
   }));
 
@@ -250,7 +250,7 @@ export default function Studies() {
                       </button>
                       {open && (
                         <div className="st-open">
-                          <PupilDetail items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
+                          <PupilDetail name={p.name.split(' ')[0]} items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
                             classAverage={classAverage} ayahs={data.ayahs} yearGroup={year} />
                           <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={() => setOpenItem(null)}><ChevronUp size={13} />Close {p.name.split(' ')[0]}</button>
                         </div>
@@ -320,7 +320,7 @@ export default function Studies() {
 // Everything about one child: the four figures; what to work on (incomplete, then with help); each list as a line with
 // its soft coloured bar and the class's average, opening to every item to
 // mark; and the surah the class is on. Used under a name on the Pupils tab and in the pupil's pop-up.
-export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
+export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, classAverage = {}, ayahs = {}, yearGroup, readOnly }) {
   const [open, setOpen] = useState('');
   const [workOpen, setWorkOpen] = useState('');
   const [workAll, setWorkAll] = useState(false); // a long list shows its first few until "Show all"
@@ -330,9 +330,78 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
   // The surah the class is learning now: this year's first surah not fully covered.
   const learning = items.filter(it => it.kind === 'surah' && it.surah && (yearGroup === null || yearGroup === undefined || it.yearGroup === yearGroup))
     .find(it => (ayahs[it.id] || []).length < surahAyahs(it.surah));
+  const has = v => v !== null && v !== undefined;
   return (
     <div style={{ display: 'grid', gap: 8 }}>
-      <Figures t={t} />
+      {/* One headline number (achieved, of what's been assessed), the rest as counts — the owner's pick. */}
+      <div className="pd-head">
+        <div className="pd-big">{t.pctAchieved}%</div>
+        <div className="pd-sub">achieved · {t.achieved} of {t.assessed} assessed</div>
+      </div>
+      <div className="st-chips">
+        {t.withHelp > 0 && <span className="st-chip amber">{t.withHelp} with help</span>}
+        {t.incomplete > 0 && <span className="st-chip red">{t.incomplete} incomplete</span>}
+        {t.notAssessed > 0 && <span className="st-chip">{t.notAssessed} not assessed</span>}
+      </div>
+      {/* A line per list — tap to see and mark every item: the pupil's bar and %, and under it the class's (the owner's pick). */}
+      {STUDY_KINDS.map(([k, l]) => {
+        const list = items.filter(it => it.kind === k);
+        if (!list.length) return null;
+        const kt = tally(list, levelOf);
+        const isOpen = open === k;
+        return (
+          <div key={k} style={{ display: 'grid', gap: 6 }}>
+            <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : k)}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="pd-line">
+                  <span className="line-row-name">{l}</span>
+                  <span className="pd-count">{kt.achieved} of {kt.assessed} achieved</span>
+                </span>
+                {/* Both bars are of what's been assessed, like the %s. */}
+                <span className="pd-row">
+                  <span className="pd-who">{name}</span>
+                  <Bar t={{ ...kt, total: kt.assessed }} />
+                  <b className="pd-pct">{kt.assessed ? `${kt.pctAchieved}%` : '—'}</b>
+                </span>
+                {has(classAverage[k]) && (
+                  <span className="pd-row">
+                    <span className="pd-who">Class</span>
+                    <span className="pd-class"><i style={{ width: `${classAverage[k]}%` }} /></span>
+                    <span className="pd-pct pd-muted">{classAverage[k]}%</span>
+                  </span>
+                )}
+              </span>
+              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {/* Each year in its own white card, newest first; the pupil's own year marked "This year" (the owner's pick). */}
+            {isOpen && [...new Set(list.map(it => it.yearGroup))].sort((x, y) => (y ?? -1) - (x ?? -1)).map(yg => {
+              const mine = list.filter(it => it.yearGroup === yg);
+              const now = yg === yearGroup;
+              return (
+                <div key={String(yg)} className={`pd-year ${now ? 'now' : ''}`}>
+                  <div className="pd-year-head">
+                    <span>{yearLabel(yg)}</span>
+                    {now && <span className="pd-tag">This year</span>}
+                    <span className="pd-year-count">{mine.filter(it => levelOf(it) === 3).length} of {mine.length} achieved</span>
+                  </div>
+                  {mine.map(it => (
+                    <div key={it.id} className="st-pupil">
+                      <span className="st-name st-item">{it.name}</span>
+                      {readOnly ? <BoxRow fill columns="1fr" cells={[{ text: LEVEL_NAME[levelOf(it)], tone: LEVEL_TONE[levelOf(it)] }]} />
+                        : <LevelBoxes level={levelOf(it)} busy={busy} onPick={v => onPick(it, v)} />}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+      {/* Their average on the left, the class's on the right. */}
+      <div className="pd-avgs">
+        <span>{name}'s average <b>{t.assessed ? `${t.pctAchieved}%` : '—'}</b></span>
+        {has(classAverage.all) && <span>Class average <b>{classAverage.all}%</b></span>}
+      </div>
       {learning && (
         <div className="st-learning">
           <span>Class is learning <b>{learning.name}</b></span>
@@ -374,39 +443,6 @@ export function PupilDetail({ items, levelOf, onPick, busy, classAverage = {}, a
           );
         })}
       </div>
-      <div className="st-year" style={{ marginTop: 6 }}>All their marks</div>
-      {STUDY_KINDS.map(([k, l]) => {
-        const list = items.filter(it => it.kind === k);
-        if (!list.length) return null;
-        const kt = tally(list, levelOf);
-        const isOpen = open === k;
-        return (
-          <div key={k} style={{ display: 'grid', gap: 6 }}>
-            <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : k)}>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="line-row-name" style={{ display: 'block' }}>{l} · {kt.achieved} of {kt.total} achieved</span>
-                <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-                  {kt.assessed ? `${kt.pctAchieved}% of those assessed` : 'None assessed yet'}
-                  {classAverage[k] !== null && classAverage[k] !== undefined ? ` · class average ${classAverage[k]}%` : ''}
-                  {kt.notAssessed ? ` · ${kt.notAssessed} not assessed` : ''}
-                </span>
-                <Bar t={kt} />
-              </span>
-              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {isOpen && list.map((it, i) => (
-              <React.Fragment key={it.id}>
-                {(i === 0 || list[i - 1].yearGroup !== it.yearGroup) && <div className="st-year">{yearLabel(it.yearGroup)}</div>}
-                <div className="st-pupil">
-                  <span className="st-name st-item">{it.name}</span>
-                  {readOnly ? <BoxRow fill columns="1fr" cells={[{ text: LEVEL_NAME[levelOf(it)], tone: LEVEL_TONE[levelOf(it)] }]} />
-                    : <LevelBoxes level={levelOf(it)} busy={busy} onPick={v => onPick(it, v)} />}
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
-        );
-      })}
       <div className="st-key">
         {[3, 2, 1, 0].map(l => <span key={l}><i style={{ background: LEVEL_COLOUR[l] }} />{LEVEL_NAME[l]}</span>)}
       </div>
@@ -571,7 +607,7 @@ export function PupilSheet({ id, onClose, onChanged }) {
         <div className="modal-body">
           {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
           {!d && !error && <LoadingState />}
-          {d && <PupilDetail items={d.items} levelOf={level} onPick={pick} classAverage={d.classAverage} ayahs={d.ayahs} yearGroup={d.pupil.yearGroup} />}
+          {d && <PupilDetail name={d.pupil.name.split(' ')[0]} items={d.items} levelOf={level} onPick={pick} classAverage={d.classAverage} ayahs={d.ayahs} yearGroup={d.pupil.yearGroup} />}
         </div>
       </div>
     </div>

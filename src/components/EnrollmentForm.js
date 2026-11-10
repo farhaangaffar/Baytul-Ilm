@@ -22,6 +22,90 @@ const LAST = steps.length - 1;
 
 export default function EnrollmentForm({ onClose, onSaved }) {
   const { isDarulUloom, isSchool } = useAuth();
+  if (isSchool) return <SchoolPupilForm onClose={onClose} onSaved={onSaved} />;
+  return <MadrasahEnrollment onClose={onClose} onSaved={onSaved} isDarulUloom={isDarulUloom} />;
+}
+
+// A school (Islamic Studies only, not its full records): one page — name, date of birth, gender, class and the
+// parents' contacts. No fees, waiting list, enrolment date, address, health or notes (the owner's ask).
+function SchoolPupilForm({ onClose, onSaved }) {
+  const [form, setForm] = useState({ forename: '', surname: '', dob: '', gender: '', class: '', parent1Name: '', parent1Phone: '', parent2Name: '', parent2Phone: '' });
+  const [classNames, setClassNames] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(null);
+  useEffect(() => { getClassNames().then(setClassNames).catch(() => {}); }, []);
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  async function submit() {
+    const e = {};
+    if (!form.forename.trim()) e.forename = 'Required';
+    if (!form.surname.trim()) e.surname = 'Required';
+    if (!form.class) e.class = 'Required';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    setSaving(true); setError('');
+    try {
+      const s = await addStudent({ ...form, dob: form.dob || null, enrollDate: new Date().toISOString().split('T')[0], weeklyFee: 0, notes: '' });
+      setSaved(s); onSaved && onSaved(s);
+    } catch (err) { setError(err.message || 'Could not add this pupil — try again.'); }
+    setSaving(false);
+  }
+  const another = () => { setSaved(null); setForm(f => ({ ...f, forename: '', surname: '', dob: '', gender: '', parent1Name: '', parent1Phone: '', parent2Name: '', parent2Phone: '' })); };
+  const err = k => errors[k] && <span style={{ fontSize: 11, color: 'var(--red)' }}>{errors[k]}</span>;
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">Add a pupil</div>
+          <button className="btn btn-icon" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          {saved ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 14 }}>
+              <CheckCircle size={28} color="var(--teal)" style={{ marginBottom: 10 }} />
+              <div><b>{saved.forename} {saved.surname}</b> is in <b>{saved.class}</b>.</div>
+            </div>
+          ) : <>
+            <div className="form-grid form-grid-2">
+              <div className="form-group"><label>Forename<span className="required">*</span></label><input value={form.forename} onChange={e => set('forename', e.target.value)} autoFocus />{err('forename')}</div>
+              <div className="form-group"><label>Surname<span className="required">*</span></label><input value={form.surname} onChange={e => set('surname', e.target.value)} />{err('surname')}</div>
+              <div className="form-group"><label>Class<span className="required">*</span></label>
+                <select value={form.class} onChange={e => set('class', e.target.value)}>
+                  <option value="">Select…</option>
+                  {classNames.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>{err('class')}</div>
+              <div className="form-group"><label>Date of birth</label><input type="date" value={form.dob} onChange={e => set('dob', e.target.value)} /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Gender</label><ChoiceBoxes options={['Boy', 'Girl']} value={form.gender} onChange={v => set('gender', v)} /></div>
+            </div>
+            <div className="form-section-title" style={{ margin: '6px 0 12px' }}><Phone size={14} />Contacts (for the parent login)</div>
+            <div className="form-grid form-grid-2">
+              {[1, 2].map(n => (
+                <React.Fragment key={n}>
+                  <div className="form-group"><label>Contact {n} name</label><input value={form[`parent${n}Name`]} onChange={e => set(`parent${n}Name`, e.target.value)} /></div>
+                  <div className="form-group"><label>Contact {n} phone</label><input type="tel" value={form[`parent${n}Phone`]} onChange={e => set(`parent${n}Phone`, e.target.value)} /></div>
+                </React.Fragment>
+              ))}
+            </div>
+            {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>{error}</div>}
+          </>}
+        </div>
+        <div className="modal-footer">
+          {saved ? <>
+            <button className="btn" onClick={another}>Add another</button>
+            <button className="btn btn-primary" onClick={onClose}>Done</button>
+          </> : <>
+            <button className="btn" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? 'Adding…' : 'Add pupil'}</button>
+          </>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MadrasahEnrollment({ onClose, onSaved, isDarulUloom }) {
+  const isSchool = false;
   const noFee = isDarulUloom || isSchool; // a Darul Uloom's fee is its yearly fee (Fees); a school has none
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(emptyForm(15));
