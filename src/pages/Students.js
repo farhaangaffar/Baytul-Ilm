@@ -9,7 +9,7 @@ import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
 import ParentLogin from '../components/ParentLogin';
-import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download, FileSpreadsheet, UserRound, BookOpen, CalendarCheck, FileText, KeyRound, Phone, Home, GraduationCap, BedDouble, StickyNote } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download, FileSpreadsheet, UserRound, BookOpen, CalendarCheck, FileText, KeyRound, Phone, Home, GraduationCap, BedDouble, StickyNote, LogOut } from 'lucide-react';
 import BoxRow from '../components/BoxRow';
 import { detailRows } from '../lib/studentDetails';
 import { money, currencySymbol } from '../lib/branding';
@@ -68,6 +68,7 @@ export default function Students() {
   // student, so their whole history is readable right on the card instead of needing
   // to hunt for it across Attendance/Daily Records/Fees (which no longer show them).
   const [leftExpanded, setLeftExpanded] = useState(false);
+  const [confirmLeft, setConfirmLeft] = useState(null);
   // Which class cards are open — remembered on this device between visits.
   const [openClasses, setOpenClasses] = useState(() => {
     try { return JSON.parse(localStorage.getItem('students_open_classes') || '[]'); } catch { return []; }
@@ -166,7 +167,6 @@ export default function Students() {
     catch (err) { showToast(err.message || 'Could not move them'); }
   }
   async function setLeft(s, left) {
-    if (left && !window.confirm(`Mark ${s.forename} ${s.surname} as left the school? Their marks are kept, and you can put them back.`)) return;
     try {
       await updateStudent(s.id, left ? { status: 'Inactive', leaveDate: new Date().toISOString().split('T')[0] } : { status: 'Active', leaveDate: null });
       closeSelected(); await silentRefresh();
@@ -472,7 +472,7 @@ export default function Students() {
               {leftExpanded?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
               {word} who have left ({leftStudents.length})
             </div>
-            {leftExpanded&&isSchool&&!leftStudents.length&&<div className="text-muted" style={{fontSize:13,marginTop:10}}>No one yet. Open a pupil and tap "Has left the school".</div>}
+            {leftExpanded&&isSchool&&!leftStudents.length&&<div className="text-muted" style={{fontSize:13,marginTop:10}}>No one yet. Open a pupil and tap "Mark as left the school".</div>}
             {leftExpanded&&(
               <div className="grid-2" style={{marginTop:16}}>
                 {leftStudents.map(s=>{
@@ -585,8 +585,9 @@ export default function Students() {
                         {classNames.filter(c=>c!==selected.class).map(c=><option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
-                    <button type="button" className="line-row" onClick={()=>setLeft(selected,true)}>
-                      <span className="line-row-name">Has left the school</span><span className="line-row-sub">Kept under "Left"</span>
+                    {/* Red, and asks first (the owner's ask). */}
+                    <button type="button" className="line-row line-row-red" onClick={()=>setConfirmLeft(selected)}>
+                      <span className="line-row-name"><LogOut size={14} style={{verticalAlign:'-2px',marginRight:6}}/>Mark as left the school</span>
                     </button>
                   </div>}
                     </InfoCard>
@@ -728,6 +729,23 @@ export default function Students() {
             <div className="modal-footer">
               <button className="btn" onClick={()=>setEditing(null)}>Cancel</button>
               <button className="btn btn-primary" style={{background:'var(--blue)'}} onClick={saveEdit} disabled={saving}><Save size={13}/>{saving?'Saving…':'Save changes'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* A school pupil leaving: asks first, then they move to Left with their marks kept. */}
+      {confirmLeft&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmLeft(null)}>
+          <div className="modal" style={{maxWidth:420}}>
+            <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:'var(--red-light)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><LogOut size={24} color="var(--red-text)"/></div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Has {confirmLeft.forename} {confirmLeft.surname} left the school?</div>
+              <div style={{color:'var(--text-muted)',fontSize:13}}>They'll move to the Left list. Their marks are kept, and you can put them back at any time.</div>
+            </div>
+            <div className="modal-footer" style={{justifyContent:'center'}}>
+              <button className="btn" onClick={()=>setConfirmLeft(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={()=>{ const p=confirmLeft; setConfirmLeft(null); setLeft(p,true); }}><LogOut size={13}/>Yes, they've left</button>
             </div>
           </div>
         </div>

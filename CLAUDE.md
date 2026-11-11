@@ -293,7 +293,7 @@ codebase (one codebase, not a fork).
   per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /
   `surahNumber()` (`src/lib/studies.js` — "Faatihah" = Al-Fatihah, "Lahab" = Al-Masad), unknown columns added with a chosen year,
   non-year sheets ("2025") unticked; `?action=import`. **Moving pupils** (marks are per pupil, so they follow them): a school pupil's card has "Move to another class" and
-  "Has left the school" / "Back at the school" (left pupils are under the Left box/card, shown for a school even when empty);
+  a red "Mark as left the school" (asks first in a pop-up — "Has … left the school?") / "Back at the school" (left pupils are under the Left box/card, shown for a school even when empty);
   **New school year** (`src/components/SchoolNewYear.js`, a line at the bottom of Pupils, head; `?action=new-year` /
   `undo-year`, logged in `is_year_moves`) — kept simple (the owner found choices confusing): the school makes next year's
   classes first on Classes & Teachers, then one pop-up has a row per class with pupils and one box: "Into <class>",
