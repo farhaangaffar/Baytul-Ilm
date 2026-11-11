@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo — or a
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
-  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_links', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
+  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_links', 'is_homework_done', 'is_homework_pupils', 'is_homework', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
@@ -1052,6 +1052,23 @@ async function createSchoolDemo(ipHash) {
       if (i % 2 === 0) demoLinks.push([mid, it.id, 'Word-by-word', `https://quran.com/${it.surah}?wbw=true`, SCHOOL_CLASSES[1][2], '']);
     });
     await bulk(c, 'is_links', ['madrasah_id', 'item_id', 'name', 'url', 'added_by', 'added_by_user'], demoLinks);
+    // Homework (stage 4): each class has its newest surah set to learn (due in a few days) and last week's (most ticked done).
+    const weekday = d => (dow(d) === 6 ? plus(d, 2) : dow(d) === 0 ? plus(d, 1) : d); // due on a school day
+    for (const [ci, [cname, year, teacher]] of SCHOOL_CLASSES.entries()) {
+      const surahs = items.filter(it => it.kind === 'surah' && it.year_group === year && it.surah);
+      const done = Math.floor(surahs.length / 2);
+      const sets = [[surahs[done], `Learn the next aayahs of this surah by heart and recite them to someone at home.`, 4, 1],
+        [surahs[Math.max(0, done - 1)], 'Revise the whole surah and practise reading it with tajweed.', -3, 7]];
+      for (const [it, text, dueIn, ago] of sets) {
+        if (!it) continue;
+        const { rows: [h] } = await c.query(
+          `INSERT INTO is_homework (madrasah_id, class_id, item_id, text, due, set_by, set_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+          [mid, classIds[ci], it.id, text, weekday(plus(today, dueIn)), teacher, `${plus(today, -ago)}T15:30:00Z`]);
+        const mine = pupils.filter(p => p.cls === cname);
+        const ticked = mine.filter(p => (ago > 3 ? r() < 0.8 : r() < 0.3) && !(p.family && ago <= 3));
+        await bulk(c, 'is_homework_done', ['homework_id', 'student_id', 'madrasah_id'], ticked.map(p => [h.id, p.id, mid]));
+      }
+    }
 
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);

@@ -337,8 +337,17 @@ codebase (one codebase, not a fork).
   name, class and Islamic Studies marks — `studies.forParent` without reports) and their only page `src/pages/PupilPortal.js`
   (`App.js`: "My homework" — filled by the next steps — and "My Islamic Studies", `PupilDetail` read only; no change-password —
   the school looks after them). Demo: everyone in the school demo's 6A has a login; the green bar's **Pupil** view is the
-  Hussain child in 6A. Privacy policy names pupil logins. **Next steps of stage 4:** setting homework on an item (with its links),
-  the pupil's homework list with "I've done it", parents see homework (no links), then quizzes (stage 4b) — see the plan the owner
+  Hussain child in 6A. Privacy policy names pupil logins. **Homework (stage 4, step 2 — text only, the owner's choice):** `is_homework`
+  (class, optional item, text, due, whole class or chosen pupils in `is_homework_pupils`, who set it) and `is_homework_done`
+  (the pupil's tick) — `server/schoolHomework.js` (`homeworkFor()`; tables made in studies.js `ensure()`, never inside a
+  transaction — a CREATE TABLE there once hung the demo), `server/routes/school-homework.js` (teachers: their own classes; they
+  change or remove their own, the head any). Set from an opened item's **Set homework** (`HomeworkModal`, its links go with it) or
+  the **Homework** tab on Islamic Studies (`HomeworkTab`: a line per piece — "Due Fri 20 Nov · 7 of 11 done" → `HomeworkSheet`:
+  text, Done / Not yet names, Change / Remove; five tabs, 3 + 2 on phones). Pupils: "My homework" in `PupilPortal` (not done first;
+  tap → text, the item's links, **I've done it**; `POST /api/pupil?action=done`, only their own). Parents: a "Homework" card in the
+  portal — what was set, due, "<Name> has done it" — never the links (studies.js `forParent` → `homework`). Removing an item keeps
+  its homework (as "Homework"). In Backup (studies.js `homework`) and demo `TABLES`; the school demo has two pieces per class
+  (this week's, and last week's mostly done). **Next:** quizzes (stage 4b) — see the plan the owner
   approved (no Google sign-in; logins from the school; parents see homework; pupils see marks; a done tick).
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is

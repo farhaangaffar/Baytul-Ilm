@@ -12,6 +12,7 @@ import ClassBar from '../components/ClassBar';
 import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes } from '../components/StudentDetails';
 import StudiesImport from '../components/StudiesImport';
+import { HomeworkTab, HomeworkModal } from '../components/SchoolHomework';
 import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { markStudiesVisited } from '../components/GettingStarted';
@@ -116,6 +117,7 @@ export default function Studies() {
   const [showEarlier, setShowEarlier] = useState(false);
   const [modal, setModal] = useState(null); // { kind: 'item', item? } | { kind: 'pupil', id } | { kind: 'import' }
   const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     getClasses().then(list => {
@@ -225,7 +227,10 @@ export default function Studies() {
               </div>
             ))}
             {!pupils.length && <div className="text-muted" style={{ fontSize: 13 }}>No pupils in this class yet.</div>}
-            <div style={{ display: 'flex', gap: 8, justifyContent: isOwner ? 'space-between' : 'center' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'homework', item: it })}>
+                <Plus size={12} /> Set homework
+              </button>
               {isOwner && (
                 <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'item', item: it })}>
                   <Pencil size={12} /> Edit {oneWord}
@@ -244,11 +249,13 @@ export default function Studies() {
       <div className="student-page">
         <ClassBar classes={classes.map(c => c.name)} active={cls} onPick={pickClass}
           notes={Object.fromEntries(classes.map(c => [c.name, yearLabel(c.yearGroup)]))} />
-        <div className="pill-tabs bd-tabs st-tabs">
-          {[...STUDY_KINDS, ['pupils', 'Pupils']].map(([k, l]) => <button key={k} className={`pill-tab ${tab === k ? 'active' : ''}`} onClick={() => pickTab(k)}>{l}</button>)}
+        <div className="pill-tabs bd-tabs st-tabs five">
+          {[...STUDY_KINDS, ['pupils', 'Pupils'], ['homework', 'Homework']].map(([k, l]) => <button key={k} className={`pill-tab ${tab === k ? 'active' : ''}`} onClick={() => pickTab(k)}>{l}</button>)}
         </div>
 
-        {!data ? <LoadingState /> : (
+        {!data ? <LoadingState /> : tab === 'homework' ? (
+          <HomeworkTab className={cls} items={all} pupils={pupils} links={data.links || []} />
+        ) : (
           <>
             {noYear && (
               <div className="card" style={{ background: 'var(--amber-light)', color: 'var(--amber-text)', fontSize: 13, padding: '10px 14px', marginBottom: 12 }}>
@@ -328,6 +335,11 @@ export default function Studies() {
       {modal?.kind === 'item' && (
         <ItemModal item={modal.item} onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
       )}
+      {modal?.kind === 'homework' && (
+        <HomeworkModal className={cls} items={all} pupils={pupils} item={modal.item} onClose={() => setModal(null)}
+          onSaved={async () => { setModal(null); setToast(`Homework set for ${cls} — see the Homework tab`); setTimeout(() => setToast(''), 3000); }} />
+      )}
+      {toast && <div className="toast" role="status">✓ {toast}</div>}
       {modal?.kind === 'link' && (
         <LinkModal item={modal.item} link={modal.link} onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
       )}

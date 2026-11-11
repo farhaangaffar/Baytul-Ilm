@@ -25,6 +25,7 @@ const routes = {
   parent: require('../server/routes/parent'),
   pupil: require('../server/routes/pupil'),
   'pupil-logins': require('../server/routes/pupil-logins'),
+  'school-homework': require('../server/routes/school-homework'),
   quran: require('../server/routes/quran'),
   logout: require('../server/routes/logout'),
   session: require('../server/routes/session'),
