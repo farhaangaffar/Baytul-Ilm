@@ -1131,3 +1131,15 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .st-spread { display: flex !important; justify-content: space-between; gap: 8px; white-space: nowrap; }
 .st-spread > span { overflow: hidden; text-overflow: ellipsis; }
 .st-spread > span:only-child { margin-right: auto; }
+/* Islamic Studies → an item's lesson resources (one closed line, opening to its links). */
+.st-links { display: grid; gap: 6px; }
+.st-links .st-links-head { background: #fff; }
+.st-links.open .st-links-head { border-color: var(--teal-mid); }
+.st-links-list { display: grid; gap: 6px; padding-left: 10px; border-left: 2px solid var(--teal-light); }
+.st-link { display: flex; align-items: center; gap: 6px; }
+.st-link > a.line-row { flex: 1; min-width: 0; background: #fff; text-decoration: none; color: inherit; gap: 10px; }
+.st-link-ic { width: 28px; height: 28px; border-radius: 8px; flex: none; display: inline-flex; align-items: center; justify-content: center; background: #eef0f3; color: #555; }
+.st-link-ic.drive { background: #e3f1e4; color: #1e7b34; }
+.st-link-ic.onedrive { background: #e3edfb; color: #1f5bb8; }
+.st-link-ic.youtube { background: #fde4e1; color: #c0392b; }
+.st-ellipsis { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
