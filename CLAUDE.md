@@ -265,8 +265,9 @@ codebase (one codebase, not a fork).
   (`PRICES.school` is the 1-form price; the platform owner sets the amount on the Madaaris page). A school has **its own short
   menu** (`schoolNav` in `Layout.js`; App.js routes): Dashboard (`src/pages/SchoolDashboard.js` — figures, a line per class with
   its year's achieved / with-help bar, Getting started: teachers → classes with year groups → pupils → check the lists →
-  logins), **Pupils** (the Students page with no fees, attendance or waiting list; class lines show pupils · year group ·
-  % achieved; a pupil opens their lists), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
+  logins), **Pupils** (the Students page with no fees, attendance or waiting list; laid out like Classes & Teachers — the figures as a
+  row of small white boxes, then one "Classes" card of class lines "Year 2 · 11 pupils · 56% achieved", tapping one opens its
+  pupils underneath as lines, two across on computers; a pupil opens their card), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
   teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,
   Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). A school's **Add a pupil** (`SchoolPupilForm` in `EnrollmentForm.js`) is one page — name, class, date of
   birth, gender, two contacts — and its Edit pop-up has no address/health/home details or enrolment date (not the school's
@@ -281,8 +282,8 @@ codebase (one codebase, not a fork).
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — one big "N% achieved" (no "x of y" counts anywhere on it — the owner's ask),
-  chips (N with help · N incomplete · N not assessed), then a line per list (Surahs / Du'aas / Practicals, then
+  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — three coloured boxes on top — "N% achieved" (green) · "N% with help" (amber) · "N% incomplete" (red), of what's been
+  assessed (`.pd-fig`; no "x of y" counts anywhere on it — the owner's ask), then one grey "N not assessed" chip, then a line per list (Surahs / Du'aas / Practicals, then
   two bars — the pupil's first name with their coloured bar and %, and "Class" with a grey bar and the class's %, both of what's
   been assessed; `.pd-row`) opening to every item to mark — a white card per year (`.pd-year`), newest first, the pupil's own year
   with a light-blue edge and a "This year" tag, then "<Name>'s average N%" on the left · "Class average N%" on the right (`classAverage.all`; parents see the class bars and average too — `classAverageOf()`, the whole class's figure only), "Class is

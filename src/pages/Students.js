@@ -290,19 +290,23 @@ export default function Students() {
 
   return (
     <Layout title={word} subtitle={`${students.length} enrolled`}>
+      {isSchool ? <>
+        {/* The figures as one row of small white boxes, like Classes & Teachers. */}
+        <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
+          { text: String(activeCount), sub: 'Pupils', className: 'ct-figure' },
+          { text: String(classNames.length), sub: 'Classes', className: 'ct-figure' },
+          noClassStudents.length ? { text: String(noClassStudents.length), sub: 'Not in a class', tone: 'amber' } : { text: '0', sub: 'Not in a class', className: 'ct-figure' },
+          { text: String(leftStudents.length), sub: 'Left', className: 'ct-figure', onClick: () => { setLeftExpanded(true); setTimeout(()=>document.getElementById('left-card')?.scrollIntoView({behavior:'smooth'}),50); } },
+        ]}/>
+        <div style={{height:10}}/>
+      </> : (
       <div className="stat-grid-v2">
-        {isSchool ? <>
-        <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Pupils</div></div>
-        <div className="stat-card-v2"><div className="n">{classNames.length}</div><div className="l">Classes</div></div>
-        <div className="stat-card-v2"><div className="n">{noClassStudents.length}</div><div className="l">Not in a class</div></div>
-        <div className="stat-card-v2" style={{cursor:'pointer'}} onClick={()=>{ setLeftExpanded(true); setTimeout(()=>document.getElementById('left-card')?.scrollIntoView({behavior:'smooth'}),50); }}><div className="n">{leftStudents.length}</div><div className="l">Left</div></div>
-        </> : <>
         <div className="stat-card-v2"><div className="n">{activeCount}</div><div className="l">Active students</div></div>
         <div className="stat-card-v2"><div className="n">{avgAtt}%</div><div className="l">Avg attendance</div></div>
         <div className="stat-card-v2"><div className="n">{money(collected)}</div><div className="l">Fees collected</div></div>
         <div className="stat-card-v2"><div className="n">{money(owed)}</div><div className="l">{duList ? 'Overdue' : 'Outstanding'}</div></div>
-        </>}
       </div>
+      )}
 
       <div className="students-toolbar flex items-center justify-between mb-5" style={{flexWrap:'wrap',gap:12}}>
         <div className="students-toolbar-search" style={{position:'relative',flex:1}}>
@@ -361,9 +365,46 @@ export default function Students() {
         {noClassStudents.length>0&&!search&&(
           <NotInClass students={noClassStudents} classNames={classNames} onOpen={openStudent} onMove={moveMany}/>
         )}
+        {/* A school: one card of class lines, like Classes & Teachers — tap a class to see its pupils underneath. */}
+        {isSchool && classNames.length>0 && (
+          <div className="card">
+            <div className="card-header"><div><div className="card-title">Classes</div><div className="card-sub">{classNames.length} {classNames.length===1?'class':'classes'}</div></div></div>
+            <div className="course-lines">
+              {classNames.map(c=>{
+                const classStudents = students.filter(s=>s.class===c && s.status!=='Inactive');
+                const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
+                if (search && filtered.length===0) return null;
+                const on = !!search || openClasses.includes(c);
+                const st = studies[c];
+                const done = st ? (st.achieved || 0) + (st.withHelp || 0) + (st.incomplete || 0) : 0;
+                const sub = [st && st.yearGroup !== null && st.yearGroup !== undefined ? yearLabel(st.yearGroup) : '', `${classStudents.length} ${classStudents.length===1?'pupil':'pupils'}`, done ? `${Math.round((st.achieved || 0) * 100 / done)}% achieved` : ''].filter(Boolean).join(' · ');
+                return (
+                  <React.Fragment key={c}>
+                    <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={()=>!search && toggleClass(c)} aria-expanded={on}>
+                      <span className="ct-two"><span className="line-row-name">{c}</span><span className="line-row-sub">{sub}</span></span>
+                      {on ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                    </button>
+                    {on && (
+                      <div className="course-open">
+                        <div className="course-lines pupil-lines">
+                          {filtered.map(s=>(
+                            <button key={s.id} type="button" className="line-row" onClick={()=>setSelected(s)}>
+                              <span className="ct-two"><span className="line-row-name">{s.forename} {s.surname}</span><span className="line-row-sub">{fmtDob(s.dob)}</span></span>
+                            </button>
+                          ))}
+                          {filtered.length===0 && <div className="text-muted" style={{fontSize:13,padding:8,textAlign:'center'}}>No pupils in {c} yet.</div>}
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {/* One full-width card per class, closed by default so a madrasah with many classes
             isn't one long scroll. Searching opens every class with a match. */}
-        {classNames.map(c=>{
+        {!isSchool && classNames.map(c=>{
           const classStudents = students.filter(s=>s.class===c && s.status!=='Inactive');
           const filtered = classStudents.filter(s => `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()));
           if (search && filtered.length===0) return null;
@@ -414,7 +455,7 @@ export default function Students() {
           );
         })}
         {search && !classNames.some(c=>students.some(s=>s.class===c && s.status!=='Inactive' && `${s.forename} ${s.surname}`.toLowerCase().includes(search.toLowerCase()))) && (
-          <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>No students match your search.</div>
+          <div className="card" style={{textAlign:'center',padding:20,color:'var(--text-muted)',fontSize:13}}>No {isSchool?'pupils':'students'} match your search.</div>
         )}
         {classNames.length===0 && (
           <div className="card" style={{textAlign:'center',padding:24,color:'var(--text-muted)',fontSize:13}}>

@@ -334,15 +334,13 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       {/* One headline number (achieved, of what's been assessed), the rest as counts — the owner's pick. */}
+      {/* Achieved, with help and incomplete as %s of what's been assessed, each in its own colour; then how many aren't yet. */}
       <div className="pd-head">
-        <div className="pd-big">{t.pctAchieved}%</div>
-        <div className="pd-sub">achieved</div>
+        {[[t.pctAchieved, 'achieved', 'green'], [t.pctWithHelp, 'with help', 'amber'], [t.pctIncomplete, 'incomplete', 'red']].map(([v, l, tone]) => (
+          <div key={l} className={`pd-fig ${tone}`}><div className="pd-big">{t.assessed ? `${v}%` : '—'}</div><div className="pd-sub">{l}</div></div>
+        ))}
       </div>
-      <div className="st-chips">
-        {t.withHelp > 0 && <span className="st-chip amber">{t.withHelp} with help</span>}
-        {t.incomplete > 0 && <span className="st-chip red">{t.incomplete} incomplete</span>}
-        {t.notAssessed > 0 && <span className="st-chip">{t.notAssessed} not assessed</span>}
-      </div>
+      {t.notAssessed > 0 && <div className="st-chips"><span className="st-chip">{t.notAssessed} not assessed</span></div>}
       {/* A line per list — tap to see and mark every item: the pupil's bar and %, and under it the class's (the owner's pick). */}
       {STUDY_KINDS.map(([k, l]) => {
         const list = items.filter(it => it.kind === k);
