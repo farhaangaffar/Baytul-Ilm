@@ -342,7 +342,7 @@ codebase (one codebase, not a fork).
   (the pupil's tick) — `server/schoolHomework.js` (`homeworkFor()`; tables made in studies.js `ensure()`, never inside a
   transaction — a CREATE TABLE there once hung the demo), `server/routes/school-homework.js` (teachers: their own classes; they
   change or remove their own, the head any). Set from an opened item's **Set homework** (`HomeworkModal`, its links go with it) or
-  the **Homework** tab (its pop-up asks Surah · Du'aa · Practical · Something else — 2×2 boxes, `ChoiceBoxes columns` — then a
+  the **Homework** tab's **Add homework** (its pop-up asks "Type of homework": Surah · Du'aa · Practical · Something else — 2×2 boxes, `ChoiceBoxes columns` — then a
   drop-down of only that kind, "This year" first then "Earlier years"; the owner disliked one mixed list) on Islamic Studies (`HomeworkTab`: a line per piece — "Due Fri 20 Nov · 7 of 11 done" → `HomeworkSheet`:
   text, Done / Not yet names, Change / Remove; five tabs, 3 + 2 on phones). Pupils: "My homework" in `PupilPortal` (not done first;
   tap → text, the item's links, **I've done it**; `POST /api/pupil?action=done`, only their own). Parents: a "Homework" card in the

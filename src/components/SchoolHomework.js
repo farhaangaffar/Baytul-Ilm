@@ -57,7 +57,7 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
           <div className="form-grid">
             {!item && <>
               {/* One kind at a time — surahs, du'aas or practicals — this year's first, then earlier years (the owner's ask). */}
-              <div className="form-group"><label>On</label>
+              <div className="form-group"><label>Type of homework</label>
                 <ChoiceBoxes columns={2} options={KINDS.map(k => k[1])} value={(KINDS.find(k => k[0] === kind) || KINDS[3])[1]}
                   onChange={v => { const k = KINDS.find(x => x[1] === v); if (!k) return; setKind(k[0]); setF(x => ({ ...x, itemId: '' })); }} /></div>
               {kind && (() => {
@@ -157,10 +157,10 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
   return (
     <div className="card" style={{ display: 'grid', gap: 6 }}>
       <div className="card-title" style={{ marginBottom: 4 }}>Homework · {className}</div>
-      <button type="button" className="line-row add" onClick={() => setModal({ kind: 'set' })}><Plus size={13} /> Set homework</button>
+      <button type="button" className="line-row add" onClick={() => setModal({ kind: 'set' })}><Plus size={13} /> Add homework</button>
       {error && <div style={{ color: 'var(--red-text)', fontSize: 13 }}>{error}</div>}
       {!list && !error && <div className="text-muted" style={{ fontSize: 13 }}>Loading…</div>}
-      {list && !list.length && <div className="text-muted" style={{ fontSize: 13 }}>No homework set yet. Set it here, or open a surah, du'aa or practical and tap "Set homework".</div>}
+      {list && !list.length && <div className="text-muted" style={{ fontSize: 13 }}>No homework yet. Tap "Add homework" — as many as you like — or open a surah, du'aa or practical and tap "Set homework".</div>}
       {list && list.map(h => {
         const doneN = h.done.filter(id => h.allPupils || h.studentIds.includes(id)).length;
         return (

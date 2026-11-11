@@ -235,7 +235,7 @@ const STUDIES_STEPS = [
   'Resources (inside an opened line): links to worksheets, slideshows or videos kept in Google Drive, OneDrive, YouTube or any website. Tap one to open it; "Add a link" to add one. You can change or remove your own links (the head, any).',
   'A surah also shows the class\'s weekly tracker: tap the last aayah the class has reached and every aayah before it is marked too (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
-  'Homework: open a surah, du\'aa or practical and tap "Set homework" — write what to do, the due date, and the whole class or chosen pupils. Its links go to the pupils with it. The Homework tab lists what\'s been set and who has ticked it done (tap one to change or remove it).',
+  'Homework: open a surah, du\'aa or practical and tap "Set homework" — write what to do, the due date, and the whole class or chosen pupils. Its links go to the pupils with it. The Homework tab lists what\'s been set and who has ticked it done (tap one to change or remove it); "Add homework" there adds another — a surah, du\'aa, practical or something else.',
   'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',
   'Pupils: a line for each child — tap their name for everything of theirs: how much they\'ve achieved, each list with their bar and the class\'s underneath (tap a list to mark its items), their average and the class\'s, the surah the class is on, and what to work on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
