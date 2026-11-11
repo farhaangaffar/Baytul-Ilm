@@ -43,3 +43,8 @@ export const detailFields = isDarulUloom => DETAIL_FIELDS.filter(([, , o]) => !o
 
 // Allergies, conditions or medication — shown in red wherever the child is opened.
 export const hasHealthNote = s => !!(s && (s.allergies || s.medical || s.medication));
+
+// A child's filled-in details from the given sections, as [label, value] lines (their card on Students).
+export const detailRows = (student, isDarulUloom, sections, skip = []) => detailFields(isDarulUloom)
+  .filter(([key, , o]) => student[key] && sections.includes(o.section) && !skip.includes(key))
+  .map(([key, label]) => [label, student[key]]);

@@ -402,6 +402,11 @@ codebase (one codebase, not a fork).
   `src/components/StudentDetails.js`); a health note shows in red on the child's profile, Attendance and Daily records
   (`HealthNote`) and a red heart by the name on lists (`HealthDot`). Teachers get health, emergency and collection, never the
   address, emails or previous school (`TEACHER_HIDDEN`). In the spreadsheet too. Later, parents fill these in themselves (online sign-up).
+- **A child's card** (Students → tap a child, the view pop-up in `Students.js`): a white card per section with a small
+  tinted icon (`InfoCard` / `InfoRows`, `.sv-*` in `index.css` — the owner's pick): About, Attendance (Present · Late · Absent ·
+  Attended % boxes) or Islamic Studies for a school, Darul Uloom details, Previous reports (left children) on the left;
+  Contacts (with the emergency contact), Home & going home (`detailRows()`), Boarding, Notes, Parent login on the right. Two
+  columns from 900px (the pop-up widens to 860px); one column on phones, in that order.
 - **Online applications** (`/join/<code>`, `src/pages/Join.js`, `server/routes/join.js` — open to anyone with the link):
   parents send one or more children (name, DOB, gender, health; Darul Uloom: boarding, school year, previous school,
   Hifdh) plus the family's contacts, home, emergency contact and who collects; the madrasah's own message is at the top
