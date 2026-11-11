@@ -1259,3 +1259,20 @@ button.qz-card:hover { border-color: var(--teal); }
 .qz-section .line-row.add { background: #fff; }
 .qz-section .choice-boxes button:not(.on) { background: #fff; }
 .qz-section .qz-card-top > span:first-child { color: var(--teal-dark); }
+/* A colour per section (the owner's pick, D): 1 About the quiz blue, 2 Questions green, 3 Settings amber — white inside. */
+.qz-section.s1 { background: #f2f7fe; border-color: #d7e4f6; }
+.qz-section.s1 .qz-section-head { color: var(--teal-dark); border-bottom-color: #d7e4f6; }
+.qz-section.s1 .qz-step { background: var(--blue); }
+.qz-section.s2 { background: #f1f8ea; border-color: #d9ebc6; }
+.qz-section.s2 .qz-section-head { color: var(--green-text); border-bottom-color: #d9ebc6; }
+.qz-section.s2 .qz-step { background: #6fa73a; }
+.qz-section.s3 { background: #fff8e1; border-color: #f5e3a3; }
+.qz-section.s3 .qz-section-head { color: var(--amber-text); border-bottom-color: #f5e3a3; }
+.qz-section.s3 .qz-step { background: #c99a12; }
+.qz-section.s2 .qz-card, .qz-section.s2 button.qz-card, .qz-section.s3 .qz-set { border-color: rgba(17, 24, 39, 0.08); }
+/* A quiz pupils have handed in: a clear notice at the top, with "Copy this quiz". */
+.qz-locked { min-width: 0; display: grid; gap: 10px; background: var(--amber-light); color: var(--amber-text); border-radius: var(--r-md); padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
+.qz-locked b { color: #6b5200; }
+.qz-locked > div { min-width: 0; overflow-wrap: anywhere; }
+.qz-locked .btn { justify-self: start; background: #fff; max-width: 100%; white-space: normal; }
+.qz-copied { background: var(--teal-light); color: var(--teal-dark); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; }

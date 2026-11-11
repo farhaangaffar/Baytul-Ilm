@@ -277,7 +277,7 @@ function QuestionCard({ q, n, onOpen }) {
 
 // The four settings, two boxes each (the owner's approved version).
 const SETTING_ROWS = [
-  ['tries', 'How many tries?', ['One try', 'As many as they like'], v => (v === 'many' ? 1 : 0), i => (i ? 'many' : 'one')],
+  ['tries', 'How many tries?', ['One try', 'Unlimited tries'], v => (v === 'many' ? 1 : 0), i => (i ? 'many' : 'one')],
   ['shuffle', 'Question order', ['As I wrote them', 'Shuffled'], v => (v ? 1 : 0), i => !!i],
   ['scoreNow', 'When do pupils see their score?', ['Straight away', 'When I send it'], v => (v ? 0 : 1), i => !i],
   ['showAnswers', 'Show the right answers after?', ['Yes', 'No'], v => (v ? 0 : 1), i => !i],
@@ -291,13 +291,12 @@ export function QuizEditor({ quiz, onChange, locked }) {
   const s = { ...DEFAULT_SETTINGS, ...quiz.settings };
   return (
     <>
-    <div className="qz-section">
+    <div className="qz-section s2">
       <div className="qz-section-head"><span className="qz-step">2</span><b>Questions</b><span className="text-muted" style={{ marginLeft: 'auto' }}>{qs.length ? `${qs.length} · ${pts(total)}` : ''}</span></div>
-      {locked && <div className="text-muted" style={{ fontSize: 12.5 }}>Pupils have handed this quiz in, so its questions stay as they are. You can still change the settings and due date.</div>}
       {qs.map((q, i) => <QuestionCard key={i} q={q} n={i + 1} onOpen={locked ? undefined : () => setOpen({ i })} />)}
       {!locked && qs.length < 60 && <button type="button" className="line-row add" onClick={() => setOpen({ add: true })}><Plus size={13} /> Add a question</button>}
     </div>
-    <div className="qz-section">
+    <div className="qz-section s3">
       <div className="qz-section-head"><span className="qz-step">3</span><b>Settings</b></div>
       <div className="qz-settings">
         {SETTING_ROWS.map(([k, label, opts, toIdx, fromIdx]) => (
@@ -322,7 +321,7 @@ export function QuizEditor({ quiz, onChange, locked }) {
 // The quiz's own section 1 (in the homework pop-up): its name and what the pupils need to know.
 export function QuizSection({ children }) {
   return (
-    <div className="qz-section">
+    <div className="qz-section s1">
       <div className="qz-section-head"><span className="qz-step">1</span><b>About the quiz</b></div>
       <div className="form-grid">{children}</div>
     </div>

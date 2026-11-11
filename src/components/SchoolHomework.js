@@ -4,7 +4,7 @@ import { useBackToClose } from '../lib/useBackToClose';
 import { getSchoolHomework, saveSchoolHomework, deleteSchoolHomework } from '../lib/store';
 import { ChoiceBoxes } from './StudentDetails';
 import { QuizEditor, QuizSection, QuizResults, DEFAULT_SETTINGS, scoreTone, quizName } from './SchoolQuiz';
-import { X, Save, Trash2, Pencil, Plus, ChevronRight, Clock } from 'lucide-react';
+import { X, Save, Trash2, Pencil, Plus, ChevronRight, Clock, Copy } from 'lucide-react';
 
 // A school's homework (Islamic Studies, stage 4 — server/routes/school-homework.js). Text only: what to do, a due date,
 // for the whole class or chosen pupils, usually on a surah, du'aa or practical (its links go with it to the pupils).
@@ -39,7 +39,16 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
   const [what, setWhat] = useState(homework?.kind === 'quiz' ? 'Quiz' : 'Task');
   const isQuiz = what === 'Quiz';
   const [quiz, setQuiz] = useState(homework?.quiz || { questions: [], settings: DEFAULT_SETTINGS });
-  const locked = isQuiz && (homework?.handedIn || []).length > 0;
+  // Once a pupil has handed a quiz in its questions are locked (their marks depend on them) — the owner's choice: a clear
+  // notice, and "Copy this quiz" to make a changed version (a new quiz, set to the same class).
+  const [copying, setCopying] = useState(false);
+  const editing = homework && !copying ? homework : null;
+  const locked = isQuiz && (editing?.handedIn || []).length > 0;
+  function copyQuiz() {
+    setCopying(true);
+    setQuiz(q => ({ ...q, title: `${quizName(homework)} (copy)` }));
+    setF(x => ({ ...x, due: isoIn(7) }));
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const toggle = id => setF(x => ({ ...x, ids: x.ids.includes(id) ? x.ids.filter(i => i !== id) : [...x.ids, id] }));
@@ -47,7 +56,7 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
   async function save(draft = false) {
     setBusy(true); setError('');
     try {
-      await saveSchoolHomework({ id: homework?.id, className, itemId: isQuiz ? item?.id || homework?.itemId || null : (item || kind) ? f.itemId || null : null, text: f.text, due: f.due || null,
+      await saveSchoolHomework({ id: editing?.id, className, itemId: isQuiz ? item?.id || homework?.itemId || null : (item || kind) ? f.itemId || null : null, text: f.text, due: f.due || null,
         studentIds: f.who === 'Chosen pupils' ? f.ids : [], ...(isQuiz ? { kind: 'quiz', quiz, draft } : {}) });
       await onSaved();
     } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
@@ -56,11 +65,19 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
       <div className="modal" style={{ maxWidth: 620 }}>
         <div className="modal-header">
-          <div className="modal-title">{homework ? (isQuiz ? 'Change the quiz' : 'Change homework') : `${isQuiz ? 'Quiz' : 'Homework'} for ${className}`}</div>
+          <div className="modal-title">{copying ? `Copy of the quiz for ${className}` : homework ? (isQuiz ? 'Change the quiz' : 'Change homework') : `${isQuiz ? 'Quiz' : 'Homework'} for ${className}`}</div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
         <div className="modal-body">
           <div className="form-grid">
+            {locked && (
+              <div className="qz-locked">
+                <div><b>Pupils have already handed this quiz in.</b> Its questions can't be changed now, because their marks depend
+                  on them. You can still change the name, due date and settings. To change the questions, make a copy.</div>
+                <button type="button" className="btn" onClick={copyQuiz}><Copy size={13} />Copy this quiz</button>
+              </div>
+            )}
+            {copying && <div className="qz-copied">This is a copy. Change the questions as you like. Setting it makes a new quiz, and the old one keeps its marks.</div>}
             {!homework && <div className="form-group"><label>Homework or a quiz?</label>
               <ChoiceBoxes options={['Task', 'Quiz']} value={what} onChange={v => v && setWhat(v)} /></div>}
             {isQuiz ? <>
@@ -137,9 +154,9 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
         <div className="modal-footer">
           {!isQuiz && <button className="btn" onClick={close}>Cancel</button>}
           {isQuiz ? <>
-            {(!homework || homework.draft) && <button className="btn" disabled={busy || !quiz.questions.length} onClick={() => save(true)}>Save for later</button>}
+            {(!editing || editing.draft) && <button className="btn" disabled={busy || !quiz.questions.length} onClick={() => save(true)}>Save for later</button>}
             <button className="btn btn-primary" disabled={busy || !quiz.questions.length || (f.who === 'Chosen pupils' && !f.ids.length)} onClick={() => save(false)}>
-              <Save size={13} />{homework && !homework.draft ? 'Save' : 'Set the quiz'}</button>
+              <Save size={13} />{editing && !editing.draft ? 'Save' : 'Set the quiz'}</button>
           </> : (
             <button className="btn btn-primary" disabled={busy || !f.text.trim() || (f.who === 'Chosen pupils' && !f.ids.length) || (!item && kind && !f.itemId)} onClick={() => save()}>
               <Save size={13} />{homework ? 'Save' : 'Set homework'}</button>

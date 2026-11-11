@@ -357,15 +357,16 @@ codebase (one codebase, not a fork).
   false, **two choices each** (`choose`: a list on the left, each line one of two choices on the right — e.g. Fardh / Sunnah —
   points per line right; `columns`, `rows`, `answers`), short answer (matched against the accepted answers, ignoring capitals,
   spaces and punctuation), long answer (the teacher marks it: `?action=mark`); `worth()` = what a question is worth; no pictures/audio
-  (storage). Four settings, two boxes each (the owner's approved version): How many tries? One try · As many as they like ·
+  (storage). Four settings, two boxes each (the owner's approved version): How many tries? One try · Unlimited tries ·
   Question order: As I wrote them · Shuffled (a seeded order per pupil) · When do pupils see their score? Straight away · When I
   send it (`?action=send-scores`) · Show the right answers after? Yes · No. Built in the homework pop-up (Task | Quiz, question
   cards with the right answers green → `QuestionModal`, `QuizEditor`; `src/components/SchoolQuiz.js`), in three boxed, numbered
-  sections (1 About the quiz · 2 Questions · 3 Settings — the owner found it blended together), each softly tinted with white cards
-  and boxes inside (all-white was too white); the homework pop-ups and a pupil's answers (`AttemptModal`) are 600–620px
+  sections (1 About the quiz · 2 Questions · 3 Settings — the owner found it blended together), a soft colour each — blue, green,
+  amber (the owner's pick, D, of four mock-ups) — with white cards and boxes inside; the homework pop-ups and a pupil's answers (`AttemptModal`) are 600–620px
   wide (the owner liked the wider one). Answers (teacher's `AttemptModal`, pupil's review) use `AnswerView` — **no coloured side
   bars** (the owner's ask): picked choices tinted ✓ green / ✗ red, a right one not picked outlined in dashed green. Once anyone has handed in,
-  the questions are locked (settings/due/words still change). **Marking is on the server; pupils are never sent the right answers**
+  the questions are locked (settings/due/words still change) — the owner's choice: an amber notice at the top of the pop-up
+  says so, with **Copy this quiz** (a new quiz for the same class, "… (copy)", questions free to change; the old one keeps its marks). **Marking is on the server; pupils are never sent the right answers**
   unless released and Show answers is Yes. Each hand-in is an `is_quiz_attempts` row (answers, each question's
   {got, of, auto}, score, max, waiting) plus an `is_homework_done` tick; the best go counts. Teacher: the Homework tab's quiz
   line (its due date and a chip with the average or "N to mark" — no handed-in count, that's inside) → `QuizResults` (Whole class / Handed in / Not yet, Class
