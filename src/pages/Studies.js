@@ -185,8 +185,9 @@ export default function Studies() {
         <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { setOpenItem(open ? null : it.id); if (!open) showTop(e); }}>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
-            <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-              {[it.detail, `${t.achieved} / ${pupils.length} achieved`, n ? `${covered.length} of ${n} aayahs covered` : ''].filter(Boolean).join(' · ')}
+            {/* Spread along the bar's length (the owner's ask): surah number, achieved, aayahs covered. */}
+            <span className="line-row-sub st-spread">
+              {[it.detail, `${t.achieved}/${pupils.length} achieved`, n ? `${covered.length}/${n} aayahs` : ''].filter(Boolean).map(x => <span key={x}>{x}</span>)}
             </span>
             <Bar t={t} />
           </span>

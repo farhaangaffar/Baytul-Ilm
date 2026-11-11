@@ -280,7 +280,7 @@ codebase (one codebase, not a fork).
   do; colours soft red / amber / green / grey; tapping a lit box clears it). A surah item has its number (`is_items.surah`), so
   each class has a **weekly tracker** — the aayahs covered (`is_class_ayahs`, `?action=ayahs`, an aayah grid inside the item's line — tapping an aayah marks it and every one before it; tapping the last again steps back one —
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
-  Du'aas | Practicals | Pupils, figures, a line per item ("2 / 12 achieved") opening the class underneath — a row per pupil with
+  Du'aas | Practicals | Pupils, figures, a line per item (surah number · "2/12 achieved" · "9/19 aayahs" spread along the bar's length) opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
   class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — three coloured boxes on top — "N% achieved" (green) · "N% with help" (amber) · "N% incomplete" (red), of what's been
   assessed (`.pd-fig`; no "x of y" counts anywhere on it — the owner's ask), then one grey "N not assessed" chip, then a line per list (Surahs / Du'aas / Practicals, then
