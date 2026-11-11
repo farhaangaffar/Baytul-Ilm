@@ -617,6 +617,9 @@ codebase (one codebase, not a fork).
   (`useBackToClose`), page switches replace rather than add history (`appNavigate()`), back
   with nothing open goes to the home page (Dashboard; Attendance for teachers); on the home page back shows
   "Close the app?" (`src/components/BackToExit.js`) — a second back closes it.
+- **Pop-ups on top of pop-ups are never narrower** than the one beneath (the owner's ask — a quiz's question, a pupil's
+  answers, a pupil card's login all opened smaller): `src/lib/stackedModals.js` (`matchStackedModals()`, started in
+  `src/index.js`) widens any later open `.modal` to the width of the one under it, everywhere — no per-pop-up widths needed.
 - **Page instructions:** every page has a "Page instructions" button (top bar on computers,
   top of the page on phones; the parent portal too) opening a few plain numbered steps for
   that person's role — `src/lib/pageHelp.js`, opened by itself the first time a page is
