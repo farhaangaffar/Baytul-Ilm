@@ -15,9 +15,9 @@ export function GrowingText({ value, onChange, minRows = 1, ...rest }) {
 }
 
 // Small boxes for a quick choice (Boy / Girl, Yes / No…). Tap the chosen one again to clear it.
-export function ChoiceBoxes({ options, value, onChange }) {
+export function ChoiceBoxes({ options, value, onChange, columns }) {
   return (
-    <div className="choice-boxes" style={{ gridTemplateColumns: `repeat(${options.length > 3 ? 3 : options.length}, minmax(0, 1fr))` }}>
+    <div className="choice-boxes" style={{ gridTemplateColumns: `repeat(${columns || (options.length > 3 ? 3 : options.length)}, minmax(0, 1fr))` }}>
       {options.map(o => (
         <button key={o} type="button" className={value === o ? 'on' : ''} onClick={() => onChange(value === o ? '' : o)}>{o}</button>
       ))}

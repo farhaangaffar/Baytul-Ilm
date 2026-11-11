@@ -21,8 +21,12 @@ export function niceDue(d) {
 }
 
 // Setting (or changing) a piece of homework.
-export function HomeworkModal({ className, items, pupils, item, homework, onClose, onSaved }) {
+const KINDS = [['surah', 'Surah'], ['duaa', "Du'aa"], ['practical', 'Practical'], ['', 'Something else']];
+
+export function HomeworkModal({ className, items, pupils, item, homework, yearGroup, onClose, onSaved }) {
   const close = useBackToClose(true, onClose);
+  const startItem = items.find(i => i.id === (homework ? homework.itemId : item?.id));
+  const [kind, setKind] = useState(startItem ? startItem.kind : 'surah');
   const [f, setF] = useState({
     itemId: homework ? homework.itemId || '' : item?.id || '',
     text: homework?.text || '',
@@ -37,7 +41,7 @@ export function HomeworkModal({ className, items, pupils, item, homework, onClos
   async function save() {
     setBusy(true); setError('');
     try {
-      await saveSchoolHomework({ id: homework?.id, className, itemId: f.itemId || null, text: f.text, due: f.due || null,
+      await saveSchoolHomework({ id: homework?.id, className, itemId: (item || kind) ? f.itemId || null : null, text: f.text, due: f.due || null,
         studentIds: f.who === 'Chosen pupils' ? f.ids : [] });
       await onSaved();
     } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
@@ -51,17 +55,32 @@ export function HomeworkModal({ className, items, pupils, item, homework, onClos
         </div>
         <div className="modal-body">
           <div className="form-grid">
-            {!item && (
-              <div className="form-group"><label htmlFor="hw-item">On</label>
-                <select id="hw-item" value={f.itemId} onChange={e => setF(x => ({ ...x, itemId: e.target.value }))}>
-                  <option value="">Something else (no surah, du'aa or practical)</option>
-                  {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                </select></div>
-            )}
+            {!item && <>
+              {/* One kind at a time — surahs, du'aas or practicals — this year's first, then earlier years (the owner's ask). */}
+              <div className="form-group"><label>On</label>
+                <ChoiceBoxes columns={2} options={KINDS.map(k => k[1])} value={(KINDS.find(k => k[0] === kind) || KINDS[3])[1]}
+                  onChange={v => { const k = KINDS.find(x => x[1] === v); if (!k) return; setKind(k[0]); setF(x => ({ ...x, itemId: '' })); }} /></div>
+              {kind && (() => {
+                const mine = items.filter(i => i.kind === kind);
+                const now = mine.filter(i => yearGroup === null || yearGroup === undefined || i.yearGroup === yearGroup);
+                const earlier = mine.filter(i => !now.includes(i));
+                const word = (KINDS.find(k => k[0] === kind) || KINDS[0])[1].toLowerCase();
+                return (
+                  <div className="form-group"><label htmlFor="hw-item">Which {word}</label>
+                    <select id="hw-item" value={f.itemId} onChange={e => setF(x => ({ ...x, itemId: e.target.value }))}
+                      style={f.itemId ? undefined : { color: 'var(--text-muted)' }}>
+                      <option value="">Choose a {word}…</option>
+                      {now.length > 0 && <optgroup label="This year">{now.map(i => <option key={i.id} value={i.id} style={{ color: 'var(--ink)' }}>{i.name}</option>)}</optgroup>}
+                      {earlier.length > 0 && <optgroup label="Earlier years">{earlier.map(i => <option key={i.id} value={i.id} style={{ color: 'var(--ink)' }}>{i.name}</option>)}</optgroup>}
+                    </select></div>
+                );
+              })()}
+            </>}
             {item && <div className="text-muted" style={{ fontSize: 13 }}>On <b style={{ color: 'var(--ink)' }}>{item.name}</b> — its links go with it.</div>}
             <div className="form-group"><label htmlFor="hw-text">What to do</label>
               <textarea id="hw-text" rows={4} maxLength={2000} autoFocus value={f.text} onChange={e => setF(x => ({ ...x, text: e.target.value }))}
-                placeholder={picked ? `e.g. Learn aayahs 1–4 of ${picked.name} by heart` : 'e.g. Practise the steps of wudhu at home'} /></div>
+                placeholder={picked ? (picked.kind === 'surah' ? `e.g. Learn aayahs 1–4 of ${picked.name} by heart` : `e.g. Learn ${picked.name} by heart and say it at home`)
+                  : { surah: 'e.g. Learn aayahs 1–4 by heart', duaa: "e.g. Learn the du'aa by heart and say it at home", practical: 'e.g. Practise it at home with your family' }[kind] || 'e.g. Ask someone at home about the story of the Prophet ﷺ'} /></div>
             <div className="form-group"><label htmlFor="hw-due">Due</label>
               <input id="hw-due" type="date" value={f.due} onChange={e => setF(x => ({ ...x, due: e.target.value }))} /></div>
             <div className="form-group"><label>For</label>
@@ -80,7 +99,7 @@ export function HomeworkModal({ className, items, pupils, item, homework, onClos
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={close}>Cancel</button>
-          <button className="btn btn-primary" disabled={busy || !f.text.trim() || (f.who === 'Chosen pupils' && !f.ids.length)} onClick={save}>
+          <button className="btn btn-primary" disabled={busy || !f.text.trim() || (f.who === 'Chosen pupils' && !f.ids.length) || (!item && kind && !f.itemId)} onClick={save}>
             <Save size={13} />{homework ? 'Save' : 'Set homework'}</button>
         </div>
       </div>
@@ -128,7 +147,7 @@ function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose 
 }
 
 // The Homework tab on Islamic Studies: "Set homework", then a line per piece of homework, newest first.
-export function HomeworkTab({ className, items, pupils, links }) {
+export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
   const [list, setList] = useState(null);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null); // { kind: 'set', homework? } | { kind: 'view', homework }
@@ -155,7 +174,7 @@ export function HomeworkTab({ className, items, pupils, links }) {
         );
       })}
       {modal?.kind === 'set' && (
-        <HomeworkModal className={className} items={items} pupils={pupils} homework={modal.homework}
+        <HomeworkModal className={className} items={items} pupils={pupils} homework={modal.homework} yearGroup={yearGroup}
           onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
       )}
       {modal?.kind === 'view' && (

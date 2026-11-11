@@ -254,7 +254,7 @@ export default function Studies() {
         </div>
 
         {!data ? <LoadingState /> : tab === 'homework' ? (
-          <HomeworkTab className={cls} items={all} pupils={pupils} links={data.links || []} />
+          <HomeworkTab className={cls} items={all} pupils={pupils} links={data.links || []} yearGroup={data.yearGroup} />
         ) : (
           <>
             {noYear && (
