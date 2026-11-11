@@ -20,6 +20,15 @@ import { yearLabel, STUDY_KINDS, LEVELS, LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, t
 import { SURAHS } from '../lib/quran';
 import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet, ListTree } from 'lucide-react';
 
+// Opening a line closes the one above it, which can leave the page sitting at the bottom of the newly opened list.
+// After it opens, bring the line back up to the top of the screen (the owner's ask) — only when it's out of sight above.
+function showTop(e) {
+  const el = e.currentTarget;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (el.isConnected && el.getBoundingClientRect().top < 80) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }));
+}
+
 export { yearLabel, STUDY_KINDS };
 const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
 const recall = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
@@ -173,7 +182,7 @@ export default function Studies() {
     const covered = data?.ayahs?.[it.id] || [];
     return (
       <div key={it.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
-        <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setOpenItem(open ? null : it.id)}>
+        <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { setOpenItem(open ? null : it.id); if (!open) showTop(e); }}>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
             <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
@@ -241,7 +250,7 @@ export default function Studies() {
                   const t = tally(all, it => levelOf(p, it));
                   return (
                     <div key={p.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
-                      <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setOpenItem(open ? null : `p:${p.id}`)}>
+                      <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { setOpenItem(open ? null : `p:${p.id}`); if (!open) showTop(e); }}>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span className="line-row-name" style={{ display: 'block' }}>{p.name}</span>
                           <Bar t={t} />
@@ -348,8 +357,8 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
         const kt = tally(list, levelOf);
         const isOpen = open === k;
         return (
-          <div key={k} style={{ display: 'grid', gap: 6 }}>
-            <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : k)}>
+          <div key={k} className="pd-list" style={{ display: 'grid', gap: 6 }}>
+            <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={e => { setOpen(isOpen ? '' : k); if (!isOpen) showTop(e); }}>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span className="pd-line">
                   <span className="line-row-name">{l}</span>
@@ -413,7 +422,7 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
           const isOpen = workOpen === k && list.length > 0;
           return (
             <div key={k} className={`st-work-line ${isOpen ? 'open' : ''}`}>
-              <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} disabled={!list.length} onClick={() => { setWorkOpen(isOpen ? '' : k); setWorkAll(false); }}>
+              <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} disabled={!list.length} onClick={e => { setWorkOpen(isOpen ? '' : k); setWorkAll(false); if (!isOpen) showTop(e); }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="line-row-name">{l}</span>
                   {!list.length && <span className="line-row-sub" style={{ display: 'block' }}>Nothing to work on</span>}
@@ -478,7 +487,7 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
             const count = k => mine.filter(i => i.kind === k).length;
             return (
               <div key={y} className={`st-pupil-wrap ${isOpen ? 'open' : ''}`}>
-                <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? null : y)}>
+                <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={e => { setOpen(isOpen ? null : y); if (!isOpen) showTop(e); }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span className="line-row-name" style={{ display: 'block' }}>{yearLabel(y)}</span>
                     <span className="line-row-sub" style={{ display: 'block' }}>{STUDY_KINDS.map(([k, l, one]) => `${count(k)} ${count(k) === 1 ? one : l.toLowerCase()}`).join(' · ')}</span>

@@ -1126,3 +1126,5 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 @media (min-width: 900px) { .pupil-lines { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } }
 .line-row.line-row-red { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
 .line-row.line-row-red .line-row-name { color: var(--red-text); }
+/* Islamic Studies: an opened line scrolls back to the top of the screen, clear of the top bar / pop-up header. */
+.st-pupil-wrap > .line-row, .pd-list > .line-row, .st-work-line > .line-row { scroll-margin-top: 84px; }
