@@ -286,7 +286,7 @@ codebase (one codebase, not a fork).
   two bars — the pupil's first name with their coloured bar and %, and "Class" with a grey bar and the class's %, both of what's
   been assessed; `.pd-row`) opening to every item to mark — a white card per year (`.pd-year`), newest first, the pupil's own year
   with a light-blue edge and a "This year" tag, then "<Name>'s average N%" on the left · "Class average N%" on the right (`classAverage.all`; parents see the class bars and average too — `classAverageOf()`, the whole class's figure only), "Class is
-  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a count, opening to incomplete
+  learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a red circle (incomplete) and an amber circle (with help) — just numbers, no words, opening to incomplete
   then with-help chips — the first 8, then "Show all N"); a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
   per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /

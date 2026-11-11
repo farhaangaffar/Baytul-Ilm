@@ -418,11 +418,11 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
               <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} disabled={!list.length} onClick={() => { setWorkOpen(isOpen ? '' : k); setWorkAll(false); }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="line-row-name">{l}</span>
-                  <span className="line-row-sub" style={{ display: 'block' }}>
-                    {list.length ? [inc && `${inc} incomplete`, help && `${help} with help`].filter(Boolean).join(' · ') : 'Nothing to work on'}
-                  </span>
+                  {!list.length && <span className="line-row-sub" style={{ display: 'block' }}>Nothing to work on</span>}
                 </span>
-                {list.length > 0 && <span className="st-work-count">{list.length}</span>}
+                {/* A red circle for incomplete, an amber one for with help — just the numbers (the owner's ask). */}
+                {inc > 0 && <span className="st-work-count" title={`${inc} incomplete`}>{inc}</span>}
+                {help > 0 && <span className="st-work-count amber" title={`${help} with help`}>{help}</span>}
                 {list.length > 0 && (isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
               </button>
               {isOpen && (
