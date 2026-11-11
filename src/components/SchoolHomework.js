@@ -137,7 +137,8 @@ function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose 
           <div className="hw-names">
             {names.map(p => {
               const ticked = h.done.includes(p.id);
-              return <div key={p.id} className={`hw-name ${show === 'all' && ticked ? 'done' : ''}`}>{show === 'all' && ticked ? '✓ ' : ''}{p.name}</div>;
+              // Each name in its box's colour: green done, amber not yet — red once the due date has passed.
+              return <div key={p.id} className={`hw-name ${ticked ? 'done' : late ? 'late' : 'notyet'}`}>{ticked ? '✓ ' : ''}{p.name}</div>;
             })}
             {!names.length && <div className="text-muted" style={{ fontSize: 13 }}>{show === 'done' ? 'No one yet.' : 'Everyone has done it.'}</div>}
           </div>
