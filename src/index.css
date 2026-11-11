@@ -1074,9 +1074,13 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 
 /* A pupil's detail (Islamic Studies → Pupils, their pop-up, the parent portal): one headline number, chips for the rest,
    a line per list with the class average as a dark mark on its bar, then their average · the class's. */
-.pd-head { display: grid; gap: 2px; }
-.pd-big { font-size: 34px; font-weight: 700; color: var(--green-text); line-height: 1; }
-.pd-sub { font-size: 12.5px; color: var(--text-muted); }
+.pd-head { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pd-fig { border-radius: 12px; padding: 10px 6px 8px; text-align: center; border: 1px solid transparent; }
+.pd-fig.green { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+.pd-fig.amber { background: var(--amber-light); border-color: var(--amber); color: var(--amber-text); }
+.pd-fig.red { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+.pd-big { font-size: 26px; font-weight: 700; line-height: 1.05; }
+.pd-sub { font-size: 12px; font-weight: 600; opacity: .85; }
 .pd-line { display: flex; align-items: center; gap: 10px; }
 .pd-line .line-row-name { flex: 1; min-width: 0; }
 .pd-pct { font-size: 13px; min-width: 38px; text-align: right; }
@@ -1119,3 +1123,4 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
   .sv-col { gap: 12px; }
 }
 .sv-card .waiting-move { margin-left: 0; width: 100%; }
+@media (min-width: 900px) { .pupil-lines { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } }

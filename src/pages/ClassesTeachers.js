@@ -183,7 +183,7 @@ export default function ClassesTeachers() {
                     <button type="button" className={`line-row ${on ? 'on' : ''}`} onClick={() => setOpenId(on ? '' : `c:${c.id}`)}>
                       <span className="ct-two">
                         <span className="line-row-name">{c.name}</span>
-                        <span className="line-row-sub">{[kind, `${n} ${n === 1 ? 'student' : 'students'}`].filter(Boolean).join(' · ')}</span>
+                        <span className="line-row-sub">{[kind, `${n} ${isSchool ? (n === 1 ? 'pupil' : 'pupils') : (n === 1 ? 'student' : 'students')}`].filter(Boolean).join(' · ')}</span>
                       </span>
                       {needsTeacher(c) && <span className="applied-tag check" style={{ marginLeft: 0 }}>No teacher</span>}
                       {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -192,7 +192,7 @@ export default function ClassesTeachers() {
                       <div className="course-open">
                         <div className="box-row-3">
                           <InfoBox value={c.teacherId ? teacherName(c.teacherId) : 'None yet'} label={isDarulUloom && c.courseOrder ? 'Report writer' : 'Teacher'} />
-                          <InfoBox value={n} label={n === 1 ? 'Student' : 'Students'} />
+                          <InfoBox value={n} label={isSchool ? (n === 1 ? 'Pupil' : 'Pupils') : (n === 1 ? 'Student' : 'Students')} />
                           <LoginBox login={logins.find(l => l.classId === c.id)} onClick={() => setLoginModal({ kind: 'class', item: c })}
                             title="One shared login for this class — whoever teaches it that day can sign in" />
                         </div>
