@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, Users, Repeat, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, Repeat, LogOut, GraduationCap } from 'lucide-react';
 import { startDemo, logout } from '../lib/store';
 import { countVisit } from '../lib/analytics';
 
@@ -32,10 +32,12 @@ const SCHOOL_ROLES = [
     text: 'His own class: marking surahs, du\'aas and practicals — one pupil or the whole class at once.' },
   { role: 'parent', icon: Users, title: 'Parent', who: 'The Hussain family · 2B and 6A',
     text: 'Their children\'s surahs, du\'aas and practicals — what\'s achieved and what\'s completed with help.' },
+  { role: 'pupil', icon: GraduationCap, title: 'Pupil', who: 'A pupil in 6A',
+    text: 'What a pupil sees when they sign in at home: their homework and their own surahs, du\'aas and practicals.' },
 ];
 const rolesFor = kind => (kind === 'darul_uloom' ? DU_ROLES : kind === 'school' ? SCHOOL_ROLES : ROLES);
 
-const SIGNED_IN_ROLE = { owner: 'head', teacher: 'teacher', parent: 'parent' };
+const SIGNED_IN_ROLE = { owner: 'head', teacher: 'teacher', parent: 'parent', pupil: 'pupil' };
 
 // Start (or switch within) a demo, then open the app afresh as that person.
 async function enter(role, kind) {

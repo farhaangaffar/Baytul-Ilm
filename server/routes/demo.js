@@ -4,7 +4,7 @@ const { getUser, setSessionCookie } = require('../auth');
 const { ensureAllTables, clearExpired, tooMany, createDemo, createDarulUloomDemo, createSchoolDemo } = require('../demo');
 const { countEvent } = require('../platform');
 
-// "Try the demo": POST {role: 'head' | 'teacher' | 'parent', kind?: 'darul_uloom' | 'school'} signs the visitor in to a
+// "Try the demo": POST {role: 'head' | 'teacher' | 'parent' | 'pupil' (a school), kind?: 'darul_uloom' | 'school'} signs the visitor in to a
 // private demo madrasah as that person (server/demo.js). Someone already in a demo
 // just switches person within it; anyone else gets a fresh one. No password involved —
 // demo logins can't be signed in to any other way.
@@ -13,6 +13,7 @@ const ROLE_SQL = {
   head: `role = 'owner'`,
   teacher: `role = 'teacher'`,
   parent: `role = 'parent'`,
+  pupil: `role = 'pupil'`, // a school demo only
 };
 
 // Who's starting demos, only to limit how many one address starts — kept as a hash.

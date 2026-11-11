@@ -23,6 +23,8 @@ const routes = {
   login: require('../server/routes/login'),
   madaaris: require('../server/routes/madaaris'),
   parent: require('../server/routes/parent'),
+  pupil: require('../server/routes/pupil'),
+  'pupil-logins': require('../server/routes/pupil-logins'),
   quran: require('../server/routes/quran'),
   logout: require('../server/routes/logout'),
   session: require('../server/routes/session'),

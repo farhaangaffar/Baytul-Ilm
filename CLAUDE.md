@@ -325,6 +325,21 @@ codebase (one codebase, not a fork).
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
   way); logins head, Ustadh Bilal (4A), the Hussain family (2B and 6A). Counted as `demo_school` / `signup_school`.
+- **Pupil logins** (a school only — stage 4, step 1; role `pupil`, `users.student_id`, one login per pupil; `server/pupils.js`
+  `ensurePupilTables()` widens `users_role_check` and adds `student_id`, `last_login_at`, `failed_logins`, `locked_until`). **The
+  school gives each pupil their username and password** (the owner's choice; no Google sign-in): the head types them in on the
+  pupil's card ("Pupil login" — `PupilLoginCard` in `src/components/PupilLogins.js`: add, change username/password, switch off,
+  remove) or imports a class from a spreadsheet ("Pupil logins" card at the bottom of Pupils → `ImportModal`: First name + Surname
+  or Name, Username, Password, optional Class; matched by name, two with one name need Class) — `server/routes/pupil-logins.js`,
+  head only, passwords 4+ characters, stored hashed. Sign-in is the usual screen (school code + username + password); a pupil
+  login **rests 15 minutes after 10 wrong passwords** (`login.js`), and only works while the pupil is Active in a school (`getUser`
+  checks, via the session cookie's `p` flag). Pupils never pass `requireAuth`; their only route is `server/routes/pupil.js` (their
+  name, class and Islamic Studies marks — `studies.forParent` without reports) and their only page `src/pages/PupilPortal.js`
+  (`App.js`: "My homework" — filled by the next steps — and "My Islamic Studies", `PupilDetail` read only; no change-password —
+  the school looks after them). Demo: everyone in the school demo's 6A has a login; the green bar's **Pupil** view is the
+  Hussain child in 6A. Privacy policy names pupil logins. **Next steps of stage 4:** setting homework on an item (with its links),
+  the pupil's homework list with "I've done it", parents see homework (no links), then quizzes (stage 4b) — see the plan the owner
+  approved (no Google sign-in; logins from the school; parents see homework; pupils see marks; a done tick).
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own

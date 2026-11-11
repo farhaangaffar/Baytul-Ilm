@@ -26,7 +26,7 @@ async function ensureUsersTable() {
       madrasah_id      INTEGER NOT NULL REFERENCES madaaris(id),
       login            TEXT NOT NULL,
       password_hash    TEXT NOT NULL,
-      role             TEXT NOT NULL CONSTRAINT users_role_check CHECK (role IN ('owner','teacher','parent')),
+      role             TEXT NOT NULL CONSTRAINT users_role_check CHECK (role IN ('owner','teacher','parent','pupil')),
       teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
       class_id         TEXT UNIQUE REFERENCES classes(id) ON DELETE CASCADE,
       platform_admin   BOOLEAN NOT NULL DEFAULT false,
@@ -125,7 +125,7 @@ function verify(token) {
 // The cookie names a user and their session_version; bumping the version (password
 // change/reset, access removed) signs that user out everywhere.
 function setSessionCookie(res, user) {
-  const token = sign({ uid: String(user.id), sv: user.session_version, exp: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000 });
+  const token = sign({ uid: String(user.id), sv: user.session_version, exp: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000, ...(user.role === 'pupil' ? { p: 1 } : {}) });
   const isProd = process.env.NODE_ENV === 'production';
   const attrs = [
     `${COOKIE_NAME}=${encodeURIComponent(token)}`,
@@ -143,12 +143,17 @@ function clearSessionCookie(res) {
 // The signed-in user, or null. Sessions from before accounts existed carry no uid
 // and are simply treated as signed out, as is anyone whose madrasah has been switched
 // off by the platform owner, or whose demo madrasah (demo: true, server/demo.js) has run out.
+// A pupil's session (cookie flag p) also reads which pupil it is, whether they're still at the school, and the madrasah's kind.
+const PUPIL_COLS = payload => (payload.p
+  ? `u.student_id AS "studentId", (SELECT s.status FROM students s WHERE s.id = u.student_id AND s.madrasah_id = u.madrasah_id) AS "pupilStatus", m.kind,`
+  : '');
 async function getUser(req) {
   const payload = verify(parseCookies(req.headers.cookie)[COOKIE_NAME]);
   if (!payload || !payload.uid) return null;
   await ensureUsersTable();
+  if (payload.p) await require('./pupils').ensurePupilTables(); // a pupil's session: users.student_id exists
   const { rows } = await query(
-    `SELECT u.id, u.login, u.role, u.teacher_id AS "teacherId", u.class_id AS "classId",
+    `SELECT u.id, u.login, u.role, u.teacher_id AS "teacherId", u.class_id AS "classId", ${PUPIL_COLS(payload)}
             u.active, u.session_version, u.platform_admin AS "platformAdmin",
             u.madrasah_id AS "madrasahId", m.active AS "madrasahActive",
             m.demo_until IS NOT NULL AS demo, m.demo_until < now() AS "demoOver"
@@ -159,9 +164,12 @@ async function getUser(req) {
   if (!u || !u.active || u.session_version !== payload.sv) return null;
   if (!u.madrasahActive && !u.platformAdmin) return null;
   if (u.demoOver) return null; // a demo past its time is gone
+  // A pupil: only while they're at the school (not left), and only in a school.
+  if (u.role === 'pupil' && (!u.studentId || u.pupilStatus !== 'Active' || u.kind !== 'school')) return null;
   return {
     id: String(u.id), login: u.login, role: u.role, teacherId: u.teacherId, classId: u.classId,
     madrasahId: u.madrasahId, platformAdmin: !!u.platformAdmin, demo: !!u.demo,
+    ...(u.role === 'pupil' ? { studentId: u.studentId } : {}),
   };
 }
 

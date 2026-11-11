@@ -3,6 +3,7 @@ const {
   ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeLogin,
   validateNewCredentials, setSessionCookie, getUser,
 } = require('../auth');
+const { ensurePupilTables, MAX_TRIES, LOCK_MINUTES } = require('../pupils');
 
 // Sign-in and everything around it, as ?action= variants of one route:
 //  (none)           POST {code, login, password} — normal sign-in. code is the
@@ -109,6 +110,7 @@ module.exports = async (req, res) => {
   }
   // Everyone signs in to a particular madrasah: its code is always required (each device
   // remembers it after the first sign-in, so it's only typed once).
+  await ensurePupilTables(); // pupils' columns (users.locked_until …), read below
   const login = normalizeLogin(b.login ?? b.email);
   const code = String(b.code || '').trim().toLowerCase();
   if (!code) { res.status(400).json({ error: "Enter your madrasah code — ask the madrasah office if you don't know it.", needCode: true }); return; }
@@ -117,11 +119,32 @@ module.exports = async (req, res) => {
     [code, login]
   );
   const user = candidates[0];
+  // A pupil login rests for a while after too many wrong passwords in a row (server/pupils.js).
+  if (user && user.role === 'pupil' && user.locked_until && new Date(user.locked_until) > new Date()) {
+    res.status(429).json({ error: `Too many wrong passwords — wait ${LOCK_MINUTES} minutes, then try again, or ask your teacher.` });
+    return;
+  }
   const ok = verifyPassword(b.password || '', user ? user.password_hash : DUMMY_HASH);
+  if (user && user.role === 'pupil') {
+    if (ok) await query('UPDATE users SET failed_logins = 0, locked_until = NULL, last_login_at = now() WHERE id = $1', [user.id]);
+    else {
+      // The count starts again once a rest has been served.
+      await query(`UPDATE users SET
+        failed_logins = CASE WHEN failed_logins + 1 >= $2 THEN 0 ELSE failed_logins + 1 END,
+        locked_until = CASE WHEN failed_logins + 1 >= $2 THEN now() + make_interval(mins => $3) ELSE locked_until END
+        WHERE id = $1`, [user.id, MAX_TRIES, LOCK_MINUTES]);
+    }
+  }
   if (!user || !ok) { res.status(401).json({ error: 'Incorrect madrasah code, username or password' }); return; }
   const madrasah = await madrasahOf(user);
   if (!user.active) { res.status(401).json({ error: 'This login has been switched off — ask the madrasah office.' }); return; }
   if (!madrasah.active && !user.platform_admin) { res.status(401).json({ error: "This madrasah's access has been switched off." }); return; }
+  if (user.role === 'pupil') {
+    const { rows: [p] } = await query(
+      `SELECT s.status, m.kind FROM students s JOIN madaaris m ON m.id = s.madrasah_id WHERE s.id = $1 AND s.madrasah_id = $2`,
+      [user.student_id, user.madrasah_id]);
+    if (!p || p.status !== 'Active' || p.kind !== 'school') { res.status(401).json({ error: 'This login is no longer in use — ask your teacher.' }); return; }
+  }
   setSessionCookie(res, user);
   res.status(200).json({ ok: true, user: publicUser(user), madrasah: { code: madrasah.code, name: madrasah.name } });
 };

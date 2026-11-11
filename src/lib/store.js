@@ -103,6 +103,13 @@ export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeUR
 
 // ── Parent portal (parent logins only) — see server/routes/parent.js ──
 export async function getParentHome() { return apiFetch('/api/parent'); }
+// A school's pupil logins (server/routes/pupil.js, pupil-logins.js).
+export const getPupilHome = () => apiFetch('/api/pupil');
+export const getPupilLogins = () => apiFetch('/api/pupil-logins');
+export const savePupilLogin = (studentId, login, password) => apiFetch('/api/pupil-logins', { method: 'POST', body: JSON.stringify({ studentId, login, password }) });
+export const importPupilLogins = rows => apiFetch('/api/pupil-logins?action=import', { method: 'POST', body: JSON.stringify({ rows }) });
+export const setPupilLoginActive = (studentId, active) => apiFetch('/api/pupil-logins?action=active', { method: 'POST', body: JSON.stringify({ studentId, active }) });
+export const removePupilLogin = studentId => apiFetch(`/api/pupil-logins?studentId=${encodeURIComponent(studentId)}`, { method: 'DELETE' });
 export async function getParentChild(studentId) { return apiFetch(`/api/parent?studentId=${encodeURIComponent(studentId)}`); }
 export async function reportAbsence(data) { return apiFetch('/api/parent?action=absence', { method: 'POST', body: JSON.stringify(data) }); }
 export async function updateMyChildDetails(data) { return apiFetch('/api/parent?action=details', { method: 'POST', body: JSON.stringify(data) }); }

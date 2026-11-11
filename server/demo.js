@@ -35,6 +35,7 @@ async function ensureAllTables() {
   await query(`CREATE TABLE IF NOT EXISTS ai_usage (
     id BIGSERIAL PRIMARY KEY, madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
     kind TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT now())`);
+  await require('./pupils').ensurePupilTables(); // pupil logins (a school demo has some)
   await require('./platform').ensurePlatformTables();
   await require('./newMadrasah').ensureSignupColumns(); // madaaris.kind, for the Darul Uloom demo
 }
@@ -1057,6 +1058,17 @@ async function createSchoolDemo(ipHash) {
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, teacher_id) VALUES ($1, 'ustadh.bilal', $2, 'teacher', $3)`, [mid, pw(), teacherIds[SCHOOL_CLASSES.findIndex(c => c[0] === '4A')]]);
     const { rows: [parent] } = await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'hussain.family', $2, 'parent') RETURNING id`, [mid, pw()]);
     await bulk(c, 'parent_students', ['user_id', 'student_id', 'madrasah_id'], pupils.filter(p => p.family).map(p => [parent.id, p.id, mid]));
+    // Pupil logins (stage 4): everyone in 6A, the usernames a school might give (first name + surname initial); the Hussain
+    // child in 6A first, so the demo's "Pupil" view is theirs.
+    const six = pupils.filter(p => p.cls === '6A').sort((x, y) => (y.family ? 1 : 0) - (x.family ? 1 : 0));
+    const used = new Set();
+    for (const p of six) {
+      let login = `${p.f}.${p.s[0]}`.toLowerCase().replace(/[^a-z0-9.]/g, '');
+      while (used.has(login)) login += '1';
+      used.add(login);
+      await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role, student_id, last_login_at) VALUES ($1, $2, $3, 'pupil', $4, $5)`,
+        [mid, login, pw(), p.id, r() < 0.7 ? `${plus(today, -Math.floor(r() * 6))}T16:00:00Z` : null]);
+    }
     return mid;
   });
 }

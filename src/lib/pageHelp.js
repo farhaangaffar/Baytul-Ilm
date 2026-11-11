@@ -257,6 +257,7 @@ const SCHOOL_HEAD = {
     'A pupil who changes class: open them and choose "Move to another class". Leaving: "Mark as left the school" (it asks first) — they go under Left (tap the Left box), marks kept.',
     'End of the year: first add next year\'s classes on Classes & Teachers, then "New school year" (bottom of the page) — choose which class each class goes into, or "Left the school". Marks go with every pupil, and it can be undone.',
     'Switch the parent portal on in Settings, then set up each family\'s login from a pupil\'s card.',
+    'Pupil logins: type in the username and password your school gives a pupil on their card (Pupil login), or add a whole class at once with "Pupil logins" at the bottom of the page — upload or paste a spreadsheet with First name, Surname, Username and Password. Pupils sign in with your school\'s code and see their homework and their own marks.',
   ] },
   '/reports': { title: 'Reports', steps: [
     'Mark everyone on Islamic Studies, then "Take the Autumn assessment" (or Spring, Summer — End of year if you report once a year, Settings). It saves where every pupil is now.',
@@ -287,9 +288,15 @@ const SCHOOL_PARENT = { title: 'How to use this page', steps: [
   'Your details: tap "Check & update" to change your names, phone numbers and emails.',
 ] };
 
+const SCHOOL_PUPIL = { title: 'How to use this page', steps: [
+  'My homework: what your teacher has set, newest first. Tap one to see what to do and the links to open.',
+  'My Islamic Studies: how you\'re doing — achieved, completed with help, incomplete — and what to work on. Tap Surahs, Du\'aas or Practicals to see each one.',
+  'Forgotten your password? Ask your teacher — the school looks after pupils\' passwords.',
+] };
+
 // → { title, steps: [...] } for this page and person, or null.
 export function pageHelp(pathname, role, darulUloom = false, school = false) {
-  const h = school ? (role === 'parent' ? SCHOOL_PARENT : (role === 'owner' ? SCHOOL_HEAD : SCHOOL_TEACHER)[pathname] || (role === 'owner' && HEAD[pathname]))
+  const h = school ? (role === 'pupil' ? SCHOOL_PUPIL : role === 'parent' ? SCHOOL_PARENT : (role === 'owner' ? SCHOOL_HEAD : SCHOOL_TEACHER)[pathname] || (role === 'owner' && HEAD[pathname]))
     : role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };
