@@ -250,7 +250,7 @@ export default function Studies() {
         <ClassBar classes={classes.map(c => c.name)} active={cls} onPick={pickClass}
           notes={Object.fromEntries(classes.map(c => [c.name, yearLabel(c.yearGroup)]))} />
         <div className="pill-tabs bd-tabs st-tabs five">
-          {[...STUDY_KINDS, ['pupils', 'Pupils'], ['homework', 'Homework']].map(([k, l]) => <button key={k} className={`pill-tab ${tab === k ? 'active' : ''}`} onClick={() => pickTab(k)}>{l}</button>)}
+          {[...STUDY_KINDS, ['homework', 'Homework'], ['pupils', 'Pupils']].map(([k, l]) => <button key={k} className={`pill-tab ${tab === k ? 'active' : ''}`} onClick={() => pickTab(k)}>{l}</button>)}
         </div>
 
         {!data ? <LoadingState /> : tab === 'homework' ? (
