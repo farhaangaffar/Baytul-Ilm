@@ -282,7 +282,13 @@ codebase (one codebase, not a fork).
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
   Du'aas | Practicals | Pupils, figures, a line per item (surah number · "2/12 achieved" · "9/19 aayahs" spread along the bar's length) opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
-  class; an opened item line is boxed in light blue with Edit and a Close button; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — three coloured boxes on top — "N% achieved" (green) · "N% with help" (amber) · "N% incomplete" (red), of what's been
+  class; an opened item line is boxed in light blue with Edit and a Close button; at its top a closed **Resources** line
+  (stage 3 — the owner's pick, option C: "3 links · tap to open") opening to a line per link (`ItemLinks`; icon and words by site —
+  Google Drive / OneDrive / YouTube / the website, `linkSite()`; opens in a new tab), "Add a link to …" → `LinkModal` (name + link;
+  http(s) only, `cleanUrl()`). Links are `is_links` (item, name, url, who added it); **any teacher adds one, they change or remove
+  their own, the head any** (`canEdit` from the server — no user ids sent). Never shown to parents; in stage 4 a child's homework on
+  an item brings its links. Removing an item removes its links. In Backup (studies.js `links`) and demo `TABLES`; the school demo
+  has quran.com links on its first surahs; Pupils is a line per child (just the name and a bar — no percentages) opening, boxed the same way, **`PupilDetail`** (the owner's picked design) — three coloured boxes on top — "N% achieved" (green) · "N% with help" (amber) · "N% incomplete" (red), of what's been
   assessed (`.pd-fig`; no "x of y" counts anywhere on it — the owner's ask), then one grey "N not assessed" chip, then a line per list (Surahs / Du'aas / Practicals, then
   two bars — the pupil's first name with their coloured bar and %, and "Class" with a grey bar and the class's %, both of what's
   been assessed; `.pd-row`) opening to every item to mark — a white card per year (`.pd-year`), newest first, the pupil's own year

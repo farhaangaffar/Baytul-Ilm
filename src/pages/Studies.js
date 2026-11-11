@@ -12,13 +12,13 @@ import ClassBar from '../components/ClassBar';
 import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes } from '../components/StudentDetails';
 import StudiesImport from '../components/StudiesImport';
-import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs } from '../lib/store';
+import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { markStudiesVisited } from '../components/GettingStarted';
 import { useBackToClose } from '../lib/useBackToClose';
 import { yearLabel, STUDY_KINDS, LEVELS, LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, tally, surahNumber, surahAyahs } from '../lib/studies';
 import { SURAHS } from '../lib/quran';
-import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet, ListTree } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet, ListTree, Paperclip, ExternalLink } from 'lucide-react';
 
 // Opening a line closes the one above it, which can leave the page sitting at the bottom of the newly opened list.
 // After it opens, bring the line back up to the top of the screen (the owner's ask) — only when it's out of sight above.
@@ -206,6 +206,9 @@ export default function Studies() {
         </button>
         {open && (
           <div className="st-open">
+            {/* Lesson resources (stage 3): one closed line, opening to the links (the owner's pick, option C). */}
+            <ItemLinks item={it} links={(data?.links || []).filter(l => l.itemId === it.id)} onChanged={load}
+              onEdit={link => setModal({ kind: 'link', item: it, link })} />
             {n > 0 && <AyahTracker surah={it.surah} covered={covered} onChange={a => saveAyahs(it.id, a)} />}
             <div className="st-everyone">
               <span>Everyone</span>
@@ -324,6 +327,9 @@ export default function Studies() {
 
       {modal?.kind === 'item' && (
         <ItemModal item={modal.item} onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
+      )}
+      {modal?.kind === 'link' && (
+        <LinkModal item={modal.item} link={modal.link} onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
       )}
       {modal?.kind === 'pupil' && (
         <PupilSheet id={modal.id} onClose={() => setModal(null)} onChanged={load} />
@@ -543,6 +549,105 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
 
 // The head adds or changes a surah, du'aa or practical — its name, a short detail, the year group it's learnt in, and for
 // a whole surah which one it is (so the class's tracker shows its aayahs).
+// Where a link goes, for its small icon and the words under its name.
+const LINK_SITES = [
+  [/drive\.google|docs\.google|sheets\.google|slides\.google/, 'Google Drive', 'drive'],
+  [/onedrive|sharepoint|1drv\.ms|office\.com|live\.com/, 'OneDrive', 'onedrive'],
+  [/youtube\.com|youtu\.be/, 'YouTube', 'youtube'],
+];
+export function linkSite(url) {
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* shown as it is */ }
+  const hit = LINK_SITES.find(([re]) => re.test(host));
+  return hit ? { label: hit[1], tone: hit[2] } : { label: host || 'Website', tone: 'web' };
+}
+
+// An item's lesson resources: one closed line ("Resources · 3 links"), opening to a line per link — tap to open it in a
+// new tab — with a pencil on the ones this person may change, and "Add a link" (any teacher).
+function ItemLinks({ item, links, onEdit }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`st-links ${open ? 'open' : ''}`}>
+      <button type="button" className="line-row st-links-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <Paperclip size={15} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span className="line-row-name" style={{ display: 'block' }}>Resources</span>
+          <span className="line-row-sub" style={{ display: 'block' }}>
+            {links.length ? `${links.length} ${links.length === 1 ? 'link' : 'links'} · tap to ${open ? 'close' : 'open'}` : 'No links yet · tap to add one'}
+          </span>
+        </span>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {open && (
+        <div className="st-links-list">
+          {links.map(l => {
+            const site = linkSite(l.url);
+            return (
+              <div key={l.id} className="st-link">
+                <a className="line-row" href={l.url} target="_blank" rel="noopener noreferrer">
+                  <span className={`st-link-ic ${site.tone}`}><ExternalLink size={13} /></span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="line-row-name st-ellipsis">{l.name}</span>
+                    <span className="line-row-sub st-ellipsis">{site.label}{l.addedBy ? ` · added by ${l.addedBy}` : ''}</span>
+                  </span>
+                </a>
+                {l.canEdit && <button type="button" className="btn btn-icon" aria-label={`Change ${l.name}`} onClick={() => onEdit(l)}><Pencil size={14} /></button>}
+              </div>
+            );
+          })}
+          <button type="button" className="line-row add" onClick={() => onEdit(null)}><Plus size={13} /> Add a link to {item.name}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Adding or changing a link: its name and the link pasted from Google Drive, OneDrive, YouTube or any website.
+function LinkModal({ item, link, onClose, onSaved }) {
+  const [f, setF] = useState({ name: link?.name || '', url: link?.url || '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const close = useBackToClose(true, onClose);
+  async function save() {
+    setBusy(true); setError('');
+    try { await saveStudiesLink({ id: link?.id, itemId: item.id, name: f.name, url: f.url }); await onSaved(); } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
+  }
+  async function remove() {
+    if (!window.confirm(`Remove the link "${link.name}"?`)) return;
+    setBusy(true);
+    try { await deleteStudiesLink(link.id); await onSaved(); } catch (e) { setError(e.message || 'Could not remove'); setBusy(false); }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <div className="modal-title">{link ? 'Change link' : `Add a link to ${item.name}`}</div>
+          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group"><label>Name</label>
+              <input value={f.name} maxLength={120} autoFocus={!link} onChange={e => setF(x => ({ ...x, name: e.target.value }))}
+                placeholder={`e.g. ${item.name} worksheet`} /></div>
+            <div className="form-group"><label>Link</label>
+              <input value={f.url} maxLength={1000} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+                onChange={e => setF(x => ({ ...x, url: e.target.value }))} placeholder="https://drive.google.com/…" /></div>
+          </div>
+          <div className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+            Paste the share link from Google Drive, OneDrive, YouTube or any website. Make sure it's shared so pupils can open it.
+          </div>
+          {error && <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{error}</div>}
+        </div>
+        <div className="modal-footer">
+          {link && <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} disabled={busy} onClick={remove}><Trash2 size={13} />Remove</button>}
+          <button className="btn" onClick={close}>Cancel</button>
+          <button className="btn btn-primary" disabled={busy || !f.name.trim() || !f.url.trim()} onClick={save}><Save size={13} />{link ? 'Save' : 'Add link'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ItemModal({ item, onClose, onSaved }) {
   const [f, setF] = useState({ kind: item.kind, name: item.name || '', detail: item.detail || '', yearGroup: item.yearGroup ?? 0, surah: item.surah || '' });
   const [surahPicked, setSurahPicked] = useState(!!item.id);

@@ -232,6 +232,7 @@ const STUDIES_STEPS = [
   'Choose a class (Class ▾), then Surahs, Du\'aas or Practicals.',
   'Each line is one surah, du\'aa or practical for the class\'s year group. Tap it to open the class underneath.',
   'Tap Incomplete, Completed with help or Achieved by each pupil — or a box by "Everyone" for the whole class. Tap a lit box again to take the mark off (Not assessed yet).',
+  'Resources (inside an opened line): links to worksheets, slideshows or videos kept in Google Drive, OneDrive, YouTube or any website. Tap one to open it; "Add a link" to add one. You can change or remove your own links (the head, any).',
   'A surah also shows the class\'s weekly tracker: tap the last aayah the class has reached and every aayah before it is marked too (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
   'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',

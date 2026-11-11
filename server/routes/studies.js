@@ -81,7 +81,39 @@ async function ensure() {
     undone      BOOLEAN NOT NULL DEFAULT false,
     changes     JSONB NOT NULL
   )`);
+  // Lesson resources (stage 3): links to things kept elsewhere — Google Drive, OneDrive, YouTube, any website — on a surah,
+  // du'aa or practical. Any teacher can add one; they change or remove their own, the head any. Never shown to parents.
+  await query(`CREATE TABLE IF NOT EXISTS is_links (
+    id          BIGSERIAL PRIMARY KEY,
+    madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
+    item_id     BIGINT NOT NULL,
+    name        TEXT NOT NULL,
+    url         TEXT NOT NULL,
+    added_by    TEXT NOT NULL DEFAULT '',   -- their name, shown under the link
+    added_by_user TEXT NOT NULL DEFAULT '', -- their login's id: who may change it
+    added_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`);
+  await query('CREATE INDEX IF NOT EXISTS idx_is_links_madrasah ON is_links (madrasah_id, item_id)');
   ready = true;
+}
+
+// A link as typed or pasted: http(s) only (never javascript: or the like); "drive.google.com/…" gets https:// in front.
+function cleanUrl(v) {
+  let u = String(v ?? '').trim().slice(0, 1000);
+  if (!u) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = `https://${u}`;
+  try {
+    const x = new URL(u);
+    if (!['http:', 'https:'].includes(x.protocol) || !x.hostname.includes('.')) return '';
+    return x.toString();
+  } catch { return ''; }
+}
+// Every link of this madrasah, each saying whether the person asking may change it (their own, or the head's any).
+async function linksOf(mid, req) {
+  const { rows } = await query(
+    `SELECT id::text AS id, item_id::text AS "itemId", name, url, added_by AS "addedBy", added_by_user AS by
+     FROM is_links WHERE madrasah_id = $1 ORDER BY added_at, id`, [mid]);
+  return rows.map(({ by, ...l }) => ({ ...l, canEdit: isOwner(req) || by === req.user.id }));
 }
 
 const ITEM_COLS = `id::text AS id, kind, name, detail, year_group AS "yearGroup", surah`;
@@ -167,7 +199,8 @@ const handler = requireAuth(async (req, res) => {
     const { rows: list } = await query('SELECT id::text AS id, kind, name, detail, year_group, sort, surah FROM is_items WHERE madrasah_id = $1 ORDER BY id', [mid]);
     const { rows: marks } = await query('SELECT student_id, item_id::text AS item_id, level, updated_by, updated_at FROM is_progress WHERE madrasah_id = $1', [mid]);
     const { rows: ayahs } = await query('SELECT class_id, item_id::text AS item_id, ayahs, updated_by, updated_at FROM is_class_ayahs WHERE madrasah_id = $1', [mid]);
-    res.status(200).json({ items: list, progress: marks, ayahs, reports: await require('./school-reports').backup(mid) });
+    const { rows: links } = await query('SELECT item_id::text AS item_id, name, url, added_by, added_by_user, added_at FROM is_links WHERE madrasah_id = $1 ORDER BY id', [mid]);
+    res.status(200).json({ items: list, progress: marks, ayahs, links, reports: await require('./school-reports').backup(mid) });
     return;
   }
   if (action === 'restore' && req.method === 'POST') {
@@ -179,6 +212,7 @@ const handler = requireAuth(async (req, res) => {
     await transaction(async c => {
       await c.query('DELETE FROM is_progress WHERE madrasah_id = $1', [mid]);
       await c.query('DELETE FROM is_class_ayahs WHERE madrasah_id = $1', [mid]);
+      await c.query('DELETE FROM is_links WHERE madrasah_id = $1', [mid]);
       await c.query('DELETE FROM is_items WHERE madrasah_id = $1', [mid]);
       const ids = {}; // each item gets a new number; the marks follow it
       for (const it of Array.isArray(b.items) ? b.items : []) {
@@ -198,6 +232,12 @@ const handler = requireAuth(async (req, res) => {
         if (!ids[a.item_id] || !classIds.has(String(a.class_id)) || !Array.isArray(a.ayahs)) continue;
         await c.query('INSERT INTO is_class_ayahs (madrasah_id, class_id, item_id, ayahs, updated_by, updated_at) VALUES ($1,$2,$3,$4,$5,COALESCE($6::timestamptz, now())) ON CONFLICT DO NOTHING',
           [mid, String(a.class_id), ids[a.item_id], a.ayahs.map(Number).filter(n => n >= 1 && n <= 286), str(a.updated_by), a.updated_at || null]);
+      }
+      for (const l of Array.isArray(b.links) ? b.links : []) {
+        const url = cleanUrl(l.url);
+        if (!ids[l.item_id] || !str(l.name, 120) || !url) continue;
+        await c.query('INSERT INTO is_links (madrasah_id, item_id, name, url, added_by, added_by_user, added_at) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7::timestamptz, now()))',
+          [mid, ids[l.item_id], str(l.name, 120), url, str(l.added_by), str(l.added_by_user, 40), l.added_at || null]);
       }
       // Assessment points and reports (older backups have none — leave them alone).
       if (b.reports) await require('./school-reports').restore(c, mid, b.reports, Object.fromEntries(Object.entries(ids).map(([k, v]) => [String(k), String(v)])));
@@ -373,7 +413,7 @@ const handler = requireAuth(async (req, res) => {
       const { rows: progress } = ids.length
         ? await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = ANY($2)`, [mid, ids])
         : { rows: [] };
-      res.status(200).json({ yearGroup: year, items: await items(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls) });
+      res.status(200).json({ yearGroup: year, items: await items(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
       return;
     }
     res.status(200).json({ items: await items(mid) });
@@ -418,6 +458,42 @@ const handler = requireAuth(async (req, res) => {
        ON CONFLICT (class_id, item_id) DO UPDATE SET ayahs = EXCLUDED.ayahs, updated_by = EXCLUDED.updated_by, updated_at = now()`,
       [mid, c.id, item.id, ayahs, await whoName(req.user)]);
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  // A link on an item (any teacher adds one; they change or remove their own, the head any).
+  if (action === 'link' && (req.method === 'POST' || req.method === 'DELETE')) {
+    const b = req.body || {};
+    const id = String((req.method === 'DELETE' ? req.query.id : b.id) || '').replace(/\D/g, '');
+    let mine = null;
+    if (id) {
+      ({ rows: [mine] } = await query('SELECT id, added_by_user FROM is_links WHERE id = $1 AND madrasah_id = $2', [id, mid]));
+      if (!mine) { res.status(404).json({ error: 'That link has been removed.' }); return; }
+      if (!isOwner(req) && mine.added_by_user !== req.user.id) { res.status(403).json({ error: 'Only the teacher who added this link, or the head, can change it.' }); return; }
+    }
+    if (req.method === 'DELETE') {
+      if (!id) { res.status(400).json({ error: 'Which link?' }); return; }
+      await query('DELETE FROM is_links WHERE id = $1 AND madrasah_id = $2', [id, mid]);
+      res.status(200).json({ ok: true });
+      return;
+    }
+    const name = str(b.name, 120);
+    const url = cleanUrl(b.url);
+    if (!name) { res.status(400).json({ error: 'Give the link a name, e.g. "Al-Ikhlas worksheet".' }); return; }
+    if (!url) { res.status(400).json({ error: 'Paste a link that starts with https:// — e.g. from Google Drive, OneDrive or YouTube.' }); return; }
+    if (id) {
+      await query('UPDATE is_links SET name = $1, url = $2 WHERE id = $3 AND madrasah_id = $4', [name, url, id, mid]);
+      res.status(200).json({ ok: true, id });
+      return;
+    }
+    const { rows: [item] } = await query('SELECT id FROM is_items WHERE id = $1 AND madrasah_id = $2', [String(b.itemId || '0').replace(/\D/g, '') || '0', mid]);
+    if (!item) { res.status(404).json({ error: 'That item has been removed.' }); return; }
+    const { rows: [{ n }] } = await query('SELECT count(*)::int AS n FROM is_links WHERE madrasah_id = $1 AND item_id = $2', [mid, item.id]);
+    if (n >= 30) { res.status(400).json({ error: 'That\'s plenty of links for one item — remove one first.' }); return; }
+    const { rows: [row] } = await query(
+      'INSERT INTO is_links (madrasah_id, item_id, name, url, added_by, added_by_user) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id::text AS id',
+      [mid, item.id, name, url, await whoName(req.user), req.user.id]);
+    res.status(200).json({ ok: true, id: row.id });
     return;
   }
 
@@ -467,6 +543,7 @@ const handler = requireAuth(async (req, res) => {
     await transaction(async c => {
       await c.query('DELETE FROM is_progress WHERE madrasah_id = $1 AND item_id = $2', [mid, id]);
       await c.query('DELETE FROM is_class_ayahs WHERE madrasah_id = $1 AND item_id = $2', [mid, id]);
+      await c.query('DELETE FROM is_links WHERE madrasah_id = $1 AND item_id = $2', [mid, id]);
       await c.query('DELETE FROM is_items WHERE madrasah_id = $1 AND id = $2', [mid, id]);
     });
     res.status(200).json({ ok: true });

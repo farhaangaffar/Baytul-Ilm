@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo — or a
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
-  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
+  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_links', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
@@ -1044,6 +1044,13 @@ async function createSchoolDemo(ipHash) {
       });
     });
     await bulk(c, 'is_class_ayahs', ['madrasah_id', 'class_id', 'item_id', 'ayahs', 'updated_by'], covered);
+    // Lesson resources: a few links on some surahs (made-up names; the links go to the surah on quran.com).
+    const demoLinks = [];
+    items.filter(it => it.kind === 'surah' && it.surah && it.year_group <= 4).slice(0, 6).forEach((it, i) => {
+      demoLinks.push([mid, it.id, 'Recitation and meaning', `https://quran.com/${it.surah}`, 'Head', '']);
+      if (i % 2 === 0) demoLinks.push([mid, it.id, 'Word-by-word', `https://quran.com/${it.surah}?wbw=true`, SCHOOL_CLASSES[1][2], '']);
+    });
+    await bulk(c, 'is_links', ['madrasah_id', 'item_id', 'name', 'url', 'added_by', 'added_by_user'], demoLinks);
 
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
     await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'head', $2, 'owner')`, [mid, pw()]);
