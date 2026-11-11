@@ -591,8 +591,9 @@ export function QuizTaker({ homework: h, onClose, onDone }) {
               })}
             </div>
           )}
-          {q.type === 'short' && <input dir="auto" value={a || ''} maxLength={300} onChange={e => set(e.target.value)} placeholder="Your answer" />}
-          {q.type === 'long' && <textarea dir="auto" rows={6} value={a || ''} maxLength={4000} onChange={e => set(e.target.value)} placeholder="Write your answer" />}
+          {/* Inside a form-group so they get the app's own field look (on their own they showed as bare browser boxes). */}
+          {q.type === 'short' && <div className="form-group"><input id={`qz-a-${q.n}`} className="qz-answer" dir="auto" value={a || ''} maxLength={300} onChange={e => set(e.target.value)} placeholder="Your answer" /></div>}
+          {q.type === 'long' && <div className="form-group"><textarea id={`qz-a-${q.n}`} className="qz-answer" dir="auto" rows={6} value={a || ''} maxLength={4000} onChange={e => set(e.target.value)} placeholder="Write your answer" /></div>}
           {check && (
             <div className="qz-check">{blanks ? `You haven't answered ${blanks} question${blanks === 1 ? '' : 's'}. Hand it in anyway?` : 'Ready to hand it in?'}
               {h.quiz.settings.tries !== 'many' && ' You only have one go.'}</div>

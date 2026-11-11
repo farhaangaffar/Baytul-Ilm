@@ -1276,3 +1276,5 @@ button.qz-card:hover { border-color: var(--teal); }
 .qz-locked > div { min-width: 0; overflow-wrap: anywhere; }
 .qz-locked .btn { justify-self: start; background: #fff; max-width: 100%; white-space: normal; }
 .qz-copied { background: var(--teal-light); color: var(--teal-dark); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; }
+/* A pupil's typed answer: the app's field look, a little bigger, on a soft grey so the box is easy to see. */
+.form-group .qz-answer { width: 100%; font-size: 15px; line-height: 1.5; background: #f1f5f9; border: 1px solid #e2e8f0; resize: vertical; }
