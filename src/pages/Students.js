@@ -387,7 +387,8 @@ export default function Students() {
                     {on && (
                       <div className="course-open">
                         <div className="course-lines pupil-lines">
-                          {filtered.map(s=>(
+                          {/* A to Z by first name, then surname (the owner's ask). */}
+                          {[...filtered].sort((x,y)=>`${x.forename} ${x.surname}`.localeCompare(`${y.forename} ${y.surname}`, undefined, {sensitivity:'base'})).map(s=>(
                             <button key={s.id} type="button" className="line-row" onClick={()=>setSelected(s)}>
                               <span className="ct-two"><span className="line-row-name">{s.forename} {s.surname}</span><span className="line-row-sub">{fmtDob(s.dob)}</span></span>
                             </button>

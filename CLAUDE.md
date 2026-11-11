@@ -267,7 +267,7 @@ codebase (one codebase, not a fork).
   its year's achieved / with-help bar, Getting started: teachers → classes with year groups → pupils → check the lists →
   logins), **Pupils** (the Students page with no fees, attendance or waiting list; laid out like Classes & Teachers — the figures as a
   row of small white boxes, then one "Classes" card of class lines "Year 2 · 11 pupils · 56% achieved", tapping one opens its
-  pupils underneath as lines, two across on computers; a pupil opens their card), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
+  pupils underneath as lines (A to Z by first name), two across on computers; a pupil opens their card), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
   teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,
   Reception = 0 … Year 13, guessed from its name — `guessYearGroup()`), Settings (Your school, Parents, Backup only). A school's **Add a pupil** (`SchoolPupilForm` in `EnrollmentForm.js`) is one page — name, class, date of
   birth, gender, two contacts — and its Edit pop-up has no address/health/home details or enrolment date (not the school's
