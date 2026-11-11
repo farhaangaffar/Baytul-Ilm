@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LegalLinks, MadeWith } from '../components/Legal';
 import { getPupilHome, logout, markMyHomework } from '../lib/store';
 import { niceDue } from '../components/SchoolHomework';
-import { QuizTaker, QuizScore, QuizReview } from '../components/SchoolQuiz';
+import { QuizTaker, QuizScore, QuizReview, quizName } from '../components/SchoolQuiz';
 import { linkSite } from './Studies';
 import { useSettings } from '../lib/SettingsContext';
 import { PupilDetail } from './Studies';
@@ -41,7 +41,7 @@ function MyHomework({ list, onChanged }) {
           <div key={h.id} className={`st-pupil-wrap ${isOpen ? 'open' : ''}`}>
             <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : h.id)}>
               <span className="ct-two">
-                <span className="line-row-name">{h.kind === 'quiz' ? `Quiz${h.itemName ? ` · ${h.itemName}` : ''}` : h.itemName || 'Homework'}</span>
+                <span className="line-row-name">{h.kind === 'quiz' ? quizName(h) : h.itemName || 'Homework'}</span>
                 <span className="line-row-sub">{h.kind === 'quiz' && h.doneAt ? (h.score ? `Score ${h.score.score} / ${h.score.max}` : 'Handed in') : h.doneAt ? 'Done' : niceDue(h.due) || 'To do'}</span>
               </span>
               {h.doneAt && <span className="hw-done"><Check size={13} /></span>}

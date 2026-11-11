@@ -10,10 +10,14 @@ import { X, Save, Trash2, Pencil, Plus, Check, Send, ChevronLeft, ChevronRight }
 // the results (QuizResults), marks long answers (AttemptModal) and sends the scores; the pupil takes it one question at a
 // time (QuizTaker). Marking is done on the server — pupils are never sent the right answers until they may see them.
 
-export const TYPE_LABELS = { one: 'One answer', many: 'Tick boxes', truefalse: 'True / false', short: 'Short answer', long: 'Long answer' };
+export const TYPE_LABELS = { one: 'One answer', many: 'Tick boxes', truefalse: 'True / false', choose: 'Two choices each', short: 'Short answer', long: 'Long answer' };
 const TYPES = Object.keys(TYPE_LABELS);
 export const DEFAULT_SETTINGS = { tries: 'one', shuffle: false, scoreNow: true, showAnswers: true };
 const pts = n => `${n} point${n === 1 ? '' : 's'}`;
+// What a question is worth (as the server works it out): tick boxes and two-choice lists give points for each right answer.
+export const worthOf = q => q.worth ?? (q.type === 'many' ? q.points * (q.answers || []).length : q.type === 'choose' ? q.points * (q.rows || []).length : q.points);
+// A quiz's name on a line: its own name, else what it's on.
+export const quizName = h => h.quiz?.title || h.title || (h.itemName ? `Quiz · ${h.itemName}` : 'Quiz');
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 export const scoreTone = (score, max) => { const p = pct(score, max); return p >= 80 ? 'green' : p >= 50 ? 'amber' : 'red'; };
 
@@ -30,12 +34,78 @@ function rightText(q, right) {
   return answerText(q, q.type === 'one' || q.type === 'truefalse' ? (right !== undefined ? right : q.answer) : (right !== undefined ? right : q.answers));
 }
 
+// The right answer of a full question (the teacher has it; a pupil is sent it separately, only when allowed).
+const keyOf = q => (q.type === 'one' || q.type === 'truefalse' ? q.answer : q.type === 'many' || q.type === 'choose' ? q.answers : q.type === 'short' ? q.accepted : null);
+
+// What was answered, shown against the right answer — no coloured side bars (the owner's ask): each choice is a row, the
+// one picked tinted green ✓ (right) or red ✗ (wrong), a right one not picked outlined in green; a two-choice list shows
+// each line's pick the same way; a short answer is one tinted box with the accepted answers under it.
+const Mark = ({ ok }) => <span className={`qz-av-ic ${ok ? 'ok' : 'no'}`}>{ok ? <Check size={12} /> : <X size={12} />}</span>;
+export function AnswerView({ q, given, answer, result }) {
+  if (q.type === 'one' || q.type === 'many' || q.type === 'truefalse') {
+    const opts = q.type === 'truefalse' ? ['True', 'False'] : q.options;
+    const val = i => (q.type === 'truefalse' ? i === 0 : i);
+    const picked = i => (q.type === 'many' ? (Array.isArray(given) ? given : []).includes(i) : given === val(i));
+    const right = i => (q.type === 'many' ? (Array.isArray(answer) ? answer : []).includes(i) : answer === val(i));
+    const none = !opts.some((_, i) => picked(i));
+    return (
+      <div className="qz-av">
+        {none && <div className="qz-av-none">No answer</div>}
+        {opts.map((o, i) => {
+          const p = picked(i), r = right(i);
+          return (
+            <div key={i} className={`qz-av-row ${p ? (r ? 'good' : 'bad') : r ? 'missed' : ''}`} dir="auto">
+              {p ? <Mark ok={r} /> : <span className="qz-av-ic blank" />}<span>{o}</span>
+              {!p && r && <span className="qz-av-tag">Right answer</span>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  if (q.type === 'choose') {
+    const g = Array.isArray(given) ? given : [];
+    return (
+      <div className="qz-av">
+        {q.rows.map((row, i) => {
+          const p = g[i], r = (answer || [])[i], blank = p !== 0 && p !== 1;
+          return (
+            <div key={i} className="qz-av-line">
+              <span dir="auto">{row}</span>
+              <span className="qz-av-picks">
+                {blank ? <span className="qz-av-pick">No answer</span>
+                  : <span className={`qz-av-pick ${p === r ? 'good' : 'bad'}`}><Mark ok={p === r} />{q.columns[p]}</span>}
+                {p !== r && r !== undefined && <span className="qz-av-pick missed"><Check size={12} />{q.columns[r]}</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  if (q.type === 'short') {
+    const text = String(given ?? '').trim();
+    const acc = Array.isArray(answer) ? answer.filter(Boolean) : [];
+    const plain = v => String(v).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    const ok = result && result.got !== null && result.got !== undefined ? result.got > 0 : !!text && acc.some(a => plain(a) === plain(text));
+    return (
+      <div className="qz-av">
+        {text ? <div className={`qz-av-row ${ok ? 'good' : 'bad'}`} dir="auto"><Mark ok={ok} /><span>{text}</span></div> : <div className="qz-av-none">No answer</div>}
+        {!ok && acc.length > 0 && <div className="qz-av-row missed" dir="auto"><span className="qz-av-ic blank" /><span>{acc.join(' / ')}</span><span className="qz-av-tag">Right answer</span></div>}
+      </div>
+    );
+  }
+  const text = String(given ?? '').trim();
+  return text ? <div className="qz-av-long" dir="auto">{text}</div> : <div className="qz-av-none">No answer</div>;
+}
+
 // ——— The teacher's builder ———
 
 // One question in its pop-up: the kind, the question, points, and its answers (tap the right one — it turns green).
 function QuestionModal({ question, number, onSave, onRemove, onClose }) {
   const close = useBackToClose(true, onClose);
-  const [q, setQ] = useState(() => ({ type: 'one', text: '', points: 1, options: ['', ''], answer: null, answers: [], accepted: [''], ...question }));
+  const [q, setQ] = useState(() => ({ type: 'one', text: '', points: 1, options: ['', ''], answer: null, answers: [], accepted: [''], columns: ['', ''], rows: [''],
+    ...question, picks: question?.type === 'choose' ? question.answers : [], ...(question?.type === 'choose' ? { answers: [] } : {}) }));
   const [error, setError] = useState('');
   const set = (k, v) => setQ(x => ({ ...x, [k]: v }));
   const opts = q.options && q.options.length ? q.options : ['', ''];
@@ -43,6 +113,7 @@ function QuestionModal({ question, number, onSave, onRemove, onClose }) {
     const t = TYPES.find(k => TYPE_LABELS[k] === label);
     if (!t) return;
     setQ(x => ({ ...x, type: t, options: x.options?.length ? x.options : ['', ''], accepted: x.accepted?.length ? x.accepted : [''],
+      columns: x.columns?.length === 2 ? x.columns : ['', ''], rows: x.rows?.length ? x.rows : [''],
       answer: t === 'truefalse' ? (typeof x.answer === 'boolean' ? x.answer : null) : t === 'one' ? (Number.isInteger(x.answer) ? x.answer : null) : x.answer }));
   }
   function setOption(i, v) { set('options', opts.map((o, j) => (j === i ? v : o))); }
@@ -73,6 +144,13 @@ function QuestionModal({ question, number, onSave, onRemove, onClose }) {
         if (!a.length) { setError('Tap the right answers.'); return; }
         out.answers = a;
       }
+    } else if (q.type === 'choose') {
+      const cols = q.columns.map(c => c.trim());
+      if (!cols[0] || !cols[1]) { setError('Name the two choices (e.g. Sunnah and Fardh).'); return; }
+      const keep = q.rows.map((r, i) => [r.trim(), q.picks[i]]).filter(([r]) => r);
+      if (!keep.length) { setError('Add at least one line to the list.'); return; }
+      if (keep.some(([, a]) => a !== 0 && a !== 1)) { setError(`Choose ${cols[0]} or ${cols[1]} for every line.`); return; }
+      Object.assign(out, { columns: cols, rows: keep.map(([r]) => r), answers: keep.map(([, a]) => a) });
     } else if (q.type === 'truefalse') {
       if (typeof q.answer !== 'boolean') { setError('Tap True or False — the right answer.'); return; }
       out.answer = q.answer;
@@ -133,9 +211,32 @@ function QuestionModal({ question, number, onSave, onRemove, onClose }) {
                   {q.accepted.length < 20 && <button type="button" className="line-row add" onClick={() => set('accepted', [...q.accepted, ''])}><Plus size={13} /> Another way to write it</button>}
                 </div></div>
             )}
+            {q.type === 'choose' && <>
+              {/* A list on the left, and for each line one of two choices on the right (the owner's ask). */}
+              <div className="form-group"><label>The two choices</label>
+                <div className="qz-two">
+                  {[0, 1].map(c => <input key={c} dir="auto" value={q.columns[c]} maxLength={60} placeholder={c ? 'e.g. Sunnah' : 'e.g. Fardh'}
+                    onChange={e => set('columns', q.columns.map((x, j) => (j === c ? e.target.value : x)))} />)}
+                </div></div>
+              <div className="form-group"><label>The list <span className="text-muted" style={{ fontWeight: 400 }}>· tap the right choice for each line</span></label>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {q.rows.map((r, i) => (
+                    <div key={i} className="qz-choose-edit">
+                      <input dir="auto" value={r} maxLength={300} placeholder={`Line ${i + 1}`} onChange={e => set('rows', q.rows.map((x, j) => (j === i ? e.target.value : x)))} />
+                      <div className="qz-xy">
+                        {[0, 1].map(c => <button key={c} type="button" className={q.picks[i] === c ? 'right' : ''}
+                          onClick={() => set('picks', q.rows.map((_, j) => (j === i ? c : q.picks[j] ?? null)))}>{q.columns[c].trim() || (c ? 'Choice 2' : 'Choice 1')}</button>)}
+                      </div>
+                      {q.rows.length > 1 && <button type="button" className="btn btn-icon" onClick={() => setQ(x => ({ ...x, rows: x.rows.filter((_, j) => j !== i), picks: x.rows.map((_, j) => x.picks[j] ?? null).filter((_, j) => j !== i) }))} aria-label="Remove"><X size={14} /></button>}
+                    </div>
+                  ))}
+                  {q.rows.length < 30 && <button type="button" className="line-row add" onClick={() => set('rows', [...q.rows, ''])}><Plus size={13} /> Another line</button>}
+                </div></div>
+            </>}
             {q.type === 'long' && <div className="text-muted" style={{ fontSize: 13 }}>Pupils write their answer, and you give the mark when they've handed it in.</div>}
-            <div className="form-group" style={{ maxWidth: 140 }}><label htmlFor="qz-pts">Points</label>
-              <input id="qz-pts" type="number" min={1} max={100} value={q.points} onChange={e => set('points', e.target.value)} /></div>
+            <div className="form-group" style={{ maxWidth: 260 }}><label htmlFor="qz-pts">{q.type === 'many' ? 'Points for each right tick' : q.type === 'choose' ? 'Points for each line right' : 'Points'}</label>
+              <input id="qz-pts" type="number" min={1} max={100} value={q.points} onChange={e => set('points', e.target.value)} style={{ maxWidth: 120 }} />
+              {q.type === 'many' && <span className="text-muted" style={{ fontSize: 12 }}>A wrong tick takes one right tick's points away (never below 0).</span>}</div>
           </div>
           {error && <div style={{ color: 'var(--red-text)', fontSize: 13, marginTop: 10 }}>{error}</div>}
         </div>
@@ -154,7 +255,7 @@ function QuestionCard({ q, n, onOpen }) {
   const Tag = onOpen ? 'button' : 'div';
   return (
     <Tag type={onOpen ? 'button' : undefined} className="qz-card" onClick={onOpen}>
-      <div className="qz-card-top"><span>{n} · {TYPE_LABELS[q.type]}</span><span>{pts(q.points)}{onOpen && <Pencil size={12} style={{ marginLeft: 6 }} />}</span></div>
+      <div className="qz-card-top"><span>{n} · {TYPE_LABELS[q.type]}</span><span>{pts(worthOf(q))}{onOpen && <Pencil size={12} style={{ marginLeft: 6 }} />}</span></div>
       <div className="qz-q" dir="auto">{q.text}</div>
       {(q.type === 'one' || q.type === 'many') && (
         <div className="qz-opts">{q.options.map((o, i) => {
@@ -164,6 +265,11 @@ function QuestionCard({ q, n, onOpen }) {
       )}
       {q.type === 'truefalse' && <div className="qz-opts">{[true, false].map(v => <div key={String(v)} className={`qz-opt ${q.answer === v ? 'right' : ''}`}>{q.answer === v && <Check size={12} />}{v ? 'True' : 'False'}</div>)}</div>}
       {q.type === 'short' && <div className="qz-opts">{q.accepted.map((a, i) => <div key={i} className="qz-opt right" dir="auto"><Check size={12} />{a}</div>)}</div>}
+      {q.type === 'choose' && (
+        <div className="qz-list">{q.rows.map((r, i) => (
+          <div key={i} className="qz-list-row"><span dir="auto">{r}</span><span className="qz-opt right"><Check size={12} />{q.columns[q.answers[i]]}</span></div>
+        ))}</div>
+      )}
       {q.type === 'long' && <div className="text-muted" style={{ fontSize: 12.5 }}>You mark this one</div>}
     </Tag>
   );
@@ -181,15 +287,18 @@ const SETTING_ROWS = [
 export function QuizEditor({ quiz, onChange, locked }) {
   const [open, setOpen] = useState(null); // { i } | { add: true }
   const qs = quiz.questions;
-  const total = qs.reduce((t, q) => t + q.points, 0);
+  const total = qs.reduce((t, q) => t + worthOf(q), 0);
   const s = { ...DEFAULT_SETTINGS, ...quiz.settings };
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div className="qz-head"><b>Questions</b><span className="text-muted">{qs.length ? `${qs.length} · ${pts(total)}` : ''}</span></div>
+    <>
+    <div className="qz-section">
+      <div className="qz-section-head"><span className="qz-step">2</span><b>Questions</b><span className="text-muted" style={{ marginLeft: 'auto' }}>{qs.length ? `${qs.length} · ${pts(total)}` : ''}</span></div>
       {locked && <div className="text-muted" style={{ fontSize: 12.5 }}>Pupils have handed this quiz in, so its questions stay as they are. You can still change the settings and due date.</div>}
       {qs.map((q, i) => <QuestionCard key={i} q={q} n={i + 1} onOpen={locked ? undefined : () => setOpen({ i })} />)}
       {!locked && qs.length < 60 && <button type="button" className="line-row add" onClick={() => setOpen({ add: true })}><Plus size={13} /> Add a question</button>}
-      <div className="qz-head" style={{ marginTop: 8 }}><b>Settings</b></div>
+    </div>
+    <div className="qz-section">
+      <div className="qz-section-head"><span className="qz-step">3</span><b>Settings</b></div>
       <div className="qz-settings">
         {SETTING_ROWS.map(([k, label, opts, toIdx, fromIdx]) => (
           <div key={k} className="qz-set">
@@ -205,6 +314,17 @@ export function QuizEditor({ quiz, onChange, locked }) {
           onRemove={open.add ? null : () => { onChange({ ...quiz, questions: qs.filter((_, j) => j !== open.i) }); setOpen(null); }}
           onSave={q => { onChange({ ...quiz, questions: open.add ? [...qs, q] : qs.map((x, j) => (j === open.i ? q : x)) }); setOpen(null); }} />
       )}
+    </div>
+    </>
+  );
+}
+
+// The quiz's own section 1 (in the homework pop-up): its name and what the pupils need to know.
+export function QuizSection({ children }) {
+  return (
+    <div className="qz-section">
+      <div className="qz-section-head"><span className="qz-step">1</span><b>About the quiz</b></div>
+      <div className="form-grid">{children}</div>
     </div>
   );
 }
@@ -253,15 +373,13 @@ function AttemptModal({ quiz, name, attempts, onClose, onMarked }) {
             </div>
           )}
           {quiz.questions.map((q, i) => {
-            const g = got(i), of = q.points;
+            const g = got(i), of = a.results[i]?.of ?? worthOf(q);
             const tone = g === null || g === undefined ? 'amber' : g >= of ? 'green' : g > 0 ? 'amber' : 'red';
-            const said = answerText(q, a.answers[i]);
             return (
-              <div key={i} className={`qz-ans ${tone}`}>
+              <div key={i} className="qz-ans">
                 <div className="qz-card-top"><span>{i + 1} · {TYPE_LABELS[q.type]}</span><span className={`qz-got ${tone}`}>{g === null || g === undefined ? 'To mark' : `${g} / ${of}`}</span></div>
                 <div className="qz-q" dir="auto">{q.text}</div>
-                <div className="qz-said" dir="auto">{said || <span className="text-muted">No answer</span>}</div>
-                {q.type !== 'long' && g < of && <div className="qz-rightans" dir="auto"><Check size={12} /> {rightText(q)}</div>}
+                <AnswerView q={q} given={a.answers[i]} answer={keyOf(q)} result={a.results[i]} />
                 {q.type === 'long' && (
                   <div className="qz-pointboxes">
                     {Array.from({ length: Math.min(of, 20) + 1 }, (_, p) => (
@@ -315,7 +433,7 @@ export function QuizResults({ homework: h, pupils, onEdit, onRemoved, onChanged,
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
       <div className="modal" style={{ maxWidth: 600 }}>
         <div className="modal-header">
-          <div><div className="modal-title">Quiz{h.itemName ? ` · ${h.itemName}` : ''}</div>
+          <div><div className="modal-title">{quizName(h)}</div>
             <div className="text-muted text-sm">{[niceDueShort(h.due), quiz ? `${quiz.questions.length} questions` : '', `set by ${h.setBy}`].filter(Boolean).join(' · ')}</div></div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
@@ -360,7 +478,7 @@ export function QuizResults({ homework: h, pupils, onEdit, onRemoved, onChanged,
                 const tone = !done.length ? 'grey' : scoreTone(right, done.length);
                 return (
                   <div key={i} className="line-row" style={{ cursor: 'default' }}>
-                    <span className="ct-two"><span className="line-row-name" dir="auto">{i + 1}. {q.text}</span><span className="line-row-sub">{TYPE_LABELS[q.type]}{q.type !== 'long' ? ` · ${rightText(q)}` : ''}</span></span>
+                    <span className="ct-two"><span className="line-row-name" dir="auto">{i + 1}. {q.text}</span><span className="line-row-sub">{TYPE_LABELS[q.type]}{q.type !== 'long' && q.type !== 'choose' ? ` · ${rightText(q)}` : ''}</span></span>
                     <span className={`qz-score ${tone}`}>{label}</span>
                   </div>
                 );
@@ -406,7 +524,7 @@ export function QuizTaker({ homework: h, onClose, onDone }) {
   const q = qs[at];
   const a = answers[q?.n];
   const set = v => setAnswers(x => ({ ...x, [q.n]: v }));
-  const isBlank = (qq, v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'string' && !v.trim());
+  const isBlank = (qq, v) => (qq.type === 'choose' && (!Array.isArray(v) || qq.rows.some((_, k) => v[k] !== 0 && v[k] !== 1))) || v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'string' && !v.trim());
   const blanks = qs.filter(qq => isBlank(qq, answers[qq.n])).length;
   async function handIn() {
     setBusy(true); setError('');
@@ -432,16 +550,16 @@ export function QuizTaker({ homework: h, onClose, onDone }) {
     <div className="modal-overlay">
       <div className="modal" style={{ maxWidth: 560 }}>
         <div className="modal-header">
-          <div className="modal-title">Quiz{h.itemName ? ` · ${h.itemName}` : ''}</div>
+          <div className="modal-title">{quizName(h)}</div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
         <div className="modal-body" style={{ display: 'grid', gap: 14 }}>
           <div className="qz-progress"><span style={{ width: `${((at + 1) / qs.length) * 100}%` }} /></div>
-          <div className="qz-card-top"><span>Question {at + 1} of {qs.length}</span><span>{pts(q.points)}</span></div>
+          <div className="qz-card-top"><span>Question {at + 1} of {qs.length}</span><span>{pts(worthOf(q))}</span></div>
           <div className="qz-take-q" dir="auto">{q.text}</div>
           {(q.type === 'one' || q.type === 'many') && (
             <div style={{ display: 'grid', gap: 8 }}>
-              {q.type === 'many' && <div className="text-muted" style={{ fontSize: 12.5 }}>Tick every right answer.</div>}
+              {q.type === 'many' && <div className="text-muted" style={{ fontSize: 12.5 }}>Tick every right answer — a point for each one, but a wrong tick takes one away.</div>}
               {q.options.map((o, i) => {
                 const on = q.type === 'one' ? a === i : (a || []).includes(i);
                 return (
@@ -456,6 +574,22 @@ export function QuizTaker({ homework: h, onClose, onDone }) {
           {q.type === 'truefalse' && (
             <div className="choice-boxes" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
               {[true, false].map(v => <button key={String(v)} type="button" className={a === v ? 'on' : ''} onClick={() => set(v)}>{v ? 'True' : 'False'}</button>)}
+            </div>
+          )}
+          {q.type === 'choose' && (
+            <div className="qz-list">
+              {q.rows.map((row, j) => {
+                const cur = Array.isArray(a) ? a[j] : null;
+                return (
+                  <div key={j} className="qz-list-row take">
+                    <span dir="auto">{row}</span>
+                    <div className="qz-xy">
+                      {[0, 1].map(c => <button key={c} type="button" className={cur === c ? 'on' : ''} dir="auto"
+                        onClick={() => set(q.rows.map((_, k) => (k === j ? c : Array.isArray(a) ? a[k] ?? null : null)))}>{q.columns[c]}</button>)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           {q.type === 'short' && <input dir="auto" value={a || ''} maxLength={300} onChange={e => set(e.target.value)} placeholder="Your answer" />}
@@ -496,21 +630,16 @@ export function QuizScore({ hw }) {
 // The pupil's last go with the right answers (only when the teacher allows it — the server sends `review` then).
 export function QuizReview({ hw }) {
   const { answers, results, right } = hw.review;
-  const byN = Object.fromEntries(hw.quiz.questions.map(q => [q.n, q]));
   return (
     <div style={{ display: 'grid', gap: 8 }}>
-      {answers.map((given, n) => {
-        const q = byN[n]; if (!q) return null;
-        const num = hw.quiz.questions.indexOf(q) + 1; // the number they saw it as
-        const r = results[n] || {};
+      {hw.quiz.questions.map((q, num) => {
+        const n = q.n, r = results[n] || {};
         const tone = r.got === null || r.got === undefined ? 'amber' : r.got >= r.of ? 'green' : r.got > 0 ? 'amber' : 'red';
-        const qq = { ...q, accepted: q.type === 'short' ? [right[n]] : undefined };
         return (
-          <div key={n} className={`qz-ans ${tone}`}>
-            <div className="qz-card-top"><span>{num} · {TYPE_LABELS[q.type]}</span><span className={`qz-got ${tone}`}>{r.got === null || r.got === undefined ? 'To mark' : `${r.got} / ${r.of}`}</span></div>
+          <div key={n} className="qz-ans">
+            <div className="qz-card-top"><span>{num + 1} · {TYPE_LABELS[q.type]}</span><span className={`qz-got ${tone}`}>{r.got === null || r.got === undefined ? 'To mark' : `${r.got} / ${r.of}`}</span></div>
             <div className="qz-q" dir="auto">{q.text}</div>
-            <div className="qz-said" dir="auto">{answerText(q, given) || <span className="text-muted">No answer</span>}</div>
-            {q.type !== 'long' && r.got < r.of && <div className="qz-rightans" dir="auto"><Check size={12} /> {rightText(qq, right[n])}</div>}
+            <AnswerView q={q} given={answers[n]} answer={q.type === 'short' ? [right[n]] : right[n]} result={r} />
           </div>
         );
       })}

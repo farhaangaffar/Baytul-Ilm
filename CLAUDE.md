@@ -351,13 +351,19 @@ codebase (one codebase, not a fork).
   its homework (as "Homework"). In Backup (studies.js `homework`) and demo `TABLES`; the school demo has two pieces per class
   (this week's, and last week's mostly done). **Quizzes (stage 4b):** a quiz is homework with `is_homework.kind = 'quiz'`,
   its questions and settings in `is_homework.quiz` (JSONB; `server/schoolQuiz.js` — `cleanQuiz()` checks it, `markQuiz()` marks
-  it, `forPupil()` strips the answers), `draft` (Save for later — hidden from pupils and parents), `scores_sent_at`. Question
-  kinds: one answer, tick boxes (all right ones, no wrong one), true / false, short answer (matched against the accepted answers,
-  ignoring capitals, spaces and punctuation), long answer (the teacher marks it: `?action=mark`); points each; no pictures/audio
+  it, `forPupil()` strips the answers; `quiz.title` is its name — a quiz has a name instead of the surah / du'aa / practical
+  choice, the owner found both confusing), `draft` (Save for later — hidden from pupils and parents), `scores_sent_at`. Question
+  kinds: one answer, tick boxes (points for each right tick, a wrong tick takes one away, never below 0 — the owner's ask), true /
+  false, **two choices each** (`choose`: a list on the left, each line one of two choices on the right — e.g. Fardh / Sunnah —
+  points per line right; `columns`, `rows`, `answers`), short answer (matched against the accepted answers, ignoring capitals,
+  spaces and punctuation), long answer (the teacher marks it: `?action=mark`); `worth()` = what a question is worth; no pictures/audio
   (storage). Four settings, two boxes each (the owner's approved version): How many tries? One try · As many as they like ·
   Question order: As I wrote them · Shuffled (a seeded order per pupil) · When do pupils see their score? Straight away · When I
   send it (`?action=send-scores`) · Show the right answers after? Yes · No. Built in the homework pop-up (Task | Quiz, question
-  cards with the right answers green → `QuestionModal`, `QuizEditor`; `src/components/SchoolQuiz.js`); once anyone has handed in,
+  cards with the right answers green → `QuestionModal`, `QuizEditor`; `src/components/SchoolQuiz.js`), in three boxed, numbered
+  sections (1 About the quiz · 2 Questions · 3 Settings — the owner found it blended together); the homework pop-ups are 600–620px
+  wide (the owner liked the wider one). Answers (teacher's `AttemptModal`, pupil's review) use `AnswerView` — **no coloured side
+  bars** (the owner's ask): picked choices tinted ✓ green / ✗ red, a right one not picked outlined in dashed green. Once anyone has handed in,
   the questions are locked (settings/due/words still change). **Marking is on the server; pupils are never sent the right answers**
   unless released and Show answers is Yes. Each hand-in is an `is_quiz_attempts` row (answers, each question's
   {got, of, auto}, score, max, waiting) plus an `is_homework_done` tick; the best go counts. Teacher: the Homework tab's quiz

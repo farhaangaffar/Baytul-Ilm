@@ -944,12 +944,14 @@ function demoQuiz(long) {
   const questions = [
     { type: 'one', text: 'How many aayahs are in Surah Al-Ikhlaas?', points: 1, options: ['3', '4', '5', '6'], answer: 1 },
     { type: 'truefalse', text: 'Surah Al-Ikhlaas is equal to a third of the Qur\'aan.', points: 1, answer: true },
-    { type: 'many', text: 'Which of these surahs are among the last ten surahs of the Qur\'aan?', points: 2, options: ['Al-Falaq', 'Al-Baqarah', 'An-Naas', 'Yaa-Seen'], answers: [0, 2] },
+    { type: 'many', text: 'Which of these surahs are among the last ten surahs of the Qur\'aan?', points: 1, options: ['Al-Falaq', 'Al-Baqarah', 'An-Naas', 'Yaa-Seen'], answers: [0, 2] },
+    { type: 'choose', text: 'Is each of these Fardh or Sunnah in wudhu?', points: 1, columns: ['Fardh', 'Sunnah'],
+      rows: ['Washing the face', 'Using a miswaak', 'Washing the arms up to the elbows', 'Rinsing the mouth'], answers: [0, 1, 0, 1] },
     { type: 'short', text: 'What does "Ahad" mean?', points: 1, accepted: ['One', 'The One', 'Only One'] },
     { type: 'one', text: 'قُلْ هُوَ اللَّهُ ___', points: 1, options: ['أَحَدٌ', 'الصَّمَدُ', 'كُفُوًا'], answer: 0 },
   ];
   if (long) questions.push({ type: 'long', text: 'What does Surah Al-Ikhlaas teach us about Allah? Write two or three sentences.', points: 3 });
-  return { questions, settings: { tries: 'one', shuffle: false, scoreNow: true, showAnswers: true } };
+  return { title: 'Surah Al-Ikhlaas quiz', questions, settings: { tries: 'one', shuffle: false, scoreNow: true, showAnswers: true } };
 }
 
 // An Islamic Studies department from Reception to Year 10, some years in several forms (2A/2B, 4A/4B, 6A/6B/6C):
@@ -1099,6 +1101,7 @@ async function createSchoolDemo(ipHash) {
         const given = quiz.questions.map(q => (q.type === 'one' ? (r() < good ? q.answer : (q.answer + 1) % q.options.length)
           : q.type === 'truefalse' ? (r() < good ? q.answer : !q.answer)
             : q.type === 'many' ? (r() < good ? q.answers : q.answers.slice(0, 1))
+              : q.type === 'choose' ? q.answers.map(a => (r() < good ? a : 1 - a))
               : q.type === 'short' ? (r() < good ? q.accepted[0] : 'Not sure')
                 : 'It teaches us that Allah is One and has no partner, so we should only worship Him.'));
         const m = markQuiz(quiz, given);

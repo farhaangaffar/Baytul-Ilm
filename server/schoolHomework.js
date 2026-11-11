@@ -87,6 +87,7 @@ async function homeworkFor(mid, student, { links = false } = {}) {
     const mine = tries.filter(t => t.hid === r.id);
     const best = mine.reduce((b, t) => (!b || t.score > b.score ? t : b), null);
     r.tries = mine.length;
+    r.title = quiz.title || '';
     r.score = show && best ? { score: best.score, max: best.max, waiting: best.waiting } : null;
     if (links) { // the pupil
       r.quiz = forPupil(quiz, `${student.id}:${r.id}`);
