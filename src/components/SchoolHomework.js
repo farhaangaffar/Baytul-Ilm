@@ -223,7 +223,6 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
   const [modal, setModal] = useState(null); // { kind: 'set', homework? } | { kind: 'view', homework }
   const load = useCallback(() => getSchoolHomework(className).then(l => { setList(l); setError(''); }).catch(e => setError(e.message || 'Could not load')), [className]);
   useEffect(() => { setList(null); load(); }, [load]);
-  const count = h => (h.allPupils ? pupils.length : h.studentIds.length);
   return (
     <div className="card" style={{ display: 'grid', gap: 6 }}>
       <div className="card-title" style={{ marginBottom: 4 }}>Homework · {className}</div>
@@ -232,13 +231,11 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
       {!list && !error && <div className="text-muted" style={{ fontSize: 13 }}>Loading…</div>}
       {list && !list.length && <div className="text-muted" style={{ fontSize: 13 }}>No homework yet. Tap "Add homework" — a task or a quiz, as many as you like — or open a surah, du'aa or practical and tap "Set homework".</div>}
       {list && list.map(h => {
-        const doneN = h.done.filter(id => h.allPupils || h.studentIds.includes(id)).length;
         const quiz = h.kind === 'quiz';
         // A quiz: "Draft" until it's set, then its due date with the class average (or how many to mark) beside it; a draft
         // opens straight in the editor.
-        const sub = quiz && h.draft ? ['Draft — pupils can\'t see it yet']
-          : quiz ? [niceDue(h.due)] // how many handed in is inside (the owner's ask)
-            : [niceDue(h.due), `${doneN} of ${count(h)} done`];
+        // Just the due date — who has done it or handed it in is inside (the owner's ask).
+        const sub = quiz && h.draft ? ['Draft — pupils can\'t see it yet'] : [niceDue(h.due) || 'No due date'];
         return (
           <button key={h.id} type="button" className="line-row" onClick={() => setModal(quiz && h.draft ? { kind: 'set', homework: h } : { kind: 'view', homework: h })}>
             <span className="ct-two">
