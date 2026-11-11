@@ -716,7 +716,11 @@ CREATE TABLE IF NOT EXISTS is_homework (
   all_pupils  BOOLEAN NOT NULL DEFAULT true,
   set_by      TEXT NOT NULL DEFAULT '',
   set_by_user TEXT NOT NULL DEFAULT '',
-  set_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  set_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  kind        TEXT NOT NULL DEFAULT 'task',  -- 'task' or 'quiz' (stage 4b)
+  quiz        JSONB,                         -- a quiz's questions and settings (server/schoolQuiz.js)
+  draft       BOOLEAN NOT NULL DEFAULT false, -- a quiz saved for later: not shown to pupils or parents
+  scores_sent_at TIMESTAMPTZ                 -- the teacher sent the scores (when not shown straight away)
 );
 CREATE INDEX IF NOT EXISTS idx_is_homework_class ON is_homework (madrasah_id, class_id);
 CREATE TABLE IF NOT EXISTS is_homework_pupils (
@@ -732,3 +736,17 @@ CREATE TABLE IF NOT EXISTS is_homework_done (
   done_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (homework_id, student_id)
 );
+-- Each time a pupil hands a quiz in (results: each question's {got, of, auto}; got null while a long answer waits).
+CREATE TABLE IF NOT EXISTS is_quiz_attempts (
+  id           BIGSERIAL PRIMARY KEY,
+  homework_id  BIGINT NOT NULL REFERENCES is_homework(id) ON DELETE CASCADE,
+  student_id   TEXT NOT NULL,
+  madrasah_id  INTEGER NOT NULL REFERENCES madaaris(id),
+  answers      JSONB NOT NULL,
+  results      JSONB NOT NULL,
+  score        NUMERIC NOT NULL DEFAULT 0,
+  max          NUMERIC NOT NULL DEFAULT 0,
+  waiting      INTEGER NOT NULL DEFAULT 0,
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_is_quiz_attempts_hw ON is_quiz_attempts (homework_id, student_id);

@@ -279,10 +279,11 @@ function StudiesCards({ studies, child }) {
             {studies.homework.slice(0, 10).map(h => (
               <div key={h.id} className="hw-parent">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13.5 }}>
-                  <b>{h.itemName || 'Homework'}</b>
-                  <span className={h.doneAt ? 'hw-tag done' : 'hw-tag'}>{h.doneAt ? `${child.forename} has done it` : niceDue(h.due) || 'To do'}</span>
+                  <b>{h.kind === 'quiz' ? `Quiz${h.itemName ? ` · ${h.itemName}` : ''}` : h.itemName || 'Homework'}</b>
+                  <span className={h.doneAt ? 'hw-tag done' : 'hw-tag'}>{h.score ? `Score ${h.score.score} / ${h.score.max}${h.score.waiting ? ' so far' : ''}`
+                    : h.doneAt ? `${child.forename} has ${h.kind === 'quiz' ? 'handed it in' : 'done it'}` : niceDue(h.due) || 'To do'}</span>
                 </div>
-                <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5 }}>{h.text}</div>
+                {h.text && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5 }}>{h.text}</div>}
               </div>
             ))}
           </div>

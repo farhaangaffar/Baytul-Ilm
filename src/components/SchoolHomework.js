@@ -3,7 +3,8 @@ import BoxRow from './BoxRow';
 import { useBackToClose } from '../lib/useBackToClose';
 import { getSchoolHomework, saveSchoolHomework, deleteSchoolHomework } from '../lib/store';
 import { ChoiceBoxes } from './StudentDetails';
-import { X, Save, Trash2, Pencil, Plus, ChevronRight } from 'lucide-react';
+import { QuizEditor, QuizResults, DEFAULT_SETTINGS, scoreTone } from './SchoolQuiz';
+import { X, Save, Trash2, Pencil, Plus, ChevronRight, Clock } from 'lucide-react';
 
 // A school's homework (Islamic Studies, stage 4 — server/routes/school-homework.js). Text only: what to do, a due date,
 // for the whole class or chosen pupils, usually on a surah, du'aa or practical (its links go with it to the pupils).
@@ -34,27 +35,34 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
     who: homework && !homework.allPupils ? 'Chosen pupils' : 'Whole class',
     ids: homework && !homework.allPupils ? homework.studentIds : [],
   });
+  // A plain task or a quiz (stage 4b): chosen when it's new; a quiz has its questions and settings (SchoolQuiz.js).
+  const [what, setWhat] = useState(homework?.kind === 'quiz' ? 'Quiz' : 'Task');
+  const isQuiz = what === 'Quiz';
+  const [quiz, setQuiz] = useState(homework?.quiz || { questions: [], settings: DEFAULT_SETTINGS });
+  const locked = isQuiz && (homework?.handedIn || []).length > 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const toggle = id => setF(x => ({ ...x, ids: x.ids.includes(id) ? x.ids.filter(i => i !== id) : [...x.ids, id] }));
   const picked = items.find(i => i.id === f.itemId);
-  async function save() {
+  async function save(draft = false) {
     setBusy(true); setError('');
     try {
       await saveSchoolHomework({ id: homework?.id, className, itemId: (item || kind) ? f.itemId || null : null, text: f.text, due: f.due || null,
-        studentIds: f.who === 'Chosen pupils' ? f.ids : [] });
+        studentIds: f.who === 'Chosen pupils' ? f.ids : [], ...(isQuiz ? { kind: 'quiz', quiz, draft } : {}) });
       await onSaved();
     } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
   }
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 480 }}>
+      <div className="modal" style={{ maxWidth: isQuiz ? 620 : 480 }}>
         <div className="modal-header">
-          <div className="modal-title">{homework ? 'Change homework' : `Homework for ${className}`}</div>
+          <div className="modal-title">{homework ? (isQuiz ? 'Change the quiz' : 'Change homework') : `${isQuiz ? 'Quiz' : 'Homework'} for ${className}`}</div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
         <div className="modal-body">
           <div className="form-grid">
+            {!homework && <div className="form-group"><label>Homework or a quiz?</label>
+              <ChoiceBoxes options={['Task', 'Quiz']} value={what} onChange={v => v && setWhat(v)} /></div>}
             {!item && <>
               {/* One kind at a time — surahs, du'aas or practicals — this year's first, then earlier years (the owner's ask). */}
               <div className="form-group"><label>Type of homework</label>
@@ -77,9 +85,9 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
               })()}
             </>}
             {item && <div className="text-muted" style={{ fontSize: 13 }}>On <b style={{ color: 'var(--ink)' }}>{item.name}</b> — its links go with it.</div>}
-            <div className="form-group"><label htmlFor="hw-text">What to do</label>
-              <textarea id="hw-text" rows={4} maxLength={2000} autoFocus value={f.text} onChange={e => setF(x => ({ ...x, text: e.target.value }))}
-                placeholder={picked ? (picked.kind === 'surah' ? `e.g. Learn aayahs 1–4 of ${picked.name} by heart` : `e.g. Learn ${picked.name} by heart and say it at home`)
+            <div className="form-group"><label htmlFor="hw-text">{isQuiz ? <>Instructions for pupils <span className="text-muted" style={{ fontWeight: 400 }}>· if you like</span></> : 'What to do'}</label>
+              <textarea id="hw-text" rows={isQuiz ? 2 : 4} maxLength={2000} autoFocus={!isQuiz} value={f.text} onChange={e => setF(x => ({ ...x, text: e.target.value }))}
+                placeholder={isQuiz ? 'e.g. Answer every question. You have one go.' : picked ? (picked.kind === 'surah' ? `e.g. Learn aayahs 1–4 of ${picked.name} by heart` : `e.g. Learn ${picked.name} by heart and say it at home`)
                   : { surah: 'e.g. Learn aayahs 1–4 by heart', duaa: "e.g. Learn the du'aa by heart and say it at home", practical: 'e.g. Practise it at home with your family' }[kind] || 'e.g. Ask someone at home about the story of the Prophet ﷺ'} /></div>
             <div className="form-group"><label htmlFor="hw-due">Due</label>
               <input id="hw-due" type="date" value={f.due} onChange={e => setF(x => ({ ...x, due: e.target.value }))} /></div>
@@ -94,13 +102,20 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
                 ))}
               </div>
             )}
+            {isQuiz && <QuizEditor quiz={quiz} onChange={setQuiz} locked={locked} />}
           </div>
           {error && <div style={{ color: 'var(--red-text)', fontSize: 13, marginTop: 10 }}>{error}</div>}
         </div>
         <div className="modal-footer">
-          <button className="btn" onClick={close}>Cancel</button>
-          <button className="btn btn-primary" disabled={busy || !f.text.trim() || (f.who === 'Chosen pupils' && !f.ids.length) || (!item && kind && !f.itemId)} onClick={save}>
-            <Save size={13} />{homework ? 'Save' : 'Set homework'}</button>
+          {!isQuiz && <button className="btn" onClick={close}>Cancel</button>}
+          {isQuiz ? <>
+            {(!homework || homework.draft) && <button className="btn" disabled={busy || !quiz.questions.length || (!item && kind && !f.itemId)} onClick={() => save(true)}>Save for later</button>}
+            <button className="btn btn-primary" disabled={busy || !quiz.questions.length || (f.who === 'Chosen pupils' && !f.ids.length) || (!item && kind && !f.itemId)} onClick={() => save(false)}>
+              <Save size={13} />{homework && !homework.draft ? 'Save' : 'Set the quiz'}</button>
+          </> : (
+            <button className="btn btn-primary" disabled={busy || !f.text.trim() || (f.who === 'Chosen pupils' && !f.ids.length) || (!item && kind && !f.itemId)} onClick={() => save()}>
+              <Save size={13} />{homework ? 'Save' : 'Set homework'}</button>
+          )}
         </div>
       </div>
     </div>
@@ -170,15 +185,24 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
       <button type="button" className="line-row add" onClick={() => setModal({ kind: 'set' })}><Plus size={13} /> Add homework</button>
       {error && <div style={{ color: 'var(--red-text)', fontSize: 13 }}>{error}</div>}
       {!list && !error && <div className="text-muted" style={{ fontSize: 13 }}>Loading…</div>}
-      {list && !list.length && <div className="text-muted" style={{ fontSize: 13 }}>No homework yet. Tap "Add homework" — as many as you like — or open a surah, du'aa or practical and tap "Set homework".</div>}
+      {list && !list.length && <div className="text-muted" style={{ fontSize: 13 }}>No homework yet. Tap "Add homework" — a task or a quiz, as many as you like — or open a surah, du'aa or practical and tap "Set homework".</div>}
       {list && list.map(h => {
         const doneN = h.done.filter(id => h.allPupils || h.studentIds.includes(id)).length;
+        const quiz = h.kind === 'quiz';
+        // A quiz: "Draft" until it's set, then "9 of 12 handed in" with the class average (or how many to mark) beside it; a draft
+        // opens straight in the editor.
+        const sub = quiz && h.draft ? ['Draft — pupils can\'t see it yet']
+          : quiz ? [niceDue(h.due), `${(h.handedIn || []).filter(id => h.allPupils || h.studentIds.includes(id)).length} of ${count(h)} handed in`]
+            : [niceDue(h.due), `${doneN} of ${count(h)} done`];
         return (
-          <button key={h.id} type="button" className="line-row" onClick={() => setModal({ kind: 'view', homework: h })}>
+          <button key={h.id} type="button" className="line-row" onClick={() => setModal(quiz && h.draft ? { kind: 'set', homework: h } : { kind: 'view', homework: h })}>
             <span className="ct-two">
-              <span className="line-row-name">{h.itemName || 'Homework'}{!h.allPupils ? ` · ${h.studentIds.length} pupil${h.studentIds.length === 1 ? '' : 's'}` : ''}</span>
-              <span className="line-row-sub">{[niceDue(h.due), `${doneN} of ${count(h)} done`].filter(Boolean).join(' · ')}</span>
+              <span className="line-row-name">{quiz ? `Quiz${h.itemName ? ` · ${h.itemName}` : ''}` : h.itemName || 'Homework'}{!h.allPupils ? ` · ${h.studentIds.length} pupil${h.studentIds.length === 1 ? '' : 's'}` : ''}</span>
+              <span className="line-row-sub">{sub.filter(Boolean).join(' · ')}</span>
             </span>
+            {quiz && h.draft && <span className="qz-score grey">Draft</span>}
+            {quiz && !h.draft && h.toMark > 0 && <span className="qz-score amber"><Clock size={11} /> {h.toMark} to mark</span>}
+            {quiz && !h.draft && !h.toMark && h.average !== null && h.average !== undefined && <span className={`qz-score ${scoreTone(h.average, 100)}`}>{h.average}%</span>}
             <ChevronRight size={16} />
           </button>
         );
@@ -187,7 +211,12 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
         <HomeworkModal className={className} items={items} pupils={pupils} homework={modal.homework} yearGroup={yearGroup}
           onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
       )}
-      {modal?.kind === 'view' && (
+      {modal?.kind === 'view' && modal.homework.kind === 'quiz' && (
+        <QuizResults homework={modal.homework} pupils={pupils}
+          onEdit={() => setModal(m => ({ ...m, editing: true }))} onChanged={load}
+          onRemoved={async () => { setModal(null); await load(); }} onClose={() => setModal(null)} />
+      )}
+      {modal?.kind === 'view' && modal.homework.kind !== 'quiz' && (
         <HomeworkSheet homework={modal.homework} pupils={pupils} links={links.filter(l => l.itemId === modal.homework.itemId)}
           onEdit={() => setModal(m => ({ ...m, editing: true }))}
           onRemoved={async () => { setModal(null); await load(); }} onClose={() => setModal(null)} />

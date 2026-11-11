@@ -1,3 +1,4 @@
+const { cleanQuiz } = require('../schoolQuiz');
 const { query, transaction } = require('../db');
 const { requireAuth, isOwner, accessScope, whoName } = require('../auth');
 const { STARTER } = require('../studiesStarter');
@@ -204,7 +205,10 @@ const handler = requireAuth(async (req, res) => {
     const { rows: homework } = await query(
       `SELECT h.id::text AS id, h.class_id, h.item_id::text AS item_id, h.text, h.due, h.all_pupils, h.set_by, h.set_by_user, h.set_at,
          COALESCE((SELECT array_agg(p.student_id) FROM is_homework_pupils p WHERE p.homework_id = h.id), '{}') AS pupils,
-         COALESCE((SELECT json_agg(json_build_object('student_id', d.student_id, 'done_at', d.done_at)) FROM is_homework_done d WHERE d.homework_id = h.id), '[]') AS done
+         COALESCE((SELECT json_agg(json_build_object('student_id', d.student_id, 'done_at', d.done_at)) FROM is_homework_done d WHERE d.homework_id = h.id), '[]') AS done,
+         h.kind, h.quiz, h.draft, h.scores_sent_at,
+         COALESCE((SELECT json_agg(json_build_object('student_id', a.student_id, 'answers', a.answers, 'results', a.results, 'score', a.score, 'max', a.max,
+           'waiting', a.waiting, 'submitted_at', a.submitted_at) ORDER BY a.id) FROM is_quiz_attempts a WHERE a.homework_id = h.id), '[]') AS attempts
        FROM is_homework h WHERE h.madrasah_id = $1 ORDER BY h.id`, [mid]);
     res.status(200).json({ items: list, progress: marks, ayahs, links, homework, reports: await require('./school-reports').backup(mid) });
     return;
@@ -250,12 +254,21 @@ const handler = requireAuth(async (req, res) => {
         await c.query('DELETE FROM is_homework WHERE madrasah_id = $1', [mid]); // its pupils and ticks go with it
         for (const h of b.homework) {
           const text = str(h.text, 2000);
-          if (!text || !classIds.has(String(h.class_id))) continue;
+          const quiz = h.kind === 'quiz' ? cleanQuiz(h.quiz) : null;
+          if ((!text && !quiz) || quiz?.error || !classIds.has(String(h.class_id))) continue;
           const { rows: [n] } = await c.query(
-            `INSERT INTO is_homework (madrasah_id, class_id, item_id, text, due, all_pupils, set_by, set_by_user, set_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz, now())) RETURNING id`,
+            `INSERT INTO is_homework (madrasah_id, class_id, item_id, text, due, all_pupils, set_by, set_by_user, set_at, kind, quiz, draft, scores_sent_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz, now()),$10,$11,$12,$13) RETURNING id`,
             [mid, String(h.class_id), h.item_id ? ids[h.item_id] || null : null, text, /^\d{4}-\d{2}-\d{2}/.test(String(h.due || '')) ? String(h.due).slice(0, 10) : null,
-              h.all_pupils !== false, str(h.set_by), str(h.set_by_user, 40), h.set_at || null]);
+              h.all_pupils !== false, str(h.set_by), str(h.set_by_user, 40), h.set_at || null,
+              quiz ? 'quiz' : 'task', quiz ? JSON.stringify(quiz) : null, !!(quiz && h.draft), quiz && h.scores_sent_at ? h.scores_sent_at : null]);
+          for (const a of quiz && Array.isArray(h.attempts) ? h.attempts : []) {
+            if (!pupils.has(String(a.student_id)) || !Array.isArray(a.results)) continue;
+            await c.query(`INSERT INTO is_quiz_attempts (homework_id, student_id, madrasah_id, answers, results, score, max, waiting, submitted_at)
+              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz, now()))`,
+              [n.id, String(a.student_id), mid, JSON.stringify(a.answers || []), JSON.stringify(a.results), Number(a.score) || 0, Number(a.max) || 0,
+                Math.max(0, Math.round(Number(a.waiting) || 0)), a.submitted_at || null]);
+          }
           for (const sid of Array.isArray(h.pupils) ? h.pupils : []) {
             if (pupils.has(String(sid))) await c.query('INSERT INTO is_homework_pupils (homework_id, student_id, madrasah_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [n.id, String(sid), mid]);
           }

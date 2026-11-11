@@ -349,8 +349,24 @@ codebase (one codebase, not a fork).
   tap → text, the item's links, **I've done it**; `POST /api/pupil?action=done`, only their own). Parents: a "Homework" card in the
   portal — what was set, due, "<Name> has done it" — never the links (studies.js `forParent` → `homework`). Removing an item keeps
   its homework (as "Homework"). In Backup (studies.js `homework`) and demo `TABLES`; the school demo has two pieces per class
-  (this week's, and last week's mostly done). **Next:** quizzes (stage 4b) — see the plan the owner
-  approved (no Google sign-in; logins from the school; parents see homework; pupils see marks; a done tick).
+  (this week's, and last week's mostly done). **Quizzes (stage 4b):** a quiz is homework with `is_homework.kind = 'quiz'`,
+  its questions and settings in `is_homework.quiz` (JSONB; `server/schoolQuiz.js` — `cleanQuiz()` checks it, `markQuiz()` marks
+  it, `forPupil()` strips the answers), `draft` (Save for later — hidden from pupils and parents), `scores_sent_at`. Question
+  kinds: one answer, tick boxes (all right ones, no wrong one), true / false, short answer (matched against the accepted answers,
+  ignoring capitals, spaces and punctuation), long answer (the teacher marks it: `?action=mark`); points each; no pictures/audio
+  (storage). Four settings, two boxes each (the owner's approved version): How many tries? One try · As many as they like ·
+  Question order: As I wrote them · Shuffled (a seeded order per pupil) · When do pupils see their score? Straight away · When I
+  send it (`?action=send-scores`) · Show the right answers after? Yes · No. Built in the homework pop-up (Task | Quiz, question
+  cards with the right answers green → `QuestionModal`, `QuizEditor`; `src/components/SchoolQuiz.js`); once anyone has handed in,
+  the questions are locked (settings/due/words still change). **Marking is on the server; pupils are never sent the right answers**
+  unless released and Show answers is Yes. Each hand-in is an `is_quiz_attempts` row (answers, each question's
+  {got, of, auto}, score, max, waiting) plus an `is_homework_done` tick; the best go counts. Teacher: the Homework tab's quiz
+  line ("9 of 14 handed in", a chip with the average or "N to mark") → `QuizResults` (Whole class / Handed in / Not yet, Class
+  average / Long answers to mark, a line per pupil with a coloured score → `AttemptModal` to mark, a line per question "N/M
+  right", Send scores to pupils). Pupil: `QuizTaker` (one question at a time, progress bar, Back / Next / Hand in, Arabic shown
+  right to left via `dir="auto"`), then their score and answers. Parents: the score in the Homework card once released. In
+  Backup (studies.js `homework` carries kind/quiz/draft/attempts) and demo `TABLES`; the school demo has a quiz in 6A (the
+  Hussain child hasn't taken it — the Pupil view can) and 4A (with a long answer, some to mark). `db/migrate-045-school-quizzes.sql`.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own
