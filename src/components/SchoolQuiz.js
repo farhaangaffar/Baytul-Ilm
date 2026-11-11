@@ -360,7 +360,7 @@ function AttemptModal({ quiz, name, attempts, onClose, onMarked }) {
   }
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 560 }}>
+      <div className="modal" style={{ maxWidth: 600 }}>
         <div className="modal-header">
           <div><div className="modal-title">{name}</div>
             <div className="text-muted text-sm">{score} / {a.max}{waiting ? ` so far · ${waiting} to mark` : ` · ${pct(score, a.max)}%`}</div></div>

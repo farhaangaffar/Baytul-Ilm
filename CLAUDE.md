@@ -361,13 +361,14 @@ codebase (one codebase, not a fork).
   Question order: As I wrote them · Shuffled (a seeded order per pupil) · When do pupils see their score? Straight away · When I
   send it (`?action=send-scores`) · Show the right answers after? Yes · No. Built in the homework pop-up (Task | Quiz, question
   cards with the right answers green → `QuestionModal`, `QuizEditor`; `src/components/SchoolQuiz.js`), in three boxed, numbered
-  sections (1 About the quiz · 2 Questions · 3 Settings — the owner found it blended together); the homework pop-ups are 600–620px
+  sections (1 About the quiz · 2 Questions · 3 Settings — the owner found it blended together), each softly tinted with white cards
+  and boxes inside (all-white was too white); the homework pop-ups and a pupil's answers (`AttemptModal`) are 600–620px
   wide (the owner liked the wider one). Answers (teacher's `AttemptModal`, pupil's review) use `AnswerView` — **no coloured side
   bars** (the owner's ask): picked choices tinted ✓ green / ✗ red, a right one not picked outlined in dashed green. Once anyone has handed in,
   the questions are locked (settings/due/words still change). **Marking is on the server; pupils are never sent the right answers**
   unless released and Show answers is Yes. Each hand-in is an `is_quiz_attempts` row (answers, each question's
   {got, of, auto}, score, max, waiting) plus an `is_homework_done` tick; the best go counts. Teacher: the Homework tab's quiz
-  line ("9 of 14 handed in", a chip with the average or "N to mark") → `QuizResults` (Whole class / Handed in / Not yet, Class
+  line (its due date and a chip with the average or "N to mark" — no handed-in count, that's inside) → `QuizResults` (Whole class / Handed in / Not yet, Class
   average / Long answers to mark, a line per pupil with a coloured score → `AttemptModal` to mark, a line per question "N/M
   right", Send scores to pupils). Pupil: `QuizTaker` (one question at a time, progress bar, Back / Next / Hand in, Arabic shown
   right to left via `dir="auto"`), then their score and answers. Parents: the score in the Homework card once released. In

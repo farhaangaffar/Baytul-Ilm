@@ -217,10 +217,10 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
       {list && list.map(h => {
         const doneN = h.done.filter(id => h.allPupils || h.studentIds.includes(id)).length;
         const quiz = h.kind === 'quiz';
-        // A quiz: "Draft" until it's set, then "9 of 12 handed in" with the class average (or how many to mark) beside it; a draft
+        // A quiz: "Draft" until it's set, then its due date with the class average (or how many to mark) beside it; a draft
         // opens straight in the editor.
         const sub = quiz && h.draft ? ['Draft — pupils can\'t see it yet']
-          : quiz ? [niceDue(h.due), `${(h.handedIn || []).filter(id => h.allPupils || h.studentIds.includes(id)).length} of ${count(h)} handed in`]
+          : quiz ? [niceDue(h.due)] // how many handed in is inside (the owner's ask)
             : [niceDue(h.due), `${doneN} of ${count(h)} done`];
         return (
           <button key={h.id} type="button" className="line-row" onClick={() => setModal(quiz && h.draft ? { kind: 'set', homework: h } : { kind: 'view', homework: h })}>
