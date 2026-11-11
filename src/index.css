@@ -1077,7 +1077,6 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .pd-sub { font-size: 12.5px; color: var(--text-muted); }
 .pd-line { display: flex; align-items: center; gap: 10px; }
 .pd-line .line-row-name { flex: 1; min-width: 0; }
-.pd-count { font-size: 12.5px; color: var(--text-muted); }
 .pd-pct { font-size: 13px; min-width: 38px; text-align: right; }
 .pd-row { display: grid; grid-template-columns: 58px minmax(0, 1fr) 40px; align-items: center; gap: 8px; margin-top: 6px; }
 .pd-row .sd-bar { margin-top: 0; }
@@ -1093,4 +1092,3 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .pd-year.now { border-color: #93c5fd; }
 .pd-year-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; }
 .pd-tag { font-size: 10.5px; font-weight: 700; background: var(--teal-light); color: var(--teal-dark); border-radius: 99px; padding: 2px 8px; }
-.pd-year-count { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--text-muted); }

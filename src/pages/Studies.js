@@ -336,7 +336,7 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
       {/* One headline number (achieved, of what's been assessed), the rest as counts — the owner's pick. */}
       <div className="pd-head">
         <div className="pd-big">{t.pctAchieved}%</div>
-        <div className="pd-sub">achieved · {t.achieved} of {t.assessed} assessed</div>
+        <div className="pd-sub">achieved</div>
       </div>
       <div className="st-chips">
         {t.withHelp > 0 && <span className="st-chip amber">{t.withHelp} with help</span>}
@@ -355,7 +355,6 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span className="pd-line">
                   <span className="line-row-name">{l}</span>
-                  <span className="pd-count">{kt.achieved} of {kt.assessed} achieved</span>
                 </span>
                 {/* Both bars are of what's been assessed, like the %s. */}
                 <span className="pd-row">
@@ -382,7 +381,6 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
                   <div className="pd-year-head">
                     <span>{yearLabel(yg)}</span>
                     {now && <span className="pd-tag">This year</span>}
-                    <span className="pd-year-count">{mine.filter(it => levelOf(it) === 3).length} of {mine.length} achieved</span>
                   </div>
                   {mine.map(it => (
                     <div key={it.id} className="st-pupil">
