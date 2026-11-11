@@ -1124,3 +1124,5 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 }
 .sv-card .waiting-move { margin-left: 0; width: 100%; }
 @media (min-width: 900px) { .pupil-lines { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } }
+.line-row.line-row-red { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+.line-row.line-row-red .line-row-name { color: var(--red-text); }
