@@ -328,8 +328,8 @@ codebase (one codebase, not a fork).
 - **Pupil logins** (a school only — stage 4, step 1; role `pupil`, `users.student_id`, one login per pupil; `server/pupils.js`
   `ensurePupilTables()` widens `users_role_check` and adds `student_id`, `last_login_at`, `failed_logins`, `locked_until`). **The
   school gives each pupil their username and password** (the owner's choice; no Google sign-in): the head types them in on the
-  pupil's card ("Pupil login" — `PupilLoginCard` in `src/components/PupilLogins.js`: add, change username/password, switch off,
-  remove) or imports a class from a spreadsheet ("Pupil logins" card at the bottom of Pupils → `ImportModal`: First name + Surname
+  pupil's card ("Pupil login" — `PupilLoginCard` in `src/components/PupilLogins.js`: one grey line with Manage, like the parent
+  login below it, or "Set up pupil login" → `PupilLoginModal`: username, password, switch off, remove) or imports a class from a spreadsheet ("Pupil logins" card at the bottom of Pupils → `ImportModal`: First name + Surname
   or Name, Username, Password, optional Class; matched by name, two with one name need Class) — `server/routes/pupil-logins.js`,
   head only, passwords 4+ characters, stored hashed. Sign-in is the usual screen (school code + username + password); a pupil
   login **rests 15 minutes after 10 wrong passwords** (`login.js`), and only works while the pupil is Active in a school (`getUser`

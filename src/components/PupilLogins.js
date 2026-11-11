@@ -11,57 +11,82 @@ import { X, Save, KeyRound, Upload, Trash2, Power } from 'lucide-react';
 
 const lastSeen = l => (l.lastLoginAt ? `Last signed in ${formatDateGB(String(l.lastLoginAt).slice(0, 10))}` : 'Not signed in yet');
 
-// On a pupil's card: their login, or a form to add one.
+// On a pupil's card: their login as one grey line with Manage (like the parent login just below it), or "Set up pupil
+// login"; adding and changing happen in a pop-up.
 export function PupilLoginCard({ student, login, demo, onChanged }) {
-  const [editing, setEditing] = useState(!login);
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {login ? (
+        <div className="pl-row">
+          <KeyRound size={13} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ overflowWrap: 'anywhere' }}>{login.login}</strong>
+            {!login.active && <span className="badge badge-gray" style={{ marginLeft: 6 }}>Off</span>}
+            {login.active && login.resting && <span className="badge badge-amber" style={{ marginLeft: 6 }}>Resting</span>}
+            <div className="text-muted" style={{ fontSize: 12 }}>{login.resting && login.active ? 'Too many wrong passwords — try again in 15 minutes' : lastSeen(login)}</div>
+          </div>
+          <button className="btn btn-sm" onClick={() => setOpen(true)}>Manage</button>
+        </div>
+      ) : (
+        <button className="btn btn-sm" onClick={() => setOpen(true)}><KeyRound size={12} />Set up pupil login</button>
+      )}
+      {open && <PupilLoginModal student={student} login={login} demo={demo} onClose={() => setOpen(false)}
+        onSaved={async () => { setOpen(false); await onChanged(); }} />}
+    </>
+  );
+}
+
+function PupilLoginModal({ student, login, demo, onClose, onSaved }) {
+  const close = useBackToClose(true, onClose);
   const [f, setF] = useState({ login: login?.login || '', password: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmRemove, setConfirmRemove] = useState(false);
   async function run(fn) {
     setBusy(true); setError('');
-    try { await fn(); await onChanged(); setEditing(false); setConfirmRemove(false); } catch (e) { setError(e.message || 'Could not save'); }
-    setBusy(false);
+    try { await fn(); await onSaved(); } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
   }
-  if (demo) {
-    return <div className="text-muted" style={{ fontSize: 13 }}>{login ? `Username: ${login.login} · ${lastSeen(login)}` : 'No login yet.'} Logins can't be changed in the demo.</div>;
-  }
-  if (editing) {
-    return (
-      <div style={{ display: 'grid', gap: 8 }}>
-        <div className="form-group" style={{ margin: 0 }}><label htmlFor={`pl-u-${student.id}`}>Username (from your school)</label>
-          <input id={`pl-u-${student.id}`} value={f.login} autoCapitalize="off" autoCorrect="off" spellCheck={false} onChange={e => setF(x => ({ ...x, login: e.target.value }))}
-            placeholder={`e.g. ${student.forename.toLowerCase()}.${(student.surname || 'x')[0].toLowerCase()}`} /></div>
-        <div className="form-group" style={{ margin: 0 }}><label htmlFor={`pl-p-${student.id}`}>{login ? 'New password (leave blank to keep it)' : 'Password (from your school)'}</label>
-          <input id={`pl-p-${student.id}`} value={f.password} autoCapitalize="off" autoCorrect="off" spellCheck={false} onChange={e => setF(x => ({ ...x, password: e.target.value }))} /></div>
-        {error && <div style={{ color: 'var(--red-text)', fontSize: 13 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          {login && <button className="btn" disabled={busy} onClick={() => { setEditing(false); setError(''); }}>Cancel</button>}
-          <button className="btn btn-primary" disabled={busy || !f.login.trim() || (!login && !f.password)}
-            onClick={() => run(() => savePupilLogin(student.id, f.login, f.password || undefined))}><Save size={13} />{login ? 'Save' : 'Add login'}</button>
+  const canSave = !demo && f.login.trim() && (login || f.password);
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <div><div className="modal-title">Pupil login</div><div className="text-muted text-sm">{student.forename} {student.surname} · {student.class}</div></div>
+          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group"><label htmlFor="pl-user">Username</label>
+              <input id="pl-user" value={f.login} autoFocus={!login} autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={demo}
+                onChange={e => setF(x => ({ ...x, login: e.target.value }))} placeholder="e.g. their school email" /></div>
+            <div className="form-group"><label htmlFor="pl-pass">{login ? 'New password' : 'Password'}</label>
+              <input id="pl-pass" value={f.password} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={demo}
+                onChange={e => setF(x => ({ ...x, password: e.target.value }))} placeholder={login ? 'Leave blank to keep it' : ''} /></div>
+          </div>
+          <div className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+            {demo ? "Logins can't be changed in the demo."
+              : `Use the username and password your school gives ${student.forename}. They sign in with your school's code and see their homework and marks.`}
+          </div>
+          {error && <div style={{ color: 'var(--red-text)', fontSize: 13, marginTop: 10 }}>{error}</div>}
+        </div>
+        <div className="modal-footer" style={{ flexWrap: 'wrap' }}>
+          {login && !demo && !confirmRemove && <>
+            <button className="btn" style={{ color: 'var(--red-text)' }} disabled={busy} onClick={() => setConfirmRemove(true)}><Trash2 size={13} />Remove</button>
+            <button className="btn" style={{ marginRight: 'auto' }} disabled={busy} onClick={() => run(() => setPupilLoginActive(student.id, !login.active))}>
+              <Power size={13} />{login.active ? 'Switch off' : 'Switch on'}</button>
+          </>}
+          {confirmRemove ? <>
+            <span style={{ marginRight: 'auto', fontSize: 13 }}>Remove {student.forename}'s login?</span>
+            <button className="btn" onClick={() => setConfirmRemove(false)}>Keep</button>
+            <button className="btn btn-danger" disabled={busy} onClick={() => run(() => removePupilLogin(student.id))}><Trash2 size={13} />Remove</button>
+          </> : <>
+            <button className="btn" onClick={close}>Cancel</button>
+            <button className="btn btn-primary" disabled={busy || !canSave} onClick={() => run(() => savePupilLogin(student.id, f.login, f.password || undefined))}>
+              <Save size={13} />{login ? 'Save' : 'Add login'}</button>
+          </>}
         </div>
       </div>
-    );
-  }
-  return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <BoxRow columns="minmax(0, 1fr) minmax(0, 1fr)" cells={[
-        { text: login.login, sub: 'Username', label: true, wrap: true },
-        login.active ? { text: login.resting ? 'Resting' : 'On', sub: login.resting ? 'Too many wrong tries' : lastSeen(login), tone: login.resting ? 'amber' : 'green', wrap: 'words' }
-          : { text: 'Off', sub: "Can't sign in", tone: 'red' },
-      ]} />
-      {error && <div style={{ color: 'var(--red-text)', fontSize: 13 }}>{error}</div>}
-      <button type="button" className="line-row add" onClick={() => { setF({ login: login.login, password: '' }); setEditing(true); }}><KeyRound size={13} /> Change username or password</button>
-      <button type="button" className="line-row add" disabled={busy} onClick={() => run(() => setPupilLoginActive(student.id, !login.active))}>
-        <Power size={13} /> {login.active ? 'Switch off' : 'Switch back on'}
-      </button>
-      {!confirmRemove
-        ? <button type="button" className="line-row add ct-delete" onClick={() => setConfirmRemove(true)}><Trash2 size={13} /> Remove login</button>
-        : <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', fontSize: 13 }}>
-            Remove {student.forename}'s login?
-            <button className="btn" onClick={() => setConfirmRemove(false)}>Cancel</button>
-            <button className="btn btn-danger" disabled={busy} onClick={() => run(() => removePupilLogin(student.id))}>Remove</button>
-          </div>}
     </div>
   );
 }

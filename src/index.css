@@ -1153,3 +1153,4 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .hw-parent { border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; display: grid; gap: 4px; }
 .hw-tag { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .hw-tag.done { color: var(--green-text); font-weight: 600; }
+.pl-row { display: flex; align-items: center; gap: 8px; background: #f3f4f6; border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; }
