@@ -22,6 +22,17 @@ import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet,
 
 // Opening a line closes the one above it, which can leave the page sitting at the bottom of the newly opened list.
 // After it opens, bring the line back up to the top of the screen (the owner's ask) — only when it's out of sight above.
+// A Close button at the bottom of an opened line: after it closes, bring that line back into view (the owner's ask).
+function closeBack(e, close) {
+  const wrap = e.currentTarget.closest('.st-pupil-wrap');
+  close();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const line = wrap && wrap.isConnected ? wrap.firstElementChild : null;
+    if (!line) return;
+    const top = line.getBoundingClientRect().top;
+    if (top < 80 || top > window.innerHeight - 60) line.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }));
+}
 function showTop(e) {
   const el = e.currentTarget;
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -185,8 +196,9 @@ export default function Studies() {
         <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { setOpenItem(open ? null : it.id); if (!open) showTop(e); }}>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
-            <span className="line-row-sub" style={{ display: 'block', whiteSpace: 'normal' }}>
-              {[it.detail, `${t.achieved} / ${pupils.length} achieved`, n ? `${covered.length} of ${n} aayahs covered` : ''].filter(Boolean).join(' · ')}
+            {/* Spread along the bar's length (the owner's ask): surah number, achieved, aayahs covered. */}
+            <span className="line-row-sub st-spread">
+              {[it.detail, `${t.achieved}/${pupils.length} achieved`, n ? `${covered.length}/${n} aayahs` : ''].filter(Boolean).map(x => <span key={x}>{x}</span>)}
             </span>
             <Bar t={t} />
           </span>
@@ -216,7 +228,7 @@ export default function Studies() {
                   <Pencil size={12} /> Edit {oneWord}
                 </button>
               )}
-              <button type="button" className="btn btn-sm" onClick={() => setOpenItem(null)}><ChevronUp size={13} />Close {it.name}</button>
+              <button type="button" className="btn btn-sm" onClick={e => closeBack(e, () => setOpenItem(null))}><ChevronUp size={13} />Close {it.name}</button>
             </div>
           </div>
         )}
@@ -261,7 +273,7 @@ export default function Studies() {
                         <div className="st-open">
                           <PupilDetail name={p.name.split(' ')[0]} items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
                             classAverage={classAverage} ayahs={data.ayahs} yearGroup={year} />
-                          <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={() => setOpenItem(null)}><ChevronUp size={13} />Close {p.name.split(' ')[0]}</button>
+                          <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={e => closeBack(e, () => setOpenItem(null))}><ChevronUp size={13} />Close {p.name.split(' ')[0]}</button>
                         </div>
                       )}
                     </div>
@@ -513,7 +525,7 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
                         </button>
                       </div>
                     ))}
-                    <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={() => setOpen(null)}><ChevronUp size={13} />Close {yearLabel(y)}</button>
+                    <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={e => closeBack(e, () => setOpen(null))}><ChevronUp size={13} />Close {yearLabel(y)}</button>
                   </div>
                 )}
               </div>

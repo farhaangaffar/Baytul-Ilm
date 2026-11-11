@@ -1128,3 +1128,6 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .line-row.line-row-red .line-row-name { color: var(--red-text); }
 /* Islamic Studies: an opened line scrolls back to the top of the screen, clear of the top bar / pop-up header. */
 .st-pupil-wrap > .line-row, .pd-list > .line-row, .st-work-line > .line-row { scroll-margin-top: 84px; }
+.st-spread { display: flex !important; justify-content: space-between; gap: 8px; white-space: nowrap; }
+.st-spread > span { overflow: hidden; text-overflow: ellipsis; }
+.st-spread > span:only-child { margin-right: auto; }
