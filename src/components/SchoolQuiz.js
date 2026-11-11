@@ -163,7 +163,7 @@ function QuestionModal({ question, number, onSave, onRemove, onClose }) {
   }
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 520 }}>
+      <div className="modal qz-qmodal" style={{ maxWidth: 520 }}>
         <div className="modal-header">
           <div className="modal-title">{question ? `Question ${number}` : 'Add a question'}</div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
@@ -307,13 +307,14 @@ export function QuizEditor({ quiz, onChange, locked }) {
           </div>
         ))}
       </div>
+    </div>
+    {/* Outside the coloured sections, so it keeps the normal pop-up look (inside one it picked up their all-white fields). */}
       {open && (
         <QuestionModal question={open.add ? null : qs[open.i]} number={open.add ? qs.length + 1 : open.i + 1}
           onClose={() => setOpen(null)}
           onRemove={open.add ? null : () => { onChange({ ...quiz, questions: qs.filter((_, j) => j !== open.i) }); setOpen(null); }}
           onSave={q => { onChange({ ...quiz, questions: open.add ? [...qs, q] : qs.map((x, j) => (j === open.i ? q : x)) }); setOpen(null); }} />
       )}
-    </div>
     </>
   );
 }
