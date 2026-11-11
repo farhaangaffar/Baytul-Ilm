@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LegalLinks, MadeWith } from '../components/Legal';
 import { getPupilHome, logout, markMyHomework } from '../lib/store';
 import { niceDue } from '../components/SchoolHomework';
+import { QuizTaker, QuizScore, QuizReview, quizName } from '../components/SchoolQuiz';
 import { linkSite } from './Studies';
 import { useSettings } from '../lib/SettingsContext';
 import { PupilDetail } from './Studies';
@@ -10,7 +11,8 @@ import InstallSteps from '../components/InstallSteps';
 import { usePageHelp, PageHelpButton } from '../components/PageHelp';
 import { DemoBar, leaveDemo } from '../components/Demo';
 import { useAuth } from '../lib/AuthContext';
-import { LogOut, ChevronDown, ChevronUp, ExternalLink, Check } from 'lucide-react';
+import { useBackToClose } from '../lib/useBackToClose';
+import { LogOut, ChevronDown, ChevronUp, ExternalLink, Check, X } from 'lucide-react';
 
 // A pupil's own page (a school's pupil login — server/routes/pupil.js): their homework (the next step of stage 4) and
 // their Islamic Studies marks, read only (the same card parents see). Nothing else of the school's.
@@ -21,6 +23,8 @@ const headerBtn = { display: 'flex', alignItems: 'center', justifyContent: 'cent
 function MyHomework({ list, onChanged }) {
   const [open, setOpen] = useState(list.find(h => !h.doneAt)?.id || '');
   const [busy, setBusy] = useState('');
+  const [taking, setTaking] = useState(null); // a quiz being taken
+  const [review, setReview] = useState(null); // a quiz's answers being looked at
   const sorted = [...list.filter(h => !h.doneAt), ...list.filter(h => h.doneAt)];
   async function tick(h) {
     setBusy(h.id);
@@ -37,15 +41,15 @@ function MyHomework({ list, onChanged }) {
           <div key={h.id} className={`st-pupil-wrap ${isOpen ? 'open' : ''}`}>
             <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={() => setOpen(isOpen ? '' : h.id)}>
               <span className="ct-two">
-                <span className="line-row-name">{h.itemName || 'Homework'}</span>
-                <span className="line-row-sub">{h.doneAt ? 'Done' : niceDue(h.due) || 'To do'}</span>
+                <span className="line-row-name">{h.kind === 'quiz' ? quizName(h) : h.itemName || 'Homework'}</span>
+                <span className="line-row-sub">{h.kind === 'quiz' && h.doneAt ? (h.score ? `Score ${h.score.score} / ${h.score.max}` : 'Handed in') : h.doneAt ? 'Done' : niceDue(h.due) || 'To do'}</span>
               </span>
               {h.doneAt && <span className="hw-done"><Check size={13} /></span>}
               {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {isOpen && (
               <div style={{ display: 'grid', gap: 8, padding: '8px 2px 4px' }}>
-                <div style={{ whiteSpace: 'pre-wrap', fontSize: 14.5 }}>{h.text}</div>
+                {h.text && <div style={{ whiteSpace: 'pre-wrap', fontSize: 14.5 }}>{h.text}</div>}
                 {(h.links || []).map((l, i) => {
                   const site = linkSite(l.url);
                   return (
@@ -55,15 +59,41 @@ function MyHomework({ list, onChanged }) {
                     </a>
                   );
                 })}
-                <button type="button" className={`btn ${h.doneAt ? '' : 'btn-primary'}`} style={{ justifySelf: 'stretch', justifyContent: 'center', ...(h.doneAt ? {} : { background: 'var(--blue)', borderColor: 'var(--blue)' }) }} disabled={busy === h.id} onClick={() => tick(h)}>
-                  {h.doneAt ? 'Not done after all' : <><Check size={14} /> I've done it</>}
-                </button>
+                {h.kind === 'quiz' ? <>
+                  {/* A quiz: Start (or Try again, when the teacher allows it), the score once they may see it, and their answers. */}
+                  {h.tries > 0 && <QuizScore hw={h} />}
+                  {(!h.tries || h.quiz?.settings.tries === 'many') && h.quiz && (
+                    <button type="button" className="btn btn-primary" style={{ justifySelf: 'stretch', justifyContent: 'center', background: 'var(--blue)', borderColor: 'var(--blue)' }} onClick={() => setTaking(h)}>
+                      {h.tries ? 'Try again' : `Start the quiz · ${h.quiz.questions.length} question${h.quiz.questions.length === 1 ? '' : 's'}`}
+                    </button>
+                  )}
+                  {h.review && <button type="button" className="btn" style={{ justifySelf: 'stretch', justifyContent: 'center' }} onClick={() => setReview(h)}>See the right answers</button>}
+                </> : (
+                  <button type="button" className={`btn ${h.doneAt ? '' : 'btn-primary'}`} style={{ justifySelf: 'stretch', justifyContent: 'center', ...(h.doneAt ? {} : { background: 'var(--blue)', borderColor: 'var(--blue)' }) }} disabled={busy === h.id} onClick={() => tick(h)}>
+                    {h.doneAt ? 'Not done after all' : <><Check size={14} /> I've done it</>}
+                  </button>
+                )}
                 <div className="text-muted" style={{ fontSize: 12 }}>Set by {h.setBy}{h.due ? ` · ${niceDue(h.due)}` : ''}</div>
               </div>
             )}
           </div>
         );
       })}
+      {taking && <QuizTaker homework={taking} onClose={() => setTaking(null)} onDone={onChanged} />}
+      {review && <ReviewModal hw={review} onClose={() => setReview(null)} />}
+    </div>
+  );
+}
+
+function ReviewModal({ hw, onClose }) {
+  const close = useBackToClose(true, onClose);
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 520 }}>
+        <div className="modal-header"><div className="modal-title">Your answers</div><button className="btn btn-icon" onClick={close}><X size={16} /></button></div>
+        <div className="modal-body" style={{ display: 'grid', gap: 12 }}><QuizScore hw={hw} /><QuizReview hw={hw} /></div>
+        <div className="modal-footer"><button className="btn" onClick={close}>Close</button></div>
+      </div>
     </div>
   );
 }

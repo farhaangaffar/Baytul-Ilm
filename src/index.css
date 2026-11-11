@@ -1130,7 +1130,7 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .st-pupil-wrap > .line-row, .pd-list > .line-row, .st-work-line > .line-row { scroll-margin-top: 84px; }
 .st-spread { display: flex !important; justify-content: space-between; gap: 8px; white-space: nowrap; }
 .st-spread > span { overflow: hidden; text-overflow: ellipsis; }
-.st-spread > span:only-child { margin-right: auto; }
+.st-spread > span:only-child { margin-left: auto; } /* achieved stays on the right even with no note (the owner's ask) */
 /* Islamic Studies → an item's lesson resources (one closed line, opening to its links). */
 .st-links { display: grid; gap: 6px; }
 .st-links .st-links-head { background: #fff; }
@@ -1160,3 +1160,126 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .hw-name.done { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
 .hw-name.notyet { background: var(--amber-light); border-color: var(--amber); color: var(--amber-text); }
 .hw-name.late { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+/* Quizzes (a school's Islamic Studies, stage 4b — SchoolQuiz.js): question cards (right answers green), the settings rows,
+   scores in soft colours, and the pupil's one-question-at-a-time screen. */
+.qz-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13.5px; }
+.qz-card, button.qz-card { display: grid; gap: 6px; text-align: left; width: 100%; background: #fafbfc; border: 1px solid #dfe3e8; border-radius: var(--r-md); padding: 10px 12px; font-family: var(--font); color: var(--ink); }
+button.qz-card { cursor: pointer; }
+button.qz-card:hover { border-color: var(--teal); }
+.qz-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.qz-card-top > span { display: inline-flex; align-items: center; }
+.qz-q { font-size: 14px; font-weight: 600; white-space: pre-wrap; unicode-bidi: plaintext; }
+.qz-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.qz-opt { display: flex; align-items: center; gap: 5px; background: #f5f6f8; border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; font-size: 13px; min-width: 0; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.qz-opt.right { background: var(--green-light); border-color: var(--green); color: var(--green-text); font-weight: 600; }
+.qz-edit-opt { display: flex; align-items: center; gap: 8px; }
+.qz-edit-opt input { flex: 1; min-width: 0; }
+.qz-edit-opt.right input { border-color: var(--green); background: #f3faec; }
+.qz-mark { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #c9ced6; background: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; cursor: pointer; color: #fff; padding: 0; }
+.qz-mark.sq { border-radius: 6px; }
+.qz-edit-opt.right .qz-mark, .qz-choice.on .qz-mark { background: var(--green); border-color: var(--green); }
+.qz-choice.on .qz-mark { background: var(--blue); border-color: var(--blue); }
+.choice-boxes button.on.qz-right { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+.qz-settings { display: grid; gap: 10px; background: #f7f8fa; border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; }
+.qz-set { display: grid; gap: 5px; }
+.qz-set-label { font-size: 13px; font-weight: 600; }
+@media (min-width: 700px) { .qz-set { grid-template-columns: 1fr 1.3fr; align-items: center; } }
+.qz-score { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: #eef0f4; color: var(--text-muted); white-space: nowrap; }
+.qz-score.green { background: var(--green-light); color: var(--green-text); }
+.qz-score.amber { background: var(--amber-light); color: var(--amber-text); }
+.qz-score.red { background: var(--red-light); color: var(--red-text); }
+.qz-ans { display: grid; gap: 8px; border: 1px solid #dfe3e8; border-radius: var(--r-md); padding: 11px 13px; background: #fff; box-shadow: 0 1px 2px rgba(20, 32, 43, 0.04); }
+.qz-got { text-transform: none; letter-spacing: 0; font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #eef0f4; }
+.qz-got.green { background: var(--green-light); color: var(--green-text); }
+.qz-got.amber { background: var(--amber-light); color: var(--amber-text); }
+.qz-got.red { background: var(--red-light); color: var(--red-text); }
+.qz-said { font-size: 13.5px; white-space: pre-wrap; background: #f5f6f8; border-radius: 8px; padding: 6px 9px; unicode-bidi: plaintext; }
+.qz-rightans { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--green-text); font-weight: 600; unicode-bidi: plaintext; }
+.qz-pointboxes { display: flex; flex-wrap: wrap; gap: 6px; }
+.qz-pointboxes button { min-width: 38px; padding: 7px 0; border-radius: 8px; border: 1px solid #dfe3e8; background: #fafbfc; font-family: var(--font); font-weight: 700; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+.qz-pointboxes button.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.qz-progress { height: 6px; border-radius: 99px; background: #eceff3; overflow: hidden; }
+.qz-progress > span { display: block; height: 100%; background: var(--blue); border-radius: 99px; transition: width 0.2s; }
+.qz-take-q { font-size: 17px; font-weight: 600; line-height: 1.45; white-space: pre-wrap; unicode-bidi: plaintext; }
+.qz-choice, button.qz-choice { display: flex; align-items: center; gap: 10px; width: 100%; text-align: start; background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 11px 12px; font-family: var(--font); font-size: 15px; color: var(--ink); cursor: pointer; unicode-bidi: plaintext; }
+.qz-choice.on, button.qz-choice.on { background: var(--teal-light); border-color: var(--teal); }
+.qz-check { background: var(--amber-light); color: var(--amber-text); border-radius: var(--r-md); padding: 9px 12px; font-size: 13.5px; }
+.qz-big { display: grid; justify-items: center; gap: 2px; border-radius: var(--r-md); padding: 14px; background: #f5f6f8; }
+.qz-big b { font-size: 28px; }
+.qz-big span { font-size: 13px; text-align: center; }
+.qz-big.green { background: var(--green-light); color: var(--green-text); }
+.qz-big.amber { background: var(--amber-light); color: var(--amber-text); }
+.qz-big.red { background: var(--red-light); color: var(--red-text); }
+/* The quiz builder's three sections (About the quiz · Questions · Settings), each its own boxed card with a numbered head. */
+.qz-section { display: grid; gap: 10px; background: #f1f5fa; border: 1px solid #dde5ef; border-radius: 14px; padding: 12px 14px 14px; }
+.qz-section + .qz-section { margin-top: 4px; }
+.qz-section-head { display: flex; align-items: center; gap: 8px; font-size: 14.5px; padding-bottom: 8px; border-bottom: 1px solid #dde5ef; color: var(--teal-dark); }
+.qz-step { width: 24px; height: 24px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.qz-section .qz-settings { background: transparent; border: none; padding: 0; }
+.qz-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* "Two choices each": a list on the left, the two choices on the right of every line. */
+.qz-choose-edit { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.qz-choose-edit input { min-width: 0; }
+.qz-xy { display: grid; grid-template-columns: repeat(2, minmax(64px, auto)); gap: 5px; }
+.qz-xy button { padding: 8px 10px; border-radius: 8px; border: 1px solid #dfe3e8; background: #fafbfc; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.qz-xy button.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+.qz-xy button.right { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+.qz-list { display: grid; gap: 6px; }
+.qz-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.qz-list-row.take { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 8px 8px 12px; font-size: 14.5px; unicode-bidi: plaintext; }
+@media (max-width: 420px) { .qz-choose-edit { grid-template-columns: minmax(0, 1fr) auto; } .qz-choose-edit .qz-xy { grid-column: 1; grid-row: 2; } }
+/* Answers against the right answers (no side bars): picked rows tinted ✓ green / ✗ red, a missed right one outlined green. */
+.qz-av { display: grid; gap: 5px; }
+.qz-av-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; border: 1px solid #e6e9ee; background: #fafbfc; font-size: 13.5px; color: var(--text-muted); unicode-bidi: plaintext; }
+.qz-av-row.good { background: var(--green-light); border-color: var(--green); color: var(--green-text); font-weight: 600; }
+.qz-av-row.bad { background: var(--red-light); border-color: var(--red); color: var(--red-text); font-weight: 600; }
+.qz-av-row.missed { background: #fff; border: 1.5px dashed var(--green); color: var(--green-text); }
+.qz-av-ic { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none; color: #fff; }
+.qz-av-ic.ok { background: var(--green); }
+.qz-av-ic.no { background: var(--red); }
+.qz-av-ic.blank { border: 1.5px solid #d3d8df; background: #fff; }
+.qz-av-row.missed .qz-av-ic.blank { border-color: var(--green); }
+.qz-av-tag { margin-left: auto; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.qz-av-none { font-size: 13px; color: var(--text-muted); font-style: italic; }
+.qz-av-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #eef0f3; font-size: 13.5px; unicode-bidi: plaintext; }
+.qz-av-line:last-child { border-bottom: none; }
+.qz-av-picks { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.qz-av-pick { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 4px; border-radius: 99px; font-size: 12.5px; font-weight: 600; background: #eef0f4; color: var(--text-muted); }
+.qz-av-pick.good { background: var(--green-light); color: var(--green-text); }
+.qz-av-pick.bad { background: var(--red-light); color: var(--red-text); }
+.qz-av-pick.missed { background: #fff; border: 1.5px dashed var(--green); color: var(--green-text); padding-left: 8px; }
+.qz-av-pick .qz-av-ic { width: 18px; height: 18px; }
+.qz-av-long { font-size: 13.5px; white-space: pre-wrap; background: #f5f6f8; border-radius: 9px; padding: 8px 10px; unicode-bidi: plaintext; }
+/* The quiz builder isn't all white (the owner's ask): each section is softly tinted, with what's inside it — question cards,
+   settings rows, boxes and fields — white on top. */
+.qz-section .qz-card, .qz-section button.qz-card { background: #fff; border-color: #dbe3ec; }
+.qz-section .qz-set { background: #fff; border: 1px solid #dbe3ec; border-radius: 10px; padding: 9px 11px; }
+.qz-section .qz-settings { gap: 8px; }
+.qz-section input, .qz-section textarea, .qz-section select { background: #fff; }
+.qz-section .line-row.add { background: #fff; }
+.qz-section .choice-boxes button:not(.on) { background: #fff; }
+.qz-section .qz-card-top > span:first-child { color: var(--teal-dark); }
+/* A colour per section (the owner's pick, D): 1 About the quiz blue, 2 Questions green, 3 Settings amber — white inside. */
+.qz-section.s1 { background: #f2f7fe; border-color: #d7e4f6; }
+.qz-section.s1 .qz-section-head { color: var(--teal-dark); border-bottom-color: #d7e4f6; }
+.qz-section.s1 .qz-step { background: var(--blue); }
+.qz-section.s2 { background: #f1f8ea; border-color: #d9ebc6; }
+.qz-section.s2 .qz-section-head { color: var(--green-text); border-bottom-color: #d9ebc6; }
+.qz-section.s2 .qz-step { background: #6fa73a; }
+.qz-section.s3 { background: #fff8e1; border-color: #f5e3a3; }
+.qz-section.s3 .qz-section-head { color: var(--amber-text); border-bottom-color: #f5e3a3; }
+.qz-section.s3 .qz-step { background: #c99a12; }
+.qz-section.s2 .qz-card, .qz-section.s2 button.qz-card, .qz-section.s3 .qz-set { border-color: rgba(17, 24, 39, 0.08); }
+/* A quiz pupils have handed in: a clear notice at the top, with "Copy this quiz". */
+.qz-locked { min-width: 0; display: grid; gap: 10px; background: var(--amber-light); color: var(--amber-text); border-radius: var(--r-md); padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
+.qz-locked b { color: #6b5200; }
+.qz-locked > div { min-width: 0; overflow-wrap: anywhere; }
+.qz-locked .btn { justify-self: start; background: #fff; max-width: 100%; white-space: normal; }
+.qz-copied { background: var(--teal-light); color: var(--teal-dark); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; }
+/* A pupil's typed answer: the app's field look, a little bigger, on a soft grey so the box is easy to see. */
+.form-group .qz-answer { width: 100%; font-size: 15px; line-height: 1.5; background: #f1f5f9; border: 1px solid #e2e8f0; resize: vertical; }
+/* A quiz question's pop-up: its boxes a clear grey with an edge, so they stand out from the white (the owner found it blended). */
+.qz-qmodal .form-group input, .qz-qmodal .form-group textarea { background: #f1f5f9; border: 1px solid #e2e8f0; }
+.qz-qmodal .form-group input:focus, .qz-qmodal .form-group textarea:focus { background: #fff; }
+.qz-qmodal .qz-edit-opt.right input { background: #f3faec; border-color: var(--green); }
+.qz-qmodal .choice-boxes button:not(.on), .qz-qmodal .qz-xy button:not(.right) { background: #f1f5f9; border-color: #e2e8f0; }

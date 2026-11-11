@@ -4,11 +4,13 @@ import './index.css';
 import App from './App';
 import './lib/installPrompt';
 import { rememberReferral } from './lib/referral';
+import { matchStackedModals } from './lib/stackedModals';
 
 rememberReferral(); // a "Recommend Suhuf" link (?ref=<code>) — kept for when they sign up
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<React.StrictMode><App /></React.StrictMode>);
+matchStackedModals(); // a pop-up on top of another is never narrower than it
 
 // Installable-app support (see public/sw.js). Production only — in development a
 // service worker would serve cached bundles over the hot-reloading dev server.

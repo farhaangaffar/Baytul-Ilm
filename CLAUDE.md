@@ -280,7 +280,7 @@ codebase (one codebase, not a fork).
   do; colours soft red / amber / green / grey; tapping a lit box clears it). A surah item has its number (`is_items.surah`), so
   each class has a **weekly tracker** — the aayahs covered (`is_class_ayahs`, `?action=ayahs`, an aayah grid inside the item's line — tapping an aayah marks it and every one before it; tapping the last again steps back one —
   "9 of 19 aayahs covered") — like the owner's Word tracker. A class sees its year's items and, behind "Earlier years", the years before. The page: Class ▾, Surahs |
-  Du'aas | Practicals | Pupils, figures, a line per item (surah number · "2/12 achieved" · "9/19 aayahs" spread along the bar's length) opening the class underneath — a row per pupil with
+  Du'aas | Practicals | Pupils (always opens on Surahs, and again whenever a class is picked — the owner's ask), figures, a line per item (surah number · "2/12 achieved" · "9/19 aayahs" spread along the bar's length) opening the class underneath — a row per pupil with
   Incomplete · Completed with help · Achieved boxes (on phones the name above three equal boxes), "Everyone" marks the whole
   class; an opened item line is boxed in light blue with Edit and a Close button; at its top a closed **Resources** line
   (stage 3 — the owner's pick, option C: "3 links · tap to open") opening to a line per link (`ItemLinks`; icon and words by site —
@@ -343,14 +343,38 @@ codebase (one codebase, not a fork).
   transaction — a CREATE TABLE there once hung the demo), `server/routes/school-homework.js` (teachers: their own classes; they
   change or remove their own, the head any). Set from an opened item's **Set homework** (`HomeworkModal`, its links go with it) or
   the **Homework** tab's **Add homework** (its pop-up asks "Type of homework": Surah · Du'aa · Practical · Something else — 2×2 boxes, `ChoiceBoxes columns` — then a
-  drop-down of only that kind, "This year" first then "Earlier years"; the owner disliked one mixed list) on Islamic Studies (`HomeworkTab`: a line per piece — "Due Fri 20 Nov · 7 of 11 done" → `HomeworkSheet`:
+  drop-down of only that kind, "This year" first then "Earlier years"; the owner disliked one mixed list) on Islamic Studies (`HomeworkTab`: a line per piece — just "Due Fri 20 Nov" (who has done it is inside, the owner's ask) → `HomeworkSheet`:
   text, three boxes to tap — Whole class (everyone, coloured — no ticks) · Done · Not yet ("Not done", red, once the due date
   has passed) — opening on Not yet, the names two across below in their box's colour — green done, amber not yet, red not done (the owner's pick, A), Change / Remove; five tabs — Surahs · Du'aas · Practicals · Homework · Pupils, 3 + 2 on phones). Pupils: "My homework" in `PupilPortal` (not done first;
   tap → text, the item's links, **I've done it**; `POST /api/pupil?action=done`, only their own). Parents: a "Homework" card in the
   portal — what was set, due, "<Name> has done it" — never the links (studies.js `forParent` → `homework`). Removing an item keeps
   its homework (as "Homework"). In Backup (studies.js `homework`) and demo `TABLES`; the school demo has two pieces per class
-  (this week's, and last week's mostly done). **Next:** quizzes (stage 4b) — see the plan the owner
-  approved (no Google sign-in; logins from the school; parents see homework; pupils see marks; a done tick).
+  (this week's, and last week's mostly done). **Quizzes (stage 4b):** a quiz is homework with `is_homework.kind = 'quiz'`,
+  its questions and settings in `is_homework.quiz` (JSONB; `server/schoolQuiz.js` — `cleanQuiz()` checks it, `markQuiz()` marks
+  it, `forPupil()` strips the answers; `quiz.title` is its name — a quiz has a name instead of the surah / du'aa / practical
+  choice, the owner found both confusing), `draft` (Save for later — hidden from pupils and parents), `scores_sent_at`. Question
+  kinds: one answer, tick boxes (points for each right tick, a wrong tick takes one away, never below 0 — the owner's ask), true /
+  false, **two choices each** (`choose`: a list on the left, each line one of two choices on the right — e.g. Fardh / Sunnah —
+  points per line right; `columns`, `rows`, `answers`), short answer (matched against the accepted answers, ignoring capitals,
+  spaces and punctuation), long answer (the teacher marks it: `?action=mark`); `worth()` = what a question is worth; no pictures/audio
+  (storage). Four settings, two boxes each (the owner's approved version): How many tries? One try · Unlimited tries ·
+  Question order: As I wrote them · Shuffled (a seeded order per pupil) · When do pupils see their score? Straight away · When I
+  send it (`?action=send-scores`) · Show the right answers after? Yes · No. Built in the homework pop-up (Task | Quiz, question
+  cards with the right answers green → `QuestionModal`, `QuizEditor`; `src/components/SchoolQuiz.js`), in three boxed, numbered
+  sections (1 About the quiz · 2 Questions · 3 Settings — the owner found it blended together), a soft colour each — blue, green,
+  amber (the owner's pick, D, of four mock-ups) — with white cards and boxes inside; the homework pop-ups and a pupil's answers (`AttemptModal`) are 600–620px
+  wide (the owner liked the wider one). Answers (teacher's `AttemptModal`, pupil's review) use `AnswerView` — **no coloured side
+  bars** (the owner's ask): picked choices tinted ✓ green / ✗ red, a right one not picked outlined in dashed green. Once anyone has handed in,
+  the questions are locked (settings/due/words still change) — the owner's choice: an amber notice at the top of the pop-up
+  says so, with **Copy this quiz** (a new quiz for the same class, "… (copy)", questions free to change; the old one keeps its marks). **Marking is on the server; pupils are never sent the right answers**
+  unless released and Show answers is Yes. Each hand-in is an `is_quiz_attempts` row (answers, each question's
+  {got, of, auto}, score, max, waiting) plus an `is_homework_done` tick; the best go counts. Teacher: the Homework tab's quiz
+  line (its due date and a chip with the average or "N to mark" — no handed-in count, that's inside) → `QuizResults` (Whole class / Handed in / Not yet, Class
+  average / Long answers to mark, a line per pupil with a coloured score → `AttemptModal` to mark, a line per question "N/M
+  right", Send scores to pupils). Pupil: `QuizTaker` (one question at a time, progress bar, Back / Next / Hand in, Arabic shown
+  right to left via `dir="auto"`), then their score and answers. Parents: the score in the Homework card once released. In
+  Backup (studies.js `homework` carries kind/quiz/draft/attempts) and demo `TABLES`; the school demo has a quiz in 6A (the
+  Hussain child hasn't taken it — the Pupil view can) and 4A (with a long answer, some to mark). `db/migrate-045-school-quizzes.sql`.
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own
@@ -593,6 +617,9 @@ codebase (one codebase, not a fork).
   (`useBackToClose`), page switches replace rather than add history (`appNavigate()`), back
   with nothing open goes to the home page (Dashboard; Attendance for teachers); on the home page back shows
   "Close the app?" (`src/components/BackToExit.js`) — a second back closes it.
+- **Pop-ups on top of pop-ups are never narrower** than the one beneath (the owner's ask — a quiz's question, a pupil's
+  answers, a pupil card's login all opened smaller): `src/lib/stackedModals.js` (`matchStackedModals()`, started in
+  `src/index.js`) widens any later open `.modal` to the width of the one under it, everywhere — no per-pop-up widths needed.
 - **Page instructions:** every page has a "Page instructions" button (top bar on computers,
   top of the page on phones; the parent portal too) opening a few plain numbered steps for
   that person's role — `src/lib/pageHelp.js`, opened by itself the first time a page is

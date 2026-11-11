@@ -729,6 +729,11 @@ export const getSchoolHomework = cls => apiFetch(`/api/school-homework?class=${e
 export const saveSchoolHomework = h => apiFetch('/api/school-homework', { method: 'POST', body: JSON.stringify(h) });
 export const deleteSchoolHomework = id => apiFetch(`/api/school-homework?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const markMyHomework = (id, done) => apiFetch('/api/pupil?action=done', { method: 'POST', body: JSON.stringify({ id, done }) });
+// Quizzes (stage 4b): the teacher's results, marking long answers, sending scores; the pupil hands one in.
+export const getQuizResults = id => apiFetch(`/api/school-homework?action=results&id=${encodeURIComponent(id)}`);
+export const markQuizAttempt = (attemptId, marks) => apiFetch('/api/school-homework?action=mark', { method: 'POST', body: JSON.stringify({ attemptId, marks }) });
+export const sendQuizScores = id => apiFetch('/api/school-homework?action=send-scores', { method: 'POST', body: JSON.stringify({ id }) });
+export const submitQuiz = (id, answers) => apiFetch('/api/pupil?action=submit', { method: 'POST', body: JSON.stringify({ id, answers }) });
 export const getStudiesSummary = () => apiFetch('/api/studies?action=summary');
 export const saveClassAyahs = (className, itemId, ayahs) => apiFetch('/api/studies?action=ayahs', { method: 'POST', body: JSON.stringify({ className, itemId, ayahs }) });
 export const importStudiesMarks = marks => apiFetch('/api/studies?action=import', { method: 'POST', body: JSON.stringify({ marks }) });

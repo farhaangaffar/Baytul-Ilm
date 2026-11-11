@@ -20,7 +20,7 @@ const MAX_PER_IP_HOUR = 6;     // … and from one address
 // Every table holding a madrasah's data, children before parents, for deleting a demo — or a
 // madrasah the platform owner deletes (routes/madaaris.js).
 const TABLES = [
-  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_links', 'is_homework_done', 'is_homework_pupils', 'is_homework', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
+  'ai_usage', 'absence_reports', 'is_progress', 'is_class_ayahs', 'is_links', 'is_quiz_attempts', 'is_homework_done', 'is_homework_pupils', 'is_homework', 'is_year_moves', 'is_assessment_pupils', 'is_assessments', 'is_items', 'parent_students', 'users', 'ai_summaries', 'quran_progress', 'quran_students',
   'daily_records', 'homework', 'fees', 'fee_skips', 'fee_weeks_off', 'fee_months_off', 'days_off', 'attendance', 'terms', 'du_exam_comments', 'du_exam_marks', 'du_exam_papers', 'du_exams', 'du_lesson_logs', 'du_lessons', 'du_periods', 'du_year_moves', 'du_subjects', 'du_fee_payments', 'du_fee_charges', 'du_fee_accounts', 'du_fee_setup', 'du_maintenance', 'du_health_log', 'du_weekend_answers', 'du_leaves', 'du_home_weekends', 'du_night_register', 'du_room_places', 'du_rooms', 'teacher_attendance', 'students', 'classes', 'teachers',
   'academic_years', 'settings', 'madrasah_payments', 'push_subscriptions',
 ];
@@ -939,6 +939,21 @@ async function createDarulUloomDemo(ipHash) {
 }
 
 // ── The made-up school (a link ending ?demo=school) ──
+// The demo's quiz (made up; one of each kind of question, a long answer in 4A's).
+function demoQuiz(long) {
+  const questions = [
+    { type: 'one', text: 'How many aayahs are in Surah Al-Ikhlaas?', points: 1, options: ['3', '4', '5', '6'], answer: 1 },
+    { type: 'truefalse', text: 'Surah Al-Ikhlaas is equal to a third of the Qur\'aan.', points: 1, answer: true },
+    { type: 'many', text: 'Which of these surahs are among the last ten surahs of the Qur\'aan?', points: 1, options: ['Al-Falaq', 'Al-Baqarah', 'An-Naas', 'Yaa-Seen'], answers: [0, 2] },
+    { type: 'choose', text: 'Is each of these Fardh or Sunnah in wudhu?', points: 1, columns: ['Fardh', 'Sunnah'],
+      rows: ['Washing the face', 'Using a miswaak', 'Washing the arms up to the elbows', 'Rinsing the mouth'], answers: [0, 1, 0, 1] },
+    { type: 'short', text: 'What does "Ahad" mean?', points: 1, accepted: ['One', 'The One', 'Only One'] },
+    { type: 'one', text: 'قُلْ هُوَ اللَّهُ ___', points: 1, options: ['أَحَدٌ', 'الصَّمَدُ', 'كُفُوًا'], answer: 0 },
+  ];
+  if (long) questions.push({ type: 'long', text: 'What does Surah Al-Ikhlaas teach us about Allah? Write two or three sentences.', points: 3 });
+  return { title: 'Surah Al-Ikhlaas quiz', questions, settings: { tries: 'one', shuffle: false, scoreNow: true, showAnswers: true } };
+}
+
 // An Islamic Studies department from Reception to Year 10, some years in several forms (2A/2B, 4A/4B, 6A/6B/6C):
 // ten classes with their teachers, about a dozen pupils each, and the starter lists of surahs, du'aas and practicals (routes/studies.js) marked as a real school's
 // would be — earlier years' mostly achieved, this year's part way. Logins: the head, Ustadh Bilal (4A) and
@@ -1068,6 +1083,33 @@ async function createSchoolDemo(ipHash) {
         const ticked = mine.filter(p => (ago > 3 ? r() < 0.8 : r() < 0.3) && !(p.family && ago <= 3));
         await bulk(c, 'is_homework_done', ['homework_id', 'student_id', 'madrasah_id'], ticked.map(p => [h.id, p.id, mid]));
       }
+    }
+
+    // A quiz (stage 4b) in 6A and 4A: most pupils have handed it in (the Hussain child in 6A hasn't, so the Pupil view can
+    // try it); 4A's has a long answer, so some wait to be marked.
+    const { markQuiz } = require('./schoolQuiz');
+    for (const [cname, long] of [['6A', false], ['4A', true]]) {
+      const ci = SCHOOL_CLASSES.findIndex(x => x[0] === cname);
+      const quiz = demoQuiz(long);
+      const { rows: [h] } = await c.query(
+        `INSERT INTO is_homework (madrasah_id, class_id, item_id, text, due, set_by, set_at, kind, quiz) VALUES ($1,$2,$8,$3,$4,$5,$6,'quiz',$7) RETURNING id`,
+        [mid, classIds[ci], 'Answer every question. You have one go, so check before you hand it in.', weekday(plus(today, 3)), SCHOOL_CLASSES[ci][2],
+          `${plus(today, -2)}T15:30:00Z`, JSON.stringify(quiz), (items.find(it => it.kind === 'surah' && it.surah === 112) || {}).id || null]);
+      const sitting = pupils.filter(p => p.cls === cname && !p.family && r() < 0.8);
+      const rows = sitting.map(p => {
+        const good = 0.55 + r() * 0.45;
+        const given = quiz.questions.map(q => (q.type === 'one' ? (r() < good ? q.answer : (q.answer + 1) % q.options.length)
+          : q.type === 'truefalse' ? (r() < good ? q.answer : !q.answer)
+            : q.type === 'many' ? (r() < good ? q.answers : q.answers.slice(0, 1))
+              : q.type === 'choose' ? q.answers.map(a => (r() < good ? a : 1 - a))
+              : q.type === 'short' ? (r() < good ? q.accepted[0] : 'Not sure')
+                : 'It teaches us that Allah is One and has no partner, so we should only worship Him.'));
+        const m = markQuiz(quiz, given);
+        if (long && r() < 0.5) { m.results[m.results.length - 1].got = r() < 0.5 ? 2 : 3; m.score += m.results[m.results.length - 1].got; m.waiting = 0; }
+        return [h.id, p.id, mid, JSON.stringify(m.answers), JSON.stringify(m.results), m.score, m.max, m.waiting];
+      });
+      await bulk(c, 'is_quiz_attempts', ['homework_id', 'student_id', 'madrasah_id', 'answers', 'results', 'score', 'max', 'waiting'], rows);
+      await bulk(c, 'is_homework_done', ['homework_id', 'student_id', 'madrasah_id'], sitting.map(p => [h.id, p.id, mid]));
     }
 
     const pw = () => hashPassword(crypto.randomBytes(18).toString('base64'));
