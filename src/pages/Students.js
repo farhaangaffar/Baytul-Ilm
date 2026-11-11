@@ -9,11 +9,13 @@ import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
 import ReorderableGrid from '../components/ReorderableGrid';
 import ParentLogin from '../components/ParentLogin';
-import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Save, GripVertical, Clock, ArrowRight, Users, ChevronDown, ChevronUp, Download, FileSpreadsheet, UserRound, BookOpen, CalendarCheck, FileText, KeyRound, Phone, Home, GraduationCap, BedDouble, StickyNote } from 'lucide-react';
+import BoxRow from '../components/BoxRow';
+import { detailRows } from '../lib/studentDetails';
 import { money, currencySymbol } from '../lib/branding';
 import { feeUnit, feePer, ownedFees } from '../lib/feePeriods';
 import HistoryBoxes, { shortPeriodLabel } from '../components/HistoryBoxes';
-import { DetailInputs, DetailLines, HealthNote, HealthDot, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
+import { DetailInputs, HealthNote, HealthDot, ChoiceBoxes, ParentInputs, GrowingText } from '../components/StudentDetails';
 import { useAuth } from '../lib/AuthContext';
 import { PupilSheet, yearLabel } from './Studies';
 import SchoolYearLine from '../components/SchoolNewYear';
@@ -25,6 +27,19 @@ function fmtDob(dob) { try { return formatDateGB(dob); } catch { return dob; } }
 
 // A school (madaaris.kind 'school') calls them pupils and has no fees or registers: its class lines show each class's
 // year group and how much of this year's Islamic Studies is achieved, and a pupil opens their surahs, du'aas and practicals.
+// A child's card: a white card per section with a small tinted icon (the owner's pick).
+function InfoCard({ icon: Icon, tone = '', title, children }) {
+  return (
+    <div className="sv-card">
+      <div className="sv-title"><span className={`sv-icon ${tone}`}><Icon size={13}/></span>{title}</div>
+      {children}
+    </div>
+  );
+}
+function InfoRows({ rows }) {
+  return rows.map(([l, v]) => <div key={l} className="sv-row"><span>{l}</span><span>{v}</span></div>);
+}
+
 export default function Students() {
   const { isDarulUloom, isSchool } = useAuth();
   const [studies, setStudies] = useState({}); // a school: each class's Islamic Studies this year, by class name
@@ -475,7 +490,7 @@ export default function Students() {
       {/* View modal */}
       {selected&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeSelected()}>
-          <div className="modal">
+          <div className="modal sv-modal">
             <div className="modal-header">
               <div className="flex items-center gap-3">
                 <div className="avatar" style={{width:40,height:40}}>{avatarInitials(selected.forename+' '+selected.surname)}</div>
@@ -483,12 +498,13 @@ export default function Students() {
               </div>
               <button className="btn btn-icon" onClick={closeSelected}><X size={16}/></button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body sv-body">
               <HealthNote student={selected}/>
-              <div className="grid-2 mb-4">
-                <div>
-                  <div className="form-section-title" style={{marginBottom:10}}>Student</div>
-                  {[
+              {/* A card per section; two columns on computers (the owner's pick). */}
+              <div className="sv-grid">
+                <div className="sv-col">
+                  <InfoCard icon={UserRound} tone="blue" title="About">
+                    <InfoRows rows={[
                     ['Date of birth',formatDateGB(selected.dob)],
                     ...(selected.gender?[['Gender',selected.gender]]:[]),
                     ['Class',selected.class],
@@ -507,20 +523,15 @@ export default function Students() {
                       ['Fees owed (all time)',`${money((leftTotals[selected.id]?.owed||0))}`],
                       ['Daily records',leftTotals[selected.id]?.recordsCount||0],
                     ]:[]),
-                  ].map(([l,v])=>(
-                    <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                      <span className="text-muted">{l}</span><span style={{fontWeight:500}}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  {isSchool ? <>
-                  <div className="form-section-title" style={{marginBottom:10}}>Islamic Studies</div>
+                    ]}/>
+                  </InfoCard>
+                  {isSchool ? (
+                    <InfoCard icon={BookOpen} tone="green" title="Islamic Studies">
                   <button type="button" className="line-row" onClick={()=>setStudiesPupil(selected.id)}>
                     <span className="line-row-name">Surahs, du'aas &amp; practicals</span><span className="line-row-sub">Open</span>
                   </button>
                   {/* Moving class or leaving: their marks always stay with them. */}
-                  <div className="form-section-title" style={{margin:'14px 0 10px'}}>Class</div>
+                  <div className="sv-sub">Class</div>
                   {selected.status==='Inactive' ? (
                     <button type="button" className="line-row" onClick={()=>setLeft(selected,false)}>
                       <span className="line-row-name">Back at the school</span><span className="line-row-sub">Put back in {selected.class}</span>
@@ -536,25 +547,26 @@ export default function Students() {
                       <span className="line-row-name">Has left the school</span><span className="line-row-sub">Kept under "Left"</span>
                     </button>
                   </div>}
-                  </> : <>
-                  <div className="form-section-title" style={{marginBottom:10}}>Attendance{selected.status==='Inactive'?' (all time)':''}</div>
-                  {(()=>{
-                    const c = selected.status==='Inactive'
-                      ? (()=>{ const t=leftTotals[selected.id]||{present:0,late:0,absent:0}; return {...t, total:t.present+t.late+t.absent}; })()
-                      : attendanceCountsFrom(attendance, selected.id);
-                    return [['Present',c.present,'var(--green-text)'],['Late',c.late,'var(--amber-text)'],['Absent',c.absent,'var(--red-text)'],['Total days',c.total,undefined]].map(([l,v,col])=>(
-                      <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                        <span className="text-muted">{l}</span><span style={{fontWeight:600,color:col}}>{v}</span>
-                      </div>
-                    ));
-                  })()}
-                  </>}
-                </div>
-              </div>
-              {selected.status==='Inactive'&&!isSchool&&(
-                <>
-                  <div className="form-section-title" style={{marginBottom:10}}>Previous reports</div>
-                  <div className="mb-4">
+                    </InfoCard>
+                  ) : (
+                    <InfoCard icon={CalendarCheck} tone="green" title={`Attendance${selected.status==='Inactive'?' (all time)':''}`}>
+                      {(()=>{
+                        const c = selected.status==='Inactive'
+                          ? (()=>{ const t=leftTotals[selected.id]||{present:0,late:0,absent:0}; return {...t, total:t.present+t.late+t.absent}; })()
+                          : attendanceCountsFrom(attendance, selected.id);
+                        return <BoxRow cells={[
+                          {text:c.present, sub:'Present', tone:'green'}, {text:c.late, sub:'Late', tone:'amber'}, {text:c.absent, sub:'Absent', tone:'red'},
+                          {text:c.total?`${Math.round((c.present+c.late)*100/c.total)}%`:'—', sub:'Attended', label:true},
+                        ]}/>;
+                      })()}
+                    </InfoCard>
+                  )}
+                  {(()=>{ const r=detailRows(selected,isDarulUloom,['du']); return r.length ? (
+                    <InfoCard icon={GraduationCap} tone="blue" title="Darul Uloom"><InfoRows rows={r}/></InfoCard>
+                  ) : null; })()}
+                  {selected.status==='Inactive'&&!isSchool&&(
+                    <InfoCard icon={FileText} title="Previous reports">
+                      <div>
                     {selectedReports.length===0?(
                       <div className="text-muted text-sm">No reports were saved for {selected.forename}.</div>
                     ):(()=>{
@@ -581,26 +593,34 @@ export default function Students() {
                       </>);
                     })()}
                   </div>
-                </>
-              )}
-              <div className="form-section-title" style={{marginBottom:10}}>Contacts</div>
-              <div className="grid-2 mb-4">
-                {[1,2].filter(n=>n===1||selected.parent2Name||selected.parent2Phone).map(n=>(
-                  <div key={n} style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13}}>
-                    <div style={{fontWeight:600,marginBottom:4}}>
-                      {selected[`parent${n}Relation`]||`Contact ${n}`}
-                      {selected.mainContact===`Contact ${n}`&&<span style={{fontWeight:500,color:'var(--teal-dark)'}}> · contact first</span>}
-                    </div>
-                    <div>{selected[`parent${n}Name`]||'—'}</div>
-                    <div className="text-muted">{selected[`parent${n}Phone`]||'—'}</div>
-                    {selected[`parent${n}Email`]&&<div className="text-muted" style={{overflowWrap:'anywhere'}}>{selected[`parent${n}Email`]}</div>}
-                  </div>
-                ))}
+                    </InfoCard>
+                  )}
+                </div>
+                <div className="sv-col">
+                  <InfoCard icon={Phone} tone="amber" title="Contacts">
+                    {[1,2].filter(n=>n===1||selected.parent2Name||selected.parent2Phone).map(n=>(
+                      <div key={n} className="sv-contact">
+                        <div><strong>{selected[`parent${n}Name`]||`Contact ${n}`}</strong>
+                          {selected[`parent${n}Relation`]&&<span> · {selected[`parent${n}Relation`]}</span>}
+                          {selected.mainContact===`Contact ${n}`&&<span className="sv-first"> · contact first</span>}
+                        </div>
+                        <div>{selected[`parent${n}Phone`]||'—'}</div>
+                        {selected[`parent${n}Email`]&&<div className="text-muted" style={{overflowWrap:'anywhere'}}>{selected[`parent${n}Email`]}</div>}
+                      </div>
+                    ))}
+                    {(()=>{ const e=[selected.emergencyName&&`${selected.emergencyName}${selected.emergencyRelation?` (${selected.emergencyRelation})`:''}`, selected.emergencyPhone].filter(Boolean).join(' · ');
+                      return e ? <InfoRows rows={[['Emergency', e]]}/> : null; })()}
+                  </InfoCard>
+                  {(()=>{ const r=detailRows(selected,isDarulUloom,['family','home'],['mainContact']); return r.length ? (
+                    <InfoCard icon={Home} tone="purple" title="Home & going home"><InfoRows rows={r}/></InfoCard>
+                  ) : null; })()}
+                  {isDarulUloom && selected.boarding==='Boarder' && selected.status==='Active' && (
+                    <InfoCard icon={BedDouble} tone="purple" title="Boarding"><BoarderRecord studentId={selected.id} bare/></InfoCard>
+                  )}
+                  {selected.notes&&<InfoCard icon={StickyNote} title="Notes"><div className="text-muted" style={{fontSize:13,fontStyle:'italic'}}>"{selected.notes}"</div></InfoCard>}
+                  <InfoCard icon={KeyRound} title="Parent login"><ParentLogin student={selected} students={students} bare/></InfoCard>
+                </div>
               </div>
-              <DetailLines student={selected} isDarulUloom={isDarulUloom} skip={['mainContact']}/>
-              {isDarulUloom && selected.boarding==='Boarder' && selected.status==='Active' && <BoarderRecord studentId={selected.id}/>}
-              <ParentLogin student={selected} students={students} />
-              {selected.notes&&<div style={{background:'var(--blue-light)',borderRadius:'var(--r-md)',padding:'10px 14px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>"{selected.notes}"</div>}
             </div>
             <div className="modal-footer">
               <button className="btn btn-danger" onClick={()=>{const s=selected;closeSelected();setConfirmDelete(s);}}><Trash2 size={13}/>Delete</button>

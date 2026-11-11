@@ -19,14 +19,14 @@ export function TripBoxes({ trip }) {
   );
 }
 
-export default function BoarderRecord({ studentId }) {
+export default function BoarderRecord({ studentId, bare = false }) {
   const [r, setR] = useState(null);
   useEffect(() => { getBoarderRecord(studentId).then(setR).catch(() => setR(null)); }, [studentId]);
   if (!r) return null;
   const out = r.leaves.find(l => !l.backAt);
   return (
     <div>
-      <div className="form-section-title" style={{ margin: '4px 0 8px' }}>Boarding</div>
+      {!bare && <div className="form-section-title" style={{ margin: '4px 0 8px' }}>Boarding</div>}
       <BoxRow columns="repeat(2, minmax(0, 1fr))" cells={[
         { text: r.room || 'No room yet', sub: 'Room', label: true, wrap: 'words' },
         out ? { text: 'Home now', sub: out.backDue ? `Back ${niceDate(out.backDue)}` : 'Signed out', tone: 'amber' } : { text: 'Here', sub: 'In the madrasah', tone: 'green' },

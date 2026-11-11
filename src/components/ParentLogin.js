@@ -53,7 +53,7 @@ function whatsappNumber(phone) {
 
 const field = { padding: '8px 10px', border: 'none', borderRadius: 'var(--r-md)', background: '#f9fafb', fontFamily: 'var(--font)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
 
-export default function ParentLogin({ student, students }) {
+export default function ParentLogin({ student, students, bare = false }) {
   const settings = useSettings();
   const { user } = useAuth();
   const [logins, setLogins] = useState(null);
@@ -125,8 +125,8 @@ export default function ParentLogin({ student, students }) {
   const canSave = form.login.trim() && form.studentIds.length && (editing === 'new' ? form.password.length >= 8 : (form.password === '' || form.password.length >= 8));
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div className="form-section-title" style={{ marginBottom: 10 }}>Parent portal login</div>
+    <div style={{ marginBottom: bare ? 0 : 16 }}>
+      {!bare && <div className="form-section-title" style={{ marginBottom: 10 }}>Parent portal login</div>}
       {!settings.parentPortal && (
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 8 }}>
           The parent portal is switched off — turn it on in Settings before parents can sign in.
