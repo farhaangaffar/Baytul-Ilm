@@ -1154,3 +1154,7 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .hw-tag { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .hw-tag.done { color: var(--green-text); font-weight: 600; }
 .pl-row { display: flex; align-items: center; gap: 8px; background: #f3f4f6; border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; }
+.hw-shown { outline: 2px solid var(--blue); outline-offset: 1px; }
+.hw-names { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.hw-name { background: #f5f6f8; border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hw-name.done { background: var(--green-light); border-color: var(--green); color: var(--green-text); }

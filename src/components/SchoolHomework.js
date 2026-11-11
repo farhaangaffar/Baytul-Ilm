@@ -114,6 +114,10 @@ function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose 
   const [busy, setBusy] = useState(false);
   const forThem = h.allPupils ? pupils : pupils.filter(p => h.studentIds.includes(p.id));
   const done = forThem.filter(p => h.done.includes(p.id)), notYet = forThem.filter(p => !h.done.includes(p.id));
+  // Three boxes to tap (the owner's pick, A): everyone, done, or not yet — "Not done", in red, once the due date has passed.
+  const late = h.due && h.due < new Date().toISOString().slice(0, 10);
+  const [show, setShow] = useState(notYet.length ? 'not' : 'all');
+  const names = show === 'done' ? done : show === 'not' ? notYet : forThem;
   async function remove() { setBusy(true); try { await deleteSchoolHomework(h.id); await onRemoved(); } catch { setBusy(false); } }
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
@@ -126,12 +130,17 @@ function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose 
           <div style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{h.text}</div>
           {links.length > 0 && <div className="text-muted" style={{ fontSize: 12.5 }}>Pupils also get {links.length === 1 ? 'its link' : `its ${links.length} links`}: {links.map(l => l.name).join(', ')}</div>}
           <BoxRow columns="repeat(3, minmax(0, 1fr))" cells={[
-            { text: forThem.length, sub: h.allPupils ? 'Whole class' : 'Chosen pupils', label: true },
-            { text: done.length, sub: 'Done', tone: done.length ? 'green' : undefined },
-            { text: notYet.length, sub: 'Not yet', tone: notYet.length ? 'amber' : undefined },
+            { text: forThem.length, sub: h.allPupils ? 'Whole class' : 'Chosen pupils', label: true, onClick: () => setShow('all'), className: show === 'all' ? 'hw-shown' : '' },
+            { text: done.length, sub: 'Done', tone: done.length ? 'green' : undefined, onClick: () => setShow('done'), className: show === 'done' ? 'hw-shown' : '' },
+            { text: notYet.length, sub: late ? 'Not done' : 'Not yet', tone: notYet.length ? (late ? 'red' : 'amber') : undefined, onClick: () => setShow('not'), className: show === 'not' ? 'hw-shown' : '' },
           ]} />
-          {notYet.length > 0 && <div style={{ fontSize: 13 }}><b>Not yet:</b> {notYet.map(p => p.name).join(', ')}</div>}
-          {done.length > 0 && <div style={{ fontSize: 13 }}><b>Done:</b> {done.map(p => p.name).join(', ')}</div>}
+          <div className="hw-names">
+            {names.map(p => {
+              const ticked = h.done.includes(p.id);
+              return <div key={p.id} className={`hw-name ${show === 'all' && ticked ? 'done' : ''}`}>{show === 'all' && ticked ? '✓ ' : ''}{p.name}</div>;
+            })}
+            {!names.length && <div className="text-muted" style={{ fontSize: 13 }}>{show === 'done' ? 'No one yet.' : 'Everyone has done it.'}</div>}
+          </div>
         </div>
         <div className="modal-footer">
           {h.canEdit && !confirm && <button className="btn" style={{ marginRight: 'auto', color: 'var(--red-text)' }} onClick={() => setConfirm(true)}><Trash2 size={13} />Remove</button>}

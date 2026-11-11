@@ -344,7 +344,8 @@ codebase (one codebase, not a fork).
   change or remove their own, the head any). Set from an opened item's **Set homework** (`HomeworkModal`, its links go with it) or
   the **Homework** tab's **Add homework** (its pop-up asks "Type of homework": Surah · Du'aa · Practical · Something else — 2×2 boxes, `ChoiceBoxes columns` — then a
   drop-down of only that kind, "This year" first then "Earlier years"; the owner disliked one mixed list) on Islamic Studies (`HomeworkTab`: a line per piece — "Due Fri 20 Nov · 7 of 11 done" → `HomeworkSheet`:
-  text, Done / Not yet names, Change / Remove; five tabs, 3 + 2 on phones). Pupils: "My homework" in `PupilPortal` (not done first;
+  text, three boxes to tap — Whole class (everyone, done ones ticked green) · Done · Not yet ("Not done", red, once the due date
+  has passed) — opening on Not yet, the names two across below (the owner's pick, A), Change / Remove; five tabs, 3 + 2 on phones). Pupils: "My homework" in `PupilPortal` (not done first;
   tap → text, the item's links, **I've done it**; `POST /api/pupil?action=done`, only their own). Parents: a "Homework" card in the
   portal — what was set, due, "<Name> has done it" — never the links (studies.js `forParent` → `homework`). Removing an item keeps
   its homework (as "Homework"). In Backup (studies.js `homework`) and demo `TABLES`; the school demo has two pieces per class
