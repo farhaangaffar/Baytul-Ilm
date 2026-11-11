@@ -325,6 +325,32 @@ codebase (one codebase, not a fork).
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
   way); logins head, Ustadh Bilal (4A), the Hussain family (2B and 6A). Counted as `demo_school` / `signup_school`.
+- **Pupil logins** (a school only — stage 4, step 1; role `pupil`, `users.student_id`, one login per pupil; `server/pupils.js`
+  `ensurePupilTables()` widens `users_role_check` and adds `student_id`, `last_login_at`, `failed_logins`, `locked_until`). **The
+  school gives each pupil their username and password** (the owner's choice; no Google sign-in): the head types them in on the
+  pupil's card ("Pupil login" — `PupilLoginCard` in `src/components/PupilLogins.js`: one grey line with Manage, like the parent
+  login below it, or "Set up pupil login" → `PupilLoginModal`: username, password, switch off, remove) or imports a class from a spreadsheet ("Pupil logins" card at the bottom of Pupils → `ImportModal`: First name + Surname
+  or Name, Username, Password, optional Class; matched by name, two with one name need Class) — `server/routes/pupil-logins.js`,
+  head only, passwords 4+ characters, stored hashed. Sign-in is the usual screen (school code + username + password); a pupil
+  login **rests 15 minutes after 10 wrong passwords** (`login.js`), and only works while the pupil is Active in a school (`getUser`
+  checks, via the session cookie's `p` flag). Pupils never pass `requireAuth`; their only route is `server/routes/pupil.js` (their
+  name, class and Islamic Studies marks — `studies.forParent` without reports) and their only page `src/pages/PupilPortal.js`
+  (`App.js`: "My homework" — filled by the next steps — and "My Islamic Studies", `PupilDetail` read only; no change-password —
+  the school looks after them). Demo: everyone in the school demo's 6A has a login; the green bar's **Pupil** view is the
+  Hussain child in 6A. Privacy policy names pupil logins. **Homework (stage 4, step 2 — text only, the owner's choice):** `is_homework`
+  (class, optional item, text, due, whole class or chosen pupils in `is_homework_pupils`, who set it) and `is_homework_done`
+  (the pupil's tick) — `server/schoolHomework.js` (`homeworkFor()`; tables made in studies.js `ensure()`, never inside a
+  transaction — a CREATE TABLE there once hung the demo), `server/routes/school-homework.js` (teachers: their own classes; they
+  change or remove their own, the head any). Set from an opened item's **Set homework** (`HomeworkModal`, its links go with it) or
+  the **Homework** tab's **Add homework** (its pop-up asks "Type of homework": Surah · Du'aa · Practical · Something else — 2×2 boxes, `ChoiceBoxes columns` — then a
+  drop-down of only that kind, "This year" first then "Earlier years"; the owner disliked one mixed list) on Islamic Studies (`HomeworkTab`: a line per piece — "Due Fri 20 Nov · 7 of 11 done" → `HomeworkSheet`:
+  text, three boxes to tap — Whole class (everyone, coloured — no ticks) · Done · Not yet ("Not done", red, once the due date
+  has passed) — opening on Not yet, the names two across below in their box's colour — green done, amber not yet, red not done (the owner's pick, A), Change / Remove; five tabs — Surahs · Du'aas · Practicals · Homework · Pupils, 3 + 2 on phones). Pupils: "My homework" in `PupilPortal` (not done first;
+  tap → text, the item's links, **I've done it**; `POST /api/pupil?action=done`, only their own). Parents: a "Homework" card in the
+  portal — what was set, due, "<Name> has done it" — never the links (studies.js `forParent` → `homework`). Removing an item keeps
+  its homework (as "Homework"). In Backup (studies.js `homework`) and demo `TABLES`; the school demo has two pieces per class
+  (this week's, and last week's mostly done). **Next:** quizzes (stage 4b) — see the plan the owner
+  approved (no Google sign-in; logins from the school; parents see homework; pupils see marks; a done tick).
 - **Parent logins** (role `parent`, one per family, `parent_students` links their
   children; `server/parents.js`). They never pass `requireAuth`, so every staff route is
   closed to them; they only use `server/routes/parent.js`, which returns their own

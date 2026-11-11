@@ -94,6 +94,7 @@ async function ensure() {
     added_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   )`);
   await query('CREATE INDEX IF NOT EXISTS idx_is_links_madrasah ON is_links (madrasah_id, item_id)');
+  await require('../schoolHomework').ensureHomework(); // homework (stage 4) — made here, never inside a transaction
   ready = true;
 }
 
@@ -200,7 +201,12 @@ const handler = requireAuth(async (req, res) => {
     const { rows: marks } = await query('SELECT student_id, item_id::text AS item_id, level, updated_by, updated_at FROM is_progress WHERE madrasah_id = $1', [mid]);
     const { rows: ayahs } = await query('SELECT class_id, item_id::text AS item_id, ayahs, updated_by, updated_at FROM is_class_ayahs WHERE madrasah_id = $1', [mid]);
     const { rows: links } = await query('SELECT item_id::text AS item_id, name, url, added_by, added_by_user, added_at FROM is_links WHERE madrasah_id = $1 ORDER BY id', [mid]);
-    res.status(200).json({ items: list, progress: marks, ayahs, links, reports: await require('./school-reports').backup(mid) });
+    const { rows: homework } = await query(
+      `SELECT h.id::text AS id, h.class_id, h.item_id::text AS item_id, h.text, h.due, h.all_pupils, h.set_by, h.set_by_user, h.set_at,
+         COALESCE((SELECT array_agg(p.student_id) FROM is_homework_pupils p WHERE p.homework_id = h.id), '{}') AS pupils,
+         COALESCE((SELECT json_agg(json_build_object('student_id', d.student_id, 'done_at', d.done_at)) FROM is_homework_done d WHERE d.homework_id = h.id), '[]') AS done
+       FROM is_homework h WHERE h.madrasah_id = $1 ORDER BY h.id`, [mid]);
+    res.status(200).json({ items: list, progress: marks, ayahs, links, homework, reports: await require('./school-reports').backup(mid) });
     return;
   }
   if (action === 'restore' && req.method === 'POST') {
@@ -238,6 +244,25 @@ const handler = requireAuth(async (req, res) => {
         if (!ids[l.item_id] || !str(l.name, 120) || !url) continue;
         await c.query('INSERT INTO is_links (madrasah_id, item_id, name, url, added_by, added_by_user, added_at) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7::timestamptz, now()))',
           [mid, ids[l.item_id], str(l.name, 120), url, str(l.added_by), str(l.added_by_user, 40), l.added_at || null]);
+      }
+      // Homework (older backups have none — leave it alone): each with its pupils and done ticks.
+      if (Array.isArray(b.homework)) {
+        await c.query('DELETE FROM is_homework WHERE madrasah_id = $1', [mid]); // its pupils and ticks go with it
+        for (const h of b.homework) {
+          const text = str(h.text, 2000);
+          if (!text || !classIds.has(String(h.class_id))) continue;
+          const { rows: [n] } = await c.query(
+            `INSERT INTO is_homework (madrasah_id, class_id, item_id, text, due, all_pupils, set_by, set_by_user, set_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9::timestamptz, now())) RETURNING id`,
+            [mid, String(h.class_id), h.item_id ? ids[h.item_id] || null : null, text, /^\d{4}-\d{2}-\d{2}/.test(String(h.due || '')) ? String(h.due).slice(0, 10) : null,
+              h.all_pupils !== false, str(h.set_by), str(h.set_by_user, 40), h.set_at || null]);
+          for (const sid of Array.isArray(h.pupils) ? h.pupils : []) {
+            if (pupils.has(String(sid))) await c.query('INSERT INTO is_homework_pupils (homework_id, student_id, madrasah_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [n.id, String(sid), mid]);
+          }
+          for (const d of Array.isArray(h.done) ? h.done : []) {
+            if (pupils.has(String(d.student_id))) await c.query('INSERT INTO is_homework_done (homework_id, student_id, madrasah_id, done_at) VALUES ($1,$2,$3,COALESCE($4::timestamptz, now())) ON CONFLICT DO NOTHING', [n.id, String(d.student_id), mid, d.done_at || null]);
+          }
+        }
       }
       // Assessment points and reports (older backups have none — leave them alone).
       if (b.reports) await require('./school-reports').restore(c, mid, b.reports, Object.fromEntries(Object.entries(ids).map(([k, v]) => [String(k), String(v)])));
@@ -544,6 +569,7 @@ const handler = requireAuth(async (req, res) => {
       await c.query('DELETE FROM is_progress WHERE madrasah_id = $1 AND item_id = $2', [mid, id]);
       await c.query('DELETE FROM is_class_ayahs WHERE madrasah_id = $1 AND item_id = $2', [mid, id]);
       await c.query('DELETE FROM is_links WHERE madrasah_id = $1 AND item_id = $2', [mid, id]);
+      await c.query('UPDATE is_homework SET item_id = NULL WHERE madrasah_id = $1 AND item_id = $2', [mid, id]); // the homework stays
       await c.query('DELETE FROM is_items WHERE madrasah_id = $1 AND id = $2', [mid, id]);
     });
     res.status(200).json({ ok: true });
@@ -569,6 +595,7 @@ async function forParent(mid, student) {
     classAverage: await classAverageOf(mid, student.class, year), // the whole class's figures, to compare with
     // Reports the school has sent to parents (routes/school-reports.js), with every item so older years' marks show.
     reports: await require('./school-reports').forParent(mid, student.id), allItems: await items(mid),
+    homework: await require('../schoolHomework').homeworkFor(mid, student), // what was set, never the links
   };
 }
 

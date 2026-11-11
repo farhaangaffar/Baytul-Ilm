@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import ImportStudents from '../components/ImportStudents';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms, getStudiesSummary } from '../lib/store';
+import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms, getStudiesSummary, getPupilLogins } from '../lib/store';
 import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -20,6 +20,7 @@ import { useAuth } from '../lib/AuthContext';
 import { PupilSheet, yearLabel } from './Studies';
 import SchoolYearLine from '../components/SchoolNewYear';
 import BoarderRecord from '../components/BoarderRecord';
+import { PupilLoginCard, PupilLoginsLine } from '../components/PupilLogins';
 
 const WAITING_LIST = 'Waiting list';
 
@@ -41,7 +42,11 @@ function InfoRows({ rows }) {
 }
 
 export default function Students() {
-  const { isDarulUloom, isSchool } = useAuth();
+  const { isDarulUloom, isSchool, user } = useAuth();
+  // A school's pupil logins (stage 4), shown on each pupil's card and the "Pupil logins" line.
+  const [pupilLogins, setPupilLogins] = useState([]);
+  const loadPupilLogins = useCallback(() => (isSchool ? getPupilLogins().then(setPupilLogins).catch(() => {}) : Promise.resolve()), [isSchool]);
+  useEffect(() => { loadPupilLogins(); }, [loadPupilLogins]);
   const [studies, setStudies] = useState({}); // a school: each class's Islamic Studies this year, by class name
   const [studiesPupil, setStudiesPupil] = useState(null);
   const word = isSchool ? 'Pupils' : 'Students';
@@ -465,6 +470,7 @@ export default function Students() {
         )}
 
         {isSchool && <SchoolYearLine onDone={silentRefresh}/>}
+        {isSchool && <PupilLoginsLine students={students} logins={pupilLogins} demo={!!user?.demo} onChanged={loadPupilLogins}/>}
         {(leftStudents.length>0 || isSchool)&&(
           <div className="card" id="left-card" style={{marginTop:20}}>
             <div onClick={()=>setLeftExpanded(e=>!e)}
@@ -607,6 +613,11 @@ export default function Students() {
                   {(()=>{ const r=detailRows(selected,isDarulUloom,['du']); return r.length ? (
                     <InfoCard icon={GraduationCap} tone="blue" title="Darul Uloom"><InfoRows rows={r}/></InfoCard>
                   ) : null; })()}
+                  {isSchool && selected.status!=='Inactive' && (
+                    <InfoCard icon={KeyRound} tone="blue" title="Pupil login">
+                      <PupilLoginCard key={selected.id} student={selected} login={pupilLogins.find(l=>l.studentId===selected.id)} demo={!!user?.demo} onChanged={loadPupilLogins}/>
+                    </InfoCard>
+                  )}
                   {selected.status==='Inactive'&&!isSchool&&(
                     <InfoCard icon={FileText} title="Previous reports">
                       <div>

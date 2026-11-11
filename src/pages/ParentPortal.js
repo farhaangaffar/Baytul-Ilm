@@ -11,6 +11,7 @@ import { countedFees } from '../lib/feePeriods';
 import { useSettings } from '../lib/SettingsContext';
 import { QuranProgressCard } from '../components/QuranCards';
 import { PupilDetail } from './Studies';
+import { niceDue } from '../components/SchoolHomework';
 import { ReportModal } from './SchoolReports';
 import { reportOf } from '../lib/studiesReport';
 import ChangePasswordModal from '../components/ChangePasswordModal';
@@ -267,6 +268,22 @@ function StudiesCards({ studies, child }) {
                 </span>
                 <span className="line-row-sub">Open</span>
               </button>
+            ))}
+          </div>
+        </Section>
+      )}
+      {/* Homework the school has set (never its links — those are for the pupil). */}
+      {(studies.homework || []).length > 0 && (
+        <Section title="Homework">
+          <div style={{ display: 'grid', gap: 8 }}>
+            {studies.homework.slice(0, 10).map(h => (
+              <div key={h.id} className="hw-parent">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13.5 }}>
+                  <b>{h.itemName || 'Homework'}</b>
+                  <span className={h.doneAt ? 'hw-tag done' : 'hw-tag'}>{h.doneAt ? `${child.forename} has done it` : niceDue(h.due) || 'To do'}</span>
+                </div>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5 }}>{h.text}</div>
+              </div>
             ))}
           </div>
         </Section>

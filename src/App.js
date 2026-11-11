@@ -19,6 +19,7 @@ import SettingsPage    from './pages/Settings';
 import Login           from './pages/Login';
 import Madaaris        from './pages/Madaaris';
 import ParentPortal    from './pages/ParentPortal';
+import PupilPortal     from './pages/PupilPortal';
 import BackToExit, { ParentBackToExit } from './components/BackToExit';
 import Signup         from './pages/Signup';
 import Join           from './pages/Join';
@@ -131,6 +132,15 @@ export default function App() {
   if (session.user.termsNeeded) {
     return <AcceptTerms madrasahName={session.user.madrasah?.name} onAccepted={refreshSession}
       onSignOut={async () => { try { await logout(); } catch {} refreshSession(); }} />;
+  }
+
+  // A school's pupils: their own homework and marks, on one page of their own — none of the staff pages.
+  if (session.user.role === 'pupil') {
+    return (
+      <AuthProvider value={{ user: session.user }}>
+        <SettingsProvider><PupilPortal /><ParentBackToExit /></SettingsProvider>
+      </AuthProvider>
+    );
   }
 
   // Parents: their own children only, on one page of their own — none of the staff pages.

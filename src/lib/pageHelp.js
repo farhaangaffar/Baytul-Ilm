@@ -235,6 +235,7 @@ const STUDIES_STEPS = [
   'Resources (inside an opened line): links to worksheets, slideshows or videos kept in Google Drive, OneDrive, YouTube or any website. Tap one to open it; "Add a link" to add one. You can change or remove your own links (the head, any).',
   'A surah also shows the class\'s weekly tracker: tap the last aayah the class has reached and every aayah before it is marked too (or All).',
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
+  'Homework: open a surah, du\'aa or practical and tap "Set homework" — write what to do, the due date, and the whole class or chosen pupils. Its links go to the pupils with it. The Homework tab lists what\'s been set and who has ticked it done (tap one to change or remove it); "Add homework" there adds another — a surah, du\'aa, practical or something else.',
   'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',
   'Pupils: a line for each child — tap their name for everything of theirs: how much they\'ve achieved, each list with their bar and the class\'s underneath (tap a list to mark its items), their average and the class\'s, the surah the class is on, and what to work on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
@@ -257,6 +258,7 @@ const SCHOOL_HEAD = {
     'A pupil who changes class: open them and choose "Move to another class". Leaving: "Mark as left the school" (it asks first) — they go under Left (tap the Left box), marks kept.',
     'End of the year: first add next year\'s classes on Classes & Teachers, then "New school year" (bottom of the page) — choose which class each class goes into, or "Left the school". Marks go with every pupil, and it can be undone.',
     'Switch the parent portal on in Settings, then set up each family\'s login from a pupil\'s card.',
+    'Pupil logins: type in the username and password your school gives a pupil on their card (Pupil login), or add a whole class at once with "Pupil logins" at the bottom of the page — upload or paste a spreadsheet with First name, Surname, Username and Password. Pupils sign in with your school\'s code and see their homework and their own marks.',
   ] },
   '/reports': { title: 'Reports', steps: [
     'Mark everyone on Islamic Studies, then "Take the Autumn assessment" (or Spring, Summer — End of year if you report once a year, Settings). It saves where every pupil is now.',
@@ -284,12 +286,19 @@ const SCHOOL_PARENT = { title: 'How to use this page', steps: [
   'If you have more than one child, choose one at the top.',
   'Islamic Studies: how your child is doing — achieved, completed with help, incomplete — what to work on (tap Surahs, Du\'aas or Practicals to see them), and the surah the class is learning. Tap a list to see every surah, du\'aa or practical.',
   'Reports: each one the school has sent — tap it to see it and download the PDF.',
+  'Homework: what your child\'s teacher has set, when it\'s due, and whether your child has ticked it done.',
   'Your details: tap "Check & update" to change your names, phone numbers and emails.',
+] };
+
+const SCHOOL_PUPIL = { title: 'How to use this page', steps: [
+  'My homework: what your teacher has set, newest first. Tap one to see what to do and the links to open.',
+  'My Islamic Studies: how you\'re doing — achieved, completed with help, incomplete — and what to work on. Tap Surahs, Du\'aas or Practicals to see each one.',
+  'Forgotten your password? Ask your teacher — the school looks after pupils\' passwords.',
 ] };
 
 // → { title, steps: [...] } for this page and person, or null.
 export function pageHelp(pathname, role, darulUloom = false, school = false) {
-  const h = school ? (role === 'parent' ? SCHOOL_PARENT : (role === 'owner' ? SCHOOL_HEAD : SCHOOL_TEACHER)[pathname] || (role === 'owner' && HEAD[pathname]))
+  const h = school ? (role === 'pupil' ? SCHOOL_PUPIL : role === 'parent' ? SCHOOL_PARENT : (role === 'owner' ? SCHOOL_HEAD : SCHOOL_TEACHER)[pathname] || (role === 'owner' && HEAD[pathname]))
     : role === 'parent' ? PARENT : ((darulUloom && (role === 'owner' ? DU_HEAD : DU_TEACHER)[pathname]) || (role === 'owner' ? HEAD : TEACHER)[pathname]);
   if (!h) return null;
   return { title: h.title, steps: typeof h.steps === 'function' ? h.steps() : h.steps };

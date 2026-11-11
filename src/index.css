@@ -1143,3 +1143,20 @@ button.st-name:hover { color: var(--teal-dark); text-decoration: underline; }
 .st-link-ic.onedrive { background: #e3edfb; color: #1f5bb8; }
 .st-link-ic.youtube { background: #fde4e1; color: #c0392b; }
 .st-ellipsis { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Islamic Studies: five tabs — three across on phones, then two */
+@media (max-width: 560px) { .st-tabs.five { grid-template-columns: repeat(6, minmax(0, 1fr)); } .st-tabs.five > :nth-child(-n+3) { grid-column: span 2; } .st-tabs.five > :nth-child(n+4) { grid-column: span 3; } }
+@media (min-width: 561px) { .st-tabs.five { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.hw-pick { display: grid; gap: 4px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--r-md); padding: 6px; }
+.hw-pick-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
+.hw-pick-row.on { background: var(--teal-light); }
+.hw-done { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--green-light); color: var(--green-text); border: 1px solid var(--green); flex: none; }
+.hw-parent { border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; display: grid; gap: 4px; }
+.hw-tag { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.hw-tag.done { color: var(--green-text); font-weight: 600; }
+.pl-row { display: flex; align-items: center; gap: 8px; background: #f3f4f6; border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; }
+.hw-shown { outline: 2px solid var(--blue); outline-offset: 1px; }
+.hw-names { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.hw-name { background: #f5f6f8; border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hw-name.done { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+.hw-name.notyet { background: var(--amber-light); border-color: var(--amber); color: var(--amber-text); }
+.hw-name.late { background: var(--red-light); border-color: var(--red); color: var(--red-text); }

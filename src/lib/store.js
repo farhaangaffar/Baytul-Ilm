@@ -103,6 +103,13 @@ export async function deleteUser(id) { return apiFetch(`/api/users?id=${encodeUR
 
 // ── Parent portal (parent logins only) — see server/routes/parent.js ──
 export async function getParentHome() { return apiFetch('/api/parent'); }
+// A school's pupil logins (server/routes/pupil.js, pupil-logins.js).
+export const getPupilHome = () => apiFetch('/api/pupil');
+export const getPupilLogins = () => apiFetch('/api/pupil-logins');
+export const savePupilLogin = (studentId, login, password) => apiFetch('/api/pupil-logins', { method: 'POST', body: JSON.stringify({ studentId, login, password }) });
+export const importPupilLogins = rows => apiFetch('/api/pupil-logins?action=import', { method: 'POST', body: JSON.stringify({ rows }) });
+export const setPupilLoginActive = (studentId, active) => apiFetch('/api/pupil-logins?action=active', { method: 'POST', body: JSON.stringify({ studentId, active }) });
+export const removePupilLogin = studentId => apiFetch(`/api/pupil-logins?studentId=${encodeURIComponent(studentId)}`, { method: 'DELETE' });
 export async function getParentChild(studentId) { return apiFetch(`/api/parent?studentId=${encodeURIComponent(studentId)}`); }
 export async function reportAbsence(data) { return apiFetch('/api/parent?action=absence', { method: 'POST', body: JSON.stringify(data) }); }
 export async function updateMyChildDetails(data) { return apiFetch('/api/parent?action=details', { method: 'POST', body: JSON.stringify(data) }); }
@@ -717,6 +724,11 @@ const maintenancePost = (action, body) => apiFetch(`/api/maintenance?action=${ac
 export const getMaintenance = () => apiFetch('/api/maintenance');
 // A school's Islamic Studies (server/routes/studies.js).
 export const getStudiesClass = cls => apiFetch(`/api/studies?class=${encodeURIComponent(cls)}`);
+// A school's homework (server/routes/school-homework.js; pupils tick it done through /api/pupil).
+export const getSchoolHomework = cls => apiFetch(`/api/school-homework?class=${encodeURIComponent(cls)}`);
+export const saveSchoolHomework = h => apiFetch('/api/school-homework', { method: 'POST', body: JSON.stringify(h) });
+export const deleteSchoolHomework = id => apiFetch(`/api/school-homework?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const markMyHomework = (id, done) => apiFetch('/api/pupil?action=done', { method: 'POST', body: JSON.stringify({ id, done }) });
 export const getStudiesSummary = () => apiFetch('/api/studies?action=summary');
 export const saveClassAyahs = (className, itemId, ayahs) => apiFetch('/api/studies?action=ayahs', { method: 'POST', body: JSON.stringify({ className, itemId, ayahs }) });
 export const importStudiesMarks = marks => apiFetch('/api/studies?action=import', { method: 'POST', body: JSON.stringify({ marks }) });
