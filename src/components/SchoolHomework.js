@@ -189,8 +189,13 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
       )}
       {modal?.kind === 'view' && (
         <HomeworkSheet homework={modal.homework} pupils={pupils} links={links.filter(l => l.itemId === modal.homework.itemId)}
-          onEdit={() => setModal({ kind: 'set', homework: modal.homework })}
+          onEdit={() => setModal(m => ({ ...m, editing: true }))}
           onRemoved={async () => { setModal(null); await load(); }} onClose={() => setModal(null)} />
+      )}
+      {/* Change opens on top of the homework (closing one pop-up to open another made the new one close too). */}
+      {modal?.kind === 'view' && modal.editing && (
+        <HomeworkModal className={className} items={items} pupils={pupils} homework={modal.homework} yearGroup={yearGroup}
+          onClose={() => setModal(m => (m ? { ...m, editing: false } : m))} onSaved={async () => { setModal(null); await load(); }} />
       )}
     </div>
   );
