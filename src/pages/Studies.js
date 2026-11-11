@@ -110,7 +110,7 @@ export default function Studies() {
   useEffect(() => { if (isOwner) markStudiesVisited(user?.madrasah?.code); }, [isOwner, user]);
   const [classes, setClasses] = useState(null);
   const [cls, setCls] = useState(() => recall('studies_class', ''));
-  const [tab, setTab] = useState(() => recall('studies_tab', 'surah'));
+  const [tab, setTab] = useState('surah'); // always opens on Surahs, and again when a class is picked (the owner's ask)
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [openItem, setOpenItem] = useState(null);
@@ -133,8 +133,8 @@ export default function Studies() {
   }, [cls]);
   useEffect(() => { load(); }, [load]);
 
-  const pickClass = c => { setCls(c); setData(null); setOpenItem(null); remember('studies_class', c); };
-  const pickTab = t => { setTab(t); setOpenItem(null); setShowEarlier(false); remember('studies_tab', t); };
+  const pickClass = c => { setCls(c); setData(null); setOpenItem(null); setShowEarlier(false); setTab('surah'); remember('studies_class', c); };
+  const pickTab = t => { setTab(t); setOpenItem(null); setShowEarlier(false); };
 
   // level of [pupil][item]
   const levels = useMemo(() => {
