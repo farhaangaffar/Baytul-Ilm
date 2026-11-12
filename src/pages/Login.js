@@ -3,6 +3,7 @@ import { LegalLinks } from '../components/Legal';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
 import { getBranding, setBranding, isNeutralBranding, APP_NAME, APP_NAME_ARABIC, APP_TAGLINE } from '../lib/branding';
 import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
+import { devicePupils, forgetPupil } from '../lib/devicePupils';
 import { LogIn, KeyRound, UserPlus, PlayCircle, Rocket } from 'lucide-react';
 import { DemoChooser } from '../components/Demo';
 
@@ -27,6 +28,8 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   const [code, setCode] = useState(getMadrasahCode());
   const [editingCode, setEditingCode] = useState(!getMadrasahCode());
   const [loginName, setLoginName] = useState('');
+  // Pupils who have signed in on this device before (brothers and sisters sharing it): tap a name, type the password.
+  const [pupils, setPupils] = useState(() => devicePupils(getMadrasahCode()));
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -105,17 +108,25 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   const linkBtn = { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--page)', padding: 20 }}>
-      <div className="card" style={{ width: '100%', maxWidth: mode === 'demo' ? 440 : 360, textAlign: 'center' }}>
-        {mode !== 'demo' && (neutral ? <>
-          {/* No madrasah on this device yet: the app's own name. */}
-          <div style={{ fontFamily: "'Amiri', serif", fontSize: 28, color: 'var(--ink)', marginBottom: 0 }}>{APP_NAME_ARABIC}</div>
-          <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>{APP_NAME}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{APP_TAGLINE}</div>
-        </> : <>
-          {branding.schoolNameArabic && <div style={{ fontFamily: "'Amiri', serif", fontSize: 26, color: 'var(--ink)', marginBottom: 4 }}>{branding.schoolNameArabic}</div>}
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>{branding.schoolName}</div>
-        </>)}
+    // The owner's pick (A, with the website's soft gradient): a split page — a gradient side with the name (Suhuf's, or the
+    // madrasah's own once the device knows its code), the form beside it; on phones the side is a band on top.
+    <div className="signin-page">
+      <div className={`signin-shell ${mode === 'demo' ? 'wide' : ''}`}>
+        <div className="signin-side">
+          {neutral ? <>
+            {/* No madrasah on this device yet: the app's own name. */}
+            <div className="signin-ar">{APP_NAME_ARABIC}</div>
+            <div className="signin-name">{APP_NAME}</div>
+            <p>Sign in to your madrasah, Darul Uloom or school.</p>
+            <div className="signin-chips"><span>Maktabs</span><span>Darul Ulooms</span><span>Schools</span></div>
+          </> : <>
+            {branding.schoolNameArabic && <div className="signin-ar">{branding.schoolNameArabic}</div>}
+            <div className="signin-name">{branding.schoolName}</div>
+            <p>Welcome back.</p>
+          </>}
+          <div className="signin-foot">{neutral ? APP_TAGLINE : `Runs on ${APP_NAME}`}</div>
+        </div>
+        <div className="signin-form">
 
         {mode === 'demo' && (
           <>
@@ -138,21 +149,35 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             ) : (
               <>
                 {editingCode ? (
-                  <div className="form-group" style={{ textAlign: 'left', marginBottom: 14 }}>
-                    <label>Madrasah code</label>
+                  <div className="form-group signin-code" style={{ textAlign: 'left', marginBottom: 14 }}>
+                    <label>School or madrasah code</label>
                     <input value={code} onChange={e => { setCode(e.target.value); setError(''); }} placeholder="e.g. al-noor" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-                    <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>From your madrasah office. This device remembers it after you sign in.</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>From your school or madrasah office. This device remembers it after you sign in.</span>
                   </div>
                 ) : (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, textAlign: 'left' }}>
-                    Madrasah code: <strong>{code}</strong>{' '}
+                    Code: <strong>{code}</strong>{' '}
                     <button type="button" style={{ ...linkBtn, fontSize: 12, textDecoration: 'underline', padding: 0 }} onClick={() => setEditingCode(true)}>change</button>
                   </div>
                 )}
-                {field('Username or email', loginName, setLoginName, { ...usernameProps, autoFocus: !editingCode })}
+                {!editingCode && pupils.length > 0 && (
+                  <div className="who-signin">
+                    <div className="who-signin-label">Who's signing in?</div>
+                    <div className="who-signin-list">
+                      {pupils.map(p => (
+                        <span key={p.login} className={`who-chip ${loginName === p.login ? 'on' : ''}`}>
+                          <button type="button" onClick={() => { setLoginName(p.login); setError(''); setTimeout(() => document.getElementById('signin-password')?.focus(), 0); }}>{p.name || p.login}</button>
+                          <button type="button" className="who-x" aria-label={`Forget ${p.name || p.login} on this device`}
+                            onClick={() => { forgetPupil(code, p.login); setPupils(devicePupils(code)); if (loginName === p.login) setLoginName(''); }}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {field('Username or email', loginName, setLoginName, { ...usernameProps, autoFocus: !editingCode && !pupils.length })}
               </>
             )}
-            {field(setupRequired ? 'School password' : 'Password', password, setPassword, { type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
+            {field(setupRequired ? 'School password' : 'Password', password, setPassword, { id: 'signin-password', type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
             {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && (!loginName || !code.trim())))}
             {!setupRequired && (
@@ -161,7 +186,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
               </button>
             )}
             {!setupRequired && (
-              <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 6 }}>Everyone else: ask the madrasah office to reset your password.</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 6 }}>Everyone else: ask your school or madrasah office to reset your password.</div>
             )}
             {/* Only on a device that isn't any madrasah's yet, so a madrasah's own people
                 don't see it; the ?demo link works anywhere. */}
@@ -207,6 +232,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             </button>
           </form>
         )}
+        </div>
       </div>
       <LegalLinks style={{ marginTop: 14 }} />
     </div>

@@ -4,7 +4,9 @@ import BoxRow from '../components/BoxRow';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getSchoolStats } from '../lib/store';
 import { yearLabel, STUDY_KINDS } from '../lib/studies';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { buildSchoolStatsPdf } from '../lib/schoolStatsPdf';
+import { downloadPdfBytes } from '../lib/reportPdf';
+import { ChevronDown, ChevronUp, Download } from 'lucide-react';
 
 // A school's Stats page (server/routes/school-stats.js; head only): the madrasah Stats page's comparisons — the whole school,
 // class against class, through the year, year over year — for Surahs, Du'aas, Practicals and Homework. Everything is a
@@ -57,6 +59,20 @@ export default function SchoolStats() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(null); // an opened year group
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  // Every list's stats for the year on screen, as one PDF (the owner's ask: every year group, all four sections).
+  async function downloadPdf() {
+    setPdfBusy(true); setPdfError('');
+    try {
+      const y = data?.year || year;
+      const [surah, duaa, practical, homework] = await Promise.all(['surah', 'duaa', 'practical', 'homework'].map(k => getSchoolStats(k, y)));
+      const made = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      const bytes = await buildSchoolStatsPdf({ year: surah.year, made, kinds: { surah, duaa, practical, homework } });
+      downloadPdfBytes(bytes, `islamic-studies-stats-${surah.year}.pdf`);
+    } catch (e) { setPdfError(e.message || 'Could not make the PDF'); }
+    setPdfBusy(false);
+  }
   const load = useCallback(() => {
     setData(null); setError(null);
     getSchoolStats(tab, year).then(setData).catch(setError);
@@ -75,6 +91,12 @@ export default function SchoolStats() {
           {[...data.years].reverse().map(y => <button key={y} className={`pill-tab ${data.year === y ? 'year-active' : ''}`} onClick={() => { setYear(y); setOpen(null); }}>{niceYear(y)}</button>)}
         </div>
       )}
+      {data && (
+        <button type="button" className="line-row add ss-pdf" disabled={pdfBusy} onClick={downloadPdf}>
+          <Download size={14} /> {pdfBusy ? 'Making the PDF…' : `Download all stats as a PDF · ${niceYear(data.year)}`}
+        </button>
+      )}
+      {pdfError && <div style={{ color: 'var(--red-text)', fontSize: 13, marginTop: 6 }}>{pdfError}</div>}
       {error ? <ErrorState error={error} onRetry={load} /> : !data || data.kind !== tab ? <LoadingState /> : (
         <div style={{ display: 'grid', gap: 14, marginTop: 14 }}>
           {homework ? (

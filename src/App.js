@@ -98,7 +98,8 @@ export default function App() {
   // that doesn't belong to any madrasah yet (staff and parents arrive with ?m=<code>, or the
   // device remembers its code, so they go straight to sign-in). "Sign in" opens /?signin.
   const toSignIn = () => window.location.assign('/?signin');
-  if (window.location.pathname === '/about') return <Landing onSignIn={toSignIn} />;
+  // /maktab, /darul-uloom and /schools open the same page on that door (links to send the right people).
+  if (['/about', '/maktab', '/darul-uloom', '/schools'].includes(window.location.pathname.replace(/\/$/, '') || '/')) return <Landing onSignIn={toSignIn} />;
   const params = new URLSearchParams(window.location.search);
   const newVisitor = window.location.pathname === '/' && !getMadrasahCode() && !['m', 'demo', 'signin', 'start'].some(k => params.has(k));
   if (newVisitor && session && !session.authenticated && !session.setupRequired) return <Landing onSignIn={toSignIn} />;

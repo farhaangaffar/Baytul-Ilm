@@ -261,6 +261,7 @@ const SCHOOL_HEAD = {
     'Year groups: each year as a whole. Tap one with several forms (e.g. Year 6) to compare 6A, 6B and 6C side by side.',
     'Through the year: each assessment point (taken on the Reports page) by year group. Year over year: the whole school, year by year.',
     'Hardest: the surahs, du\'aas or practicals with the most pupils still incomplete. Homework: done on time or late, by month, and each quiz\'s average.',
+    '"Download all stats as a PDF" saves everything — all four lists, every year group and form — for the year chosen, as one document to share.',
   ] },
   '/': { title: 'Dashboard', steps: [
     'The boxes on top: pupils, classes, and how much of this year\'s surahs, du\'aas and practicals are achieved or being worked towards.',

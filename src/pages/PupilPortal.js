@@ -12,6 +12,8 @@ import { usePageHelp, PageHelpButton } from '../components/PageHelp';
 import { DemoBar, leaveDemo } from '../components/Demo';
 import { useAuth } from '../lib/AuthContext';
 import { useBackToClose } from '../lib/useBackToClose';
+import { rememberPupil } from '../lib/devicePupils';
+import { getMadrasahCode } from '../lib/madrasahCode';
 import { LogOut, ChevronDown, ChevronUp, ExternalLink, Check, X } from 'lucide-react';
 
 // A pupil's own page (a school's pupil login — server/routes/pupil.js): their homework (the next step of stage 4) and
@@ -106,6 +108,10 @@ export default function PupilPortal() {
   const [error, setError] = useState('');
 
   useEffect(() => { getPupilHome().then(setHome).catch(err => setError(err.message || 'Could not load')); }, []);
+  // Remember this pupil on this device for the sign-in screen's "Who's signing in?" boxes (never in a demo).
+  useEffect(() => {
+    if (home?.pupil && user?.login && !user.demo) rememberPupil(user.madrasah?.code || getMadrasahCode(), user.login, home.pupil.forename);
+  }, [home, user]);
   async function signOut() { if (user?.demo) { leaveDemo(); return; } await logout().catch(() => {}); window.location.reload(); }
   const studies = home?.studies;
   const level = it => studies?.progress.find(p => p.itemId === it.id)?.level || 0;
