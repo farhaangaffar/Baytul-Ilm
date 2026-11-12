@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS madaaris (
   billing_amount NUMERIC(8,2),            -- its price for that plan; NULL = £20 a month / £200 a year
   kind           TEXT NOT NULL DEFAULT 'maktab', -- 'maktab' or 'darul_uloom' (full-time; gets the Darul Uloom pages)
   referred_by    INTEGER,                 -- the madrasah that recommended this one ("Recommend Suhuf", ?ref=<code>)
-  referral_reward_at TIMESTAMP            -- when that madrasah was given its free month for it (NULL = none)
+  referral_reward_at TIMESTAMP,           -- when that madrasah was given its free month for it (NULL = none)
+  school_phase   TEXT,                    -- a school: 'primary', 'secondary' or 'all-through'
+  school_forms   INTEGER                  -- a school: forms of entry (its yearly price follows them)
 );
 
 -- Running Suhuf itself (server/platform.js): what each madrasah has paid us, the phones that

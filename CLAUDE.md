@@ -262,6 +262,19 @@ codebase (one codebase, not a fork).
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
+- **School launch (stage 5)**: schools sign themselves up — `/?start=school` (Signup.js: a third box **School**, then
+  Primary / Secondary / All-through and forms of entry 1 · 2 · 3 · "4 or more" — 4+ shows "Message us" instead of the form;
+  `madaaris.school_phase`, `school_forms`). Price by forms, yearly (`schoolPrice()` in `server/newMadrasah.js`: £500 / £800 /
+  £1,000); **the first term free** — `schoolFreeUntil()`: to 31 Dec / 31 Mar / 31 Aug, plus the next term if fewer than 6 weeks
+  are left (also when the platform owner adds a school). The sign-up tick is "I'm allowed to agree for my school…" and records
+  `SCHOOL_TERMS_VERSION` ('school-2026-11', session.js + legal.js), which covers the terms **and the data processing agreement**
+  (`DPA` in `src/lib/legal.js`; `/dpa` page with a blank PDF; a school's head downloads its copy with its name and agreed date from
+  Settings → Data processing agreement, `GET /api/session?action=dpa`, `src/lib/dpaPdf.js`). A change to the DPA bumps
+  SCHOOL_TERMS_VERSION only. Written from ICO guidance, not by a lawyer — the owner was advised to have it checked. The Madaaris
+  page: a school's forms/phase in Add / Edit details (a forms change sets its yearly price) and its Size boxes; **Invoice**
+  (`InvoiceModal`, `src/lib/invoicePdf.js`) for any madrasah — the next unpaid months at its price, a reference `<CODE>-<YYYYMM>`,
+  the platform owner's bank details typed once (`?action=invoice-details`, `platform_kv`). The front page's school door and price
+  card say Start free; footer links the DPA. `WHATSAPP_NUMBER` is in `branding.js`.
 - **School — Islamic Studies** (`madaaris.kind = 'school'`: the Islamic Studies department of a primary or secondary
   school; the owner works in an Islamic school, which guides it — but build for every school). Built in stages (the owner's
   plan, approved): 1 trackers ✓ → 2 assessments & reports → 3 lesson resources (**links** to Google Drive / OneDrive, no

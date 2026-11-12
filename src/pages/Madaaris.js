@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import SignupNotifications from '../components/SignupNotifications';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment } from '../lib/store';
+import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment, getInvoiceDetails, saveInvoiceDetails } from '../lib/store';
 import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -195,6 +195,7 @@ export default function Madaaris() {
       {modal?.kind === 'edit' && (
         <EditModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast('Saved'); await load(); }} />
       )}
+      {modal?.kind === 'invoice' && <InvoiceModal m={list.find(x => x.id === modal.m.id) || modal.m} onClose={back} />}
       {modal?.kind === 'password' && (
         <PasswordModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast("Head's password reset"); await load(); }} />
       )}
@@ -279,7 +280,7 @@ function useSubmit() {
 const noAuto = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'off' };
 
 function AddModal({ onClose, onCreated }) {
-  const [f, setF] = useState({ name: '', code: '', headLogin: '', headPassword: '', kind: 'maktab' });
+  const [f, setF] = useState({ name: '', code: '', headLogin: '', headPassword: '', kind: 'maktab', schoolPhase: 'primary', schoolForms: 1 });
   const [codeTouched, setCodeTouched] = useState(false);
   const { busy, error, setError, submit } = useSubmit();
   const set = (k, v) => { setError(''); setF(prev => ({ ...prev, [k]: v, ...(k === 'name' && !codeTouched ? { code: suggestCode(v) } : {}) })); };
@@ -297,6 +298,7 @@ function AddModal({ onClose, onCreated }) {
         <input value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Al-Noor Academy" autoFocus />
       </div>
       <KindChoice value={f.kind} onChange={k => set('kind', k)} />
+      {f.kind === 'school' && <SchoolSize phase={f.schoolPhase} forms={f.schoolForms} onPhase={v => set('schoolPhase', v)} onForms={v => set('schoolForms', v)} />}
       <div className="form-group" style={{ marginBottom: 12 }}>
         <label>Sign-in code</label>
         <input value={f.code} onChange={e => { setCodeTouched(true); set('code', e.target.value); }} placeholder="e.g. al-noor" {...noAuto} />
@@ -310,7 +312,7 @@ function AddModal({ onClose, onCreated }) {
         <label>Starting password (8+ characters)</label>
         <input type="text" value={f.headPassword} onChange={e => set('headPassword', e.target.value)} {...noAuto} />
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for 6 months{f.kind === 'darul_uloom' ? ', then £500 a year' : f.kind === 'school' ? ', then £500 a year for one form of entry (£800 two, £1,000 three — set it in Payments)' : ''}.</div>
+      <div style={{ fontSize: 11.5, color: 'var(--text-soft)' }}>The head can change this once signed in. Their madrasah starts empty, with this academic year added, and is free for {f.kind === 'school' ? `the rest of this term, then ${{ 1: '£500', 2: '£800', 3: '£1,000' }[f.schoolForms] || 'the price you agree (set it in Payments)'} a year` : `6 months${f.kind === 'darul_uloom' ? ', then £500 a year' : ''}`}.</div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );
@@ -331,14 +333,39 @@ function KindChoice({ value, onChange }) {
   );
 }
 
+// A school's phase and forms of entry (its yearly price follows the forms: 1 £500, 2 £800, 3 £1,000; more is agreed).
+const PHASES = [['primary', 'Primary'], ['secondary', 'Secondary'], ['all-through', 'All-through']];
+export const PHASE_LABELS = Object.fromEntries(PHASES);
+function SchoolSize({ phase, forms, onPhase, onForms }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10, marginBottom: 12 }}>
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <label>School</label>
+        <select value={phase || ''} onChange={e => onPhase(e.target.value || null)}>
+          <option value="">Not said</option>
+          {PHASES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <label>Forms of entry</label>
+        <input type="number" min="1" max="20" step="1" value={forms || ''} onChange={e => onForms(Math.max(1, Math.min(20, Number(e.target.value) || 1)))} />
+      </div>
+    </div>
+  );
+}
+
 function EditModal({ m, onClose, onSaved }) {
   const [name, setName] = useState(m.name);
   const [code, setCode] = useState(m.code);
   const [freeUntil, setFreeUntil] = useState(m.freeUntil || '');
   const [kind, setKind] = useState(m.kind || 'maktab');
+  const [phase, setPhase] = useState(m.schoolPhase || null);
+  const [forms, setForms] = useState(m.schoolForms || 1);
   const { busy, error, setError, submit } = useSubmit();
   const changes = {};
   if (kind !== (m.kind || 'maktab')) changes.kind = kind;
+  if (kind === 'school' && (phase || null) !== (m.schoolPhase || null)) changes.schoolPhase = phase;
+  if (kind === 'school' && Number(forms) !== Number(m.schoolForms || (changes.kind ? 0 : 1))) changes.schoolForms = Number(forms);
   if (name.trim() !== m.name) changes.name = name;
   if (code.trim().toLowerCase() !== m.code) changes.code = code;
   if (freeUntil && freeUntil !== m.freeUntil) changes.freeUntil = freeUntil;
@@ -360,12 +387,14 @@ function EditModal({ m, onClose, onSaved }) {
       </div>
       {changes.code && <div style={{ fontSize: 11.5, color: 'var(--amber-text)' }}>Devices that remember the old code will need the new one typed in once.</div>}
       <div style={{ marginTop: 12 }}><KindChoice value={kind} onChange={k => { setKind(k); setError(''); }} /></div>
-      {changes.kind && <div style={{ fontSize: 11.5, color: 'var(--amber-text)', marginTop: -6 }}>Their plan and price change to a {KIND_LABELS[kind]}'s ({kind === 'darul_uloom' ? '£500 a year' : kind === 'school' ? '£500 a year — £800 for two forms, £1,000 for three' : '£20 a month'}). Nothing they've entered is lost.</div>}
+      {changes.kind && <div style={{ fontSize: 11.5, color: 'var(--amber-text)', marginTop: -6, marginBottom: 10 }}>Their plan and price change to a {KIND_LABELS[kind]}'s ({kind === 'darul_uloom' ? '£500 a year' : kind === 'school' ? '£500 a year — £800 for two forms, £1,000 for three' : '£20 a month'}). Nothing they've entered is lost.</div>}
+      {kind === 'school' && <SchoolSize phase={phase} forms={forms} onPhase={v => { setPhase(v); setError(''); }} onForms={v => { setForms(v); setError(''); }} />}
+      {kind === 'school' && !changes.kind && changes.schoolForms && <div style={{ fontSize: 11.5, color: 'var(--amber-text)', marginTop: -6 }}>{changes.schoolForms <= 3 ? `Their price changes to ${{ 1: '£500', 2: '£800', 3: '£1,000' }[changes.schoolForms]} a year.` : 'Set the price you agree with them in Plan.'}</div>}
       {!m.isYours && (
         <div className="form-group" style={{ marginTop: 12 }}>
           <label>Free until</label>
           <input type="date" value={freeUntil} onChange={e => { setFreeUntil(e.target.value); setError(''); }} />
-          <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>6 months from joining (free to the end of that month) — change it to give them longer.</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 4 }}>{m.kind === 'school' ? 'The end of the term they joined in (the next term too if they joined near its end)' : '6 months from joining (free to the end of that month)'} — change it to give them longer.</span>
         </div>
       )}
       {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
@@ -595,7 +624,9 @@ function DetailModal({ m, onClose, open, onChanged }) {
 
       <div className="form-section-title pay-h">Size</div>
       <div className="pay-stats">
-        {[['Children', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['AI this month', m.aiThisMonth], ['AI all time', m.aiTotal]].map(([l, v]) => (
+        {(m.kind === 'school'
+          ? [['Pupils', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['Forms of entry', m.schoolForms || '—'], ['School', PHASE_LABELS[m.schoolPhase] || '—']]
+          : [['Children', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['AI this month', m.aiThisMonth], ['AI all time', m.aiTotal]]).map(([l, v]) => (
           <div key={l}><b>{v}</b>{l}</div>
         ))}
       </div>
@@ -603,6 +634,7 @@ function DetailModal({ m, onClose, open, onChanged }) {
       <div className="form-section-title pay-h">Manage</div>
       <div className="pay-manage">
         <button className="btn" onClick={() => open('edit', m)}><Pencil size={13} /> Edit details</button>
+        {!m.isYours && <button className="btn" onClick={() => open('invoice', m)}><FileText size={13} /> Invoice</button>}
         {!m.isYours && <button className="btn" onClick={() => open('password', m)}><KeyRound size={13} /> Reset head's password</button>}
         {!m.isYours && <button className="btn" style={m.active ? { color: 'var(--red)' } : undefined} onClick={() => open('power', m)}><Power size={13} /> {m.active ? 'Switch off' : 'Switch on'}</button>}
         {!m.isYours && !m.active && <button className="btn" style={{ color: 'var(--red)' }} onClick={() => open('delete', m)}><Trash2 size={13} /> Delete</button>}
@@ -610,6 +642,78 @@ function DetailModal({ m, onClose, open, onChanged }) {
     </ModalShell>
   );
 }
+
+// An invoice to download and send (a school's finance office pays by bank transfer): for the next months not yet paid — a
+// year on a yearly plan, a month on a monthly one — at their price. Your bank details are typed once and kept for every invoice.
+function InvoiceModal({ m, onClose }) {
+  const p = prices(m);
+  const today = todayLocal();
+  const start = addMonths(billingStart(m.freeUntil), m.monthsPaid || 0);
+  const yearly = m.billingPlan === 'yearly';
+  const end = dayBefore(addMonths(start, yearly ? 12 : 1));
+  const forWhat = m.kind === 'school'
+    ? `${APP_NAME} for Islamic Studies - ${m.schoolForms || 1} form${(m.schoolForms || 1) === 1 ? '' : 's'} of entry, ${formatDateGB(start)} to ${formatDateGB(end)}`
+    : `${APP_NAME} - ${yearly ? 'a year' : 'a month'}, ${formatDateGB(start)} to ${formatDateGB(end)}`;
+  const [inv, setInv] = useState({ item: forWhat, amount: String(yearly ? p.yearly : p.monthly), date: today, due: start > today ? start : addDays(today, 30) });
+  const [from, setFrom] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { getInvoiceDetails().then(setFrom).catch(() => setFrom({})); }, []);
+  const number = `${m.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${start.slice(0, 7).replace('-', '')}`;
+  const ok = from && from.payee && from.sortCode && from.account && Number(inv.amount) > 0 && inv.item.trim();
+  async function download() {
+    setBusy(true); setError('');
+    try {
+      await saveInvoiceDetails(from);
+      const [{ buildInvoicePdf }, { downloadPdfBytes }] = await Promise.all([import('../lib/invoicePdf'), import('../lib/reportPdf')]);
+      const bytes = await buildInvoicePdf({
+        number, date: inv.date, due: inv.due, item: inv.item.trim(), amount: Number(inv.amount), reference: number,
+        to: { name: m.name, contact: m.contactName ? `For the attention of ${m.contactName}` : '', email: m.contactEmail || '' }, from,
+      });
+      downloadPdfBytes(bytes, `Invoice ${number} - ${m.name}.pdf`);
+    } catch (err) { setError(err.message || 'Could not make the invoice'); }
+    setBusy(false);
+  }
+  const setF = (k, v) => { setFrom(prev => ({ ...prev, [k]: v })); setError(''); };
+  const setI = (k, v) => { setInv(prev => ({ ...prev, [k]: v })); setError(''); };
+  return (
+    <ModalShell title={`Invoice — ${m.name}`} sub={`No. ${number}`} width={480} onClose={onClose} busy={busy} footer={<>
+      <button className="btn" onClick={onClose} disabled={busy}>Close</button>
+      <button className="btn btn-primary" disabled={busy || !ok} onClick={download}><Download size={13} />{busy ? 'Making…' : 'Download PDF'}</button>
+    </>}>
+      <div className="form-group" style={{ marginBottom: 10 }}>
+        <label>For</label>
+        <input value={inv.item} onChange={e => setI('item', e.target.value)} maxLength={200} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 6 }}>
+        <div className="form-group" style={{ marginBottom: 0 }}><label>Amount (£)</label>
+          <input type="number" min="0" step="0.01" value={inv.amount} onChange={e => setI('amount', e.target.value)} /></div>
+        <div className="form-group" style={{ marginBottom: 0 }}><label>Dated</label>
+          <input type="date" value={inv.date} onChange={e => setI('date', e.target.value)} /></div>
+        <div className="form-group" style={{ marginBottom: 0 }}><label>Pay by</label>
+          <input type="date" value={inv.due} onChange={e => setI('due', e.target.value)} /></div>
+      </div>
+      <div className="form-section-title pay-h">Your details (kept for every invoice)</div>
+      {!from ? <div className="text-muted text-sm">Loading…</div> : <>
+        <div className="form-group" style={{ marginBottom: 10 }}><label>Pay to (account name)</label>
+          <input value={from.payee || ''} onChange={e => setF('payee', e.target.value)} placeholder="The name on your bank account" /></div>
+        <div className="form-group" style={{ marginBottom: 10 }}><label>Your address (optional)</label>
+          <input value={from.address || ''} onChange={e => setF('address', e.target.value)} placeholder="Street, town, postcode" /></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 10 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}><label>Bank</label>
+            <input value={from.bank || ''} onChange={e => setF('bank', e.target.value)} /></div>
+          <div className="form-group" style={{ marginBottom: 0 }}><label>Sort code</label>
+            <input value={from.sortCode || ''} onChange={e => setF('sortCode', e.target.value)} placeholder="00-00-00" inputMode="numeric" /></div>
+          <div className="form-group" style={{ marginBottom: 0 }}><label>Account no.</label>
+            <input value={from.account || ''} onChange={e => setF('account', e.target.value)} inputMode="numeric" /></div>
+        </div>
+      </>}
+      <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 10 }}>They pay by bank transfer with the reference {number}. When it arrives, record it with "They've just paid…".</div>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
+    </ModalShell>
+  );
+}
+const addDays = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 // Deletes a switched-off madrasah and everything in it — typed code to confirm.
 function DeleteModal({ m, onClose, onDeleted }) {

@@ -3,7 +3,7 @@ const { TABLES, ensureAllTables } = require('../demo');
 const { ensurePlatformTables } = require('../platform');
 const { vapidKeys, notifyPlatformOwner } = require('../notify');
 const { requireAuth, hashPassword, normalizeLogin, validateNewCredentials } = require('../auth');
-const { KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, createMadrasah, ensureSignupColumns } = require('../newMadrasah');
+const { KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, codeTaken, createMadrasah, ensureSignupColumns, SCHOOL_PHASES, schoolPrice } = require('../newMadrasah');
 
 // The platform owner's page (Madaaris): every madrasah using this service, with
 // counts only — never another madrasah's students, fees or reports. From here the
@@ -53,6 +53,21 @@ module.exports = requireAuth(async (req, res) => {
 
   // Phone notifications when a madrasah signs up (this device): the public key to subscribe with,
   // saving / removing this phone's subscription, and a test notification.
+  // The platform owner's details printed on invoices (bank account to pay into, address) — kept in platform_kv.
+  // GET ?action=invoice-details → { payee, address, bank, sortCode, account }; POST the same to change them.
+  if (req.query.action === 'invoice-details') {
+    if (req.method === 'POST') {
+      const b = req.body || {};
+      const clean = v => String(v || '').trim().slice(0, 200);
+      const d = { payee: clean(b.payee), address: clean(b.address), bank: clean(b.bank), sortCode: clean(b.sortCode), account: clean(b.account) };
+      await query(`INSERT INTO platform_kv (key, value) VALUES ('invoice_details', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(d)]);
+      res.status(200).json(d);
+      return;
+    }
+    const { rows: [r] } = await query(`SELECT value FROM platform_kv WHERE key = 'invoice_details'`);
+    res.status(200).json(r ? JSON.parse(r.value) : {});
+    return;
+  }
   if (req.query.action === 'push-key') { res.status(200).json({ publicKey: (await vapidKeys()).publicKey, email: !!process.env.RESEND_API_KEY }); return; }
   if (req.query.action === 'push-subscribe' && req.method === 'POST') {
     const sub = (req.body || {}).subscription || {};
@@ -89,7 +104,7 @@ module.exports = requireAuth(async (req, res) => {
         (SELECT count(*) FROM classes c WHERE c.madrasah_id = m.id) AS classes,
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id AND a.created_at >= date_trunc('month', now())) AS "aiThisMonth",
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id) AS "aiTotal",
-        m.kind, m.billing_plan AS "billingPlan", m.billing_amount AS "billingAmount",
+        m.kind, m.billing_plan AS "billingPlan", m.billing_amount AS "billingAmount", m.school_phase AS "schoolPhase", m.school_forms AS "schoolForms",
         -- Recommendations ("Recommend Suhuf"): who recommended this one, and how many signed up through it.
         (SELECT r.name FROM madaaris r WHERE r.id = m.referred_by) AS "referredBy", m.referral_reward_at IS NOT NULL AS "referralRewarded",
         (SELECT count(*) FROM madaaris x WHERE x.referred_by = m.id AND x.demo_until IS NULL) AS referrals,
@@ -128,7 +143,8 @@ module.exports = requireAuth(async (req, res) => {
     if (problem) { res.status(400).json({ error: problem }); return; }
     if (b.kind !== undefined && !KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab, Darul Uloom or School.' }); return; }
     if (await codeTaken(code)) { res.status(409).json({ error: 'Another madrasah already uses that code.' }); return; }
-    const { madrasah } = await createMadrasah({ name, code, headLogin, headPassword: b.headPassword, kind: b.kind });
+    const school = b.kind === 'school' ? { phase: b.schoolPhase, forms: b.schoolForms } : undefined;
+    const { madrasah } = await createMadrasah({ name, code, headLogin, headPassword: b.headPassword, kind: b.kind, school });
     res.status(201).json({ ok: true, id: String(madrasah.id) });
     return;
   }
@@ -188,11 +204,25 @@ module.exports = requireAuth(async (req, res) => {
     if (b.kind !== undefined && b.kind !== found[0].kind) {
       // Changing the kind (e.g. set wrongly) also puts its plan and price back to that kind's.
       if (!KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose Maktab, Darul Uloom or School.' }); return; }
-      const bill = kindBilling(b.kind);
+      const bill = kindBilling(b.kind, b.schoolForms ?? found[0].school_forms);
       values.push(b.kind); sets.push(`kind = $${values.length}`);
       if (b.billingPlan === undefined && b.billingAmount === undefined) {
         values.push(bill.plan); sets.push(`billing_plan = $${values.length}`);
         values.push(bill.amount); sets.push(`billing_amount = $${values.length}`);
+      }
+    }
+    // A school's phase and forms of entry; a change of forms (1–3) puts its yearly price to that size's, unless a price is sent too.
+    if (b.schoolPhase !== undefined) {
+      if (b.schoolPhase !== null && !SCHOOL_PHASES.includes(b.schoolPhase)) { res.status(400).json({ error: 'Choose primary, secondary or all-through.' }); return; }
+      values.push(b.schoolPhase); sets.push(`school_phase = $${values.length}`);
+    }
+    if (b.schoolForms !== undefined && Number(b.schoolForms) !== Number(found[0].school_forms)) {
+      const forms = Number(b.schoolForms);
+      if (!(forms >= 1 && forms <= 20 && Number.isInteger(forms))) { res.status(400).json({ error: 'Forms of entry is a number from 1 to 20.' }); return; }
+      values.push(forms); sets.push(`school_forms = $${values.length}`);
+      if ((b.kind || found[0].kind) === 'school' && forms <= 3 && b.billingAmount === undefined && b.kind === undefined) {
+        values.push('yearly'); sets.push(`billing_plan = $${values.length}`);
+        values.push(schoolPrice(forms)); sets.push(`billing_amount = $${values.length}`);
       }
     }
     if (b.billingPlan !== undefined) {

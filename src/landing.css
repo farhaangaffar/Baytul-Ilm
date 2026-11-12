@@ -241,3 +241,6 @@
   .lp-switch button { padding: 9px 13px; font-size: 13px; }
 }
 @media (min-width: 861px) and (max-width: 1000px) { .lp-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* A line under a door's buttons (the school door: first term free, the data processing agreement). */
+.lp-door-note { text-align: center; font-size: 14px; color: var(--lp-muted, #5d6b78); margin: 14px auto 0; max-width: 560px; }
+.lp-door-note a { color: inherit; text-decoration: underline; }

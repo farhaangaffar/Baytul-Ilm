@@ -18,9 +18,27 @@ const PRICES = {
   darul_uloom: { monthly: 50, yearly: 500, plan: 'yearly' },
   school: { monthly: 50, yearly: 500, plan: 'yearly' },
 };
+// A school's yearly price by its forms of entry (1–3; 4 or more is agreed with the platform owner — sign-up sends them to us).
+const SCHOOL_PRICES = { 1: 500, 2: 800, 3: 1000 };
+const schoolPrice = forms => SCHOOL_PRICES[Math.min(3, Math.max(1, Number(forms) || 1))];
+const SCHOOL_PHASES = ['primary', 'secondary', 'all-through'];
 // A kind's default plan and price, as columns: a maktab leaves the price empty (the £20/£200 default).
-const kindBilling = kind => (kind === 'darul_uloom' || kind === 'school')
-  ? { plan: 'yearly', amount: PRICES[kind].yearly } : { plan: 'monthly', amount: null };
+const kindBilling = (kind, forms) => kind === 'school' ? { plan: 'yearly', amount: schoolPrice(forms) }
+  : kind === 'darul_uloom' ? { plan: 'yearly', amount: PRICES[kind].yearly } : { plan: 'monthly', amount: null };
+
+// A school's first term free: to the end of the term it joins in — autumn to 31 December, spring to 31 March, summer to
+// 31 August — and the term after too if fewer than 6 weeks of it are left. Payments then run from the 1st after (billing.js).
+function schoolFreeUntil(today = londonToday()) {
+  const y = Number(today.slice(0, 4));
+  const ends = [`${y}-03-31`, `${y}-08-31`, `${y}-12-31`, `${y + 1}-03-31`, `${y + 1}-08-31`];
+  let i = ends.findIndex(e => e >= today);
+  const daysLeft = (Date.parse(ends[i]) - Date.parse(today)) / 864e5;
+  if (daysLeft < 42) i += 1;
+  return ends[i];
+}
+function londonToday() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
 
 // The academic year in progress today, in the app's "26-27" style (a school year
 // starts in September — see currentSchoolYear() in src/lib/store.js).
@@ -68,24 +86,31 @@ async function ensureSignupColumns() {
   // Recommended by another madrasah (its link, suhuf.uk/?ref=<code>), and when that madrasah was given its free month for it.
   await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS referred_by INTEGER');
   await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS referral_reward_at TIMESTAMP');
+  // A school: primary / secondary / all-through, and its forms of entry (its price follows them — SCHOOL_PRICES).
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS school_phase TEXT');
+  await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS school_forms INTEGER');
   ready = true;
 }
 
 // Creates the madrasah and its head's login in one go. Returns { madrasah, user }.
 // signup: { contactName, contactEmail, contactPhone, ipHash, termsVersion } when it signed itself up.
-// kind: 'maktab' (default) or 'darul_uloom'.
-async function createMadrasah({ name, code, headLogin, headPassword, signup, kind = 'maktab' }) {
+// kind: 'maktab' (default), 'darul_uloom' or 'school' — a school also has school: { phase, forms }, its first term free
+// (schoolFreeUntil) and its price by forms of entry.
+async function createMadrasah({ name, code, headLogin, headPassword, signup, kind = 'maktab', school }) {
   await ensureSignupColumns();
   if (!KINDS.includes(kind)) kind = 'maktab';
-  const bill = kindBilling(kind);
+  const forms = kind === 'school' ? Math.max(1, Math.min(20, Number(school?.forms) || 1)) : null;
+  const phase = kind === 'school' && SCHOOL_PHASES.includes(school?.phase) ? school.phase : null;
+  const bill = kindBilling(kind, forms);
+  const freeUntil = kind === 'school' ? schoolFreeUntil() : null;
   return transaction(async c => {
     const { rows: [m] } = await c.query(
       `INSERT INTO madaaris (name, code, free_until, self_signup, contact_name, contact_email, contact_phone, signup_ip,
-         terms_version, terms_accepted_at, terms_accepted_by, kind, billing_plan, billing_amount)
-       VALUES ($1, $2, (now() AT TIME ZONE 'Europe/London' + interval '6 months')::date, $3, $4, $5, $6, $7, $8,
-         CASE WHEN $8::text IS NULL THEN NULL ELSE now() END, $9, $10, $11, $12) RETURNING id, code, name`,
+         terms_version, terms_accepted_at, terms_accepted_by, kind, billing_plan, billing_amount, school_phase, school_forms)
+       VALUES ($1, $2, COALESCE($13::date, (now() AT TIME ZONE 'Europe/London' + interval '6 months')::date), $3, $4, $5, $6, $7, $8,
+         CASE WHEN $8::text IS NULL THEN NULL ELSE now() END, $9, $10, $11, $12, $14, $15) RETURNING id, code, name, free_until`,
       [name, code, !!signup, signup?.contactName || null, signup?.contactEmail || null, signup?.contactPhone || null,
-        signup?.ipHash || null, signup?.termsVersion || null, signup ? headLogin : null, kind, bill.plan, bill.amount]);
+        signup?.ipHash || null, signup?.termsVersion || null, signup ? headLogin : null, kind, bill.plan, bill.amount, freeUntil, phase, forms]);
     // Name given explicitly (older databases default these columns to the first madrasah's).
     await c.query(`INSERT INTO settings (id, madrasah_id, school_name, school_name_arabic) VALUES ($1, $1, $2, '')`, [m.id, name]);
     await c.query('INSERT INTO academic_years (madrasah_id, year) VALUES ($1, $2)', [m.id, currentYearLabel()]);
@@ -114,4 +139,4 @@ async function giveReferralMonth(newId, refCode, ipHash) {
   return r.name;
 }
 
-module.exports = { giveReferralMonth, KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, currentYearLabel, codeTaken, codeFromName, ensureSignupColumns, createMadrasah };
+module.exports = { schoolFreeUntil, schoolPrice, SCHOOL_PHASES, giveReferralMonth, KINDS, PRICES, kindBilling, CODE_RE, CODE_PROBLEM, normalizeCode, currentYearLabel, codeTaken, codeFromName, ensureSignupColumns, createMadrasah };

@@ -10,6 +10,7 @@ export const APP_NAME = 'Suhuf';
 export const APP_NAME_ARABIC = 'صُحُف';
 export const APP_TAGLINE = 'Madrasah management';
 export const APP_URL = 'https://suhuf.uk';
+export const WHATSAPP_NUMBER = '447984873612'; // the owner's WhatsApp (front page, sign-up's "message us")
 
 const CACHE_KEY = 'madrasah_branding';
 const DEFAULTS = { schoolName: 'Madrasah', schoolNameArabic: '', currencySymbol: '£', feeFrequency: 'weekly', reportPeriod: 'monthly', schoolDays: [1, 2, 3, 4], feeAuto: true };

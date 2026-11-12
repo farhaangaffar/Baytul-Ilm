@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, Sparkles, Users, CheckSquare, PoundSterling, FileSpreadsheet, Smartphone, Shield,
   KeyRound, ChevronDown, Check, LogIn, PlayCircle, MessageCircle, Rocket, Library, CalendarClock,
   GraduationCap, BedDouble, Wrench, BookMarked, ClipboardCheck, BarChart3, ListChecks, Link2, HeartHandshake, ArrowDown } from 'lucide-react';
-import { APP_NAME, APP_NAME_ARABIC } from '../lib/branding';
+import { APP_NAME, APP_NAME_ARABIC, WHATSAPP_NUMBER } from '../lib/branding';
 import { LegalModal } from '../components/Legal';
 import { countVisit } from '../lib/analytics';
 import '../landing.css';
@@ -16,7 +16,7 @@ import '../landing.css';
 const CONTACT = 'hello@suhuf.uk';
 // "Start free" opens the sign-up page (/?start); WhatsApp is for questions — a chat with the message ready (the number in
 // international form, no +).
-const WHATSAPP = '447984873612';
+const WHATSAPP = WHATSAPP_NUMBER;
 const waHref = text => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
 const whatsappHref = waHref("Salaam, I'd like to try Suhuf for our madrasah.");
 const schoolWhatsapp = waHref("Salaam, I'd like to use Suhuf for our school's Islamic Studies department.");
@@ -102,14 +102,14 @@ const EVERYONE = [
 
 const FAQ = [
   ['Do teachers, parents and pupils need to download anything?', "No. Suhuf works in the phone's browser and can be added to the home screen like an app in a few seconds — on iPhone and Android. It works on computers too."],
-  ['How do we start?', "A maktab or Darul Uloom: tap Start free, enter your details, and you're in straight away — free for 6 months, no card needed. A school: message us and we'll set your department up, with the first term free."],
+  ['How do we start?', "Tap Start free, choose Maktab, Darul Uloom or School, enter your details, and you're in straight away — no card needed. A maktab or Darul Uloom is free for 6 months; a school has the first term free (four forms of entry or more: message us and we'll set you up)."],
   ['How long does it take to set up?', 'Most are up and running in an afternoon: add your classes, paste in your children from a spreadsheet, and give teachers their logins. We\'ll help you get started.'],
   ['We already have our children in a spreadsheet. Can we use it?', "Yes — paste the rows or upload the file. Suhuf works out the columns (names, classes, dates of birth, parents' details), lets you check everything, and adds them all at once. A school can bring in its Islamic Studies tracker sheets too."],
   ['How does the AI report work?', "For a maktab or Darul Uloom: it reads that child's lesson notes, Qur'aan progress and behaviour records, and drafts a short report paragraph. You can edit every word, and nothing reaches parents until you add it. Schools' reports are figures only — no AI."],
   ['Who can see our data?', "Only you. Each madrasah's or school's records are kept completely separate; teachers only see their own classes, parents only their own children, pupils only their own work. You can download everything at any time."],
   ['What does it cost?', 'A maktab: free for 6 months, then £20 a month or £200 a year for up to 200 children. A Darul Uloom or Aalimiyyah course: free for 6 months, then £50 a month or £500 a year for up to 500 students. A school: the first term free, then £500 a year for one form of entry, £800 for two, £1,000 for three — four or more, message us. Bigger than that? Call or message us. No contract; leave whenever you like.'],
   ["We're a Darul Uloom, or we teach an Aalimiyyah course. Does it work for us?", 'Yes — full-time or part-time. You get everything a maktab has, plus the Aalim years and their books, a timetable, exams and report cards, boarding (if you have boarders), fees in instalments and a maintenance list — all set up your way. Try the Darul Uloom demo to see it.'],
-  ["We're a school. Can it run our Islamic Studies department?", "Yes — primary or secondary. Your own lists of surahs, du'aas and practicals for each year group, termly assessments and reports, homework and quizzes with pupils' own logins, and stats comparing year groups and forms. Try the school demo, then message us."],
+  ["We're a school. Can it run our Islamic Studies department?", "Yes — primary or secondary. Your own lists of surahs, du'aas and practicals for each year group, termly assessments and reports, homework and quizzes with pupils' own logins, and stats comparing year groups and forms. Try the school demo, then tap Start free — the first term is free."],
   ['What if we stop using it?', 'Download a full backup and a spreadsheet first; then your information is deleted. Nothing is held back.'],
 ];
 
@@ -209,9 +209,10 @@ function SchoolFeatures() {
       <div className="lp-desk lp-desk-one"><Laptop src={SCHOOL_DESK[0]} alt={SCHOOL_DESK[1]} /></div>
       <Grid parts={SCHOOL_PARTS} />
       <div className="lp-cta lp-cta-center lp-door-cta">
-        <a href="/?demo=school" className="lp-btn lp-btn-primary"><PlayCircle size={17} />Try the school demo</a>
-        <WhatsApp className="lp-btn lp-btn-light" href={schoolWhatsapp}>Message us to start</WhatsApp>
+        <a href="/?start=school" className="lp-btn lp-btn-primary"><Rocket size={17} />Start free</a>
+        <a href="/?demo=school" className="lp-btn lp-btn-light"><PlayCircle size={17} />Try the school demo</a>
       </div>
+      <p className="lp-door-note">The first term free. Your data processing agreement is agreed as you sign up — <a href="/dpa">read it here</a>.</p>
     </div>
   );
 }
@@ -364,8 +365,8 @@ export default function Landing({ onSignIn }) {
               <div className="lp-plan-free">The first term free</div>
               <div className="lp-plan-price"><strong>£500</strong> a year</div>
               <div className="lp-plan-sub">one form of entry · £800 two forms · £1,000 three</div>
-              <div className="lp-plan-size">Four forms or more: message us</div>
-              <WhatsApp className="lp-btn lp-btn-primary" href={schoolWhatsapp}>Message us</WhatsApp>
+              <div className="lp-plan-size">Four forms or more: <a href={schoolWhatsapp} target="_blank" rel="noopener noreferrer">message us</a></div>
+              <a href="/?start=school" className="lp-btn lp-btn-primary"><Rocket size={15} />Start free</a>
             </div>
           </div>
           <p className="lp-price-note2">Bigger than that? <a href={`tel:+${WHATSAPP}`}>Call</a> or <a href={whatsappHref} target="_blank" rel="noopener noreferrer">message us</a> for a price. Recommend another madrasah — get a month free.</p>
@@ -402,6 +403,7 @@ export default function Landing({ onSignIn }) {
           <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
           <button type="button" onClick={() => setLegal('privacy')}>Privacy</button>
           <button type="button" onClick={() => setLegal('terms')}>Terms</button>
+          <button type="button" onClick={() => setLegal('dpa')}>Data agreement (schools)</button>
           <a href="/" onClick={signIn}>Sign in</a>
         </div>
       </footer>

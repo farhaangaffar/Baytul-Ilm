@@ -106,7 +106,8 @@ const HEAD = {
     'Every madrasah using the app — you only see counts, never their children.',
     'The bar on each card: grey = free months, green = paid, yellow = due within 2 weeks, red = overdue.',
     'Tap a madrasah to open it. When they pay you, tap "Next month" or "A year" — or tap a month box to pay up to it.',
-    'Payments always run from the 1st: free to the end of their 6th month, then each payment covers the next unpaid month.',
+    'Payments always run from the 1st: free to the end of their 6th month (a school: to the end of the term it joined), then each payment covers the next unpaid month.',
+    'Invoice (inside each one) makes a PDF for the next months not paid — schools pay by bank transfer. Type your bank details once; they\'re kept.',
     'Add a madrasah with its head\'s login, then send them their code. Edit details, passwords and switching off are inside each one.',
     'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
     'Your AI credit, database space, how many demos were tried and madaaris signed up (kept for good), and the demo link are at the bottom.',
@@ -295,6 +296,7 @@ const SCHOOL_HEAD = {
   '/settings': { title: 'Settings', steps: [
     'Your school\'s name and logo — everything saves by itself.',
     'Parent portal: switch it on so parents can see their children\'s surahs, du\'aas and practicals.',
+    'Data processing agreement: download your school\'s copy for your headteacher or data protection officer.',
     'Backup: download one now and then.',
   ] },
 };
