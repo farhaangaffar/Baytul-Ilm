@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, ChevronRight, X } from 'lucide-react';
-import { getUsers, getTeachers, addStudent, deleteStudent, getDefaultWeeklyFee, getTimetable } from '../lib/store';
+import { getUsers, getTeachers, addStudent, deleteStudent, getDefaultWeeklyFee, getTimetable, getPupilLogins } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { appNavigate } from './BackToExit';
 
 // "Getting started" on a new madrasah's Dashboard (one that signed itself up, or any head
 // with steps left): teachers & classes → fees & days → children → teacher logins. A Darul Uloom
 // gets its own order: Settings → teachers → classes (Hifz, Nazarah…) → Aalim years & books →
-// timetable → students → logins. A school: teachers → classes with their year groups → pupils → the Islamic
-// Studies lists → logins. Each ticks itself off from the madrasah's own data; the card goes once
+// timetable → students → logins. A school (the owner's order): teachers → classes with their year groups → import pupils →
+// put them into their classes → check the Islamic Studies lists → bring in marks they already have (or start fresh) →
+// pupil logins (or not using them) → teacher logins. Each ticks itself off from the madrasah's own data; the card goes once
 // everything's done or it's hidden. The students step can add a few made-up students to try
 // things with (marked in their notes, MADE_UP) — they don't tick the step, and one tap removes them.
 const key = (code, what) => `getting_started_${what}:${code}`;
@@ -20,6 +21,8 @@ const write = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 export function markSettingsVisited(code) { if (code) write(key(code, 'settings'), '1'); }
 // A school's Islamic Studies page calls this, which ticks "Check your lists".
 export function markStudiesVisited(code) { if (code) write(key(code, 'studies'), '1'); }
+// Islamic Studies → Import calls this once marks are brought in, which ticks "Bring in the marks you already have".
+export function markMarksImported(code) { if (code) write(key(code, 'marks'), '1'); }
 
 const MADE_UP = 'Made-up student to try the app';
 const isMadeUp = s => (s.notes || '').startsWith(MADE_UP);
@@ -35,16 +38,20 @@ export default function GettingStarted({ students, classes, onChanged }) {
   const [teacherCount, setTeacherCount] = useState(null);
   const [hasTimetable, setHasTimetable] = useState(null);
   const [noOthers, setNoOthers] = useState(() => !!read(key(code, 'no_other_classes')));
+  const [pupilLogins, setPupilLogins] = useState(null); // a school: how many pupils have a login
+  const [marksDone, setMarksDone] = useState(() => !!read(key(code, 'marks')));
+  const [noPupilLogins, setNoPupilLogins] = useState(() => !!read(key(code, 'no_pupil_logins')));
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (hidden || user?.demo) return;
     getUsers().then(us => setTeacherLogins((us.users || us).some(u => u.role === 'teacher'))).catch(() => setTeacherLogins(false));
     if (isDarulUloom || isSchool) getTeachers().then(t => setTeacherCount(t.length)).catch(() => setTeacherCount(0));
+    if (isSchool) getPupilLogins().then(l => setPupilLogins(l.length)).catch(() => setPupilLogins(0));
     if (isDarulUloom) {
       getTimetable().then(t => setHasTimetable(t.lessons.length > 0)).catch(() => setHasTimetable(false));
     }
   }, [hidden, user, isDarulUloom, isSchool]);
-  if (hidden || user?.demo || teacherLogins === null || (isDarulUloom && (teacherCount === null || hasTimetable === null)) || (isSchool && teacherCount === null)) return null;
+  if (hidden || user?.demo || teacherLogins === null || (isDarulUloom && (teacherCount === null || hasTimetable === null)) || (isSchool && (teacherCount === null || pupilLogins === null))) return null;
 
   // A few made-up students, spread over the classes, to try attendance, fees and records with.
   const madeUp = students.filter(isMadeUp);
@@ -79,12 +86,21 @@ export default function GettingStarted({ students, classes, onChanged }) {
     choices: [{ label: 'Teacher logins', path: '/classes?tab=teachers' }, { label: 'Class logins', path: '/classes?tab=classes' }] };
   const duLoginsStep = { ...loginsStep, label: 'Give your staff logins', sub: 'One for each member of staff, or one shared login for each class — whichever suits you',
     choices: [{ label: 'Staff logins', path: '/classes?tab=teachers' }, loginsStep.choices[1]] };
+  // A school's pupils still waiting for a class (just imported, or their class gone).
+  const classNamesSet = new Set(classes.map(c => c.name));
+  const realPupils = students.filter(s => !isMadeUp(s) && s.status !== 'Inactive');
+  const notInClass = realPupils.filter(s => !classNamesSet.has(s.class)).length;
   const steps = isSchool ? [
     { label: 'Add your teachers', sub: 'Everyone who teaches Islamic Studies — first, so each class can be given its teacher', path: '/classes?tab=teachers', done: teacherCount > 0 },
-    { label: 'Add your classes', sub: 'Each with its year group, so it gets that year\'s surahs, du\'aas and practicals', path: '/classes?tab=classes', done: classes.some(c => c.yearGroup !== null && c.yearGroup !== undefined) },
-    { ...studentsStep, label: 'Add your pupils', sub: madeUp.length ? studentsStep.sub : 'Paste them from a spreadsheet — an export from your school\'s pupil database works (Pupils → Import)' },
+    { label: 'Add your classes', sub: 'Each with its year group (2A → Year 2), so it gets that year\'s surahs, du\'aas and practicals', path: '/classes?tab=classes', done: classes.some(c => c.yearGroup !== null && c.yearGroup !== undefined) },
+    { ...studentsStep, label: 'Import your pupils', sub: madeUp.length ? studentsStep.sub : 'Pupils → Import: paste or upload a spreadsheet — an export from your school\'s pupil database works' },
+    { label: 'Put your pupils into their classes', sub: notInClass ? `${notInClass} waiting in "Not in a class" — tick a whole group and choose "Move to"` : 'Imported pupils wait in "Not in a class" — tick a whole group and move them together', path: '/students', done: realPupils.length > 0 && !notInClass },
     { label: 'Check your lists', sub: 'The surahs, du\'aas and practicals for each year — start from ours and change, remove or add', path: '/studies', done: !!read(key(code, 'studies')) },
-    loginsStep,
+    { label: 'Bring in the marks you already have', sub: 'Islamic Studies → Import: your tracker workbook (a sheet per year, 1 / 2 / 3 for each surah or du\'aa)', path: '/studies', done: marksDone,
+      extra: { label: "We're starting fresh", onClick: () => { write(key(code, 'marks'), '1'); setMarksDone(true); } } },
+    { label: 'Give your pupils their logins', sub: 'The usernames and passwords your school gives them — the "Pupil logins" card at the bottom of Pupils imports a spreadsheet', path: '/students', done: pupilLogins > 0 || noPupilLogins,
+      extra: { label: 'Not using pupil logins', onClick: () => { write(key(code, 'no_pupil_logins'), '1'); setNoPupilLogins(true); } } },
+    { ...loginsStep, label: 'Give your teachers their logins', sub: 'One for each teacher, so they mark their own classes and set homework' },
   ] : isDarulUloom ? [
     settingsStep,
     { label: 'Add your staff', sub: 'Teachers and other staff — first, so each class, year and book can be given its teacher', path: '/classes?tab=teachers', done: teacherCount > 0 },

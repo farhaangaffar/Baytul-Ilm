@@ -269,8 +269,10 @@ codebase (one codebase, not a fork).
   a DPA; first term free). Price by forms of entry, yearly: 1 form £500, 2 forms £800, 3 forms £1,000, 4+ message us
   (`PRICES.school` is the 1-form price; the platform owner sets the amount on the Madaaris page). A school has **its own short
   menu** (`schoolNav` in `Layout.js`; App.js routes): Dashboard (`src/pages/SchoolDashboard.js` — figures, a line per class with
-  its year's achieved / with-help bar, Getting started: teachers → classes with year groups → pupils → check the lists →
-  logins), **Pupils** (the Students page with no fees, attendance or waiting list; laid out like Classes & Teachers — the figures as a
+  its year's achieved / with-help bar, **Getting started** in the owner's order: teachers → classes with year groups → import
+  pupils → put them into their classes (ticks when none is "Not in a class") → check the lists → bring in the marks they already
+  have (ticked by Islamic Studies → Import, or "We're starting fresh") → pupil logins (any made, or "Not using pupil logins") →
+  teacher logins), **Pupils** (the Students page with no fees, attendance or waiting list; laid out like Classes & Teachers — the figures as a
   row of small white boxes, then one "Classes" card of class lines "Year 2 · 11 pupils · 56% achieved", tapping one opens its
   pupils underneath as lines (A to Z by first name), two across on computers; a pupil opens their card), **Islamic Studies** (`/studies`, `src/pages/Studies.js`, `server/routes/studies.js`;
   teachers get only this page, their own classes), Classes & Teachers (a class has a **Year group**, `classes.year_group`,

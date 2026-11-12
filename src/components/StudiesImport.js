@@ -8,6 +8,8 @@ import React, { useState } from 'react';
 import { X, Upload, Check } from 'lucide-react';
 import { xlsxSheets } from '../lib/xlsx';
 import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks } from '../lib/store';
+import { markMarksImported } from './GettingStarted';
+import { useAuth } from '../lib/AuthContext';
 import { STUDY_KINDS, yearLabel, plainName, surahNumber } from '../lib/studies';
 import { ChoiceBoxes } from './StudentDetails';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -39,6 +41,7 @@ function readSheet({ name, rows }) {
 }
 
 export default function StudiesImport({ onClose, onDone }) {
+  const { user } = useAuth();
   const close = useBackToClose(true, onClose);
   const [kind, setKind] = useState('surah');
   const [sheets, setSheets] = useState(null); // parsed sheets
@@ -104,6 +107,7 @@ export default function StudiesImport({ onClose, onDone }) {
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
       setDone({ marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length });
+      markMarksImported(user?.madrasah?.code); // ticks Getting started's "Bring in the marks you already have"
       await onDone?.();
     } catch (e) { setError(e.message || 'Could not import'); }
     setBusy(false);
