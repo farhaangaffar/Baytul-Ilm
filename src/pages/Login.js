@@ -3,6 +3,7 @@ import { LegalLinks } from '../components/Legal';
 import { login, setupOwner, recoverOwner, getSettings } from '../lib/store';
 import { getBranding, setBranding, isNeutralBranding, APP_NAME, APP_NAME_ARABIC, APP_TAGLINE } from '../lib/branding';
 import { getMadrasahCode, setMadrasahCode } from '../lib/madrasahCode';
+import { devicePupils, forgetPupil } from '../lib/devicePupils';
 import { LogIn, KeyRound, UserPlus, PlayCircle, Rocket } from 'lucide-react';
 import { DemoChooser } from '../components/Demo';
 
@@ -27,6 +28,8 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   const [code, setCode] = useState(getMadrasahCode());
   const [editingCode, setEditingCode] = useState(!getMadrasahCode());
   const [loginName, setLoginName] = useState('');
+  // Pupils who have signed in on this device before (brothers and sisters sharing it): tap a name, type the password.
+  const [pupils, setPupils] = useState(() => devicePupils(getMadrasahCode()));
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -157,10 +160,24 @@ export default function Login({ setupRequired, notice, onSuccess }) {
                     <button type="button" style={{ ...linkBtn, fontSize: 12, textDecoration: 'underline', padding: 0 }} onClick={() => setEditingCode(true)}>change</button>
                   </div>
                 )}
-                {field('Username or email', loginName, setLoginName, { ...usernameProps, autoFocus: !editingCode })}
+                {!editingCode && pupils.length > 0 && (
+                  <div className="who-signin">
+                    <div className="who-signin-label">Who's signing in?</div>
+                    <div className="who-signin-list">
+                      {pupils.map(p => (
+                        <span key={p.login} className={`who-chip ${loginName === p.login ? 'on' : ''}`}>
+                          <button type="button" onClick={() => { setLoginName(p.login); setError(''); setTimeout(() => document.getElementById('signin-password')?.focus(), 0); }}>{p.name || p.login}</button>
+                          <button type="button" className="who-x" aria-label={`Forget ${p.name || p.login} on this device`}
+                            onClick={() => { forgetPupil(code, p.login); setPupils(devicePupils(code)); if (loginName === p.login) setLoginName(''); }}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {field('Username or email', loginName, setLoginName, { ...usernameProps, autoFocus: !editingCode && !pupils.length })}
               </>
             )}
-            {field(setupRequired ? 'School password' : 'Password', password, setPassword, { type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
+            {field(setupRequired ? 'School password' : 'Password', password, setPassword, { id: 'signin-password', type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
             {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && (!loginName || !code.trim())))}
             {!setupRequired && (

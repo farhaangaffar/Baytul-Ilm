@@ -1334,3 +1334,11 @@ button.ss-line { cursor: pointer; }
   .signin-form { padding: 22px 20px; }
 }
 .ss-pdf { margin-top: 10px; width: 100%; justify-content: center; background: #fff; }
+/* "Who's signing in?" on the sign-in page: the pupils who used this device, as boxes (devicePupils.js). */
+.who-signin { text-align: left; margin-bottom: 14px; }
+.who-signin-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+.who-signin-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.who-chip { display: flex; align-items: stretch; border: 1px solid #dfe3e8; background: #fafbfc; border-radius: 10px; overflow: hidden; }
+.who-chip.on { background: var(--teal-light); border-color: var(--teal); }
+.who-chip button { border: none; background: none; font: 600 13px var(--font); color: var(--ink); cursor: pointer; padding: 9px 4px 9px 10px; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who-chip .who-x { flex: none; padding: 0 9px; color: var(--text-soft); font-size: 15px; }

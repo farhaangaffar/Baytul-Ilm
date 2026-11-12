@@ -354,7 +354,10 @@ codebase (one codebase, not a fork).
   name, class and Islamic Studies marks — `studies.forParent` without reports) and their only page `src/pages/PupilPortal.js`
   (`App.js`: "My homework" — filled by the next steps — and "My Islamic Studies", `PupilDetail` read only; no change-password —
   the school looks after them). Demo: everyone in the school demo's 6A has a login; the green bar's **Pupil** view is the
-  Hussain child in 6A. Privacy policy names pupil logins. **Homework (stage 4, step 2 — text only, the owner's choice):** `is_homework`
+  Hussain child in 6A. Privacy policy names pupil logins. **"Who's signing in?"** (the owner's ask — siblings sharing a device):
+  `src/lib/devicePupils.js` keeps, in this browser only, per school code, the username and first name of each pupil who has
+  signed in here (added by `PupilPortal`, never in a demo, up to 6, never a password); the sign-in page shows them as boxes
+  above the username — tap one, type the password; ✕ forgets it. **Homework (stage 4, step 2 — text only, the owner's choice):** `is_homework`
   (class, optional item, text, due, whole class or chosen pupils in `is_homework_pupils`, who set it) and `is_homework_done`
   (the pupil's tick) — `server/schoolHomework.js` (`homeworkFor()`; tables made in studies.js `ensure()`, never inside a
   transaction — a CREATE TABLE there once hung the demo), `server/routes/school-homework.js` (teachers: their own classes; they
