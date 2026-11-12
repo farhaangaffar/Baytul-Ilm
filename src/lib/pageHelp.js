@@ -76,6 +76,7 @@ const HEAD = {
     'Classes & parents: madrasah days, reports and the parent portal.',
     'Online applications: share the link so parents can apply; write a short message for the top of the form.',
     'Days off & extra days: add days you\'re closed (like Eid) or open extra (like Ramadhaan weekends) — one day, or From–To for several.',
+    'Heads: add a second head (same access), or hand your head login over to a new head when you leave.',
     'Download a backup now and then. "Download students to spreadsheet" gives you every child and their parents\' details.',
   ] },
   '/course': { title: 'Aalim course', steps: [
@@ -107,6 +108,7 @@ const HEAD = {
     'The bar on each card: grey = free months, green = paid, yellow = due within 2 weeks, red = overdue.',
     'Tap a madrasah to open it. When they pay you, tap "Next month" or "A year" — or tap a month box to pay up to it.',
     'Payments always run from the 1st: free to the end of their 6th month (a school: to the end of the term it joined), then each payment covers the next unpaid month.',
+    'Change head (inside each one): when a head left without handing over — the new head gets the login, the old one is signed out.',
     'Invoice (inside each one) makes a PDF for the next months not paid — schools pay by bank transfer. Type your bank details once; they\'re kept.',
     'Add a madrasah with its head\'s login, then send them their code. Edit details, passwords and switching off are inside each one.',
     'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
@@ -193,6 +195,7 @@ const DU_HEAD = {
     'Fees: "Prices & ways to pay" sets the yearly fee and how it\'s paid.',
     'Classes & parents: madrasah days, the parent portal, and Boarding — choose "No boarders — a local course" if nobody boards, and the Boarding page and boxes go away (switch back any time; nothing is lost).',
     'Online applications: share the link so parents can apply; write a short message for the top of the form.',
+    'Heads: add a second head (same access), or hand your head login over to a new head when you leave.',
     'Download a backup now and then. "Download students to spreadsheet" gives you every child and their parents\' details.',
   ] },
   '/maintenance': MAINTENANCE_HEAD,
@@ -297,6 +300,7 @@ const SCHOOL_HEAD = {
     'Your school\'s name and logo — everything saves by itself.',
     'Parent portal: switch it on so parents can see their children\'s surahs, du\'aas and practicals.',
     'Data processing agreement: download your school\'s copy for your headteacher or data protection officer.',
+    'Heads: add a second head (same access), or hand your head login over to a new head when you leave.',
     'Backup: download one now and then.',
   ] },
 };

@@ -44,6 +44,7 @@ const routes = {
   'school-reports': require('../server/routes/school-reports'),
   'school-stats': require('../server/routes/school-stats'),
   users: require('../server/routes/users'),
+  heads: require('../server/routes/heads'),
 };
 
 // The route comes from the rewrite's ?route= parameter; the original path is a

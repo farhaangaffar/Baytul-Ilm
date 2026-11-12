@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getDpaDetails, getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents, getDuFees, getSchoolReports, setSchoolReportPeriod } from '../lib/store';
 import DuFeeSetupModal from '../components/DuFeeSetup';
+import HeadsCard from '../components/HeadsCard';
 import { studentsRows, sheetLeft } from '../lib/studentSheet';
 import { xlsxBlob, downloadBlob } from '../lib/xlsx';
 import TermsCard from '../components/TermsCard';
@@ -434,6 +435,9 @@ export default function Settings() {
       </div>}
 
       {/* A school's data processing agreement: a copy with its name and when it was agreed, for its records. */}
+      {/* The head logins: up to two, add a second, hand over yours (routes/heads.js). */}
+      {!user?.demo && <HeadsCard word={isSchool ? 'school' : 'madrasah'} platformAdmin={user?.platformAdmin} />}
+
       {isSchool && !user?.demo && <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:4}}>Data processing agreement</div>
         <div className="card-sub" style={{marginBottom:12}}>How Suhuf looks after your pupils' information — for your headteacher or data protection officer to keep.</div>

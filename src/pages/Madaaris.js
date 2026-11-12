@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import SignupNotifications from '../components/SignupNotifications';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment, getInvoiceDetails, saveInvoiceDetails } from '../lib/store';
+import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment, getInvoiceDetails, saveInvoiceDetails, changeMadrasahHead } from '../lib/store';
 import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, UserCog, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download } from 'lucide-react';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -206,6 +206,9 @@ export default function Madaaris() {
       )}
       {modal?.kind === 'edit' && (
         <EditModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast('Saved'); await load(); }} />
+      )}
+      {modal?.kind === 'head' && (
+        <ChangeHeadModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast('Head changed'); await load(); }} />
       )}
       {modal?.kind === 'invoice' && <InvoiceModal m={list.find(x => x.id === modal.m.id) || modal.m} onClose={back} />}
       {modal?.kind === 'password' && (
@@ -648,9 +651,48 @@ function DetailModal({ m, onClose, open, onChanged }) {
         <button className="btn" onClick={() => open('edit', m)}><Pencil size={13} /> Edit details</button>
         {!m.isYours && <button className="btn" onClick={() => open('invoice', m)}><FileText size={13} /> Invoice</button>}
         {!m.isYours && <button className="btn" onClick={() => open('password', m)}><KeyRound size={13} /> Reset head's password</button>}
+        {!m.isYours && <button className="btn" onClick={() => open('head', m)}><UserCog size={13} /> Change head</button>}
         {!m.isYours && <button className="btn" style={m.active ? { color: 'var(--red)' } : undefined} onClick={() => open('power', m)}><Power size={13} /> {m.active ? 'Switch off' : 'Switch on'}</button>}
         {!m.isYours && !m.active && <button className="btn" style={{ color: 'var(--red)' }} onClick={() => open('delete', m)}><Trash2 size={13} /> Delete</button>}
       </div>
+    </ModalShell>
+  );
+}
+
+// "Change head": a head left without handing over, or the madrasah appoints someone else. The chosen head login (the main
+// head, or the second one) gets the new person's name, email (their login) and a starting password; the old person is signed
+// out everywhere; for the main head the madrasah's contact details change too. Check with the madrasah first.
+function ChangeHeadModal({ m, onClose, onSaved }) {
+  const heads = m.heads || [];
+  const [userId, setUserId] = useState(heads[0]?.id || '');
+  const [f, setF] = useState({ name: '', email: '', phone: '', password: '' });
+  const { busy, error, setError, submit } = useSubmit();
+  const set = k => e => { setF({ ...f, [k]: e.target.value }); setError(''); };
+  const ok = userId && f.name.trim() && f.email.trim() && f.password.length >= 8;
+  return (
+    <ModalShell title={`Change head — ${m.name}`} onClose={onClose} busy={busy} footer={<>
+      <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+      <button className="btn btn-primary" disabled={busy || !ok} onClick={() => submit(async () => { await changeMadrasahHead(m.id, { ...f, userId }); await onSaved(); })}>
+        <Save size={13} />{busy ? 'Saving…' : 'Change head'}
+      </button>
+    </>}>
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>Check with the {m.kind === 'school' ? 'school' : 'madrasah'} first. The old head is signed out and can't sign in again; everything they've entered stays.</div>
+      {heads.length > 1 && (
+        <div className="form-group" style={{ marginBottom: 12 }}>
+          <label>Which head?</label>
+          <div className="pill-tabs" style={{ marginBottom: 0 }}>
+            {heads.map((h, i) => (
+              <button key={h.id} type="button" className={`pill-tab ${userId === h.id ? 'active' : ''}`} onClick={() => setUserId(h.id)}>{h.name || h.login}{i === 0 ? ' (main)' : ''}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {heads.length === 1 && <div style={{ fontSize: 12.5, marginBottom: 12 }}>Now: <strong>{heads[0].name || heads[0].login}</strong>{heads[0].name ? ` · ${heads[0].login}` : ''}</div>}
+      <div className="form-group" style={{ marginBottom: 12 }}><label>New head's name</label><input value={f.name} onChange={set('name')} maxLength={80} autoFocus /></div>
+      <div className="form-group" style={{ marginBottom: 12 }}><label>Their email (their login)</label><input value={f.email} onChange={set('email')} type="email" {...noAuto} /></div>
+      <div className="form-group" style={{ marginBottom: 12 }}><label>Their phone (optional)</label><input value={f.phone} onChange={set('phone')} type="tel" /></div>
+      <div className="form-group" style={{ marginBottom: 6 }}><label>Starting password (8+ characters)</label><input value={f.password} onChange={set('password')} type="text" {...noAuto} /></div>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
     </ModalShell>
   );
 }

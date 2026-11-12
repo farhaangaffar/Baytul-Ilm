@@ -20,6 +20,7 @@ async function ensureColumns() {
   await query('ALTER TABLE madaaris ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP'); // see routes/session.js
   await ensureSignupColumns(); // also what each madrasah pays us (billing_*) and its kind
   await ensurePlatformTables();
+  await require('./heads').ensure(); // users.name — a head's own name
   ready = true;
 }
 // Plans (CLAUDE.md, the terms' Cost section): a maktab £20 a month or £200 a year; a Darul Uloom
@@ -99,6 +100,8 @@ module.exports = requireAuth(async (req, res) => {
         to_char(m.terms_accepted_at, 'YYYY-MM-DD') AS "termsAccepted",
         m.self_signup AS "selfSignup", m.contact_name AS "contactName", m.contact_email AS "contactEmail", m.contact_phone AS "contactPhone",
         (SELECT string_agg(u.login, ', ' ORDER BY u.id) FROM users u WHERE u.madrasah_id = m.id AND u.role = 'owner') AS "headLogin",
+        (SELECT json_agg(json_build_object('id', u.id::text, 'login', u.login, 'name', COALESCE(u.name, '')) ORDER BY u.id)
+           FROM users u WHERE u.madrasah_id = m.id AND u.role = 'owner') AS heads,
         (SELECT count(*) FROM students s WHERE s.madrasah_id = m.id AND s.status = 'Active') AS students,
         (SELECT count(*) FROM teachers t WHERE t.madrasah_id = m.id) AS teachers,
         (SELECT count(*) FROM classes c WHERE c.madrasah_id = m.id) AS classes,
@@ -157,6 +160,24 @@ module.exports = requireAuth(async (req, res) => {
 
   // Payments from this madrasah: GET the list; POST { paidOn, amount, months, note } records one;
   // DELETE ?paymentId= removes one entered by mistake.
+  // "Change head" (a head left without handing over, or the school appoints someone else): the chosen head login (the main
+  // head unless userId says otherwise) gets the new person's email, name and a starting password; the old person is signed
+  // out everywhere; for the main head the madrasah's contact details follow. Never your own madrasah.
+  if (req.query.action === 'change-head' && req.method === 'POST') {
+    if (isOwn) { res.status(400).json({ error: 'Your own login runs this page — it can\'t be changed here.' }); return; }
+    const { replaceHead, checkNew, heads } = require('./heads');
+    const list = await heads(id);
+    if (!list.length) { res.status(400).json({ error: 'This madrasah has no head login.' }); return; }
+    const b = req.body || {};
+    const target = list.find(h => String(h.id) === String(b.userId)) || list[0];
+    const n = await checkNew(id, b, target.id);
+    if (n.error) { res.status(400).json({ error: n.error }); return; }
+    const done = await replaceHead(id, target.id, n);
+    if (done.error) { res.status(400).json({ error: done.error }); return; }
+    res.status(200).json({ ok: true });
+    return;
+  }
+
   if (req.query.action === 'payments') {
     if (req.method === 'GET') {
       const { rows } = await query(
