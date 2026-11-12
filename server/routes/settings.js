@@ -19,6 +19,8 @@ async function ensureColumns() {
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS fee_auto BOOLEAN NOT NULL DEFAULT true`);
   // The madrasah's own words at the top of its online application form (/join/<code>).
   await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS join_message TEXT NOT NULL DEFAULT ''`);
+  // A Darul Uloom / Aalimiyyah course with no boarders (a local course) switches Boarding off (db/migrate-046-boarding-on.sql).
+  await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS boarding_on BOOLEAN NOT NULL DEFAULT true`);
   columnsReady = true;
 }
 
@@ -41,7 +43,7 @@ async function loadSettings(mid) {
     `SELECT school_name AS "schoolName", school_name_arabic AS "schoolNameArabic",
             default_weekly_fee AS "defaultWeeklyFee", currency_symbol AS "currencySymbol",
             fee_frequency AS "feeFrequency", report_period AS "reportPeriod", parent_portal AS "parentPortal",
-            school_days AS "schoolDays", fee_auto AS "feeAuto", join_message AS "joinMessage",
+            school_days AS "schoolDays", fee_auto AS "feeAuto", join_message AS "joinMessage", boarding_on AS "boardingOn",
             logo IS NOT NULL AS "hasLogo", left(md5(icon), 8) AS "iconVersion"
      FROM settings WHERE madrasah_id = $1`,
     [mid]
@@ -146,6 +148,7 @@ module.exports = async (req, res) => {
       values.push(b.reportPeriod); sets.push(`report_period = $${values.length}`);
     }
     if (b.parentPortal !== undefined) { values.push(!!b.parentPortal); sets.push(`parent_portal = $${values.length}`); }
+    if (b.boardingOn !== undefined) { values.push(!!b.boardingOn); sets.push(`boarding_on = $${values.length}`); }
     if (b.feeAuto !== undefined) { values.push(!!b.feeAuto); sets.push(`fee_auto = $${values.length}`); }
     if (b.joinMessage !== undefined) { values.push(String(b.joinMessage || '').slice(0, 1500)); sets.push(`join_message = $${values.length}`); }
     if (b.schoolDays !== undefined) {

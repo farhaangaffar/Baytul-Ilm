@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { HeartPulse } from 'lucide-react';
 import { DETAIL_SECTIONS, RELATIONS, detailFields, hasHealthNote } from '../lib/studentDetails';
+import { useAuth } from '../lib/AuthContext';
 
 // A writing box that grows with what's written (no handle to drag it bigger or smaller).
 export function GrowingText({ value, onChange, minRows = 1, ...rest }) {
@@ -46,8 +47,9 @@ export function ParentInputs({ form, set, errors = {}, required = false }) {
 
 // The extra details as form boxes, a section at a time. `only` limits it to some sections;
 // `before` adds boxes at the top of a section (e.g. the parents' names and phones in Family).
-export function DetailInputs({ form, set, isDarulUloom, only, before = {} }) {
-  const fields = detailFields(isDarulUloom);
+export function DetailInputs({ form, set, isDarulUloom, only, before = {}, boarding }) {
+  const { user } = useAuth();
+  const fields = detailFields(isDarulUloom, boarding ?? user?.boarding !== false);
   return DETAIL_SECTIONS.filter(([id]) => (!only || only.includes(id)) && (fields.some(f => f[2].section === id) || before[id])).map(([id, title]) => (
     <div key={id}>
       <div className="form-section-title" style={{ marginBottom: 12 }}>{title}</div>
@@ -70,7 +72,8 @@ export function DetailInputs({ form, set, isDarulUloom, only, before = {} }) {
 
 // The filled-in details as label · value lines, a section at a time (empty ones left out).
 export function DetailLines({ student, isDarulUloom, skip = [] }) {
-  const fields = detailFields(isDarulUloom).filter(([key, , o]) => student[key] && o.section !== 'health' && !skip.includes(key));
+  const { user } = useAuth();
+  const fields = detailFields(isDarulUloom, user?.boarding !== false).filter(([key, , o]) => student[key] && o.section !== 'health' && !skip.includes(key));
   return DETAIL_SECTIONS.map(([id, title]) => {
     const here = fields.filter(f => f[2].section === id);
     if (!here.length) return null;

@@ -152,7 +152,8 @@ CREATE TABLE IF NOT EXISTS settings (
   school_days         INTEGER[] NOT NULL DEFAULT '{1,2,3,4}', -- days classes meet (0 Sun … 6 Sat)
   fee_auto            BOOLEAN NOT NULL DEFAULT true, -- add fees by themselves (monthly/termly periods; weekly fee weeks)
   fee_auto_since      DATE, -- Monday automatic weekly fees began; earlier weeks are never filled in
-  join_message        TEXT NOT NULL DEFAULT '' -- shown at the top of the online application form (/join/<code>)
+  join_message        TEXT NOT NULL DEFAULT '', -- shown at the top of the online application form (/join/<code>)
+  boarding_on         BOOLEAN NOT NULL DEFAULT true -- a Darul Uloom with no boarders (a local Aalimiyyah course) switches it off
 );
 
 -- Fee periods removed on purpose (e.g. an August with no classes), for a whole class

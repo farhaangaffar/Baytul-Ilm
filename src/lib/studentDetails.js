@@ -39,7 +39,8 @@ export const DETAIL_SECTIONS = [
   ['du', 'Darul Uloom'],
 ];
 
-export const detailFields = isDarulUloom => DETAIL_FIELDS.filter(([, , o]) => !o.du || isDarulUloom);
+// boarding = false: a Darul Uloom with no boarders (Settings → Boarding) has no "Boarder or day student" box.
+export const detailFields = (isDarulUloom, boarding = true) => DETAIL_FIELDS.filter(([key, , o]) => (!o.du || isDarulUloom) && (boarding || key !== 'boarding'));
 
 // Allergies, conditions or medication — shown in red wherever the child is opened.
 export const hasHealthNote = s => !!(s && (s.allergies || s.medical || s.medication));

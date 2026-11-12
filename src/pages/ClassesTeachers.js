@@ -25,7 +25,7 @@ import { guessPlace } from '../lib/courseYears';
 import { ChoiceBoxes } from '../components/StudentDetails';
 
 export default function ClassesTeachers() {
-  const { isDarulUloom, isSchool } = useAuth();
+  const { isDarulUloom, isSchool, hasBoarding } = useAuth();
   const pageTitle = isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -280,7 +280,7 @@ export default function ClassesTeachers() {
                           <InfoBox value={theirClasses.length || '—'} label={isDarulUloom ? 'Report writer' : theirClasses.length === 1 ? 'Class' : 'Classes'} />
                           <LoginBox login={login} onClick={() => setLoginModal({ kind: 'teacher', item: t })} title={login ? 'Manage this login' : 'Give them a login'} />
                         </div>
-                        {isDarulUloom && t.boardingDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Boarding</span><span className="line-row-name">On boarding duty</span></div>}
+                        {hasBoarding && t.boardingDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Boarding</span><span className="line-row-name">On boarding duty</span></div>}
                         {isDarulUloom && t.maintenanceDuty && <div className="line-row ct-detail"><span className="course-kitaab-subject">Maintenance</span><span className="line-row-name">Sees the maintenance list</span></div>}
                         {theirClasses.map(name => (
                           <div key={name} className="line-row ct-detail"><span className="course-kitaab-subject">{isDarulUloom ? 'Report writer' : 'Class teacher'}</span><span className="line-row-name">{name}</span></div>
@@ -383,7 +383,7 @@ export default function ClassesTeachers() {
 const DU_COURSES = [['aalim', 'Aalim'], ['hifz', 'Hifdh'], ['nazira', 'Naazhirah'], ['qaida', "Qaa'idah"], ['mixed', "Mixed Qur'aan levels — set each student"]];
 
 function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
-  const { isDarulUloom, isSchool } = useAuth();
+  const { isDarulUloom, isSchool, hasBoarding } = useAuth();
   // A school's class: its year group (Reception … Year 13), guessed from its name until picked.
   const [yearGroup, setYearGroup] = useState(initial.id ? initial.yearGroup ?? '' : '');
   const [yearPicked, setYearPicked] = useState(!!initial.id);
@@ -486,7 +486,7 @@ function ClassModal({ initial, teachers, yearCount = 0, onClose, onSave }) {
 }
 
 function TeacherModal({ initial, onClose, onSave }) {
-  const { isDarulUloom } = useAuth();
+  const { isDarulUloom, hasBoarding } = useAuth();
   const [form, setForm] = useState({ ...initial });
   const isNew = !form.id;
   const isValid = form.name && form.name.trim().length > 0;
@@ -522,8 +522,8 @@ function TeacherModal({ initial, onClose, onSave }) {
                 placeholder="e.g. Quran, Arabic, Fiqh (separate with commas or /)"
               />
             </div>
-            {/* A Darul Uloom: teachers on boarding duty also get the Boarding page. */}
-            {isDarulUloom && (
+            {/* A Darul Uloom with boarders: teachers on boarding duty also get the Boarding page. */}
+            {hasBoarding && (
               <div className="form-group">
                 <label>Boarding duty</label>
                 <ChoiceBoxes options={['Yes', 'No']} value={form.boardingDuty ? 'Yes' : 'No'} onChange={v => setForm({ ...form, boardingDuty: v === 'Yes' })} />

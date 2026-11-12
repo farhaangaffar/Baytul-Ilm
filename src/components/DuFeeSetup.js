@@ -7,10 +7,12 @@ import { X, Save, Plus } from 'lucide-react';
 import { ChoiceBoxes } from './StudentDetails';
 import { saveDuFeeSetup } from '../lib/store';
 import { currencySymbol } from '../lib/branding';
+import { useAuth } from '../lib/AuthContext';
 
 const niceYear = y => `20${y.slice(0, 2)}–${y.slice(3)}`;
 
 export default function DuFeeSetupModal({ setup, onClose, onSaved }) {
+  const { hasBoarding } = useAuth();
   const [f, setF] = useState(() => ({
     ...setup,
     boarderFee: setup.boarderFee || '', dayFee: setup.dayFee || '',
@@ -38,10 +40,11 @@ export default function DuFeeSetupModal({ setup, onClose, onSaved }) {
         </div>
         <div className="modal-body">
           <div className="form-grid">
-            <div className="form-grid form-grid-2">
-              <div className="form-group"><label>Boarders — a year ({sym})</label>
-                <input type="number" min={0} step="0.01" value={f.boarderFee} onChange={e => set('boarderFee', e.target.value)} placeholder="e.g. 3000" /></div>
-              <div className="form-group"><label>Day students — a year ({sym})</label>
+            {/* No boarders (Settings → Boarding): just the one yearly fee. */}
+            <div className={`form-grid ${hasBoarding ? 'form-grid-2' : ''}`}>
+              {hasBoarding && <div className="form-group"><label>Boarders — a year ({sym})</label>
+                <input type="number" min={0} step="0.01" value={f.boarderFee} onChange={e => set('boarderFee', e.target.value)} placeholder="e.g. 3000" /></div>}
+              <div className="form-group"><label>{hasBoarding ? 'Day students' : 'The fee'} — a year ({sym})</label>
                 <input type="number" min={0} step="0.01" value={f.dayFee} onChange={e => set('dayFee', e.target.value)} placeholder="e.g. 1500" /></div>
             </div>
 

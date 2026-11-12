@@ -159,11 +159,18 @@ async function applyWeekends(mid) {
   }
 }
 
+// Whether this Darul Uloom has boarders at all (Settings → Boarding; a local Aalimiyyah course switches it off).
+async function boardingOn(mid) {
+  await require('./settings').ensure();
+  const { rows: [s] } = await query('SELECT boarding_on FROM settings WHERE madrasah_id = $1', [mid]);
+  return s ? s.boarding_on !== false : true;
+}
+
 // May this person use Boarding? The head of a Darul Uloom, or a teacher of one ticked for boarding duty.
 async function access(req) {
   const mid = req.user.madrasahId;
   const { rows: [m] } = await query('SELECT kind FROM madaaris WHERE id = $1', [mid]);
-  if (m?.kind !== 'darul_uloom') return false;
+  if (m?.kind !== 'darul_uloom' || !(await boardingOn(mid))) return false;
   if (isOwner(req)) return true;
   if (!req.user.teacherId) return false;
   const { rows } = await query('SELECT boarding_duty FROM teachers WHERE id = $1 AND madrasah_id = $2', [req.user.teacherId, mid]);
@@ -178,7 +185,7 @@ async function boarderIds(mid) {
 // The parent portal's part (server/routes/parent.js): the next home weekends, and this boarder's
 // recent going-home record. Nothing about rooms, the night register or health.
 async function forParent(mid, s) {
-  if (s.boarding !== 'Boarder') return null;
+  if (s.boarding !== 'Boarder' || !(await boardingOn(mid))) return null;
   await ensure();
   await applyWeekends(mid);
   const [weekends, leaves] = await Promise.all([
