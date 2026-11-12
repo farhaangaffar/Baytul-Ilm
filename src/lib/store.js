@@ -735,6 +735,8 @@ export const markQuizAttempt = (attemptId, marks) => apiFetch('/api/school-homew
 export const sendQuizScores = id => apiFetch('/api/school-homework?action=send-scores', { method: 'POST', body: JSON.stringify({ id }) });
 export const submitQuiz = (id, answers) => apiFetch('/api/pupil?action=submit', { method: 'POST', body: JSON.stringify({ id, answers }) });
 export const getStudiesSummary = () => apiFetch('/api/studies?action=summary');
+// A school's Stats page (server/routes/school-stats.js): kind = surah | duaa | practical | homework.
+export const getSchoolStats = (kind, year) => apiFetch(`/api/school-stats?kind=${encodeURIComponent(kind)}${year ? `&year=${encodeURIComponent(year)}` : ''}`);
 export const saveClassAyahs = (className, itemId, ayahs) => apiFetch('/api/studies?action=ayahs', { method: 'POST', body: JSON.stringify({ className, itemId, ayahs }) });
 export const importStudiesMarks = marks => apiFetch('/api/studies?action=import', { method: 'POST', body: JSON.stringify({ marks }) });
 export const getSchoolYearMove = () => apiFetch('/api/studies?action=new-year');

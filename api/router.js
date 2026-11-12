@@ -42,6 +42,7 @@ const routes = {
   referrals: require('../server/routes/referrals'),
   studies: require('../server/routes/studies'),
   'school-reports': require('../server/routes/school-reports'),
+  'school-stats': require('../server/routes/school-stats'),
   users: require('../server/routes/users'),
 };
 

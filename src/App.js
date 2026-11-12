@@ -13,6 +13,7 @@ import Maintenance from './pages/Maintenance';
 import Exams           from './pages/Exams';
 import Studies         from './pages/Studies';
 import SchoolReports   from './pages/SchoolReports';
+import SchoolStats from './pages/SchoolStats';
 import Reports         from './pages/Reports';
 import Stats           from './pages/Stats';
 import SettingsPage    from './pages/Settings';
@@ -166,6 +167,7 @@ export default function App() {
                 <Route path="/students" element={<Students />} />
                 <Route path="/studies"  element={<Studies />} />
                 <Route path="/reports"  element={<SchoolReports />} />
+                <Route path="/stats"    element={<SchoolStats />} />
                 <Route path="/classes"  element={<ClassesTeachers />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 {session.user.platformAdmin && <Route path="/madaaris" element={<Madaaris />} />}

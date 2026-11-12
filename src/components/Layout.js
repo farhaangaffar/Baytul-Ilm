@@ -39,6 +39,7 @@ const schoolNav = [
   { label:'Pupils',             path:'/students',   icon:Users,         section:'Management' },
   { label:'Islamic Studies',    path:'/studies',    icon:BookMarked,    teacher:true },
   { label:'Reports',            path:'/reports',    icon:FileText,      teacher:true },
+  { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, section:'Setup' },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
   { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
