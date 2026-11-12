@@ -70,7 +70,7 @@ codebase (one codebase, not a fork).
   add / rename / switch off a madrasah, reset its head's password, delete one for ever (only once
   switched off, never your own, its code typed to confirm — every table in `TABLES`, `server/demo.js`); plus an AI credit card, a database-space bar (`?action=usage`, Neon free = 0.5 GB) —
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
-  demo link to copy or share; a **Demos & sign-ups** card — this month / last month / all time, each with its Darul Uloom
+  three demo links (maktab, Darul Uloom, school — a line each) to copy or share; a **Demos & sign-ups** card — this month / last month / all time, each with its Darul Uloom
   share, from `platform_counts` (`countEvent()` in `server/platform.js`, called when a new demo is made and on sign-up;
   `?action=counts`), kept for good because Vercel's visitor figures only go back 31 days). Each madrasah is free for 6 months (`madaaris.free_until`, set
   when added, editable there; older rows count 6 months from `created_at`) — payment is by
