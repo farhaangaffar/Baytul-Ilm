@@ -262,8 +262,8 @@ codebase (one codebase, not a fork).
   behaviour records, last month's reports, a full timetable (8 teachers, no clashes, short Friday) with three weeks of lessons recorded; a Monthly test (out of 50, pass 17) marked, commented and published, and a Half-yearly exam in December with no marks yet; boarding (above); logins: head, Maulana Yusuf (1st year, boarding duty), the Patel family (Yusuf Patel boards and is home now).
   A demo link opened while signed in (to a real madrasah, or the other kind of demo) still offers the demo
   (`DemoScreen`, App.js); `/api/demo` starts a fresh demo when the kind asked for differs from the current one.
-- **Heads** (owner logins, any kind of madrasah; `server/routes/heads.js`, `src/components/HeadsCard.js` in Settings, never
-  in a demo): **up to two** — the main head (the first owner; its details are the madrasah's `contact_*` on the Madaaris page)
+- **Heads** (owner logins, any kind of madrasah; `server/routes/heads.js`, `src/components/HeadsCard.js` in Settings; in a demo it
+  shows and its pop-ups open, but the server refuses changes): **up to two** — the main head (the first owner; its details are the madrasah's `contact_*` on the Madaaris page)
   and an optional **second head** (a deputy, same access; `users.name` keeps a head's name). "Add a second head";
   "**Hand over to a new head**" — your OWN login gets the new person's email (login), name and starting password on the same
   `users` row (so everything it did stays), `session_version` bumps so the old person is signed out everywhere, the main

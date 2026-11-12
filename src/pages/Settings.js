@@ -436,7 +436,7 @@ export default function Settings() {
 
       {/* A school's data processing agreement: a copy with its name and when it was agreed, for its records. */}
       {/* The head logins: up to two, add a second, hand over yours (routes/heads.js). */}
-      {!user?.demo && <HeadsCard word={isSchool ? 'school' : 'madrasah'} platformAdmin={user?.platformAdmin} />}
+      <HeadsCard word={isSchool ? 'school' : 'madrasah'} platformAdmin={user?.platformAdmin} demo={user?.demo} />
 
       {isSchool && !user?.demo && <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:4}}>Data processing agreement</div>

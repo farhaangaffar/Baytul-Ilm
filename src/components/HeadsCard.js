@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, UserPlus, Repeat, Trash2 } from 'lucide-react';
 import { getHeads, addHead, handOverHead, removeHead } from '../lib/store';
 
-// Settings → Heads (a head only, never in a demo): the madrasah's or school's head logins — up to two, the main head and an
+// Settings → Heads (a head only; in a demo it shows, and the pop-ups open, but nothing saves — the server refuses): the madrasah's or school's head logins — up to two, the main head and an
 // optional second head (a deputy) with the same access. "Add a second head", "Hand over to a new head" (your own login goes to
 // someone new — you're signed out) and Remove on the other head. The platform owner can also change a head from the
 // Madaaris page. Server: routes/heads.js.
-export default function HeadsCard({ word = 'madrasah', platformAdmin }) {
+export default function HeadsCard({ word = 'madrasah', platformAdmin, demo }) {
   const [list, setList] = useState(null);
   const [open, setOpen] = useState(null); // the other head's id, opened to Remove
   const [modal, setModal] = useState(null); // 'add' | 'handover'
@@ -24,6 +24,7 @@ export default function HeadsCard({ word = 'madrasah', platformAdmin }) {
     <div className="card" style={{ marginTop: 16 }}>
       <div className="card-title" style={{ marginBottom: 4 }}>Heads</div>
       <div className="card-sub" style={{ marginBottom: 12 }}>Who signs in as the head of your {word} — up to two, with the same access.</div>
+      {demo && <div style={{ fontSize: 12, color: 'var(--amber-text)', marginBottom: 10 }}>In the demo you can look, but heads can't be changed.</div>}
       <div style={{ display: 'grid', gap: 8 }}>
         {list.map(h => (
           <div key={h.id}>
