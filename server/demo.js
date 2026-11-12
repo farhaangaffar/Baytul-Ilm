@@ -1047,6 +1047,25 @@ async function createSchoolDemo(ipHash) {
     const efforts = () => { const x = r(); return x < 0.35 ? 'Excellent' : x < 0.85 ? 'Good' : 'Needs to improve'; };
     await bulk(c, 'is_assessment_pupils', ['assessment_id', 'madrasah_id', 'student_id', 'class', 'year_group', 'marks', 'effort', 'effort_by'],
       pupils.map(p => [autumn.id, mid, p.id, p.cls, p.year, JSON.stringify(was[p.id] || {}), efforts(), SCHOOL_CLASSES.find(x => x[0] === p.cls)[2]]));
+    // Last year's Summer point (for Stats → year over year): each pupil a year group lower, in last year's form (6A was 5A),
+    // marked on that year's items a little behind where they are on them now. Reception pupils weren't here yet.
+    const lastYear = yearOf().split('-').map(n => String(Number(n) - 1).padStart(2, '0')).join('-');
+    const { rows: [summer] } = await c.query(
+      `INSERT INTO is_assessments (madrasah_id, year, name, taken_at, taken_by, published_at) VALUES ($1, $2, 'Summer', $3, 'Head', $3::date + 2) RETURNING id`,
+      [mid, lastYear, plus(today, -150)]);
+    const formThen = cls => cls.replace(/\d+/, n => String(Number(n) - 1));
+    const levels = Object.fromEntries(progress.map(([, sid, iid, level]) => [`${sid}|${iid}`, level]));
+    const summerRows = pupils.filter(p => p.year > 0).map(p => {
+      const marks = {};
+      for (const it of items) {
+        if (it.year_group !== p.year - 1) continue;
+        let l = levels[`${p.id}|${it.id}`] || 0;
+        if (l === 3 && r() < 0.25) l = 2; else if (l === 2 && r() < 0.3) l = 1;
+        if (l) marks[it.id] = l;
+      }
+      return [summer.id, mid, p.id, formThen(p.cls), p.year - 1, JSON.stringify(marks), efforts(), ''];
+    });
+    await bulk(c, 'is_assessment_pupils', ['assessment_id', 'madrasah_id', 'student_id', 'class', 'year_group', 'marks', 'effort', 'effort_by'], summerRows);
     // Each class's weekly tracker: this year's first surahs fully covered, the next one part way, the rest not started.
     const { AYAHS } = require('./surahAyahs');
     const covered = [];
@@ -1081,7 +1100,9 @@ async function createSchoolDemo(ipHash) {
           [mid, classIds[ci], it.id, text, weekday(plus(today, dueIn)), teacher, `${plus(today, -ago)}T15:30:00Z`]);
         const mine = pupils.filter(p => p.cls === cname);
         const ticked = mine.filter(p => (ago > 3 ? r() < 0.8 : r() < 0.3) && !(p.family && ago <= 3));
-        await bulk(c, 'is_homework_done', ['homework_id', 'student_id', 'madrasah_id'], ticked.map(p => [h.id, p.id, mid]));
+        // Ticked the day after it was set (a few of last week's after its due date, so Stats shows some late).
+        await bulk(c, 'is_homework_done', ['homework_id', 'student_id', 'madrasah_id', 'done_at'],
+          ticked.map(p => [h.id, p.id, mid, `${plus(today, ago > 3 && r() < 0.15 ? dueIn + 1 : -ago + 1)}T17:00:00Z`]));
       }
     }
 

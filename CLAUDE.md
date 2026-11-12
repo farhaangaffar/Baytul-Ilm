@@ -330,6 +330,15 @@ codebase (one codebase, not a fork).
   `TABLES`. **School demo** (`?demo=school`, `createSchoolDemo()`): Reception, 2A/2B, 4A/4B, 6A/6B/6C (several forms, the owner's
   ask), Year 8, Year 10 with their teachers, ~125 pupils, the starter lists marked (earlier years mostly achieved, this year part
   way); logins head, Ustadh Bilal (4A), the Hussain family (2B and 6A). Counted as `demo_school` / `signup_school`.
+- **School Stats** (`/stats`, menu "Stats", head only; `src/pages/SchoolStats.js`, `server/routes/school-stats.js`, `?kind=
+  surah|duaa|practical|homework&year=`): the madrasah Stats page's comparisons for Islamic Studies — the owner's ask. Tabs Surahs ·
+  Du'aas · Practicals · Homework, a year pill per academic year; **everything a percentage of what's been assessed (or set), never a
+  count**, so 1-form and 3-form years compare fairly; no "N forms" tags (the owner's ask). Figures (Achieved · With help · Incomplete ·
+  Not assessed / Set · Done on time · Done late · Quiz average), **Year groups** (each year as a whole, a soft bar; tap one with
+  several forms → its forms side by side), Through the year (each assessment point by year group, small columns), Year over year
+  (each year's last point; this year "so far" = marks now), Hardest (most pupils incomplete); Homework: By month, Quizzes (each
+  one's average). This year = live marks; an earlier year = its last assessment point. The school demo has last year's Summer point
+  (a year group lower, 6A was 5A) and homework ticked the day after (a few late).
 - **Pupil logins** (a school only — stage 4, step 1; role `pupil`, `users.student_id`, one login per pupil; `server/pupils.js`
   `ensurePupilTables()` widens `users_role_check` and adds `student_id`, `last_login_at`, `failed_logins`, `locked_until`). **The
   school gives each pupil their username and password** (the owner's choice; no Google sign-in): the head types them in on the

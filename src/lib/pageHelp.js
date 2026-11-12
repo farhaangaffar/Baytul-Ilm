@@ -255,6 +255,13 @@ const REPORTS_STEPS = [
   'Tap a pupil\'s name for their report and its PDF; "Print the whole class" makes one PDF of them all.',
 ];
 const SCHOOL_HEAD = {
+  '/stats': { title: 'Stats', steps: [
+    'Pick Surahs, Du\'aas, Practicals or Homework at the top, and an academic year if there\'s more than one.',
+    'Everything is a percentage of what\'s been assessed (or set), so a year with one form and a year with three compare fairly.',
+    'Year groups: each year as a whole. Tap one with several forms (e.g. Year 6) to compare 6A, 6B and 6C side by side.',
+    'Through the year: each assessment point (taken on the Reports page) by year group. Year over year: the whole school, year by year.',
+    'Hardest: the surahs, du\'aas or practicals with the most pupils still incomplete. Homework: done on time or late, by month, and each quiz\'s average.',
+  ] },
   '/': { title: 'Dashboard', steps: [
     'The boxes on top: pupils, classes, and how much of this year\'s surahs, du\'aas and practicals are achieved or being worked towards.',
     'Each class has a line with its year group, teacher and a bar — green achieved, amber completed with help. Tap it to open the class on Islamic Studies.',
