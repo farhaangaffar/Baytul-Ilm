@@ -417,7 +417,17 @@ codebase (one codebase, not a fork).
   on each database before the code needing them is deployed there — the API answers
   503 until `madaaris` exists (`api/router.js`).
 - **Front page** (`src/pages/Landing.js`, `src/landing.css`, screenshots in `public/landing/`
-  taken from the demo as "Madrasatul Huda"): shown at `/about`, and at `/` to anyone not signed
+  taken from the demos as "Madrasatul Huda" — the school ones as "Huda Academy", `school-*.jpg`). **Redesigned as a whole** (the
+  owner's pick, A — "one page, three doors"): the hero's three equal doors — Maktab (blue) · Darul Uloom & Aalimiyyah (green) ·
+  School Islamic Studies (amber), each a screenshot, a line and its price — then `#for`, a switch showing one door's own
+  features at a time (maktab: the five feature rows with the pinned strip; Darul Uloom: phones, computers, `DU_PARTS`; school:
+  phones, the Stats computer shot, `SCHOOL_PARTS` — "Try the school demo" + "Message us to start", since schools can't sign
+  themselves up until stage 5), the video, What everyone gets, Made for everyone (head · teachers · parents · pupils), Your
+  records stay yours, three prices side by side (the chosen door's lit), FAQ, the final card with all three demos.
+  `/maktab`, `/darul-uloom` and `/schools` open the same page on that door (App.js; counted as their own paths). The
+  **sign-in page** (`Login.js`, `.signin-*` in index.css) matches it (the owner's pick, A with the website's gradient): a split
+  card on a soft gradient — a gradient side with the Arabic name (Suhuf's, or the madrasah's once the device knows its code),
+  the form beside it, the code box tinted; on phones the side is a band on top. Shown at `/about`, and at `/` to anyone not signed
   in on a device with no madrasah code (no `?m=`, `?demo`, `?signin`) — staff and parents never
   see it. "Sign in" → `/?signin`. Never names Baytul 'Ilm; price is "free for 6 months, then
   £20 a month or £200 a year" for up to 200 children — more than 200: "message us"; a Darul Uloom £50 a month or £500 a

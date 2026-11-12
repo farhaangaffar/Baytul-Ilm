@@ -169,3 +169,75 @@
   .lp-video .lp-cta { justify-content: center; }
   .lp-video-phone { width: 260px; }
 }
+
+/* ——— The redesign (the owner's pick, A — "one page, three doors") ——— */
+/* Hero: the words, then the three doors — maktab (blue), Darul Uloom & Aalimiyyah (green), school (amber) — as equals. */
+.lp-hero2 { position: relative; max-width: 1120px; margin: 0 auto; padding: 56px 16px 34px; display: grid; gap: 30px; }
+.lp-hero2::before { content: ''; position: absolute; inset: -40px -10% auto -10%; height: 640px; z-index: 0; pointer-events: none;
+  background: radial-gradient(closest-side at 22% 30%, rgba(47,128,237,0.13), transparent 70%), radial-gradient(closest-side at 80% 35%, rgba(151,203,97,0.22), transparent 70%),
+    radial-gradient(closest-side at 55% 85%, rgba(253,221,62,0.16), transparent 70%); }
+.lp-hero2 > * { position: relative; z-index: 1; }
+.lp-hero2-text { text-align: center; max-width: 780px; margin: 0 auto; }
+.lp-hero2 h1 { font-size: clamp(30px, 4.6vw, 48px); font-weight: 700; text-wrap: balance; }
+.lp-hero2 .lp-lead { margin-left: auto !important; margin-right: auto !important; max-width: 640px; }
+.lp-doors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.lp-door { display: grid; grid-template-rows: auto 1fr; border-radius: 24px; overflow: hidden; border: 1.5px solid transparent; transition: transform .15s, box-shadow .15s, border-color .15s; cursor: pointer; }
+.lp-door:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -20px rgba(17,24,39,0.35); }
+.lp-door.blue { background: #f2f7fe; border-color: #d7e4f6; }
+.lp-door.green { background: #f1f8ea; border-color: #d9ebc6; }
+.lp-door.amber { background: #fff8e1; border-color: #f5e3a3; }
+.lp-door.on.blue { border-color: var(--blue); } .lp-door.on.green { border-color: var(--green); } .lp-door.on.amber { border-color: #e2bf2d; }
+.lp-door-shot { height: 190px; overflow: hidden; display: flex; justify-content: center; padding: 22px 22px 0; }
+.lp-door-shot img { width: 200px; height: auto; align-self: flex-start; border-radius: 22px 22px 0 0; border: 7px solid #111827; border-bottom: none; box-shadow: 0 20px 40px -18px rgba(17,24,39,0.45); }
+.lp-door-text { background: #fff; padding: 18px 20px 20px; display: grid; gap: 6px; align-content: start; }
+.lp-door-text h3 { font-size: 18px; font-weight: 700; }
+.lp-door-text p { color: var(--text-muted); font-size: 14px; }
+.lp-door-price { font-size: 13.5px; font-weight: 700; margin-top: 4px; }
+.lp-door-go { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; font-weight: 700; color: var(--blue); margin-top: 6px; }
+.lp-ticks-center { justify-content: center; margin-top: 0; }
+
+/* The switch, and each door's own features under it */
+.lp-for { scroll-margin-top: 70px; padding-top: 30px; border-top: 1px solid #eef0f4; }
+.lp-switch { display: flex; justify-content: center; gap: 4px; width: max-content; max-width: calc(100% - 32px); margin: 0 auto; padding: 4px; border-radius: 999px; background: var(--page); overflow-x: auto; scrollbar-width: none; }
+.lp-switch::-webkit-scrollbar { display: none; }
+.lp-switch button { border: none; background: none; font: 700 14px var(--font); color: var(--text-muted); padding: 10px 18px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.lp-switch button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(17,24,39,0.12); }
+.lp-door-body { padding-top: 34px; }
+.lp-door-lead { color: var(--text-muted); font-size: 17px; max-width: 640px; margin: 12px auto 0 !important; line-height: 1.55; text-align: center; }
+.lp-phones { display: flex; justify-content: center; gap: 22px; margin: 6px 0 34px; flex-wrap: wrap; }
+.lp-phones .lp-phone { width: 210px; }
+.lp-desk { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin: 0 0 40px; }
+.lp-desk-one { grid-template-columns: minmax(0, 720px); justify-content: center; }
+.lp-door-cta { margin: 30px 0 10px; }
+.lp-features .lp-door-cta { padding-bottom: 30px; }
+
+/* Shared sections */
+.lp-tinted { background: linear-gradient(180deg, #f8fafc, #fff); border-radius: 28px; }
+.lp-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Prices: three plans side by side, the chosen door's lit */
+.lp-prices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.lp-plan2 { border-radius: 22px; padding: 24px 18px; text-align: center; display: grid; gap: 4px; align-content: start; border: 1.5px solid; }
+.lp-plan2.blue { background: #f2f7fe; border-color: #d7e4f6; } .lp-plan2.green { background: #f1f8ea; border-color: #d9ebc6; } .lp-plan2.amber { background: #fff8e1; border-color: #f5e3a3; }
+.lp-plan2.on.blue { border-color: var(--blue); } .lp-plan2.on.green { border-color: var(--green); } .lp-plan2.on.amber { border-color: #e2bf2d; }
+.lp-plan2 h3 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; min-height: 2.6em; display: flex; align-items: center; justify-content: center; }
+.lp-plan-free { font-weight: 700; color: var(--green-text); font-size: 14px; }
+.lp-plan2 .lp-btn { justify-self: center; margin-top: 14px; padding: 10px 18px; font-size: 14px; }
+.lp-price-note2 { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 18px !important; }
+.lp-price-note2 a { color: var(--blue); text-decoration: underline; font-weight: 600; }
+
+@media (max-width: 860px) {
+  .lp-hero2 { padding-top: 36px; }
+  .lp-doors, .lp-prices { grid-template-columns: 1fr; }
+  .lp-door { grid-template-columns: 120px 1fr; grid-template-rows: none; }
+  .lp-door-shot { height: auto; padding: 14px 0 0 14px; }
+  .lp-door-shot img { width: 106px; border-width: 4px; border-radius: 14px 14px 0 0; }
+  .lp-door-text { padding: 14px 16px; }
+  .lp-door-text h3 { font-size: 16.5px; }
+  .lp-desk { grid-template-columns: 1fr; gap: 24px; }
+  .lp-phones .lp-phone:not(:first-child) { display: none; }
+  .lp-phones .lp-phone { width: 250px; }
+  .lp-grid-4 { grid-template-columns: 1fr; }
+  .lp-switch button { padding: 9px 13px; font-size: 13px; }
+}
+@media (min-width: 861px) and (max-width: 1000px) { .lp-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
