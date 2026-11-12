@@ -70,13 +70,18 @@ export default function Madaaris() {
 
   const totals = list.reduce((t, m) => ({ students: t.students + m.students, ai: t.ai + m.aiThisMonth, aiAll: t.aiAll + m.aiTotal }), { students: 0, ai: 0, aiAll: 0 });
   const pounds = n => `£${((n * PENCE_PER_AI_REQUEST) / 100).toFixed(2)}`;
-  const demoLink = `${APP_URL}/?demo`;
-  async function copyDemo() {
-    try { await navigator.clipboard.writeText(demoLink); showToast('Demo link copied'); }
-    catch { window.prompt('Copy the demo link:', demoLink); }
+  // The three demos — each made-up madrasah or school of its own kind.
+  const DEMOS = [
+    ['Maktab', `${APP_URL}/?demo`, `Have a look around ${APP_NAME}, the madrasah app:`],
+    ['Darul Uloom & Aalimiyyah', `${APP_URL}/?demo=darul-uloom`, `Have a look around ${APP_NAME} for Darul Ulooms and Aalimiyyah courses:`],
+    ['School Islamic Studies', `${APP_URL}/?demo=school`, `Have a look around ${APP_NAME} for a school's Islamic Studies department:`],
+  ];
+  async function copyDemo(link) {
+    try { await navigator.clipboard.writeText(link); showToast('Demo link copied'); }
+    catch { window.prompt('Copy the demo link:', link); }
   }
-  async function shareDemo() {
-    try { await navigator.share({ title: `${APP_NAME} demo`, text: `Have a look around ${APP_NAME}, the madrasah app:`, url: demoLink }); }
+  async function shareDemo(link, text) {
+    try { await navigator.share({ title: `${APP_NAME} demo`, text, url: link }); }
     catch { /* closed, or sharing not available */ }
   }
   const signInLink = code => `${APP_URL}/?m=${encodeURIComponent(code)}`;
@@ -179,12 +184,19 @@ export default function Madaaris() {
       {counts && <CountsCard counts={counts} />}
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo link</div>
-        <div className="card-sub" style={{ marginBottom: 10 }}>Send this to anyone who wants to try the app — they get their own made-up madrasah.</div>
-        <div style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '9px 12px', fontSize: 13, wordBreak: 'break-all', marginBottom: 10 }}>{demoLink}</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={copyDemo}><Copy size={14} /> Copy</button>
-          {typeof navigator !== 'undefined' && navigator.share && <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={shareDemo}><Share2 size={14} /> Share</button>}
+        <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo links</div>
+        <div className="card-sub" style={{ marginBottom: 10 }}>Send the right one to anyone who wants to try the app — they get their own made-up madrasah or school.</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {DEMOS.map(([label, link, text]) => (
+            <div key={link} className="line-row" style={{ cursor: 'default' }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontWeight: 600 }}>{label}</span>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.replace(/^https?:\/\//, '')}</span>
+              </span>
+              <button className="btn btn-sm" onClick={() => copyDemo(link)} aria-label={`Copy the ${label} demo link`}><Copy size={13} /> Copy</button>
+              {typeof navigator !== 'undefined' && navigator.share && <button className="btn btn-sm" onClick={() => shareDemo(link, text)} aria-label={`Share the ${label} demo link`}><Share2 size={13} /></button>}
+            </div>
+          ))}
         </div>
       </div>
 

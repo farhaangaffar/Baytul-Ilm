@@ -110,7 +110,7 @@ const HEAD = {
     'Invoice (inside each one) makes a PDF for the next months not paid — schools pay by bank transfer. Type your bank details once; they\'re kept.',
     'Add a madrasah with its head\'s login, then send them their code. Edit details, passwords and switching off are inside each one.',
     'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
-    'Your AI credit, database space, how many demos were tried and madaaris signed up (kept for good), and the demo link are at the bottom.',
+    'Your AI credit, database space, how many demos were tried and madaaris signed up (kept for good), and the three demo links (maktab, Darul Uloom, school) are at the bottom.',
   ] },
 };
 
