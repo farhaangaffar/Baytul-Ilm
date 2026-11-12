@@ -186,6 +186,14 @@ const MAINTENANCE_STAFF = { title: 'Maintenance', steps: [
 
 const DU_HEAD = {
   '/boarding': BOARDING_HEAD,
+  '/settings': { title: 'Settings', steps: [
+    'Everything saves by itself — there\'s no Save button.',
+    'Your madrasah: its name, logo and sign-in code.',
+    'Fees: "Prices & ways to pay" sets the yearly fee and how it\'s paid.',
+    'Classes & parents: madrasah days, the parent portal, and Boarding — choose "No boarders — a local course" if nobody boards, and the Boarding page and boxes go away (switch back any time; nothing is lost).',
+    'Online applications: share the link so parents can apply; write a short message for the top of the form.',
+    'Download a backup now and then. "Download students to spreadsheet" gives you every child and their parents\' details.',
+  ] },
   '/maintenance': MAINTENANCE_HEAD,
   '/fees': { title: 'Fees', steps: [
     '"Prices & ways to pay": the yearly fee for boarders and day students, the ways parents can pay it (the whole year, termly, monthly — each with its dates) and, if you want one, a sibling discount.',

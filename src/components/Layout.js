@@ -63,7 +63,7 @@ export default function Layout({ children, title, subtitle }) {
   const visibleNav = isSchool
     ? schoolNav.filter(i => (isOwner ? (!i.platform || isPlatformAdmin) : i.teacher)).map(i => (isOwner ? i : { ...i, section: undefined }))
     : isOwner
-    ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom))
+    ? navItems.filter(i => (!i.platform || isPlatformAdmin) && (!i.darulUloom || isDarulUloom) && (!i.maktab || !isDarulUloom) && !(i.boarding && user?.boarding === false))
       .map(i => (isDarulUloom ? { ...i, section: i.duSection || i.section, label: i.duLabel || i.label } : i))
     : navItems.filter(i => ((i.teacher && !user?.maintenanceOnly) || (i.boarding && user?.boardingDuty) || (i.maintenance && user?.maintenanceDuty)) && (!i.darulUloom || isDarulUloom) && !(i.duOffice && isDarulUloom)).map(i => ({ ...i, section: undefined }));
   const activeChipRef = useRef(null);

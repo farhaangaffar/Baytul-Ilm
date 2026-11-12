@@ -55,7 +55,7 @@ function logoImages(blob) {
 }
 
 export default function Settings() {
-  const { user, isDarulUloom, isSchool } = useAuth(); // a school: no fees, registers or online applications
+  const { user, isDarulUloom, isSchool, refresh } = useAuth(); // a school: no fees, registers or online applications
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [form, setForm] = useState(null);
@@ -164,6 +164,19 @@ export default function Settings() {
       markSaved('reports');
     } catch (err) {
       showToast(err.message || 'Could not change the report period');
+    }
+  }
+
+  // A Darul Uloom / Aalimiyyah course with no boarders switches Boarding off: no Boarding page, no boarder / day student box,
+  // no boarders' fee (nothing already recorded is deleted — switching it back on brings it all back).
+  async function changeBoarding(on) {
+    try {
+      await updateSettings({ boardingOn: on });
+      setForm(f => ({ ...f, boardingOn: on }));
+      markSaved('boarding');
+      await refresh(); // the menu gains or loses Boarding straight away
+    } catch (err) {
+      showToast(err.message || 'Could not change boarding');
     }
   }
 
@@ -350,7 +363,7 @@ export default function Settings() {
             <div className="form-group">
               <Label k="du-fees">Fees</Label>
               <button type="button" className="btn" style={{justifyContent:'center'}} onClick={openDuFees}>Prices &amp; ways to pay</button>
-              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>A yearly fee for boarders and day students, paid in instalments.</span>
+              <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>{form.boardingOn === false ? 'A yearly fee, paid in instalments.' : 'A yearly fee for boarders and day students, paid in instalments.'}</span>
             </div>
           ) : (
           <div className="form-group">
@@ -455,6 +468,14 @@ export default function Settings() {
             )}
           </div>
           </>}
+          {isDarulUloom && <div className="form-group">
+            <Label k="boarding">Boarding</Label>
+            <select value={form.boardingOn === false ? 'off' : 'on'} onChange={e=>changeBoarding(e.target.value==='on')}>
+              <option value="on">We have boarders</option>
+              <option value="off">No boarders — a local course</option>
+            </select>
+            <span style={{fontSize:12,color:'var(--text-muted)',marginTop:4}}>{form.boardingOn === false ? 'No Boarding page. Switch back on any time — nothing is lost.' : 'Boarding page for rooms, night register and going home.'}</span>
+          </div>}
           <div className="form-group">
             <Label k="portal">Parent portal</Label>
             <select value={form.parentPortal ? 'on' : 'off'} onChange={e=>changeParentPortal(e.target.value==='on')}>

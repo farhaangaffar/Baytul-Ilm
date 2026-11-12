@@ -34,7 +34,7 @@ async function madrasahByCode(code) {
   const c = String(code || '').trim().toLowerCase();
   if (!c) return null;
   const { rows } = await query(
-    `SELECT m.id, m.kind, s.school_name, s.school_name_arabic, s.logo IS NOT NULL AS has_logo, s.join_message, s.default_weekly_fee
+    `SELECT m.id, m.kind, s.school_name, s.school_name_arabic, s.logo IS NOT NULL AS has_logo, s.join_message, s.default_weekly_fee, s.boarding_on
      FROM madaaris m LEFT JOIN settings s ON s.madrasah_id = m.id
      WHERE lower(m.code) = $1 AND m.active AND (m.demo_until IS NULL OR m.demo_until > now())`, [c]);
   return rows[0] || null;
@@ -48,7 +48,7 @@ module.exports = async (req, res) => {
   if (req.method === 'GET') {
     const m = await madrasahByCode(req.query.m);
     if (!m) { res.status(404).json({ error: 'We couldn\'t find that madrasah — check the link with the madrasah.' }); return; }
-    res.status(200).json({ name: m.school_name || '', arabicName: m.school_name_arabic || '', hasLogo: m.has_logo, kind: m.kind || 'maktab', message: m.join_message || '' });
+    res.status(200).json({ name: m.school_name || '', arabicName: m.school_name_arabic || '', hasLogo: m.has_logo, kind: m.kind || 'maktab', message: m.join_message || '', boarding: m.boarding_on !== false });
     return;
   }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }

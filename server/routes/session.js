@@ -44,10 +44,17 @@ module.exports = async (req, res) => {
   // Heads agree to the terms once per version; not the platform owner (they wrote them) or a demo.
   // A Darul Uloom teacher on boarding duty also gets the Boarding page; one on maintenance, the Maintenance page.
   let boardingDuty = false, maintenanceDuty = false, maintenanceOnly = false;
+  // A Darul Uloom with no boarders (Settings → Boarding: No boarders) has no Boarding page at all.
+  let boarding = m.kind === 'darul_uloom';
+  if (boarding) {
+    await require('./settings').ensure();
+    const { rows: [s] } = await query('SELECT boarding_on FROM settings WHERE madrasah_id = $1', [user.madrasahId]);
+    boarding = s ? s.boarding_on !== false : true;
+  }
   if (user.role === 'teacher' && user.teacherId && m.kind === 'darul_uloom') {
     await require('./teachers').ensure();
     const { rows: t } = await query('SELECT boarding_duty, maintenance_duty FROM teachers WHERE id = $1 AND madrasah_id = $2', [user.teacherId, user.madrasahId]);
-    boardingDuty = !!t[0]?.boarding_duty;
+    boardingDuty = boarding && !!t[0]?.boarding_duty;
     maintenanceDuty = !!t[0]?.maintenance_duty;
     // Staff who are only on maintenance (no class, no lessons) open on the Maintenance page and don't see the teaching pages.
     if (maintenanceDuty && !classNames.length) maintenanceOnly = !(await teachingClassNames(user)).length;
@@ -57,7 +64,7 @@ module.exports = async (req, res) => {
     authenticated: true, setupRequired,
     user: {
       login: user.login, role: user.role, teacherId: user.teacherId, classId: user.classId, classNames,
-      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name, kind: m.kind }, termsNeeded, boardingDuty, maintenanceDuty, maintenanceOnly,
+      platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name, kind: m.kind }, termsNeeded, boarding, boardingDuty, maintenanceDuty, maintenanceOnly,
     },
   });
 };

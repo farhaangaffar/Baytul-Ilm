@@ -99,7 +99,7 @@ export default function Join({ code }) {
                   <GrowingText value={c[k]} onChange={e => setChild(i, k, e.target.value)} placeholder="None" maxLength={500} /></div>
               ))}
               {du ? <>
-                <div className="form-group"><label>Boarder or day student</label><ChoiceBoxes options={['Boarder', 'Day student']} value={c.boarding} onChange={v => setChild(i, 'boarding', v)} /></div>
+                {info?.boarding !== false && <div className="form-group"><label>Boarder or day student</label><ChoiceBoxes options={['Boarder', 'Day student']} value={c.boarding} onChange={v => setChild(i, 'boarding', v)} /></div>}
                 <div className="form-group"><label>School year (if also at school)</label><input value={c.schoolYear} onChange={e => setChild(i, 'schoolYear', e.target.value)} maxLength={40} /></div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Previous madrasah or school</label><input value={c.previousSchool} onChange={e => setChild(i, 'previousSchool', e.target.value)} maxLength={200} /></div>
                 <div className="form-group"><label>Hifdh completed (year)</label><input value={c.hifdhCompleted} onChange={e => setChild(i, 'hifdhCompleted', e.target.value)} maxLength={40} /></div>

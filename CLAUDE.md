@@ -220,6 +220,11 @@ codebase (one codebase, not a fork).
   has Block A (Ground: rooms 001 and 002, Level 1: room 101) and Block B (Ground: room 001), two boarders not placed, home weekends (two boarders
   staying for the next one), one boarder home now, two weeks of nights and health notes
   (`demoBoarding()`), Maulana Yusuf and Qari Ibrahim on duty.
+  **No boarders** (Settings → Classes & parents → Boarding: "We have boarders" / "No boarders — a local course",
+  `settings.boarding_on`, DU only; the owner's ask for local Aalimiyyah courses): off = no Boarding menu or page (`/api/boarding`
+  403, `forParent` none), no "Boarder or day student" box (`detailFields(du, boarding)`, the Join form), no boarders' fee in
+  `DuFeeSetupModal`, no Boarding duty in the staff pop-up. Nothing is deleted — switching back on brings it all back. The
+  session's `boarding` flag (`useAuth().hasBoarding`); Settings calls `refresh()` (AuthContext) so the menu changes at once.
   **Maintenance** (`/maintenance`, menu "Maintenance", `src/pages/Maintenance.js`, `server/routes/maintenance.js`; 403 for a
   maktab): things to fix around the school (`du_maintenance`: what, where, urgent, note, who added it; done_at/done_by/done_note).
   The head adds, edits, deletes and puts back; staff ticked **Maintenance** (`teachers.maintenance_duty`, Yes/No in the staff

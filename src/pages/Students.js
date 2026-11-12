@@ -668,7 +668,7 @@ export default function Students() {
                   {(()=>{ const r=detailRows(selected,isDarulUloom,['family','home'],['mainContact']); return r.length ? (
                     <InfoCard icon={Home} tone="purple" title="Home & going home"><InfoRows rows={r}/></InfoCard>
                   ) : null; })()}
-                  {isDarulUloom && selected.boarding==='Boarder' && selected.status==='Active' && (
+                  {isDarulUloom && user?.boarding !== false && selected.boarding==='Boarder' && selected.status==='Active' && (
                     <InfoCard icon={BedDouble} tone="purple" title="Boarding"><BoarderRecord studentId={selected.id} bare/></InfoCard>
                   )}
                   {selected.notes&&<InfoCard icon={StickyNote} title="Notes"><div className="text-muted" style={{fontSize:13,fontStyle:'italic'}}>"{selected.notes}"</div></InfoCard>}
