@@ -90,6 +90,17 @@ export async function getSession() {
 export async function acceptTerms() {
   return apiFetch('/api/session?action=accept-terms', { method: 'POST' });
 }
+// A school's copy of the data processing agreement: { name, agreedOn, agreedBy, contactName, agreed } (Settings).
+// The platform owner's details printed on invoices (Madaaris page → Invoice): { payee, address, bank, sortCode, account }.
+export async function getInvoiceDetails() {
+  return apiFetch('/api/madaaris?action=invoice-details');
+}
+export async function saveInvoiceDetails(d) {
+  return apiFetch('/api/madaaris?action=invoice-details', { method: 'POST', body: JSON.stringify(d) });
+}
+export async function getDpaDetails() {
+  return apiFetch('/api/session?action=dpa');
+}
 
 // ── Teacher and class logins (owner only) ──
 // data: { login, password, teacherId } for a teacher's own login, or { login, password, classId }

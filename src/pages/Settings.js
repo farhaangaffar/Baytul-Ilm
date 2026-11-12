@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GrowingText } from '../components/StudentDetails';
-import { LegalLinks } from '../components/Legal';
+import { LegalLinks, downloadDpa } from '../components/Legal';
 import Layout from '../components/Layout';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents, getDuFees, getSchoolReports, setSchoolReportPeriod } from '../lib/store';
+import { getDpaDetails, getSettings, updateSettings, getAcademicYears, exportAllData, importAllData, currentSchoolYear, getStudents, getDuFees, getSchoolReports, setSchoolReportPeriod } from '../lib/store';
 import DuFeeSetupModal from '../components/DuFeeSetup';
 import { studentsRows, sheetLeft } from '../lib/studentSheet';
 import { xlsxBlob, downloadBlob } from '../lib/xlsx';
@@ -433,6 +433,17 @@ export default function Settings() {
         </div>
       </div>}
 
+      {/* A school's data processing agreement: a copy with its name and when it was agreed, for its records. */}
+      {isSchool && !user?.demo && <div className="card" style={{marginTop:16}}>
+        <div className="card-title" style={{marginBottom:4}}>Data processing agreement</div>
+        <div className="card-sub" style={{marginBottom:12}}>How Suhuf looks after your pupils' information — for your headteacher or data protection officer to keep.</div>
+        <button type="button" className="line-row" onClick={async () => {
+          try { await downloadDpa(await getDpaDetails()); } catch (err) { showToast(err.message || 'Could not make the PDF'); }
+        }}>
+          <span style={{flex:1,textAlign:'left'}}>Download your copy (PDF)</span><Download size={15} />
+        </button>
+      </div>}
+
       {/* Classes & parents */}
       <div className="card" style={{marginTop:16}}>
         <div className="card-title" style={{marginBottom:16}}>{isSchool ? 'Parents' : <>Classes &amp; parents</>}</div>
@@ -511,7 +522,7 @@ export default function Settings() {
         </div>
       </div>}
 
-      <LegalLinks style={{ margin: '18px 0 4px' }} />
+      <LegalLinks style={{ margin: '18px 0 4px', flexWrap: 'wrap' }} school={isSchool} />
 
       {pendingRestore&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setPendingRestore(null)}>

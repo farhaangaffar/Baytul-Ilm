@@ -88,7 +88,7 @@ export default function App() {
   }, [currentUserKey]);
 
   // The privacy policy and terms open for anyone, signed in or not.
-  const legal = { '/privacy': 'privacy', '/terms': 'terms' }[window.location.pathname];
+  const legal = { '/privacy': 'privacy', '/terms': 'terms', '/dpa': 'dpa' }[window.location.pathname.replace(/\/+$/, '')];
   if (legal) return <LegalPage kind={legal} />;
   // A madrasah's online application form, for parents with the link (/join/<code>).
   const join = /^\/join\/([a-z0-9-]+)\/?$/i.exec(window.location.pathname);
@@ -132,7 +132,7 @@ export default function App() {
 
   // A head agrees to the terms for their madrasah before using the app.
   if (session.user.termsNeeded) {
-    return <AcceptTerms madrasahName={session.user.madrasah?.name} onAccepted={refreshSession}
+    return <AcceptTerms madrasahName={session.user.madrasah?.name} kind={session.user.madrasah?.kind} onAccepted={refreshSession}
       onSignOut={async () => { try { await logout(); } catch {} refreshSession(); }} />;
   }
 

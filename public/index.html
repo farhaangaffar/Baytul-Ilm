@@ -13,12 +13,12 @@
     <meta property="og:url" content="https://www.suhuf.uk/" />
     <!-- The one address search engines should list for each public page (Google Search Console flagged duplicates):
          the front page is the same at /, /about, /?signin, /?ref=… and the old vercel.app address — all point to
-         www.suhuf.uk/; /privacy and /terms point to themselves. Set before the app loads, so crawlers always see it. -->
+         www.suhuf.uk/; /privacy, /terms and /dpa point to themselves. Set before the app loads, so crawlers always see it. -->
     <link rel="canonical" id="canonical" href="https://www.suhuf.uk/" />
     <script>
       try {
         var p = location.pathname.replace(/\/+$/, '');
-        if (p === '/privacy' || p === '/terms') {
+        if (p === '/privacy' || p === '/terms' || p === '/dpa') {
           document.getElementById('canonical').href = 'https://www.suhuf.uk' + p;
           document.querySelector('meta[property="og:url"]').content = 'https://www.suhuf.uk' + p;
         }

@@ -2,10 +2,12 @@
 // Shown at /privacy and /terms (anyone, signed in or not) and in pop-ups inside the app.
 // Bump TERMS_VERSION when the terms change in a way heads should agree to again — every
 // head is then asked once more (server/routes/session.js). A Darul Uloom has its own version
-// (DU_TERMS_VERSION), so a change that only concerns Darul Ulooms — like their price — asks only their heads.
+// (DU_TERMS_VERSION), so a change that only concerns Darul Ulooms — like their price — asks only their heads. A school has
+// its own too (SCHOOL_TERMS_VERSION), which also covers the data processing agreement (DPA below) — a school agrees to both at once.
 export const TERMS_VERSION = '2026-10';
 export const DU_TERMS_VERSION = 'du-2026-10';
-export const LEGAL_UPDATED = 'October 2026';
+export const SCHOOL_TERMS_VERSION = 'school-2026-11';
+export const LEGAL_UPDATED = 'November 2026';
 
 // Who runs the service (a sole trader for now — change to the company if one is set up).
 export const PROVIDER = {
@@ -16,6 +18,7 @@ export const PROVIDER = {
 export const PRIVACY = [
   ['Who we are', [
     `Suhuf (suhuf.uk) is a madrasah management app run by ${PROVIDER.name}. Each madrasah that uses it decides what goes into it and is responsible for the information about its own children, parents and staff — in data-protection terms, the madrasah is the "controller" and we are its "processor". If you're a parent, your madrasah is the first place to ask about your information; you can also write to us at ${PROVIDER.email}.`,
+    'A school using Suhuf for its Islamic Studies department is the controller in the same way, and has a data processing agreement with us (suhuf.uk/dpa) saying how we look after its pupils\' information. If you\'re a pupil or a parent at a school, ask the school first.',
   ]],
   ['What we keep', [
     'About children: name, date of birth, whether a boy or girl, class, attendance, fees, Qur\'aan progress (lessons, grades and the teacher\'s lesson notes), behaviour records, the reports written about them, and (at a Darul Uloom) exam marks and report cards, whether they board, and their previous madrasah or school.',
@@ -36,8 +39,9 @@ export const PRIVACY = [
   ]],
   ['Who else handles it', [
     'Vercel (the web hosting) and Neon (the database) store and serve Suhuf. They may keep data in the UK, the EU or the US, under the legal safeguards UK law requires for that.',
+    'Schools: nothing about a school\'s pupils is ever sent to an AI company — a school\'s pages have no AI.',
     'When the head (or, at a Darul Uloom, a class teacher writing an exam report) asks the app to write a report, that child\'s records for the period — at a Darul Uloom including their exam marks — are sent to Anthropic (the AI company behind Claude) to draft it. Under Anthropic\'s business terms this data is not used to train its AI.',
-    'When a madrasah signs up, we\'re told by email through Resend (an email service), with the madrasah\'s name and the head\'s name, email and phone number.',
+    'When a madrasah or school signs up, we\'re told by email through Resend (an email service), with its name and the head\'s name, email and phone number.',
     'We don\'t pass information to anyone else unless the law requires it.',
   ]],
   ['Parents see', [
@@ -51,6 +55,7 @@ export const PRIVACY = [
     'For as long as the madrasah uses the app. A madrasah can download everything at any time (Settings → Backup). When a madrasah stops using the app, its information is deleted within 30 days of it asking, or within 90 days of its account being switched off. Demo madaaris are made up and are deleted after 24 hours.',
   ]],
   ['Keeping it safe', [
+    'Children under 13 never sign themselves up: at a school, the school decides whether its pupils have logins and gives them their usernames and passwords, and a pupil only ever sees their own homework, quizzes and marks.',
     'Everything travels encrypted (https). Each madrasah\'s information is kept apart — staff only ever see their own madrasah, teachers only their own classes, parents only their own children. If something ever went wrong with anyone\'s information, we would tell the madrasah straight away.',
   ]],
   ['Your rights', [
@@ -63,13 +68,16 @@ export const TERMS = [
     `These terms are between ${PROVIDER.name} ("we") and the madrasah using Suhuf (suhuf.uk). The head agrees to them on the madrasah's behalf when signing up, or when they first sign in.`,
   ]],
   ['Cost', [
-    'Suhuf is free for the madrasah\'s first 6 months. After that it costs £20 a month, or £200 a year, for a madrasah of up to 200 children, paid by standing order; for more than 200 children we\'ll agree a price with you. A Darul Uloom (a full-time madrasah) costs £50 a month, or £500 a year, for up to 500 students; for more than 500 we\'ll agree a price with you. If the price ever changes we\'ll tell you at least a month beforehand. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',
+    'Suhuf is free for the madrasah\'s first 6 months. After that it costs £20 a month, or £200 a year, for a madrasah of up to 200 children, paid by standing order; for more than 200 children we\'ll agree a price with you. A Darul Uloom (a full-time madrasah) costs £50 a month, or £500 a year, for up to 500 students; for more than 500 we\'ll agree a price with you. A school\'s Islamic Studies department has its first term free (to 31 December, 31 March or 31 August — and the term after too if fewer than 6 weeks are left when it joins), then pays yearly by invoice: £500 for one form of entry, £800 for two, £1,000 for three; for four or more we\'ll agree a price with you. If the price ever changes we\'ll tell you at least a month beforehand. If you don\'t want to carry on, just tell us — there\'s no contract period and nothing to pay for the free months.',
   ]],
   ['Your side', [
     'Keep your logins private and give staff and parents only the access they need.',
     'Tell parents that their children\'s records are kept in Suhuf (you can point them to the privacy policy), and only add information you have a proper reason to keep.',
     'Health details (allergies, conditions, medication) are sensitive: only add what helps keep a child safe, with the parents\' agreement.',
     'Use the app for running your madrasah only, and don\'t try to reach another madrasah\'s information.',
+  ]],
+  ['Schools', [
+    'For a school, these terms come with our data processing agreement (suhuf.uk/dpa), which says how we look after its pupils\' information on its behalf. The person signing up confirms they\'re allowed to agree to both for the school. Where the two differ about personal information, the data processing agreement wins.',
   ]],
   ['Our side', [
     'We keep the app running and your information safe, as the privacy policy describes, and only use your information to provide the app to you.',
@@ -87,5 +95,46 @@ export const TERMS = [
   ['Changes and law', [
     'If these terms change in a way that matters, you\'ll be asked to agree again when you next sign in. These terms are under the law of England and Wales.',
     `Questions about these terms or your information: ${PROVIDER.email}.`,
+  ]],
+];
+
+// The data processing agreement a school agrees to with its terms (SCHOOL_TERMS_VERSION) — shown at /dpa, and as a PDF
+// with the school's name and the date it was agreed (Settings → Your school; src/lib/dpaPdf.js). Plain English, written
+// from the ICO's guidance on contracts between controllers and processors (UK GDPR Article 28).
+export const DPA_UPDATED = 'November 2026';
+export const DPA = [
+  ['Who this is between', [
+    `This agreement is between the school using Suhuf for its Islamic Studies department (the "school") and ${PROVIDER.name} ("we", "Suhuf"). It goes with the terms of use and starts when the school signs up (or agrees to it in the app).`,
+    'The school is the controller of its pupils\', parents\' and staff\'s personal information in Suhuf. We are its processor: we only handle that information to run Suhuf for the school, as this agreement says.',
+  ]],
+  ['What is handled, and why', [
+    'Purpose: to provide Suhuf to the school — its Islamic Studies records, assessments and reports, homework and quizzes, pupil and parent logins, and backups — for as long as the school uses it.',
+    'People: the school\'s pupils, their parents or carers, and its staff.',
+    'Information: pupils\' names, dates of birth, gender, classes and year groups; their Islamic Studies marks, assessment points and effort ratings; homework set and done; quiz answers and marks; pupil usernames and when they last signed in; parents\' or carers\' names, phone numbers and email addresses; staff names, contact details and logins. Passwords are stored scrambled (hashed) and nobody can read them. The school decides what it adds; we ask for no special category information (such as health) for a school.',
+    'How: stored and shown in the app to the people the school gives logins to, each seeing only what their role allows.',
+  ]],
+  ['What we do', [
+    'Act only on the school\'s instructions — this agreement, the terms and how the school uses the app are those instructions. If we\'re ever required by law to do something else with the information, we\'ll tell the school first unless the law forbids it.',
+    'Make sure everyone who works on Suhuf keeps the information confidential.',
+    'Keep it secure: everything travels encrypted (https), each school\'s information is kept apart from every other\'s, access is limited by role, passwords are hashed, and the database is backed up.',
+    'Tell the school without undue delay — and within 48 hours of finding out — if anything goes wrong with its information (a personal data breach), with what we know and what we\'re doing about it.',
+    'Help the school answer requests from pupils, parents or staff about their information (to see it, correct it or delete it), and help with any data protection impact assessment or question from the ICO, as far as is reasonable.',
+    'Give the school the information it needs to show we keep to this agreement, and answer its reasonable questions about it.',
+  ]],
+  ['Who else handles it (sub-processors)', [
+    'Vercel Inc. (web hosting) and Neon (the database, hosted in London — eu-west-2) store and serve Suhuf. Resend (email) is used only to tell us when a school signs up (its name and the head\'s contact details). Where any of them handles information outside the UK, it\'s under the safeguards UK law requires (such as the UK addendum to the EU standard contractual clauses).',
+    'A school\'s pages use no AI: nothing about its pupils is sent to an AI company.',
+    'We have written agreements with each of them that protect the information at least as well as this one. We\'ll tell the school at least 30 days before adding or changing anyone who would handle its information, so it can object — and if it does, it can leave with its information.',
+  ]],
+  ['When the school leaves', [
+    'The school can download everything at any time (Settings → Backup). When it stops using Suhuf, we delete its information within 30 days of it asking, or within 90 days of its account being switched off, unless the law requires us to keep it. Backups roll over and are gone within a further 30 days.',
+  ]],
+  ['The school\'s side', [
+    'The school makes sure it has a lawful basis for the information it puts into Suhuf (for a school, usually its public task or legitimate interests), tells pupils and parents that it uses Suhuf (it can point them to suhuf.uk/privacy), gives logins only to the people who need them, and keeps its own logins private.',
+  ]],
+  ['Liability, changes and law', [
+    'Each side is responsible for its own part in keeping to UK data protection law (the UK GDPR and the Data Protection Act 2018). The limits on responsibility in the terms of use apply, except where the law doesn\'t allow them to.',
+    'If this agreement needs to change, we\'ll tell the school and ask it to agree again in the app. It is under the law of England and Wales.',
+    `Questions, or to report a concern: ${PROVIDER.email}.`,
   ]],
 ];

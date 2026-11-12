@@ -9,7 +9,8 @@ const { ensureSignupColumns } = require('../newMadrasah');
 // (DU_TERMS_VERSION), so a change only for Darul Ulooms (their price) asks only their heads to agree again.
 const TERMS_VERSION = '2026-10';
 const DU_TERMS_VERSION = 'du-2026-10';
-const termsVersionFor = kind => (kind === 'darul_uloom' ? DU_TERMS_VERSION : TERMS_VERSION);
+const SCHOOL_TERMS_VERSION = 'school-2026-11'; // a school's terms and its data processing agreement, agreed together
+const termsVersionFor = kind => (kind === 'darul_uloom' ? DU_TERMS_VERSION : kind === 'school' ? SCHOOL_TERMS_VERSION : TERMS_VERSION);
 let termsReady = false;
 async function ensureTermsColumns() {
   if (termsReady) return;
@@ -33,6 +34,16 @@ module.exports = async (req, res) => {
     await query('UPDATE madaaris SET terms_version = $1, terms_accepted_at = now(), terms_accepted_by = $2 WHERE id = $3',
       [termsVersionFor(k?.kind), user.login, user.madrasahId]);
     res.status(200).json({ ok: true });
+    return;
+  }
+
+  // GET ?action=dpa — a school's head: what goes on their copy of the data processing agreement (Settings → Your school).
+  if (req.query.action === 'dpa') {
+    if (!user || user.role !== 'owner') { res.status(403).json({ error: "You don't have access to this." }); return; }
+    const { rows: [d] } = await query(
+      `SELECT name, kind, terms_version AS version, to_char(terms_accepted_at, 'YYYY-MM-DD') AS "agreedOn", terms_accepted_by AS "agreedBy",
+              contact_name AS "contactName" FROM madaaris WHERE id = $1`, [user.madrasahId]);
+    res.status(200).json({ ...d, agreed: d.version === SCHOOL_TERMS_VERSION });
     return;
   }
 
