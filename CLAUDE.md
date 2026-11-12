@@ -338,7 +338,10 @@ codebase (one codebase, not a fork).
   several forms → its forms side by side), Through the year (each assessment point by year group, small columns), Year over year
   (each year's last point; this year "so far" = marks now), Hardest (most pupils incomplete); Homework: By month, Quizzes (each
   one's average). This year = live marks; an earlier year = its last assessment point. The school demo has last year's Summer point
-  (a year group lower, 6A was 5A) and homework ticked the day after (a few late).
+  (a year group lower, 6A was 5A) and homework ticked the day after (a few late). **Download all stats as a PDF** (a line under
+  the year pills; the owner's ask — every year group, schools only for now): `src/lib/schoolStatsPdf.js` (`buildSchoolStatsPdf`,
+  pdf-lib, the soft colours) — the school's name/logo, then a section each for Surahs, Du'aas, Practicals and Homework (figures,
+  every year group with its forms, through the year, year over year, hardest; homework by month and quizzes), for the year shown.
 - **Pupil logins** (a school only — stage 4, step 1; role `pupil`, `users.student_id`, one login per pupil; `server/pupils.js`
   `ensurePupilTables()` widens `users_role_check` and adds `student_id`, `last_login_at`, `failed_logins`, `locked_until`). **The
   school gives each pupil their username and password** (the owner's choice; no Google sign-in): the head types them in on the

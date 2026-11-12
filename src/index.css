@@ -1333,3 +1333,4 @@ button.ss-line { cursor: pointer; }
   .signin-chips, .signin-foot { display: none; }
   .signin-form { padding: 22px 20px; }
 }
+.ss-pdf { margin-top: 10px; width: 100%; justify-content: center; background: #fff; }
