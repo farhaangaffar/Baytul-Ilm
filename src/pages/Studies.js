@@ -34,6 +34,20 @@ function closeBack(e, close) {
     if (top < 80 || top > window.innerHeight - 60) line.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }));
 }
+// On a computer (1100px and wider) the page is a list on the left and the chosen surah, du'aa, practical or pupil in a
+// panel on the right (the owner's pick, B); phones keep the lines that open underneath.
+function useWide(query = '(min-width: 1100px)') {
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const m = window.matchMedia(query);
+    const on = () => setWide(m.matches);
+    on();
+    m.addEventListener ? m.addEventListener('change', on) : m.addListener(on);
+    return () => (m.removeEventListener ? m.removeEventListener('change', on) : m.removeListener(on));
+  }, [query]);
+  return wide;
+}
 function showTop(e) {
   const el = e.currentTarget;
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -118,6 +132,7 @@ export default function Studies() {
   const [modal, setModal] = useState(null); // { kind: 'item', item? } | { kind: 'pupil', id } | { kind: 'import' }
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
+  const wide = useWide();
 
   useEffect(() => {
     getClasses().then(list => {
@@ -188,14 +203,61 @@ export default function Studies() {
     return [k, t.assessed ? t.pctAchieved : null];
   }));
 
+  // On a computer something is always shown in the panel: the line picked, else the first.
+  const sel = !wide ? openItem
+    : byPupil ? (pupils.some(p => `p:${p.id}` === openItem) ? openItem : (pupils[0] ? `p:${pupils[0].id}` : null))
+    : (items.some(i => i.id === openItem) ? openItem : (now[0] || items[0])?.id ?? null);
+
+  // What an opened line shows: its resources, the aayahs covered, Everyone and a row per pupil, then Set homework / Edit.
+  const itemBody = (it, closeBtn) => {
+    const n = it.kind === 'surah' && it.surah ? surahAyahs(it.surah) : 0;
+    const covered = data?.ayahs?.[it.id] || [];
+    return (
+      <>
+              {/* Lesson resources (stage 3): one closed line, opening to the links (the owner's pick, option C). */}
+              <ItemLinks item={it} links={(data?.links || []).filter(l => l.itemId === it.id)} onChanged={load}
+                onEdit={link => setModal({ kind: 'link', item: it, link })} />
+              {n > 0 && <AyahTracker surah={it.surah} covered={covered} onChange={a => saveAyahs(it.id, a)} />}
+              <div className="st-everyone">
+                <span>Everyone</span>
+                <BoxRow fill columns="repeat(3, minmax(0, 1fr))" cells={LEVELS.map(([v, l]) => ({
+                  text: l, wrap: 'words', onClick: busy || !pupils.length ? undefined : () => {
+                    if (window.confirm(`Mark all ${pupils.length} as ${l} for ${it.name}?`)) mark(it.id, pupils.map(p => p.id), v);
+                  },
+                }))} />
+              </div>
+              <div className="st-pupils">
+                {pupils.map(p => (
+                  <div key={p.id} className="st-pupil">
+                    <button type="button" className="st-name" onClick={() => setModal({ kind: 'pupil', id: p.id })}>{p.name}</button>
+                    <LevelBoxes level={levelOf(p, it)} busy={busy} onPick={v => mark(it.id, [p.id], v)} />
+                  </div>
+                ))}
+              </div>
+              {!pupils.length && <div className="text-muted" style={{ fontSize: 13 }}>No pupils in this class yet.</div>}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'homework', item: it })}>
+                  <Plus size={12} /> Set homework
+                </button>
+                {isOwner && (
+                  <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'item', item: it })}>
+                    <Pencil size={12} /> Edit {oneWord}
+                  </button>
+                )}
+                {closeBtn}
+              </div>
+      </>
+    );
+  };
+
   const itemLine = it => {
-    const open = openItem === it.id;
+    const open = wide ? sel === it.id : openItem === it.id;
     const t = tally(pupils, p => levelOf(p, it));
     const n = it.kind === 'surah' && it.surah ? surahAyahs(it.surah) : 0;
     const covered = data?.ayahs?.[it.id] || [];
     return (
-      <div key={it.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
-        <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { setOpenItem(open ? null : it.id); if (!open) showTop(e); }}>
+      <div key={it.id} className={`st-pupil-wrap ${open && !wide ? 'open' : ''}`}>
+        <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { if (wide) { setOpenItem(it.id); return; } setOpenItem(open ? null : it.id); if (!open) showTop(e); }}>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
             {/* Spread along the bar's length (the owner's ask): surah number, achieved, aayahs covered. */}
@@ -204,49 +266,47 @@ export default function Studies() {
             </span>
             <Bar t={t} />
           </span>
-          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {!wide && (open ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
         </button>
-        {open && (
+        {open && !wide && (
           <div className="st-open">
-            {/* Lesson resources (stage 3): one closed line, opening to the links (the owner's pick, option C). */}
-            <ItemLinks item={it} links={(data?.links || []).filter(l => l.itemId === it.id)} onChanged={load}
-              onEdit={link => setModal({ kind: 'link', item: it, link })} />
-            {n > 0 && <AyahTracker surah={it.surah} covered={covered} onChange={a => saveAyahs(it.id, a)} />}
-            <div className="st-everyone">
-              <span>Everyone</span>
-              <BoxRow fill columns="repeat(3, minmax(0, 1fr))" cells={LEVELS.map(([v, l]) => ({
-                text: l, wrap: 'words', onClick: busy || !pupils.length ? undefined : () => {
-                  if (window.confirm(`Mark all ${pupils.length} as ${l} for ${it.name}?`)) mark(it.id, pupils.map(p => p.id), v);
-                },
-              }))} />
-            </div>
-            {pupils.map(p => (
-              <div key={p.id} className="st-pupil">
-                <button type="button" className="st-name" onClick={() => setModal({ kind: 'pupil', id: p.id })}>{p.name}</button>
-                <LevelBoxes level={levelOf(p, it)} busy={busy} onPick={v => mark(it.id, [p.id], v)} />
-              </div>
-            ))}
-            {!pupils.length && <div className="text-muted" style={{ fontSize: 13 }}>No pupils in this class yet.</div>}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-              <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'homework', item: it })}>
-                <Plus size={12} /> Set homework
-              </button>
-              {isOwner && (
-                <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: 'item', item: it })}>
-                  <Pencil size={12} /> Edit {oneWord}
-                </button>
-              )}
-              <button type="button" className="btn btn-sm" onClick={e => closeBack(e, () => setOpenItem(null))}><ChevronUp size={13} />Close {it.name}</button>
-            </div>
+            {itemBody(it, <button type="button" className="btn btn-sm" onClick={e => closeBack(e, () => setOpenItem(null))}><ChevronUp size={13} />Close {it.name}</button>)}
           </div>
         )}
       </div>
     );
   };
 
+  // The panel on a computer: the picked surah / du'aa / practical (its name, figures and everything its line opens to), or
+  // the picked pupil's PupilDetail.
+  const selItem = wide && !byPupil ? items.find(i => i.id === sel) : null;
+  const selPupil = wide && byPupil ? pupils.find(p => `p:${p.id}` === sel) : null;
+  const panel = selItem ? (() => {
+    const t = tally(pupils, p => levelOf(p, selItem));
+    const n = selItem.kind === 'surah' && selItem.surah ? surahAyahs(selItem.surah) : 0;
+    return (
+      <>
+        <div className="st-panel-head">
+          <div className="st-panel-name">{selItem.name}</div>
+          <span className="line-row-sub st-spread">
+            {[selItem.detail, yearLabel(selItem.yearGroup), `${t.achieved}/${pupils.length} achieved`, n ? `${(data?.ayahs?.[selItem.id] || []).length}/${n} aayahs` : ''].filter(Boolean).map(x => <span key={x}>{x}</span>)}
+          </span>
+          <Bar t={t} />
+        </div>
+        {itemBody(selItem, null)}
+      </>
+    );
+  })() : selPupil ? (
+    <>
+      <div className="st-panel-head"><div className="st-panel-name">{selPupil.name}</div></div>
+      <PupilDetail key={selPupil.id} name={selPupil.name.split(' ')[0]} items={all} levelOf={it => levelOf(selPupil, it)} onPick={(it, v) => mark(it.id, [selPupil.id], v)} busy={busy}
+        classAverage={classAverage} ayahs={data?.ayahs} yearGroup={year} />
+    </>
+  ) : <div className="text-muted" style={{ fontSize: 13 }}>{byPupil ? 'No pupils in this class yet.' : `No ${tabLabel.toLowerCase()} yet.`}</div>;
+
   return (
     <Layout title="Islamic Studies" subtitle="Surahs, du'aas and practicals">
-      <div className="student-page">
+      <div className={wide ? 'st-wide' : 'student-page'}>
         <ClassBar classes={classes.map(c => c.name)} active={cls} onPick={pickClass}
           notes={Object.fromEntries(classes.map(c => [c.name, yearLabel(c.yearGroup)]))} />
         <div className="pill-tabs bd-tabs st-tabs five">
@@ -254,7 +314,9 @@ export default function Studies() {
         </div>
 
         {!data ? <LoadingState /> : tab === 'homework' ? (
-          <HomeworkTab className={cls} items={all} pupils={pupils} links={data.links || []} yearGroup={data.yearGroup} />
+          <div className={wide ? 'st-hw-wide' : undefined}>
+            <HomeworkTab className={cls} items={all} pupils={pupils} links={data.links || []} yearGroup={data.yearGroup} />
+          </div>
         ) : (
           <>
             {noYear && (
@@ -263,23 +325,24 @@ export default function Studies() {
               </div>
             )}
             <Figures t={classTally} />
-
+            <div className={wide ? 'st-split' : undefined}>
+            <div className={wide ? 'st-left' : undefined}>
             {byPupil ? (
               <div className="card" style={{ display: 'grid', gap: 6 }}>
-                <div className="card-title" style={{ marginBottom: 4 }}>Pupils · tap a name for everything of theirs</div>
+                <div className="card-title" style={{ marginBottom: 4 }}>{wide ? 'Pupils' : 'Pupils · tap a name for everything of theirs'}</div>
                 {pupils.map(p => {
-                  const open = openItem === `p:${p.id}`;
+                  const open = wide ? sel === `p:${p.id}` : openItem === `p:${p.id}`;
                   const t = tally(all, it => levelOf(p, it));
                   return (
-                    <div key={p.id} className={`st-pupil-wrap ${open ? 'open' : ''}`}>
-                      <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { setOpenItem(open ? null : `p:${p.id}`); if (!open) showTop(e); }}>
+                    <div key={p.id} className={`st-pupil-wrap ${open && !wide ? 'open' : ''}`}>
+                      <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={e => { if (wide) { setOpenItem(`p:${p.id}`); return; } setOpenItem(open ? null : `p:${p.id}`); if (!open) showTop(e); }}>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span className="line-row-name" style={{ display: 'block' }}>{p.name}</span>
                           <Bar t={t} />
                         </span>
-                        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        {!wide && (open ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
                       </button>
-                      {open && (
+                      {open && !wide && (
                         <div className="st-open">
                           <PupilDetail name={p.name.split(' ')[0]} items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
                             classAverage={classAverage} ayahs={data.ayahs} yearGroup={year} />
@@ -328,6 +391,9 @@ export default function Studies() {
                 <FileSpreadsheet size={13} /> Import marks from your spreadsheets
               </button>
             )}
+            </div>
+            {wide && <div className="card st-panel">{panel}</div>}
+            </div>
           </>
         )}
       </div>
