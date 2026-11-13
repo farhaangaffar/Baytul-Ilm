@@ -281,6 +281,7 @@ CREATE TABLE IF NOT EXISTS users (
   teacher_id       TEXT UNIQUE REFERENCES teachers(id) ON DELETE CASCADE,
   class_id         TEXT UNIQUE REFERENCES classes(id) ON DELETE CASCADE,
   platform_admin   BOOLEAN NOT NULL DEFAULT false,
+  name             TEXT,                    -- a head's own name (Settings → Heads)
   active           BOOLEAN NOT NULL DEFAULT true,
   session_version  INTEGER NOT NULL DEFAULT 0,
   created_at       TIMESTAMP NOT NULL DEFAULT now()

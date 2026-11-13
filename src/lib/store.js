@@ -98,6 +98,14 @@ export async function getInvoiceDetails() {
 export async function saveInvoiceDetails(d) {
   return apiFetch('/api/madaaris?action=invoice-details', { method: 'POST', body: JSON.stringify(d) });
 }
+// A madrasah's heads (Settings → Heads; routes/heads.js): [{ id, name, login, you, main }]; add a second head; hand your own
+// head login over to someone new ({ name, email, phone?, password } — you're signed out); remove the other head.
+export async function getHeads() { return apiFetch('/api/heads'); }
+export async function addHead(d) { return apiFetch('/api/heads?action=add', { method: 'POST', body: JSON.stringify(d) }); }
+export async function handOverHead(d) { return apiFetch('/api/heads?action=handover', { method: 'POST', body: JSON.stringify(d) }); }
+export async function removeHead(id) { return apiFetch(`/api/heads?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+// The platform owner's "Change head" (Madaaris page): { userId?, name, email, phone?, password }.
+export async function changeMadrasahHead(id, d) { return apiFetch(`/api/madaaris?id=${encodeURIComponent(id)}&action=change-head`, { method: 'POST', body: JSON.stringify(d) }); }
 export async function getDpaDetails() {
   return apiFetch('/api/session?action=dpa');
 }
