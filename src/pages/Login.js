@@ -104,7 +104,8 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   );
 
   const usernameProps = { autoCapitalize: 'none', autoCorrect: 'off', autoComplete: 'username', spellCheck: false };
-  const neutral = isNeutralBranding();
+  // A demo never shows the madrasah this device remembers — it's Suhuf's own made-up madrasah, Darul Uloom or school.
+  const neutral = isNeutralBranding() || mode === 'demo';
   const linkBtn = { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' };
 
   return (
@@ -117,7 +118,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             {/* No madrasah on this device yet: the app's own name. */}
             <div className="signin-ar">{APP_NAME_ARABIC}</div>
             <div className="signin-name">{APP_NAME}</div>
-            <p>Sign in to your madrasah, Darul Uloom or school.</p>
+            <p>{mode === 'demo' ? `Look around a made-up ${{ darul_uloom: 'Darul Uloom', school: 'school' }[demoKind()] || 'madrasah'} — nothing real is shown.` : 'Sign in to your madrasah, Darul Uloom or school.'}</p>
             <div className="signin-chips"><span>Maktabs</span><span>Darul Ulooms</span><span>Schools</span></div>
           </> : <>
             {branding.schoolNameArabic && <div className="signin-ar">{branding.schoolNameArabic}</div>}
