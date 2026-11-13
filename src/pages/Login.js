@@ -37,6 +37,8 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [branding, setBrandingState] = useState(getBranding());
+  // The browser tab on the demo page says Suhuf too, never the madrasah this device remembers.
+  useEffect(() => { if (mode === 'demo') document.title = `${APP_NAME} demo`; }, [mode, branding]);
 
   // A madrasah's name is public (api/settings serves it before sign-in, by code), so the
   // login screen shows the madrasah this device belongs to — or a neutral name.
