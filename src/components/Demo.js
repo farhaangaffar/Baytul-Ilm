@@ -92,6 +92,7 @@ export function DemoChooser({ current, kind = 'maktab' }) {
 // madrasah, or to the other kind of demo — still offers the demo, rather than quietly opening
 // their own madrasah. Starting it signs them in to the demo instead on this device.
 export function DemoScreen({ kind, signedInAs }) {
+  useEffect(() => { document.title = 'Suhuf demo'; }, []);
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div className="card" style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
