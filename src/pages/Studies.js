@@ -640,7 +640,7 @@ function LinkModal({ item, link, onClose, onSaved }) {
           <div className="form-grid">
             <div className="form-group"><label>Name</label>
               <input value={f.name} maxLength={120} autoFocus={!link} onChange={e => setF(x => ({ ...x, name: e.target.value }))}
-                placeholder={`e.g. ${item.name} worksheet`} /></div>
+                placeholder={`e.g. ${item.name} ${item.kind === 'practical' ? 'worksheet / video' : 'worksheet / audio'}`} /></div>
             <div className="form-group"><label>Link</label>
               <input value={f.url} maxLength={1000} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false}
                 onChange={e => setF(x => ({ ...x, url: e.target.value }))} placeholder="https://drive.google.com/…" /></div>
