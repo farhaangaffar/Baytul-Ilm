@@ -403,8 +403,20 @@ function AttemptModal({ quiz, name, attempts, onClose, onMarked }) {
 
 // A quiz's results: who's handed in, the class average, long answers to mark; a line per pupil with their score (tap to
 // see their answers and mark), a line per question ("7/9 right"), and "Send scores to pupils" when scores wait for it.
-export function QuizResults({ homework: h, pupils, onEdit, onRemoved, onChanged, onClose }) {
-  const close = useBackToClose(true, onClose);
+// A homework's or quiz's results: a pop-up on phones, or — on a computer, in Islamic Studies' Homework tab — the panel on
+// the right of the list (inline; no close button, the list picks another).
+export function SheetFrame({ inline, close, children, after }) {
+  if (inline) return <div className="card st-panel hw-panel">{children}{after}</div>;
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 600 }}>{children}</div>
+      {after}
+    </div>
+  );
+}
+
+export function QuizResults({ homework: h, pupils, onEdit, onRemoved, onChanged, onClose, inline }) {
+  const close = useBackToClose(!inline, onClose);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [show, setShow] = useState('all');
@@ -430,12 +442,14 @@ export function QuizResults({ homework: h, pupils, onEdit, onRemoved, onChanged,
   async function send() { setBusy(true); try { await sendQuizScores(h.id); setSent(true); await onChanged(); } catch (e) { setError(e.message || 'Could not send'); } setBusy(false); }
   const shown = k => (show === k ? 'hw-shown' : '');
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 600 }}>
+    <SheetFrame inline={inline} close={close} after={open && data && (
+        <AttemptModal quiz={quiz} name={open.name} attempts={attempts.filter(a => a.studentId === open.id)}
+          onClose={() => setOpen(null)} onMarked={async () => { setOpen(null); await load(); await onChanged(); }} />
+      )}>
         <div className="modal-header">
           <div><div className="modal-title">{quizName(h)}</div>
             <div className="text-muted text-sm">{[niceDueShort(h.due), quiz ? `${quiz.questions.length} questions` : '', `set by ${h.setBy}`].filter(Boolean).join(' · ')}</div></div>
-          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+          {!inline && <button className="btn btn-icon" onClick={close}><X size={16} /></button>}
         </div>
         <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
           {h.text && <div style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{h.text}</div>}
@@ -492,14 +506,9 @@ export function QuizResults({ homework: h, pupils, onEdit, onRemoved, onChanged,
             <button className="btn" onClick={() => setConfirm(false)}>Keep</button>
             <button className="btn btn-danger" disabled={busy} onClick={remove}>Remove</button></>}
           {!confirm && h.canEdit && <button className="btn" onClick={onEdit}><Pencil size={13} />Change</button>}
-          {!confirm && <button className="btn" onClick={close}>Close</button>}
+          {!confirm && !inline && <button className="btn" onClick={close}>Close</button>}
         </div>
-      </div>
-      {open && data && (
-        <AttemptModal quiz={quiz} name={open.name} attempts={attempts.filter(a => a.studentId === open.id)}
-          onClose={() => setOpen(null)} onMarked={async () => { setOpen(null); await load(); await onChanged(); }} />
-      )}
-    </div>
+    </SheetFrame>
   );
 }
 

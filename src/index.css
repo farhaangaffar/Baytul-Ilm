@@ -1359,10 +1359,11 @@ button.ss-line { cursor: pointer; }
 .st-panel-head { display: grid; gap: 5px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .st-panel-name { font-weight: 700; font-size: 16px; color: var(--ink); }
 /* Two across on a big screen, each name above its three boxes (so the boxes keep their words). */
+/* Running down the left column then the right, with room and a thin line between them (the owner found it busy). */
 @media (min-width: 1400px) {
-  .st-panel .st-pupils { grid-template-columns: 1fr 1fr; gap: 12px 18px; }
-  .st-panel .st-pupils .st-pupil { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .st-panel .st-pupils { display: block; columns: 2; column-gap: 56px; column-rule: 1.5px solid #d3d9e1; }
+  .st-panel .st-pupils .st-pupil { grid-template-columns: minmax(0, 1fr); gap: 4px; break-inside: avoid; margin-bottom: 14px; }
 }
-/* …and the Homework tab's lines two across. */
-.st-hw-wide > .card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.st-hw-wide > .card > :not(button.line-row:not(.add)) { grid-column: 1 / -1; }
+/* The Homework tab's panel: the pop-up's header, words and footer, inside a card. */
+.hw-panel { padding: 0; gap: 0; }
+.hw-panel > .modal-footer { position: static; }
