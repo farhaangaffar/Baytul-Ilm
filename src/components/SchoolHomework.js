@@ -3,7 +3,7 @@ import BoxRow from './BoxRow';
 import { useBackToClose } from '../lib/useBackToClose';
 import { getSchoolHomework, saveSchoolHomework, deleteSchoolHomework } from '../lib/store';
 import { ChoiceBoxes } from './StudentDetails';
-import { QuizEditor, QuizSection, QuizResults, DEFAULT_SETTINGS, scoreTone, quizName } from './SchoolQuiz';
+import { QuizEditor, QuizSection, QuizResults, SheetFrame, DEFAULT_SETTINGS, scoreTone, quizName } from './SchoolQuiz';
 import { X, Save, Trash2, Pencil, Plus, ChevronRight, Clock, Copy } from 'lucide-react';
 
 // A school's homework (Islamic Studies, stage 4 — server/routes/school-homework.js). Text only: what to do, a due date,
@@ -168,8 +168,8 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
 }
 
 // One piece of homework: what to do, the item's links, and who has ticked it done.
-function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose }) {
-  const close = useBackToClose(true, onClose);
+function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose, inline }) {
+  const close = useBackToClose(!inline, onClose);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const forThem = h.allPupils ? pupils : pupils.filter(p => h.studentIds.includes(p.id));
@@ -180,11 +180,10 @@ function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose 
   const names = show === 'done' ? done : show === 'not' ? notYet : forThem;
   async function remove() { setBusy(true); try { await deleteSchoolHomework(h.id); await onRemoved(); } catch { setBusy(false); } }
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 600 }}>
+    <SheetFrame inline={inline} close={close}>
         <div className="modal-header">
           <div><div className="modal-title">{h.itemName || 'Homework'}</div><div className="text-muted text-sm">{niceDue(h.due) || 'No due date'} · set by {h.setBy}</div></div>
-          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+          {!inline && <button className="btn btn-icon" onClick={close}><X size={16} /></button>}
         </div>
         <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
           <div style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{h.text}</div>
@@ -209,21 +208,32 @@ function HomeworkSheet({ homework: h, pupils, links, onEdit, onRemoved, onClose 
             <button className="btn" onClick={() => setConfirm(false)}>Keep</button>
             <button className="btn btn-danger" disabled={busy} onClick={remove}>Remove</button></>}
           {!confirm && h.canEdit && <button className="btn" onClick={onEdit}><Pencil size={13} />Change</button>}
-          {!confirm && <button className="btn" onClick={close}>Close</button>}
+          {!confirm && !inline && <button className="btn" onClick={close}>Close</button>}
         </div>
-      </div>
-    </div>
+    </SheetFrame>
   );
 }
 
 // The Homework tab on Islamic Studies: "Set homework", then a line per piece of homework, newest first.
-export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
+// On a computer (wide, from Studies.js) the lines are a list on the left and the picked homework — who has done it, or a
+// quiz's results — is the panel on the right (the owner's ask, like the surahs); phones open it as a pop-up.
+export function HomeworkTab({ className, items, pupils, links, yearGroup, wide }) {
+  const [pick, setPick] = useState(null);
   const [list, setList] = useState(null);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null); // { kind: 'set', homework? } | { kind: 'view', homework }
   const load = useCallback(() => getSchoolHomework(className).then(l => { setList(l); setError(''); }).catch(e => setError(e.message || 'Could not load')), [className]);
   useEffect(() => { setList(null); load(); }, [load]);
-  return (
+  const isDraft = h => h.kind === 'quiz' && h.draft;
+  const selected = wide && list ? (list.find(h => h.id === pick && !isDraft(h)) || list.find(h => !isDraft(h)) || null) : null;
+  const panel = selected && (selected.kind === 'quiz'
+    ? <QuizResults key={selected.id} inline homework={selected} pupils={pupils}
+        onEdit={() => setModal({ kind: 'view', homework: selected, editing: true })} onChanged={load}
+        onRemoved={async () => { setPick(null); await load(); }} onClose={() => {}} />
+    : <HomeworkSheet key={selected.id} inline homework={selected} pupils={pupils} links={links.filter(l => l.itemId === selected.itemId)}
+        onEdit={() => setModal({ kind: 'view', homework: selected, editing: true })}
+        onRemoved={async () => { setPick(null); await load(); }} onClose={() => {}} />);
+  const listCard = (
     <div className="card" style={{ display: 'grid', gap: 6 }}>
       <div className="card-title" style={{ marginBottom: 4 }}>Homework · {className}</div>
       <button type="button" className="line-row add" onClick={() => setModal({ kind: 'set' })}><Plus size={13} /> Add homework</button>
@@ -237,7 +247,8 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
         // Just the due date — who has done it or handed it in is inside (the owner's ask).
         const sub = quiz && h.draft ? ['Draft — pupils can\'t see it yet'] : [niceDue(h.due) || 'No due date'];
         return (
-          <button key={h.id} type="button" className="line-row" onClick={() => setModal(quiz && h.draft ? { kind: 'set', homework: h } : { kind: 'view', homework: h })}>
+          <button key={h.id} type="button" className={`line-row ${selected && selected.id === h.id ? 'on' : ''}`}
+            onClick={() => (quiz && h.draft ? setModal({ kind: 'set', homework: h }) : wide ? setPick(h.id) : setModal({ kind: 'view', homework: h }))}>
             <span className="ct-two">
               <span className="line-row-name">{quiz ? quizName(h) : h.itemName || 'Homework'}{!h.allPupils ? ` · ${h.studentIds.length} pupil${h.studentIds.length === 1 ? '' : 's'}` : ''}</span>
               <span className="line-row-sub">{sub.filter(Boolean).join(' · ')}</span>
@@ -245,20 +256,26 @@ export function HomeworkTab({ className, items, pupils, links, yearGroup }) {
             {quiz && h.draft && <span className="qz-score grey">Draft</span>}
             {quiz && !h.draft && h.toMark > 0 && <span className="qz-score amber"><Clock size={11} /> {h.toMark} to mark</span>}
             {quiz && !h.draft && !h.toMark && h.average !== null && h.average !== undefined && <span className={`qz-score ${scoreTone(h.average, 100)}`}>{h.average}%</span>}
-            <ChevronRight size={16} />
+            {!wide && <ChevronRight size={16} />}
           </button>
         );
       })}
+    </div>
+  );
+  return (
+    <div className={wide ? 'st-split' : undefined}>
+      {listCard}
+      {wide && (panel || <div className="card st-panel"><div className="text-muted" style={{ fontSize: 13 }}>Pick a piece of homework to see who has done it.</div></div>)}
       {modal?.kind === 'set' && (
         <HomeworkModal className={className} items={items} pupils={pupils} homework={modal.homework} yearGroup={yearGroup}
           onClose={() => setModal(null)} onSaved={async () => { setModal(null); await load(); }} />
       )}
-      {modal?.kind === 'view' && modal.homework.kind === 'quiz' && (
+      {modal?.kind === 'view' && !wide && modal.homework.kind === 'quiz' && (
         <QuizResults homework={modal.homework} pupils={pupils}
           onEdit={() => setModal(m => ({ ...m, editing: true }))} onChanged={load}
           onRemoved={async () => { setModal(null); await load(); }} onClose={() => setModal(null)} />
       )}
-      {modal?.kind === 'view' && modal.homework.kind !== 'quiz' && (
+      {modal?.kind === 'view' && !wide && modal.homework.kind !== 'quiz' && (
         <HomeworkSheet homework={modal.homework} pupils={pupils} links={links.filter(l => l.itemId === modal.homework.itemId)}
           onEdit={() => setModal(m => ({ ...m, editing: true }))}
           onRemoved={async () => { setModal(null); await load(); }} onClose={() => setModal(null)} />
