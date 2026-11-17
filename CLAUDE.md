@@ -626,7 +626,7 @@ codebase (one codebase, not a fork).
   Jadeed / Muraaja'ah Qareebah / Muraaja'ah / Naazhirah / Qaa'idah** (`KIND_LABELS`,
   `QURAN_TYPES` in `src/lib/quran.js`). Spell it **Qur'aan** on screen (the owner's spelling; book titles like Tarjamat-ul-Qur'an keep theirs). Hifdh Jadeed is never recorded in quarters; Qaa'idah offers "Same as last time" (the child's last lesson text);
   Muraaja'ah Qareebah's "To" offers "Until new lesson" (the ayah before the latest Hifdh
-  Jadeed). Hifz is recorded by **surah and ayah**
+  Jadeed) and "Including new lesson" (its last ayah — for when the Hifdh Jadeed repeated an earlier lesson; the owner's ask). Hifz is recorded by **surah and ayah**
   (sabaq / sabqi / manzil, graded good / okay / weak / repeat, with **lesson notes** — the
   teacher's words, the AI report's main source, never shown to parents) — or, per entry, in **juz
   quarters** (`unit = 'quarter'`; the from/to positions are still stored as the

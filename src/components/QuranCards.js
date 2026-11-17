@@ -59,9 +59,10 @@ function QuarterPosition({ label, surah, ayah, edge, onChange, untilNew, untilOn
   const known = !blank(surah) && !blank(ayah) ? quarterOf(surah, ayah) : null;
   const [pending, setPending] = useState({ juz: '', q: '' });
   useEffect(() => { if (blank(surah)) setPending({ juz: '', q: '' }); }, [surah]);
-  const juz = known ? known.juz : pending.juz, q = untilOn ? 'new' : known ? known.q : pending.q;
+  const juz = known ? known.juz : pending.juz, q = untilOn ? untilOn : known ? known.q : pending.q;
   const pick = (j, k) => {
-    if (k === 'new') { onChange(untilNew.surah, untilNew.ayah, true); return; }
+    if (k === 'new') { onChange(untilNew.surah, untilNew.ayah, 'new'); return; }
+    if (k === 'thru') { onChange(untilNew.endSurah, untilNew.endAyah, 'thru'); return; }
     if (blank(j) || blank(k)) { setPending({ juz: j, q: k }); return; }
     const p = edge === 'from' ? quarterStart(j, k) : quarterEnd(j, k); onChange(p.surah, p.ayah, false);
   };
@@ -72,10 +73,11 @@ function QuarterPosition({ label, surah, ayah, edge, onChange, untilNew, untilOn
         <option value="" disabled>Juz</option>
         {Array.from({ length: 30 }, (_, i) => <option key={i} value={i + 1}>Juz {i + 1}</option>)}
       </select>
-      <select value={q} onChange={e => pick(juz, e.target.value === 'new' ? 'new' : Number(e.target.value))} style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} quarter`}>
+      <select value={q} onChange={e => pick(juz, e.target.value === 'new' || e.target.value === 'thru' ? e.target.value : Number(e.target.value))} style={{ ...boxInput, gridColumn: 'span 2' }} aria-label={`${label} quarter`}>
         <option value="" disabled>Quarter…</option>
         {QUARTER_NAMES.map((n, i) => <option key={i} value={i + 1}>{edge === 'to' ? `End of ${n}` : n}</option>)}
         {untilNew && <option value="new">Until new lesson</option>}
+        {untilNew && <option value="thru">Including new lesson</option>}
       </select>
     </div>
   );
@@ -113,12 +115,15 @@ function blankFor(kind, entries) {
   return { fromSurah: '', fromAyah: '', toSurah: '', toAyah: '', grade: null, note: '', unit };
 }
 
-// Where the new lesson (latest Hifdh Jadeed up to this day) starts — Muraaja'ah Al
-// Qareebah can run "until new lesson", i.e. to the ayah before it.
+// Where the new lesson (latest Hifdh Jadeed up to this day) starts and ends — Muraaja'ah Al
+// Qareebah can run "until new lesson" (to the ayah before it) or "including new lesson" (to its last ayah — e.g. when
+// today's Hifdh Jadeed repeated a lesson already given, the owner's ask).
 function untilNewLesson(kind, date, entries) {
   if (kind !== 'sabqi') return null;
   const last = entries.filter(e => e.kind === 'sabaq' && e.date <= date && !blank(e.fromSurah)).sort(newestFirst)[0];
-  return last ? ayahBefore(last.fromSurah, last.fromAyah) : null;
+  if (!last) return null;
+  const before = ayahBefore(last.fromSurah, last.fromAyah);
+  return before && { ...before, endSurah: last.toSurah, endAyah: last.toAyah };
 }
 
 // Where a new entry would carry on from — the ayah after the last one of the same kind
@@ -159,7 +164,7 @@ function EntryFields({ kind, f, set, children, untilNew }) {
       ) : f.unit === 'quarter' ? (
         <>
           <QuarterPosition label="From" edge="from" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
-          <QuarterPosition label="To" edge="to" surah={f.toSurah} ayah={f.toAyah} untilNew={untilNew} untilOn={!!f.toUntilNew}
+          <QuarterPosition label="To" edge="to" surah={f.toSurah} ayah={f.toAyah} untilNew={untilNew} untilOn={f.toUntilNew || ''}
             onChange={(s, a, until) => set({ toSurah: s, toAyah: a, toUntilNew: until })} />
           {filled(f) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{rangeLabel({ ...f, unit: 'ayah' })}</div>}
         </>
@@ -168,9 +173,14 @@ function EntryFields({ kind, f, set, children, untilNew }) {
           <Position label="From" surah={f.fromSurah} ayah={f.fromAyah} onChange={(s, a) => set({ fromSurah: s, fromAyah: a })} />
           <Position label="To" surah={f.toSurah} ayah={f.toAyah} onChange={(s, a) => set({ toSurah: s, toAyah: a })} />
           {untilNew && (
-            <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => set({ toSurah: untilNew.surah, toAyah: untilNew.ayah })}>
-              To: until new lesson ({surahName(untilNew.surah)} {untilNew.ayah})
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
+              <button type="button" className="btn btn-sm" style={{ justifyContent: 'center', whiteSpace: 'normal' }} onClick={() => set({ toSurah: untilNew.surah, toAyah: untilNew.ayah })}>
+                Until new lesson · {surahName(untilNew.surah)} {untilNew.ayah}
+              </button>
+              <button type="button" className="btn btn-sm" style={{ justifyContent: 'center', whiteSpace: 'normal' }} onClick={() => set({ toSurah: untilNew.endSurah, toAyah: untilNew.endAyah })}>
+                Including new lesson · {surahName(untilNew.endSurah)} {untilNew.endAyah}
+              </button>
+            </div>
           )}
         </>
       )}
