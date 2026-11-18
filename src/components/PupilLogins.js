@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import BoxRow from './BoxRow';
 import { useBackToClose } from '../lib/useBackToClose';
 import { savePupilLogin, importPupilLogins, setPupilLoginActive, removePupilLogin, formatDateGB } from '../lib/store';
-import { xlsxToText } from '../lib/xlsx';
+import { xlsxSheetTexts } from '../lib/xlsx';
 import { X, Save, KeyRound, Upload, Trash2, Power } from 'lucide-react';
 
 // A school's pupil logins (server/routes/pupil-logins.js — the head only). The school gives each pupil their own
@@ -95,8 +95,11 @@ function PupilLoginModal({ student, login, demo, onClose, onSaved }) {
 // by name: First name + Surname (or one Name column), Username, Password, and an optional Class to tell apart two
 // pupils with the same name.
 const plain = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-function readSheet(text, students) {
-  const lines = String(text || '').split(/\r?\n/).filter(l => l.trim());
+// The heading row: the first of the first 10 with a Password column (a title row above it is fine).
+const headRow = lines => Math.max(0, lines.slice(0, 10).findIndex(l => /pass/i.test(l)));
+function readSheet(text, students, sheetName) {
+  let lines = String(text || '').split(/\r?\n/).filter(l => l.trim());
+  lines = lines.slice(headRow(lines));
   if (lines.length < 2) return { error: 'Paste the headings row and at least one pupil.' };
   const sep = lines[0].includes('\t') ? '\t' : ',';
   const cells = l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
@@ -117,15 +120,34 @@ function readSheet(text, students) {
     if (!login || !password) { missed.push({ name: full, reason: 'No username or password' }); return; }
     let hits = active.filter(s => plain(`${s.forename}${s.surname}`) === plain(full));
     if (hits.length > 1 && cls >= 0 && c[cls]) hits = hits.filter(s => plain(s.class) === plain(c[cls]));
+    // No Class column: a sheet named after the class ("6A") tells two pupils with one name apart.
+    else if (hits.length > 1 && sheetName) { const inSheet = hits.filter(s => plain(s.class) === plain(sheetName)); if (inSheet.length === 1) hits = inSheet; }
     if (hits.length !== 1) { missed.push({ name: full, reason: hits.length ? 'Two pupils with this name — add a Class column' : 'No pupil with this name' }); return; }
     rows.push({ studentId: hits[0].id, name: `${hits[0].forename} ${hits[0].surname}`, className: hits[0].class, login, password });
   });
   return { rows, missed };
 }
 
+// A workbook with several sheets (a sheet per class or year): every sheet with Username and Password headings, together.
+// Sheets without them (a summary) are left out; a pupil on two sheets keeps their first row.
+function readBook(book, students) {
+  const rows = [], missed = [], sheets = [], seen = new Set();
+  for (const { name, text } of book) {
+    const r = readSheet(text, students, name);
+    if (r.error) continue;
+    const mine = r.rows.filter(x => !seen.has(x.studentId));
+    mine.forEach(x => seen.add(x.studentId));
+    rows.push(...mine); missed.push(...r.missed);
+    if (mine.length || r.missed.length) sheets.push(`${name} (${mine.length})`);
+  }
+  if (!sheets.length) return { error: 'No sheet has the headings First name and Surname (or Name), Username (or Email) and Password.' };
+  return { rows, missed, sheets };
+}
+
 function ImportModal({ students, logins, onClose, onDone }) {
   const close = useBackToClose(true, onClose);
   const [text, setText] = useState('');
+  const [book, setBook] = useState(null); // an .xlsx with several sheets: every sheet is read
   const [read, setRead] = useState(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -133,7 +155,14 @@ function ImportModal({ students, logins, onClose, onDone }) {
   async function fromFile(file) {
     if (!file) return;
     setError('');
-    try { setText(/\.xlsx$/i.test(file.name) ? await xlsxToText(file) : await file.text()); setRead(null); }
+    try {
+      if (/\.xlsx$/i.test(file.name)) {
+        const sheets = await xlsxSheetTexts(file);
+        if (sheets.length > 1) { setBook(sheets); setText(''); setRead(readBook(sheets, students)); return; }
+        setBook(null); setText(sheets[0]?.text || '');
+      } else { setBook(null); setText(await file.text()); }
+      setRead(null);
+    }
     catch { setError("Couldn't read that file — save it as .xlsx or .csv, or copy the rows and paste them below."); }
   }
   async function save() {
@@ -164,14 +193,20 @@ function ImportModal({ students, logins, onClose, onDone }) {
           ) : (
             <>
               <div className="text-muted" style={{ fontSize: 13 }}>
-                Each pupil's username and password from your school. Use a spreadsheet with the headings <b>First name</b>, <b>Surname</b>, <b>Username</b> and <b>Password</b> (a <b>Class</b> column helps when two pupils share a name). Upload it, or copy the rows and paste them below. A pupil who already has a login gets the new username and password.
+                Each pupil's username and password from your school. Use a spreadsheet with the headings <b>First name</b>, <b>Surname</b>, <b>Username</b> (or <b>Email</b>) and <b>Password</b> (a <b>Class</b> column helps when two pupils share a name). A workbook with a sheet per class brings in every sheet. Upload it, or copy the rows and paste them below. A pupil who already has a login gets the new username and password.
               </div>
               <label className="line-row add" style={{ cursor: 'pointer' }}>
                 <Upload size={13} /> Upload a spreadsheet (.xlsx or .csv)
                 <input type="file" accept=".xlsx,.csv,text/csv" style={{ display: 'none' }} onChange={e => fromFile(e.target.files[0])} />
               </label>
-              <textarea id="pupil-logins-paste" rows={6} value={text} onChange={e => { setText(e.target.value); setRead(null); }}
-                placeholder={'First name\tSurname\tClass\tUsername\tPassword\nAisha\tKhan\t6A\taisha.k\tgreen-tiger-42'} style={{ fontFamily: 'monospace', fontSize: 12.5 }} />
+              {book && (
+                <div style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '10px 12px', fontSize: 13 }}>
+                  <b>Every sheet of the workbook</b>{read?.sheets ? `: ${read.sheets.join(', ')}` : ''}
+                  <div><button type="button" className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => { setBook(null); setRead(null); }}>Clear</button></div>
+                </div>
+              )}
+              {!book && <textarea id="pupil-logins-paste" rows={6} value={text} onChange={e => { setText(e.target.value); setRead(null); }}
+                placeholder={'First name\tSurname\tClass\tUsername\tPassword\nAisha\tKhan\t6A\taisha.k\tgreen-tiger-42'} style={{ fontFamily: 'monospace', fontSize: 12.5 }} />}
               {read?.error && <div style={{ color: 'var(--red-text)', fontSize: 13 }}>{read.error}</div>}
               {read && !read.error && (
                 <div style={{ display: 'grid', gap: 6 }}>

@@ -372,7 +372,7 @@ codebase (one codebase, not a fork).
   school gives each pupil their username and password** (the owner's choice; no Google sign-in): the head types them in on the
   pupil's card ("Pupil login" — `PupilLoginCard` in `src/components/PupilLogins.js`: one grey line with Manage, like the parent
   login below it, or "Set up pupil login" → `PupilLoginModal`: username, password, switch off, remove) or imports a class from a spreadsheet ("Pupil logins" card at the bottom of Pupils → `ImportModal`: First name + Surname
-  or Name, Username, Password, optional Class; matched by name, two with one name need Class) — `server/routes/pupil-logins.js`,
+  or Name, Username (or Email), Password, optional Class; a workbook with several sheets reads every sheet — `readBook()`, the heading row found in each sheet's first 10 rows, a sheet named after a class tells two same-named pupils apart; matched by name, two with one name need Class) — `server/routes/pupil-logins.js`,
   head only, passwords 4+ characters, stored hashed. Sign-in is the usual screen (school code + username + password); a pupil
   login **rests 15 minutes after 10 wrong passwords** (`login.js`), and only works while the pupil is Active in a school (`getUser`
   checks, via the session cookie's `p` flag). Pupils never pass `requireAuth`; their only route is `server/routes/pupil.js` (their
