@@ -130,6 +130,7 @@ export default function StudiesImport({ onClose, onDone }) {
   const [done, setDone] = useState(null);
   const [drop, setDrop] = useState([]); // after the import: ready-made items not in the spreadsheet, ticked to remove
   const [dropped, setDropped] = useState(null);
+  const [showSpare, setShowSpare] = useState(false); // "See which N" opened
 
   async function pick(file) {
     setError(''); setBusy(true);
@@ -257,7 +258,16 @@ export default function StudiesImport({ onClose, onDone }) {
       const list = [...marks.values()];
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
-      setDone({ moved: moves.length, marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length, spare: spareItems(ids) });
+      // What the spreadsheet has, for the "only use my list?" question: each list's count, and the years of its sheets.
+      const used = [...new Set(Object.keys(ids))];
+      const sheetYears = [...new Set(chosen.map(sh => sh.year).filter(y => y !== null))].sort((a, b) => a - b);
+      const has = STUDY_KINDS.map(([k, l, one]) => [used.filter(c => kindOf[c] === k).length, l.toLowerCase(), one]).filter(([n]) => n)
+        .map(([n, many, one]) => `${n} ${n === 1 ? one : many}`);
+      const forYears = !sheetYears.length ? '' : sheetYears.length === 1 ? ` for ${yearLabel(sheetYears[0])}`
+        : ` for ${yearLabel(sheetYears[0])} to ${yearLabel(sheetYears[sheetYears.length - 1])}`;
+      setDone({ moved: moves.length, marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length, spare: spareItems(ids),
+        has: has.length ? `${has.slice(0, -1).join(', ')}${has.length > 1 ? ' and ' : ''}${has[has.length - 1]}` : '', forYears });
+      setShowSpare(false);
       setDrop(spareItems(ids).map(i => i.id));
       markMarksImported(user?.madrasah?.code); // ticks Getting started's "Bring in the marks you already have"
       await onDone?.();
@@ -278,39 +288,58 @@ export default function StudiesImport({ onClose, onDone }) {
               <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks{done.added ? ` and added ${done.added} to your list` : ''}{done.moved ? `; moved ${done.moved} to the year your colours show` : ''}.
             </div>
             {dropped !== null ? (dropped >= 0 &&
-              <div style={{ fontSize: 14, color: 'var(--green-text)' }}><Check size={15} style={{ verticalAlign: -2 }} /> Removed {dropped} — your lists are now your own.</div>
-            ) : done.spare.length > 0 && (
-              <div style={{ display: 'grid', gap: 8, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: 12 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>Use your own list instead of ours?</div>
-                <div className="text-muted" style={{ fontSize: 13 }}>
-                  Your spreadsheet doesn't have {done.spare.length === 1 ? 'this one' : `these ${done.spare.length}`} from our ready-made list. Remove the ticked ones (and any marks on them)?
+              <div style={{ fontSize: 14, color: 'var(--green-text)' }}><Check size={15} style={{ verticalAlign: -2 }} /> Removed {dropped} — you're using your spreadsheet's list.</div>
+            ) : done.spare.length > 0 && (() => {
+              // Two big choices (the owner's pick): only the spreadsheet's list, or keep Suhuf's extra ones too. The list
+              // itself is behind "See which N", where single items can be unticked.
+              const n = drop.length, total = done.spare.length;
+              const choice = { display: 'grid', gap: 2, textAlign: 'left', padding: '12px 14px', borderRadius: 'var(--r-md)', border: '1.5px solid var(--border)', background: '#fff', cursor: 'pointer', fontFamily: 'var(--font)' };
+              return (
+                <div style={{ display: 'grid', gap: 10, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: 12 }}>
+                  <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.45 }}>
+                    {done.has && <>Your spreadsheet has {done.has}{done.forYears}. </>}
+                    Suhuf's ready-made list has <b>{total} more</b>{done.forYears} that {total === 1 ? "isn't" : "aren't"} in your spreadsheet.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                    <button type="button" style={{ ...choice, borderColor: 'var(--teal)', background: 'var(--teal-light)' }} disabled={busy || !n} onClick={removeSpare}>
+                      <strong style={{ fontSize: 14 }}>{busy ? 'Removing…' : 'Only use my spreadsheet\'s list'}</strong>
+                      <span className="text-muted" style={{ fontSize: 12.5 }}>Remove the {n === total ? n : `${n} ticked`}{n === 1 ? ' item' : ''}</span>
+                    </button>
+                    <button type="button" style={choice} disabled={busy} onClick={() => setDropped(-1)}>
+                      <strong style={{ fontSize: 14 }}>Keep Suhuf's {total} extra {total === 1 ? 'one' : 'ones'} as well</strong>
+                      <span className="text-muted" style={{ fontSize: 12.5 }}>Nothing is removed</span>
+                    </button>
+                  </div>
+                  <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setShowSpare(v => !v)}>
+                    {showSpare ? 'Hide the list' : `See which ${total}`} {showSpare ? '▴' : '▾'}
+                  </button>
+                  {showSpare && (
+                    <div style={{ display: 'grid', gap: 2, maxHeight: 300, overflowY: 'auto', background: '#fff', borderRadius: 'var(--r-md)', padding: '6px 10px' }}>
+                      <div className="text-muted" style={{ fontSize: 12 }}>Untick any you want to keep.</div>
+                      {[...new Set(done.spare.map(i => i.yearGroup))].map(y => {
+                        const list = done.spare.filter(i => i.yearGroup === y);
+                        const all = list.every(i => drop.includes(i.id));
+                        return (
+                          <div key={y} style={{ display: 'grid', gap: 2, padding: '4px 0' }}>
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 600, textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
+                              <input type="checkbox" checked={all} onChange={() => setDrop(d => (all ? d.filter(id => !list.some(i => i.id === id)) : [...new Set([...d, ...list.map(i => i.id)])]))} />
+                              {yearLabel(y)}
+                            </label>
+                            {list.map(i => (
+                              <label key={i.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingLeft: 22, textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: 'var(--ink)' }}>
+                                <input type="checkbox" checked={drop.includes(i.id)} onChange={() => setDrop(d => (d.includes(i.id) ? d.filter(x => x !== i.id) : [...d, i.id]))} />
+                                <span style={{ minWidth: 0 }}>{i.name} <span className="text-muted" style={{ fontSize: 12 }}>· {STUDY_KINDS.find(k => k[0] === i.kind)[2]}</span></span>
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="text-muted" style={{ fontSize: 12 }}>Removing an item also removes any marks on it. Homework set on it stays.</div>
                 </div>
-                <div style={{ display: 'grid', gap: 2, maxHeight: 300, overflowY: 'auto', background: '#fff', borderRadius: 'var(--r-md)', padding: '6px 10px' }}>
-                  {[...new Set(done.spare.map(i => i.yearGroup))].map(y => {
-                    const list = done.spare.filter(i => i.yearGroup === y);
-                    const all = list.every(i => drop.includes(i.id));
-                    return (
-                      <div key={y} style={{ display: 'grid', gap: 2, padding: '4px 0' }}>
-                        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 600, textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
-                          <input type="checkbox" checked={all} onChange={() => setDrop(d => (all ? d.filter(id => !list.some(i => i.id === id)) : [...new Set([...d, ...list.map(i => i.id)])]))} />
-                          {yearLabel(y)}
-                        </label>
-                        {list.map(i => (
-                          <label key={i.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingLeft: 22, textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: 'var(--ink)' }}>
-                            <input type="checkbox" checked={drop.includes(i.id)} onChange={() => setDrop(d => (d.includes(i.id) ? d.filter(x => x !== i.id) : [...d, i.id]))} />
-                            <span style={{ minWidth: 0 }}>{i.name} <span className="text-muted" style={{ fontSize: 12 }}>· {STUDY_KINDS.find(k => k[0] === i.kind)[2]}</span></span>
-                          </label>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary" disabled={busy || !drop.length} onClick={removeSpare}>{busy ? 'Removing…' : `Remove ${drop.length}`}</button>
-                  <button className="btn" disabled={busy} onClick={() => setDropped(-1)}>Keep them</button>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </> : <>
             <div className="text-muted" style={{ fontSize: 13 }}>
               Your workbook as it is: a sheet per year, First Name and Surname, then a column per surah, du'aa or practical (all on
