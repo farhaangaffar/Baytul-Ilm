@@ -116,7 +116,7 @@ export function HomeworkModal({ className, items, pupils, item, homework, yearGr
               {kind && (() => {
                 const mine = items.filter(i => i.kind === kind);
                 const now = mine.filter(i => yearGroup === null || yearGroup === undefined || i.yearGroup === yearGroup);
-                const earlier = mine.filter(i => !now.includes(i));
+                const earlier = mine.filter(i => !now.includes(i)).sort((a, b) => b.yearGroup - a.yearGroup); // newest year first
                 const word = (KINDS.find(k => k[0] === kind) || KINDS[0])[1].toLowerCase();
                 return (
                   <div className="form-group"><label htmlFor="hw-item">Which {word}</label>

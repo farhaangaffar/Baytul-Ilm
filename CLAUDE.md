@@ -339,7 +339,7 @@ codebase (one codebase, not a fork).
   deleted since). The server also accepts new-class / stay-together / one-by-one moves, unused by the pop-up for now. The owner's own lists stay theirs (not the starter for others). The head edits the lists (Edit inside a line, "Add a …"). **Year by year** (`YearPlan` in Studies.js, head, a line at the bottom of Islamic Studies): a line per year group
   (each year a class is in, and years between with items — never years the school has no class in; all years with items before any class) opening to its surahs / du'aas / practicals — tap one → `ItemModal` (change "Learnt in" or remove),
   "Add a … to Year N". **Surahs show in teaching order** everywhere (`SURAH_ORDER` in studies.js): Al-Faatihah, then An-Naas
-  back towards An-Naba (114 → 78), then ones that aren't a whole surah.
+  back towards An-Naba (114 → 78), then ones that aren't a whole surah. **Except a school that has imported its own spreadsheet** (`settings.studies_own_order`, set by `?action=order` from StudiesImport.js): its lists keep the spreadsheet's column order (`is_items.sort`; items not in it follow). **Earlier years run newest first** (in Year 6: Year 5, 4 … Reception — Studies.js `earlier`, the homework drop-down's Earlier years).
   **Reports (stage 2)** (menu "Reports", head + teachers; `src/pages/SchoolReports.js`, `server/routes/school-reports.js`;
   just stats — the owner's choice: no tests, no comments): Settings → **Reports are made** each term or once a year
   (`settings.studies_reports`). The head **takes an assessment point** (`is_assessments`: Autumn / Spring / Summer, or End

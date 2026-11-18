@@ -41,6 +41,8 @@ async function ensure() {
   if (ready) return;
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS year_group INTEGER'); // Reception = 0 … Year 13 (a school's classes)
   await query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_seeded BOOLEAN NOT NULL DEFAULT false');
+  // Set when a school imports its own spreadsheet: its lists then keep the spreadsheet's order (is_items.sort), not ours.
+  await query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_own_order BOOLEAN NOT NULL DEFAULT false');
   await query(`CREATE TABLE IF NOT EXISTS is_items (
     id          BIGSERIAL PRIMARY KEY,
     madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -141,8 +143,10 @@ async function addStarter(c, mid) {
 }
 
 // Surahs in the order they're usually taught: Al-Faatihah first, then An-Naas back towards An-Naba (114 → 78 …),
-// then any that aren't a whole surah (e.g. Ayat al-Kursi). Du'aas and practicals keep their own order.
-const SURAH_ORDER = `CASE WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END`;
+// then any that aren't a whole surah (e.g. Ayat al-Kursi). Du'aas and practicals keep their own order. A school that has
+// imported its own spreadsheet (settings.studies_own_order) keeps the spreadsheet's order instead ($1 = madrasah id).
+const SURAH_ORDER = `CASE WHEN (SELECT studies_own_order FROM settings WHERE madrasah_id = $1) THEN 0
+  WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END`;
 
 async function items(mid, upToYear = null) {
   const { rows } = await query(
@@ -602,6 +606,23 @@ const handler = requireAuth(async (req, res) => {
       return r.rowCount;
     });
     res.status(200).json({ removed });
+    return;
+  }
+  // The school's own order, from its imported spreadsheet (StudiesImport.js: each column's item, left to right, sheet by
+  // sheet). Those come first in their year, in that order; the rest keep their order after them.
+  if (action === 'order' && req.method === 'POST') {
+    const ids = [...new Set((Array.isArray((req.body || {}).ids) ? req.body.ids : []).slice(0, 2000).map(x => String(x).replace(/\D/g, '')).filter(Boolean))];
+    if (!ids.length) { res.status(200).json({ ok: true }); return; }
+    await transaction(async c => {
+      await c.query(
+        `UPDATE is_items i SET sort = o.n FROM (
+           SELECT id, CASE WHEN p IS NOT NULL THEN p ELSE 100000 + row_number() OVER (ORDER BY year_group, ${SURAH_ORDER}, sort, id) END AS n
+           FROM is_items LEFT JOIN unnest($2::bigint[]) WITH ORDINALITY AS u(uid, p) ON u.uid = is_items.id
+           WHERE madrasah_id = $1) o
+         WHERE i.id = o.id AND i.madrasah_id = $1`, [mid, ids]);
+      await c.query('UPDATE settings SET studies_own_order = true WHERE madrasah_id = $1', [mid]);
+    });
+    res.status(200).json({ ok: true });
     return;
   }
   if (action === 'starter' && req.method === 'POST') {

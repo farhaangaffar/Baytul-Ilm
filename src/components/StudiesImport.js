@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, Upload, Check } from 'lucide-react';
 import { xlsxSheets } from '../lib/xlsx';
-import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks, removeStudiesItems } from '../lib/store';
+import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks, removeStudiesItems, orderStudiesItems } from '../lib/store';
 import { markMarksImported } from './GettingStarted';
 import { useAuth } from '../lib/AuthContext';
 import { STUDY_KINDS, yearLabel, plainName, surahNumber } from '../lib/studies';
@@ -224,6 +224,8 @@ export default function StudiesImport({ onClose, onDone }) {
         if (!p) continue;
         for (const [c, level] of Object.entries(r.values)) if (ids[c]) marks.set(`${p.id}|${ids[c]}`, { studentId: p.id, itemId: ids[c], level });
       }
+      // Keep the spreadsheet's order: each column's item, left to right (sheet by sheet).
+      await orderStudiesItems(columns.map(c => ids[c]).filter(Boolean));
       const list = [...marks.values()];
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
