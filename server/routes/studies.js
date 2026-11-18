@@ -44,6 +44,8 @@ async function ensure() {
   await query('ALTER TABLE is_items ALTER COLUMN year_group DROP NOT NULL'); // NULL = taken out of the year plan
   // Set when a school imports its own spreadsheet: its lists then keep the spreadsheet's order (is_items.sort), not ours.
   await query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_own_order BOOLEAN NOT NULL DEFAULT false');
+  // The Year plan's "Which du'aas? Suhuf's list / My own list" (and practicals): the kinds using only the school's own ('duaa,practical').
+  await query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_own_lists TEXT NOT NULL DEFAULT ''");
   await query(`CREATE TABLE IF NOT EXISTS is_items (
     id          BIGSERIAL PRIMARY KEY,
     madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
@@ -475,10 +477,12 @@ const handler = requireAuth(async (req, res) => {
     // The whole list, with Suhuf's usual du'aas and practicals (the year plan's tick lists offer them) and how many marks each
     // item has (taking one out of the plan asks first when pupils have marks for it).
     const { rows: counts } = await query('SELECT item_id::text AS id, count(*)::int AS n FROM is_progress WHERE madrasah_id = $1 GROUP BY item_id', [mid]);
+    const { rows: [st] } = await query('SELECT studies_own_lists FROM settings WHERE madrasah_id = $1', [mid]);
     res.status(200).json({
       items: await items(mid, null, req.query.plan === '1'),
       starter: STARTER.map(([kind, name, detail, year, surah]) => ({ kind, name, detail, year, surah: surah || null })),
       marks: Object.fromEntries(counts.map(r => [r.id, r.n])),
+      ownLists: String(st?.studies_own_lists || '').split(',').filter(k => KINDS.includes(k)),
     });
     return;
   }
@@ -633,6 +637,28 @@ const handler = requireAuth(async (req, res) => {
   // The Year plan's button (the owner's design): the ticked items move into one year — or out of the plan (yearGroup null:
   // kept with every mark, classes stop showing them). `make`: ticked ones not on the list yet (a surah from the Qur'an's list,
   // one of Suhuf's usual du'aas), added straight into that year. Nothing here ever deletes.
+  // "Which du'aas? Suhuf's list / My own list" (and practicals). My own: Suhuf's ready-made ones with no marks leave the plan
+  // (kept — year NULL — never deleted), so only the school's own show; Suhuf's list again shows them as suggestions to tick.
+  if (action === 'own-list' && req.method === 'POST') {
+    const b = req.body || {};
+    if (!['duaa', 'practical'].includes(b.kind)) { res.status(400).json({ error: 'Unknown list' }); return; }
+    const { rows: [st] } = await query('SELECT studies_own_lists FROM settings WHERE madrasah_id = $1', [mid]);
+    const set = new Set(String(st?.studies_own_lists || '').split(',').filter(k => KINDS.includes(k)));
+    if (b.own) set.add(b.kind); else set.delete(b.kind);
+    await query('UPDATE settings SET studies_own_lists = $1 WHERE madrasah_id = $2', [[...set].join(','), mid]);
+    let hidden = 0;
+    if (b.own) {
+      const plain = n => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+      const starter = new Set(STARTER.filter(([k]) => k === b.kind).map(([, n]) => plain(n)));
+      const { rows } = await query(
+        `SELECT i.id::text AS id, i.name FROM is_items i WHERE i.madrasah_id = $1 AND i.kind = $2 AND i.year_group IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM is_progress p WHERE p.item_id = i.id AND p.madrasah_id = i.madrasah_id)`, [mid, b.kind]);
+      const ids = rows.filter(r => starter.has(plain(r.name))).map(r => r.id);
+      if (ids.length) hidden = (await query('UPDATE is_items SET year_group = NULL WHERE madrasah_id = $1 AND id = ANY($2::bigint[])', [mid, ids])).rowCount;
+    }
+    res.status(200).json({ ok: true, hidden });
+    return;
+  }
   if (action === 'plan' && req.method === 'POST') {
     const b = req.body || {};
     const year = yearOf(b.yearGroup);

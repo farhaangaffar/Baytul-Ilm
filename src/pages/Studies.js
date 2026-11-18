@@ -13,7 +13,7 @@ import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes } from '../components/StudentDetails';
 import StudiesImport from '../components/StudiesImport';
 import { HomeworkTab, HomeworkModal } from '../components/SchoolHomework';
-import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, planStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
+import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, planStudiesItems, setStudiesOwnList, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { markStudiesVisited } from '../components/GettingStarted';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -627,11 +627,29 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
       return out;
     }
     const plain = n => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+    const starter = (data.starter || []).filter(st => st.kind === kind);
+    // "My own list": only the school's own — Suhuf's ready-made ones out of the plan are hidden, and none are suggested.
+    if ((data.ownLists || []).includes(kind)) {
+      const isStarter = i => starter.some(st => plain(st.name) === plain(i.name));
+      return mine.filter(i => !(isStarter(i) && (i.yearGroup === null || i.yearGroup === undefined))).map(i => ({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
+    }
     const out = mine.map(i => ({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
-    (data.starter || []).filter(st => st.kind === kind && !mine.some(i => plain(i.name) === plain(st.name)))
+    starter.filter(st => !mine.some(i => plain(i.name) === plain(st.name)))
       .forEach(st => out.push({ key: `st${st.name}`, name: st.name, sub: st.detail, make: { kind, name: st.name, detail: st.detail || '' } }));
     return out;
   }, [data, items, kind, allSurahs]);
+  const ownList = (data?.ownLists || []).includes(kind);
+  async function chooseList(own) {
+    if (own === ownList) return;
+    setBusy(true); setError(''); setNote('');
+    try {
+      const r = await setStudiesOwnList(kind, own);
+      setDraft(null);
+      await load(); await onChanged?.();
+      setNote(own ? (r.hidden ? `Suhuf's ${r.hidden} unused ${kind === 'duaa' ? "du'aas" : 'practicals'} are hidden — they're kept, never deleted.` : 'Showing your own list.') : "Showing Suhuf's list too.");
+    } catch (e) { setError(e.message || 'Could not change'); }
+    setBusy(false);
+  }
   const saved = lines.filter(l => l.item && l.item.yearGroup === year).map(l => l.key);
   const ticked = draft || saved;
   const added = lines.filter(l => ticked.includes(l.key) && !saved.includes(l.key));
@@ -672,7 +690,15 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
             <div className="form-group" style={{ margin: 0 }}><label>What does {yearLabel(year)} learn?</label>
               <ChoiceBoxes options={kinds} value={STUDY_KINDS.find(k => k[0] === kind)[1]}
                 onChange={v => { const k = STUDY_KINDS.find(([, l]) => l === v); if (k && k[0] !== kind) leave(() => setKind(k[0])); }} /></div>
-            <div className="text-muted" style={{ fontSize: 12.5 }}>Tick what {yearLabel(year)} learns, then press Save.</div>
+            {kind !== 'surah' && (
+              <div className="form-group" style={{ margin: 0 }}><label>Which {kind === 'duaa' ? "du'aas" : 'practicals'}?</label>
+                <ChoiceBoxes options={["Suhuf's list", 'My own list']} value={ownList ? 'My own list' : "Suhuf's list"}
+                  onChange={v => leave(() => chooseList(v === 'My own list'))} /></div>
+            )}
+            {note && <div style={{ fontSize: 12.5, color: 'var(--green-text)' }}>{note}</div>}
+            <div className="text-muted" style={{ fontSize: 12.5 }}>
+              {kind !== 'surah' && ownList && !lines.length ? `Add your own ${one}s below, then tick them and press Save.` : `Tick what ${yearLabel(year)} learns, then press Save.`}
+            </div>
             <div style={{ display: 'grid', gap: 0 }}>
               {lines.map(l => {
                 const on = ticked.includes(l.key);
@@ -701,12 +727,12 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
         </div>
         {data && (
           <div className="modal-footer">
-            {note && !changed && <span style={{ fontSize: 13, color: 'var(--green-text)', marginRight: 'auto' }}><Check size={14} style={{ verticalAlign: -2 }} /> {note}</span>}
+            {note && note.startsWith('Saved') && !changed && <span style={{ fontSize: 13, color: 'var(--green-text)', marginRight: 'auto' }}><Check size={14} style={{ verticalAlign: -2 }} /> {note}</span>}
             <button className="btn btn-primary" disabled={busy || !changed} onClick={save}>{busy ? 'Saving…' : `Save ${yearLabel(year)}`}</button>
           </div>
         )}
       </div>
-      {edit && <ItemModal item={edit} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
+      {edit && <ItemModal item={edit} existing={items} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
     </div>
   );
 }
@@ -812,7 +838,11 @@ function LinkModal({ item, link, onClose, onSaved }) {
   );
 }
 
-function ItemModal({ item, onClose, onSaved }) {
+// Two du'aa / practical names that mean the same ("Before wudhu" / "Du'aa before Wudhu"): the words that matter, compared.
+const coreName = n => String(n || '').toLowerCase().replace(/\bdu['’`]?aa?s?\b|\bduas?\b|\bsurah\b|\bthe\b|\ba\b|\bof\b/g, ' ').replace(/[^a-z]/g, '')
+  .replace(/oo/g, 'u').replace(/ee/g, 'i').replace(/aa/g, 'a').replace(/u/g, 'o');
+const sameName = (a, b) => { const x = coreName(a), y = coreName(b); return x.length > 3 && y.length > 3 && (x === y || (Math.min(x.length, y.length) >= 6 && (x.includes(y) || y.includes(x)))); };
+function ItemModal({ item, onClose, onSaved, existing = [] }) {
   const [f, setF] = useState({ kind: item.kind, name: item.name || '', detail: item.detail || '', yearGroup: item.id ? item.yearGroup ?? null : item.yearGroup ?? 0, surah: item.surah || '' });
   const [surahPicked, setSurahPicked] = useState(!!item.id);
   const [busy, setBusy] = useState(false);
@@ -844,6 +874,15 @@ function ItemModal({ item, onClose, onSaved }) {
             <div className="form-group"><label>Name</label>
               <input value={f.name} maxLength={120} autoFocus onChange={e => setName(e.target.value)}
                 placeholder={f.kind === 'surah' ? 'e.g. Al-Ikhlas' : f.kind === 'duaa' ? 'e.g. Before eating' : 'e.g. Wudhu'} />
+              {!item.id && f.kind !== 'surah' && (() => {
+                // Already on the list under another name? Say so — tick that one instead of making a second.
+                const twin = existing.find(i => i.kind === f.kind && sameName(i.name, f.name));
+                return twin ? (
+                  <span style={{ fontSize: 12, color: 'var(--amber-text)' }}>
+                    "{twin.name}" is already on your list{twin.yearGroup !== null && twin.yearGroup !== undefined ? ` (${yearLabel(twin.yearGroup)})` : ''}. To use it, close this and tick it instead — or rename it with its Edit on the Islamic Studies page.
+                  </span>
+                ) : null;
+              })()}
               {item.id && f.name.trim() && f.name.trim() !== item.name && (
                 <span style={{ fontSize: 12, color: 'var(--amber-text)' }}>
                   Every pupil's marks for {item.name} stay with it under the new name. If this is a different {one}, close this and use "Add a {one}" instead.
