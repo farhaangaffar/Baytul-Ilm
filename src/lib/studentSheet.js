@@ -75,6 +75,9 @@ const HEADINGS = [
   // A school's tracker columns ("Surah Al-Asr", "Du'aa before eating", "An-Naas") are never a name, class or contact —
   // "Surah" would otherwise read as Surname.
   [/surah|suraah|du'?aa?\b|^(al|an|at|as|ad|az|ar|ash|ad)[- ]/, null],
+  // A pupil's own login (a school's logins sheet: Username / Email / Password) is never a contact's.
+  [/user\s*name|^log\s*in|pass\s*word|^pass$|(pupil|student|child|school).*e-?mail|e-?mail.*(pupil|student|login)/, null],
+  [/^e-?mail(\s*address)?$/, 'plainEmail'], // a parent's email — unless the sheet is a logins sheet (parseSheet)
   [/^(full\s*)?name$|^(student|child|pupil)('?s)?\s*name$/, 'fullName'],
   [/emergency.*(phone|mobile|tel|number)/, 'emergencyPhone'], [/emergency.*relat/, 'emergencyRelation'], [/emergency/, 'emergencyName'],
   [/2.*e-?mail|e-?mail.*2/, 'parent2Email'], [/e-?mail/, 'parent1Email'],
@@ -148,8 +151,11 @@ export function parseSheet(text) {
   const SECOND = { parent1Name: 'parent2Name', parent1Phone: 'parent2Phone', parent1Email: 'parent2Email', parent1Relation: 'parent2Relation' };
   const PERSON = [[/mother|\bmum|\bmom/, 'mother'], [/father|\bdad/, 'father'], [/guardian|carer/, 'guardian']];
   const personSlot = {};
+  // A sheet with Username / Password columns is a logins sheet: its plain "Email" column is the pupil's login.
+  const loginSheet = cells[0].some(h => /user\s*name|pass\s*word|^log\s*in/i.test(h));
   const mapped = cells[0].map(h => {
     let f = headingField(h);
+    if (f === 'plainEmail') f = loginSheet ? null : 'parent1Email';
     const low = h.toLowerCase();
     const person = SECOND[f] && PERSON.find(([re]) => re.test(low))?.[1];
     if (person) {

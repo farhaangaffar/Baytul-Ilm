@@ -31,7 +31,7 @@ const HEAD = {
     'Children are grouped by class — tap a class to open it.',
     'Tap a child to see their details, attendance and fees. Tap Edit to change them — parents, home, emergency contact, health and going home.',
     'Allergies, conditions or medication show in red on the child\'s card, and as a red heart by their name on the register.',
-    'Add a new child with Enroll, or a whole spreadsheet of children with Import (a workbook with several sheets brings in every sheet).',
+    'Add a new child with Enroll, or a whole spreadsheet of children with Import (a workbook with several sheets brings in every sheet; children already here get their details — date of birth, contacts — filled in from it).',
     'Set up a parent login from the child\'s card (switch the parent portal on in Settings first) — then Share or WhatsApp the ready-made message to the parent.',
     'Children who have left are kept at the bottom.',
     'Children added by Import (or whose class was deleted) show in "Not in a class" at the top — tick them (or a whole group) and choose their class.',
