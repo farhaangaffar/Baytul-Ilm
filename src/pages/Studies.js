@@ -687,8 +687,17 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
           {!data && !error && <LoadingState />}
           {data && <>
             <div className="form-group" style={{ margin: 0 }}><label>Which year?</label>
-              <ChoiceBoxes columns={4} options={years.map(yearLabel)} value={yearLabel(year)}
-                onChange={v => { const y = years.find(x => yearLabel(x) === v); if (y !== undefined && y !== year) leave(() => setYear(y)); }} /></div>
+              {/* Each year with how many it has ticked of this list — an unfinished year is easy to spot (the owner's pick). */}
+              <div className="choice-boxes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                {years.map(y => {
+                  const n = y === year ? ticked.length : items.filter(i => i.kind === kind && i.yearGroup === y && lines.some(l => l.item === i)).length;
+                  return (
+                    <button key={y} type="button" className={y === year ? 'on' : ''} onClick={() => { if (y !== year) leave(() => setYear(y)); }}>
+                      {yearLabel(y)}<span style={{ display: 'block', fontSize: 11, fontWeight: 400, marginTop: 1 }}>{n} ticked</span>
+                    </button>
+                  );
+                })}
+              </div></div>
             <div className="form-group" style={{ margin: 0 }}><label>What does {yearLabel(year)} learn?</label>
               <ChoiceBoxes options={kinds} value={STUDY_KINDS.find(k => k[0] === kind)[1]}
                 onChange={v => { const k = STUDY_KINDS.find(([, l]) => l === v); if (k && k[0] !== kind) leave(() => setKind(k[0])); }} /></div>
@@ -701,18 +710,26 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
             <div className="text-muted" style={{ fontSize: 12.5 }}>
               {kind !== 'surah' && ownList && !lines.length ? `Add your own ${one}s below, then tick them and press Save.` : `Tick what ${yearLabel(year)} learns, then press Save.`}
             </div>
+            {/* What the year has, in one line — no scrolling to check (the owner's pick). */}
+            {lines.length > 0 && (
+              <div style={{ fontSize: 12.5, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
+                <b style={{ fontWeight: 600 }}>{yearLabel(year)} has:</b> {lines.filter(l => ticked.includes(l.key)).map(l => l.name).join(', ') || 'nothing ticked yet'}
+              </div>
+            )}
             <div style={{ display: 'grid', gap: 0 }}>
               {lines.map(l => {
                 const on = ticked.includes(l.key);
                 const other = l.item && l.item.yearGroup !== null && l.item.yearGroup !== undefined && l.item.yearGroup !== year;
+                const faded = other && !on; // in another year: words faded, the tick box left clear so it can still be ticked
                 return (
                   <div key={l.key} className={`no-class-row ${on ? 'on' : ''}`} onClick={() => !busy && toggle(l.key)}>
                     <input type="checkbox" checked={on} readOnly aria-label={l.name} />
-                    <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ flex: 1, minWidth: 0, ...(faded ? { color: '#a6adb8' } : {}) }}>
                       {l.num && <span className="text-muted" style={{ display: 'inline-block', minWidth: 30, fontSize: 12 }}>{l.num}</span>}
                       {l.name}{l.sub && kind !== 'surah' ? <span className="text-muted" style={{ fontSize: 12 }}> · {l.sub}</span> : null}
                     </span>
-                    {other && !on && <span className="text-muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{yearLabel(l.item.yearGroup)}</span>}
+                    {faded && <span style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#b4bac4' }}>{yearLabel(l.item.yearGroup)}</span>}
+                    {other && on && <span style={{ fontSize: 12, whiteSpace: 'nowrap', color: 'var(--amber-text)' }}>moving from {yearLabel(l.item.yearGroup)}</span>}
                   </div>
                 );
               })}
