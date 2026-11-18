@@ -17,20 +17,31 @@ import { useBackToClose } from '../lib/useBackToClose';
 const personKey = (first, last) => `${first} ${last}`.toLowerCase().replace(/[^a-z]/g, '');
 const yearFromSheet = name => (/reception|^rec\b/i.test(name) ? 0 : (/(?:year|yr|y)\s*(\d{1,2})/i.exec(name) || /^(\d{1,2})[a-z]?$/i.exec(name.trim()) || [])[1]);
 
+// The name columns, however a school heads them: "First Name", "Forename(s)", "Legal forename", "Pupil first name",
+// "Given name" … and "Surname", "Last name", "Family name", "Legal surname" … — or one "Name" / "Pupil name" / "Full name"
+// column (split into first name and surname). Spaces, capitals and punctuation don't matter.
+const squash = c => String(c || '').toLowerCase().replace(/[^a-z]/g, '');
+const isFirst = c => { const k = squash(c); return /(firstname|forename|givenname|christianname)/.test(k) && !/surname|last/.test(k); };
+const isLast = c => { const k = squash(c); return /(surname|lastname|familyname)/.test(k); };
+const isFull = c => ['name', 'names', 'fullname', 'pupilname', 'pupilsname', 'studentname', 'studentsname', 'childname', 'childsname', 'pupil', 'student'].includes(squash(c));
+
 // One sheet → { name, year, columns: [header…], rows: [{ first, last, values: { header: '1'|'2'|'3' } }] }
 function readSheet({ name, rows }) {
-  const h = rows.findIndex(r => r.some(c => /^first\s*name$/i.test(c)) && r.some(c => /^(surname|last\s*name)$/i.test(c)));
+  let h = rows.findIndex(r => r.some(isFirst) && r.some(isLast));
+  let full = false;
+  if (h < 0) { h = rows.findIndex(r => r.some(isFull)); full = h >= 0; }
   if (h < 0) return null;
   const hdr = rows[h];
-  const fi = hdr.findIndex(c => /^first\s*name$/i.test(c)), si = hdr.findIndex(c => /^(surname|last\s*name)$/i.test(c));
+  const fi = full ? hdr.findIndex(isFull) : hdr.findIndex(isFirst), si = full ? fi : hdr.findIndex(isLast);
   const cols = [];
   for (let i = Math.max(fi, si) + 1; i < hdr.length; i++) {
-    if (/^first\s*name$/i.test(hdr[i])) break; // the sheet's summary block starts again with the names
+    if (isFirst(hdr[i]) || (full && isFull(hdr[i]))) break; // the sheet's summary block starts again with the names
     if (hdr[i]) cols.push([i, hdr[i]]);
   }
   const out = [];
   for (const r of rows.slice(h + 1)) {
-    const first = (r[fi] || '').trim(), last = (r[si] || '').trim();
+    let first = (r[fi] || '').trim(), last = (r[si] || '').trim();
+    if (full) { const parts = first.split(/\s+/); last = parts.length > 1 ? parts.pop() : ''; first = parts.join(' '); }
     if (!first || /average/i.test(first)) { if (out.length) break; continue; }
     const values = {};
     cols.forEach(([i, c]) => { const v = String(r[i] || '').trim(); if (['1', '2', '3'].includes(v)) values[c] = Number(v); });
@@ -58,7 +69,13 @@ export default function StudiesImport({ onClose, onDone }) {
     try {
       const [book, studs, its] = await Promise.all([xlsxSheets(file), getStudents(), getStudiesItems()]);
       const parsed = book.map(readSheet).filter(Boolean);
-      if (!parsed.length) throw new Error('No sheet with "First Name" and "Surname" columns was found.');
+      if (!parsed.length) {
+        // Say what the file's first rows actually hold, so it's clear what to change.
+        const seen = book.map(sh => (sh.rows.find(r => r.some(c => c)) || []).filter(Boolean).slice(0, 6).join(', ')).filter(Boolean)[0];
+        throw new Error(book.every(sh => !sh.rows.some(r => r.some(c => c)))
+          ? 'That file looks empty — open it in Excel or Google Sheets, then "Save as" / "Download" an .xlsx and try again.'
+          : `Couldn't find the pupils' name columns (First name and Surname, or one Name column).${seen ? ` The first row reads: ${seen}.` : ''}`);
+      }
       const title = book.map(s => (s.rows[0] || []).join(' ')).join(' ');
       setKind(/du'?a/i.test(title) ? 'duaa' : /surah|suraah/i.test(title) ? 'surah' : kind);
       setSheets(parsed);

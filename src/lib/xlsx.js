@@ -120,22 +120,27 @@ async function unzip(buf, wanted) {
   return out;
 }
 
+// Elements by their plain name, whatever prefix the file uses — some programs write <x:row>, <x:c>, <x:si> instead of
+// <row>, <c>, <si>, which getElementsByTagName('row') misses (then the whole sheet reads as empty).
+const tags = (el, name) => (el.getElementsByTagNameNS ? el.getElementsByTagNameNS('*', name) : el.getElementsByTagName(name));
+const SHEET_FILE = /^xl\/worksheets\/[^/]+\.xml$/i;
+
 const colIndex = ref => { let n = 0; for (const ch of ref.replace(/\d+$/, '')) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
 
 // An .xlsx File → tab-separated text of its first sheet (what pasting from Excel gives),
 // so it goes through the same reading as pasted rows. Dates come out as dd/mm/yyyy.
 export async function xlsxToText(file) {
-  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || n === 'xl/styles.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || n === 'xl/styles.xml' || SHEET_FILE.test(n));
   const dec = new TextDecoder(), parse = s => new DOMParser().parseFromString(s, 'application/xml');
   const text = n => (files[n] ? dec.decode(files[n]) : '');
   const shared = files['xl/sharedStrings.xml']
-    ? [...parse(text('xl/sharedStrings.xml')).getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join(''))
+    ? [...tags(parse(text('xl/sharedStrings.xml')), 'si')].map(si => [...tags(si, 't')].map(t => t.textContent).join(''))
     : [];
   // The first sheet's file, via the workbook's relationships.
   let sheetFile = 'xl/worksheets/sheet1.xml';
   try {
-    const rid = parse(text('xl/workbook.xml')).getElementsByTagName('sheet')[0].getAttribute('r:id');
-    const rel = [...parse(text('xl/_rels/workbook.xml.rels')).getElementsByTagName('Relationship')].find(r => r.getAttribute('Id') === rid);
+    const rid = tags(parse(text('xl/workbook.xml')), 'sheet')[0].getAttribute('r:id');
+    const rel = [...tags(parse(text('xl/_rels/workbook.xml.rels')), 'Relationship')].find(r => r.getAttribute('Id') === rid);
     const target = rel.getAttribute('Target').replace(/^\/?(xl\/)?/, '');
     if (files[`xl/${target}`]) sheetFile = `xl/${target}`;
   } catch { /* use sheet1 */ }
@@ -144,24 +149,24 @@ export async function xlsxToText(file) {
   try {
     const st = parse(text('xl/styles.xml'));
     const custom = {};
-    [...st.getElementsByTagName('numFmt')].forEach(f => { custom[f.getAttribute('numFmtId')] = f.getAttribute('formatCode'); });
-    const xfs = st.getElementsByTagName('cellXfs')[0];
-    [...(xfs ? xfs.getElementsByTagName('xf') : [])].forEach((xf, i) => {
+    [...tags(st, 'numFmt')].forEach(f => { custom[f.getAttribute('numFmtId')] = f.getAttribute('formatCode'); });
+    const xfs = tags(st, 'cellXfs')[0];
+    [...(xfs ? tags(xfs, 'xf') : [])].forEach((xf, i) => {
       const id = Number(xf.getAttribute('numFmtId'));
       if ((id >= 14 && id <= 22) || /[dy]/i.test((custom[id] || '').replace(/"[^"]*"|\[[^\]]*\]/g, ''))) dateStyles.add(i);
     });
   } catch { /* no dates */ }
   const sheet = parse(text(sheetFile));
   const rows = [];
-  [...sheet.getElementsByTagName('row')].forEach(r => {
+  [...tags(sheet, 'row')].forEach(r => {
     const cells = [];
-    [...r.getElementsByTagName('c')].forEach(c => {
+    [...tags(r, 'c')].forEach(c => {
       const i = colIndex(c.getAttribute('r') || colName(cells.length));
       const t = c.getAttribute('t');
-      const vEl = c.getElementsByTagName('v')[0];
+      const vEl = tags(c, 'v')[0];
       let val = '';
       if (t === 's') val = shared[Number(vEl?.textContent)] ?? '';
-      else if (t === 'inlineStr') val = [...c.getElementsByTagName('t')].map(x => x.textContent).join('');
+      else if (t === 'inlineStr') val = [...tags(c, 't')].map(x => x.textContent).join('');
       else if (vEl) {
         val = vEl.textContent;
         if (t === 'd' && /^\d{4}-\d{2}-\d{2}/.test(val)) val = val.slice(0, 10).split('-').reverse().join('/');
@@ -180,29 +185,29 @@ export async function xlsxToText(file) {
 // An .xlsx File → every sheet, in order: [{ name, rows: [[cell text…]…] }] (values as shown, no date conversion) — for
 // a school's Islamic Studies import, whose workbooks keep one sheet per year group (src/components/StudiesImport.js).
 export async function xlsxSheets(file) {
-  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || SHEET_FILE.test(n));
   const dec = new TextDecoder(), parse = s => new DOMParser().parseFromString(s, 'application/xml');
   const text = n => (files[n] ? dec.decode(files[n]) : '');
   const shared = files['xl/sharedStrings.xml']
-    ? [...parse(text('xl/sharedStrings.xml')).getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join(''))
+    ? [...tags(parse(text('xl/sharedStrings.xml')), 'si')].map(si => [...tags(si, 't')].map(t => t.textContent).join(''))
     : [];
   const rels = {};
   try {
-    [...parse(text('xl/_rels/workbook.xml.rels')).getElementsByTagName('Relationship')].forEach(r => { rels[r.getAttribute('Id')] = `xl/${r.getAttribute('Target').replace(/^\/?(xl\/)?/, '')}`; });
+    [...tags(parse(text('xl/_rels/workbook.xml.rels')), 'Relationship')].forEach(r => { rels[r.getAttribute('Id')] = `xl/${r.getAttribute('Target').replace(/^\/?(xl\/)?/, '')}`; });
   } catch { /* none */ }
   const out = [];
-  [...parse(text('xl/workbook.xml')).getElementsByTagName('sheet')].forEach((s, i) => {
+  [...tags(parse(text('xl/workbook.xml')), 'sheet')].forEach((s, i) => {
     const file = rels[s.getAttribute('r:id')] || `xl/worksheets/sheet${i + 1}.xml`;
     if (!files[file]) return;
     const rows = [];
-    [...parse(text(file)).getElementsByTagName('row')].forEach(r => {
+    [...tags(parse(text(file)), 'row')].forEach(r => {
       const cells = [];
-      [...r.getElementsByTagName('c')].forEach(c => {
+      [...tags(r, 'c')].forEach(c => {
         const t = c.getAttribute('t');
-        const vEl = c.getElementsByTagName('v')[0];
+        const vEl = tags(c, 'v')[0];
         let val = '';
         if (t === 's') val = shared[Number(vEl?.textContent)] ?? '';
-        else if (t === 'inlineStr') val = [...c.getElementsByTagName('t')].map(x => x.textContent).join('');
+        else if (t === 'inlineStr') val = [...tags(c, 't')].map(x => x.textContent).join('');
         else if (vEl) val = vEl.textContent;
         cells[colIndex(c.getAttribute('r') || colName(cells.length))] = String(val).trim();
       });
