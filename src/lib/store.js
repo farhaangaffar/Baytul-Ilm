@@ -777,6 +777,7 @@ export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies
 export const saveStudiesItem = item => apiFetch('/api/studies?action=item', { method: 'POST', body: JSON.stringify(item) });
 export const saveStudiesLink = link => apiFetch('/api/studies?action=link', { method: 'POST', body: JSON.stringify(link) });
 export const deleteStudiesLink = id => apiFetch(`/api/studies?action=link&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const removeStudiesItems = ids => apiFetch('/api/studies?action=remove-items', { method: 'POST', body: JSON.stringify({ ids }) });
 export const deleteStudiesItem = id => apiFetch(`/api/studies?action=item&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const saveMaintenanceJob = job => maintenancePost('job', job);
 export const markMaintenanceDone = (id, note) => maintenancePost('done', { id, note });
