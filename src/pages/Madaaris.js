@@ -595,7 +595,7 @@ function DetailModal({ m, onClose, open, onChanged }) {
           <div className="pill-tabs" style={{ marginBottom: 0 }}>
             {[['monthly', 'Monthly'], ['yearly', 'Yearly']].map(([k, l]) => (
               <button key={k} type="button" className={`pill-tab ${m.billingPlan === k ? 'active' : ''}`} disabled={busy}
-                onClick={() => m.billingPlan !== k && savePlan(k, defaultPrice(m)[k])}>{l}</button>
+                onClick={() => m.billingPlan !== k && savePlan(k, prices(m)[k])}>{l}</button>
             ))}
           </div>
           <span className="pay-price">£<input type="number" min="0" step="1" value={price} onChange={e => setPrice(e.target.value)}
