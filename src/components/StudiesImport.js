@@ -96,7 +96,10 @@ function readSheet({ name, rows, fills = [] }) {
       if (String(r[i] || '').trim()) { cur = wordKind(r[i]); if (cur) any = true; }
       lab[i] = cur;
     }
-    if (any) cols.forEach(([i, c]) => { if (lab[i]) sections[c] = lab[i]; });
+    // A heading typed over the middle of its columns (not merged across them) leaves the first ones unlabelled: they
+    // take the first heading in the row.
+    const first = lab.findIndex(Boolean);
+    if (any) cols.forEach(([i, c]) => { const k = lab[i] || (i < first ? lab[first] : null); if (k) sections[c] = k; });
   }
   // Each column's year from its colour: the heading's fill, else the fill most of its mark cells share.
   const legend = readLegend(rows, fills, h);
@@ -184,7 +187,8 @@ export default function StudiesImport({ onClose, onDone }) {
     let prev = null;
     for (const c of sh.columns) {
       if (kindOf[c]) { prev = kindOf[c]; continue; }
-      const hint = newKinds[c] || sh.sections[c] || wordKind(c);
+      // A surah's own name ("Bayyinah", "Qadr") always means a surah, whatever heading is above it.
+      const hint = newKinds[c] || (surahNumber(c) ? 'surah' : null) || sh.sections[c] || wordKind(c);
       const it = newKinds[c] ? findIn(items.filter(i => i.kind === newKinds[c]), c)
         : (hint && findIn(items.filter(i => i.kind === hint), c)) || findIn(items, c);
       kindOf[c] = newKinds[c] || (it ? it.kind : hint || (surahNumber(c) ? 'surah' : prev) || 'surah');
