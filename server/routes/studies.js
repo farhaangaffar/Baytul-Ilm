@@ -41,15 +41,18 @@ async function ensure() {
   if (ready) return;
   await query('ALTER TABLE classes ADD COLUMN IF NOT EXISTS year_group INTEGER'); // Reception = 0 … Year 13 (a school's classes)
   await query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_seeded BOOLEAN NOT NULL DEFAULT false');
+  await query('ALTER TABLE is_items ALTER COLUMN year_group DROP NOT NULL'); // NULL = taken out of the year plan
   // Set when a school imports its own spreadsheet: its lists then keep the spreadsheet's order (is_items.sort), not ours.
   await query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_own_order BOOLEAN NOT NULL DEFAULT false');
+  // The Year plan's "Which du'aas? Suhuf's list / My own list" (and practicals): the kinds using only the school's own ('duaa,practical').
+  await query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS studies_own_lists TEXT NOT NULL DEFAULT ''");
   await query(`CREATE TABLE IF NOT EXISTS is_items (
     id          BIGSERIAL PRIMARY KEY,
     madrasah_id INTEGER NOT NULL REFERENCES madaaris(id),
     kind        TEXT NOT NULL,             -- 'surah' | 'duaa' | 'practical'
     name        TEXT NOT NULL,
     detail      TEXT NOT NULL DEFAULT '',
-    year_group  INTEGER NOT NULL DEFAULT 0,
+    year_group  INTEGER DEFAULT 0,            -- NULL = not in the year plan (kept, with its marks; classes don't show it)
     sort        INTEGER NOT NULL DEFAULT 0
   )`);
   await query('CREATE INDEX IF NOT EXISTS idx_is_items_madrasah ON is_items (madrasah_id)');
@@ -148,10 +151,22 @@ async function addStarter(c, mid) {
 const SURAH_ORDER = `CASE WHEN (SELECT studies_own_order FROM settings WHERE madrasah_id = $1) THEN 0
   WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END`;
 
-async function items(mid, upToYear = null) {
+// The school's items in its year plan (up to a year group, or all of them); `unplanned` adds the ones taken out of the plan
+// (year_group NULL — kept with their marks; only the Year plan shows them).
+async function items(mid, upToYear = null, unplanned = false) {
   const { rows } = await query(
-    `SELECT ${ITEM_COLS} FROM is_items WHERE madrasah_id = $1 ${upToYear === null ? '' : 'AND year_group <= $2'}
-     ORDER BY year_group, ${SURAH_ORDER}, sort, id`, upToYear === null ? [mid] : [mid, upToYear]);
+    `SELECT ${ITEM_COLS} FROM is_items WHERE madrasah_id = $1 ${upToYear === null ? (unplanned ? '' : 'AND year_group IS NOT NULL') : 'AND year_group <= $2'}
+     ORDER BY year_group NULLS LAST, ${SURAH_ORDER}, sort, id`, upToYear === null ? [mid] : [mid, upToYear]);
+  return rows;
+}
+
+// "Working ahead": the year plan's items for the years after a class's (a class that has finished its own year's goes on
+// to the next ones — marked like any other; the plan isn't changed and this year's figures don't count them).
+async function aheadItems(mid, year) {
+  if (year === null || year === undefined) return [];
+  const { rows } = await query(
+    `SELECT ${ITEM_COLS} FROM is_items WHERE madrasah_id = $1 AND year_group > $2
+     ORDER BY year_group, ${SURAH_ORDER}, sort, id`, [mid, year]);
   return rows;
 }
 
@@ -180,7 +195,7 @@ async function classAverageOf(mid, className, year) {
     `SELECT i.kind, count(*) FILTER (WHERE p.level = 3)::int AS achieved, count(*)::int AS assessed
      FROM is_progress p JOIN students s ON s.id = p.student_id AND s.madrasah_id = p.madrasah_id
      JOIN is_items i ON i.id = p.item_id AND i.madrasah_id = p.madrasah_id
-     WHERE p.madrasah_id = $1 AND s.class = $2 AND s.status = 'Active' AND ($3::int IS NULL OR i.year_group <= $3) GROUP BY i.kind`, [mid, className, year]);
+     WHERE p.madrasah_id = $1 AND s.class = $2 AND s.status = 'Active' AND i.year_group IS NOT NULL AND ($3::int IS NULL OR i.year_group <= $3) GROUP BY i.kind`, [mid, className, year]);
   const pct = (a, n) => (n ? Math.round((a / n) * 100) : null);
   const sum = k => avg.reduce((t, a) => t + a[k], 0);
   return { ...Object.fromEntries(avg.map(a => [a.kind, pct(a.achieved, a.assessed)])), all: pct(sum('achieved'), sum('assessed')) };
@@ -232,7 +247,7 @@ const handler = requireAuth(async (req, res) => {
       for (const it of Array.isArray(b.items) ? b.items : []) {
         if (!KINDS.includes(it.kind) || !str(it.name, 120)) continue;
         const { rows: [n] } = await c.query('INSERT INTO is_items (madrasah_id, kind, name, detail, year_group, sort, surah) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-          [mid, it.kind, str(it.name, 120), str(it.detail), yearOf(it.year_group) ?? 0, Number(it.sort) || 0, surahOf(it.surah)]);
+          [mid, it.kind, str(it.name, 120), str(it.detail), yearOf(it.year_group), Number(it.sort) || 0, surahOf(it.surah)]);
         ids[it.id] = n.id;
       }
       for (const p of Array.isArray(b.progress) ? b.progress : []) {
@@ -439,8 +454,9 @@ const handler = requireAuth(async (req, res) => {
         `SELECT id, forename || ' ' || surname AS name, class FROM students WHERE id = $1 AND madrasah_id = $2`, [sid, mid]);
       const year = await yearGroupOfClass(mid, p.class);
       const { rows: progress } = await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = $2`, [mid, sid]);
+      const marked = new Set(progress.map(r => r.itemId));
       res.status(200).json({ pupil: { ...p, yearGroup: year }, items: await items(mid, year), progress, ayahs: await classAyahs(mid, p.class),
-        classAverage: await classAverageOf(mid, p.class, year) });
+        classAverage: await classAverageOf(mid, p.class, year), ahead: (await aheadItems(mid, year)).filter(i => marked.has(i.id)) });
       return;
     }
     if (req.query.class !== undefined) {
@@ -455,11 +471,19 @@ const handler = requireAuth(async (req, res) => {
       const { rows: progress } = ids.length
         ? await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = ANY($2)`, [mid, ids])
         : { rows: [] };
-      res.status(200).json({ yearGroup: year, items: await items(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
+      res.status(200).json({ yearGroup: year, items: await items(mid, year), ahead: await aheadItems(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
       return;
     }
-    // The starter lists' years go with the full list, so the marks import can suggest a sensible year for a new column.
-    res.status(200).json({ items: await items(mid), starter: STARTER.map(([kind, name, , year, surah]) => ({ kind, name, year, surah: surah || null })) });
+    // The whole list, with Suhuf's usual du'aas and practicals (the year plan's tick lists offer them) and how many marks each
+    // item has (taking one out of the plan asks first when pupils have marks for it).
+    const { rows: counts } = await query('SELECT item_id::text AS id, count(*)::int AS n FROM is_progress WHERE madrasah_id = $1 GROUP BY item_id', [mid]);
+    const { rows: [st] } = await query('SELECT studies_own_lists FROM settings WHERE madrasah_id = $1', [mid]);
+    res.status(200).json({
+      items: await items(mid, null, req.query.plan === '1'),
+      starter: STARTER.map(([kind, name, detail, year, surah]) => ({ kind, name, detail, year, surah: surah || null })),
+      marks: Object.fromEntries(counts.map(r => [r.id, r.n])),
+      ownLists: String(st?.studies_own_lists || '').split(',').filter(k => KINDS.includes(k)),
+    });
     return;
   }
 
@@ -565,7 +589,8 @@ const handler = requireAuth(async (req, res) => {
   if (action === 'item' && req.method === 'POST') {
     const b = req.body || {};
     const name = str(b.name, 120);
-    const year = yearOf(b.yearGroup) ?? 0;
+    // Changing one may leave it out of the plan (null); a new one always goes into a year.
+    const year = b.id ? yearOf(b.yearGroup) : yearOf(b.yearGroup) ?? 0;
     if (!KINDS.includes(b.kind)) { res.status(400).json({ error: 'Choose surah, du\'aa or practical.' }); return; }
     if (!name) { res.status(400).json({ error: 'Type its name.' }); return; }
     if (b.id) {
@@ -607,6 +632,57 @@ const handler = requireAuth(async (req, res) => {
       return r.rowCount;
     });
     res.status(200).json({ removed });
+    return;
+  }
+  // The Year plan's button (the owner's design): the ticked items move into one year — or out of the plan (yearGroup null:
+  // kept with every mark, classes stop showing them). `make`: ticked ones not on the list yet (a surah from the Qur'an's list,
+  // one of Suhuf's usual du'aas), added straight into that year. Nothing here ever deletes.
+  // "Which du'aas? Suhuf's list / My own list" (and practicals) — the owner's ask: My own takes all of Suhuf's ready-made ones out.
+  if (action === 'own-list' && req.method === 'POST') {
+    const b = req.body || {};
+    if (!['duaa', 'practical'].includes(b.kind)) { res.status(400).json({ error: 'Unknown list' }); return; }
+    const { rows: [st] } = await query('SELECT studies_own_lists FROM settings WHERE madrasah_id = $1', [mid]);
+    const set = new Set(String(st?.studies_own_lists || '').split(',').filter(k => KINDS.includes(k)));
+    if (b.own) set.add(b.kind); else set.delete(b.kind);
+    await query('UPDATE settings SET studies_own_lists = $1 WHERE madrasah_id = $2', [[...set].join(','), mid]);
+    // My own: every one of Suhuf's ready-made ones leaves the plan (year NULL — kept with every mark, never deleted).
+    // Suhuf's list again: they go back to their usual years (only ones out of the plan; ones the school placed stay put).
+    const plain = n => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+    const yearOfStarter = new Map(STARTER.filter(([k]) => k === b.kind).map(([, n, , y]) => [plain(n), y]));
+    const { rows } = await query('SELECT id::text AS id, name, year_group FROM is_items WHERE madrasah_id = $1 AND kind = $2', [mid, b.kind]);
+    let hidden = 0;
+    for (const r of rows) {
+      if (!yearOfStarter.has(plain(r.name))) continue;
+      if (b.own && r.year_group !== null) {
+        hidden += (await query('UPDATE is_items SET year_group = NULL WHERE id = $1 AND madrasah_id = $2', [r.id, mid])).rowCount;
+      } else if (!b.own && r.year_group === null) {
+        await query('UPDATE is_items SET year_group = $1 WHERE id = $2 AND madrasah_id = $3', [yearOfStarter.get(plain(r.name)), r.id, mid]);
+      }
+    }
+    res.status(200).json({ ok: true, hidden });
+    return;
+  }
+  if (action === 'plan' && req.method === 'POST') {
+    const b = req.body || {};
+    const year = yearOf(b.yearGroup);
+    const ids = (Array.isArray(b.ids) ? b.ids : []).slice(0, 1000).map(x => String(x).replace(/\D/g, '')).filter(Boolean);
+    const make = year === null ? [] : (Array.isArray(b.make) ? b.make : []).slice(0, 300);
+    const done = await transaction(async c => {
+      let n = 0;
+      if (ids.length) n += (await c.query('UPDATE is_items SET year_group = $1 WHERE madrasah_id = $2 AND id = ANY($3::bigint[])', [year, mid, ids])).rowCount;
+      if (make.length) {
+        const { rows: [{ s }] } = await c.query('SELECT COALESCE(max(sort), 0) AS s FROM is_items WHERE madrasah_id = $1', [mid]);
+        let sort = Number(s);
+        for (const m of make) {
+          if (!KINDS.includes(m.kind) || !str(m.name, 120)) continue;
+          await c.query('INSERT INTO is_items (madrasah_id, kind, name, detail, year_group, sort, surah) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+            [mid, m.kind, str(m.name, 120), str(m.detail), year, ++sort, m.kind === 'surah' ? surahOf(m.surah) : null]);
+          n++;
+        }
+      }
+      return n;
+    });
+    res.status(200).json({ ok: true, moved: done });
     return;
   }
   // The school's own order, from its imported spreadsheet (StudiesImport.js: each column's item, left to right, sheet by

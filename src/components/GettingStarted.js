@@ -9,7 +9,7 @@ import { appNavigate } from './BackToExit';
 // with steps left): teachers & classes → fees & days → children → teacher logins. A Darul Uloom
 // gets its own order: Settings → teachers → classes (Hifz, Nazarah…) → Aalim years & books →
 // timetable → students → logins. A school (the owner's order): teachers → classes with their year groups → import pupils →
-// put them into their classes → check the Islamic Studies lists → bring in marks they already have (or start fresh) →
+// put them into their classes → set the year plan → bring in marks they already have (or start fresh) →
 // pupil logins (or not using them) → teacher logins. Each ticks itself off from the madrasah's own data; the card goes once
 // everything's done or it's hidden. The students step can add a few made-up students to try
 // things with (marked in their notes, MADE_UP) — they don't tick the step, and one tap removes them.
@@ -19,7 +19,7 @@ const write = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 // Settings page calls this when it's opened, which ticks "Set your fees and days".
 export function markSettingsVisited(code) { if (code) write(key(code, 'settings'), '1'); }
-// A school's Islamic Studies page calls this, which ticks "Check your lists".
+// The Year plan (Islamic Studies) calls this when opened, which ticks "Set your year plan".
 export function markStudiesVisited(code) { if (code) write(key(code, 'studies'), '1'); }
 // Islamic Studies → Import calls this once marks are brought in, which ticks "Bring in the marks you already have".
 export function markMarksImported(code) { if (code) write(key(code, 'marks'), '1'); }
@@ -95,8 +95,8 @@ export default function GettingStarted({ students, classes, onChanged }) {
     { label: 'Add your classes', sub: 'Each with its year group (2A → Year 2), so it gets that year\'s surahs, du\'aas and practicals', path: '/classes?tab=classes', done: classes.some(c => c.yearGroup !== null && c.yearGroup !== undefined) },
     { ...studentsStep, label: 'Import your pupils', sub: madeUp.length ? studentsStep.sub : 'Pupils → Import: paste or upload a spreadsheet — an export from your school\'s pupil database works' },
     { label: 'Put your pupils into their classes', sub: notInClass ? `${notInClass} waiting in "Not in a class" — tick a whole group and choose "Move to"` : 'Imported pupils wait in "Not in a class" — tick a whole group and move them together', path: '/students', done: realPupils.length > 0 && !notInClass },
-    { label: 'Check your lists', sub: 'The surahs, du\'aas and practicals for each year — start from ours and change, remove or add', path: '/studies', done: !!read(key(code, 'studies')) },
-    { label: 'Bring in the marks you already have', sub: 'Islamic Studies → Import: your tracker workbook (a sheet per year, 1 / 2 / 3 for each surah or du\'aa)', path: '/studies', done: marksDone,
+    { label: 'Set your year plan', sub: 'Islamic Studies → Year plan: tick what each year learns — ours is ticked to start, change what\'s different', path: '/studies', done: !!read(key(code, 'studies')) },
+    { label: 'Bring in the marks you already have', sub: 'Islamic Studies → Import: your assessment workbook (1 / 2 / 3 for each surah or du\'aa) — marks only, after the year plan', path: '/studies', done: marksDone,
       extra: { label: "We're starting fresh", onClick: () => { write(key(code, 'marks'), '1'); setMarksDone(true); } } },
     { label: 'Give your pupils their logins', sub: 'The usernames and passwords your school gives them — the "Pupil logins" card at the bottom of Pupils imports a spreadsheet', path: '/students', done: pupilLogins > 0 || noPupilLogins,
       extra: { label: 'Not using pupil logins', onClick: () => { write(key(code, 'no_pupil_logins'), '1'); setNoPupilLogins(true); } } },

@@ -772,7 +772,10 @@ export const retakeAssessment = id => srPost('retake', { id });
 export const setEffort = (id, studentId, effort) => srPost('effort', { id, studentId, effort });
 export const publishAssessment = (id, published) => srPost('publish', { id, published });
 export const deleteAssessment = id => apiFetch(`/api/school-reports?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-export const getStudiesItems = () => apiFetch('/api/studies');
+export const getStudiesItems = (plan = false) => apiFetch(`/api/studies${plan ? '?plan=1' : ''}`);
+// Year plan: move items into a year (or out of the plan: yearGroup null), adding `make` ones not on the list yet.
+export const setStudiesOwnList = (kind, own) => apiFetch('/api/studies?action=own-list', { method: 'POST', body: JSON.stringify({ kind, own }) });
+export const planStudiesItems = (ids, make, yearGroup) => apiFetch('/api/studies?action=plan', { method: 'POST', body: JSON.stringify({ ids, make, yearGroup }) });
 export const getStudiesPupil = id => apiFetch(`/api/studies?studentId=${encodeURIComponent(id)}`);
 export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies?action=mark', { method: 'POST', body: JSON.stringify({ itemId, studentIds, level }) });
 export const saveStudiesItem = item => apiFetch('/api/studies?action=item', { method: 'POST', body: JSON.stringify(item) });

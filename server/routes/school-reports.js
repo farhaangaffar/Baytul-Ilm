@@ -40,6 +40,8 @@ async function ensure() {
     published_at TIMESTAMPTZ                   -- sent to parents
   )`);
   await query('CREATE INDEX IF NOT EXISTS idx_is_assessments_madrasah ON is_assessments (madrasah_id, year)');
+  // The year plan when the point was taken (item id → year group), so changing the plan next year doesn't rewrite it.
+  await query('ALTER TABLE is_assessments ADD COLUMN IF NOT EXISTS plan JSONB');
   await query(`CREATE TABLE IF NOT EXISTS is_assessment_pupils (
     assessment_id BIGINT NOT NULL,
     madrasah_id   INTEGER NOT NULL REFERENCES madaaris(id),
@@ -73,7 +75,13 @@ async function snapshot(c, mid, assessmentId) {
      WHERE s.madrasah_id = $2 AND s.status = 'Active'
      ON CONFLICT (assessment_id, student_id) DO UPDATE
        SET class = EXCLUDED.class, year_group = EXCLUDED.year_group, marks = EXCLUDED.marks`, [assessmentId, mid]);
+  await c.query(
+    `UPDATE is_assessments SET plan = COALESCE((SELECT jsonb_object_agg(id::text, year_group) FROM is_items WHERE madrasah_id = $2), '{}'::jsonb)
+     WHERE id = $1 AND madrasah_id = $2`, [assessmentId, mid]);
 }
+
+// Items as they were planned when a point was taken (a point from before plans were kept uses today's years).
+const withPlan = (items, plan) => (plan ? items.map(i => (plan[i.id] !== undefined ? { ...i, yearGroup: plan[i.id] } : i)) : items);
 
 // The point before this one (same school, taken earlier), for "progress since last time".
 async function previousOf(mid, a) {
@@ -125,10 +133,11 @@ const handler = requireAuth(async (req, res) => {
     }
     const yearGroup = pupils[0]?.yearGroup ?? null;
     const { rows: items } = await query(
-      `SELECT id::text, kind, name, detail, year_group AS "yearGroup", surah FROM is_items WHERE madrasah_id = $1
+      `SELECT id::text, kind, name, detail, year_group AS "yearGroup", surah FROM is_items WHERE madrasah_id = $1 AND year_group IS NOT NULL
        ORDER BY year_group, CASE WHEN (SELECT studies_own_order FROM settings WHERE madrasah_id = $1) THEN 0
          WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END, sort, id`, [mid]);
-    res.status(200).json({ assessment: a, yearGroup, items, pupils, previous });
+    const { rows: [pl] } = await query('SELECT plan FROM is_assessments WHERE id = $1 AND madrasah_id = $2', [id, mid]);
+    res.status(200).json({ assessment: a, yearGroup, items: withPlan(items, pl?.plan), pupils, previous });
     return;
   }
 
@@ -218,7 +227,7 @@ async function forParent(mid, studentId) {
   await ensure();
   const { rows } = await query(
     `SELECT a.id::text, a.year, a.name, to_char(a.taken_at, 'YYYY-MM-DD') AS "takenAt", p.class, p.year_group AS "yearGroup",
-       p.marks, p.effort,
+       p.marks, p.effort, a.plan,
        (SELECT q.marks FROM is_assessment_pupils q JOIN is_assessments b ON b.id = q.assessment_id AND b.madrasah_id = q.madrasah_id
           WHERE q.student_id = p.student_id AND q.madrasah_id = p.madrasah_id AND (b.taken_at, b.id) < (a.taken_at, a.id)
           ORDER BY b.taken_at DESC, b.id DESC LIMIT 1) AS previous

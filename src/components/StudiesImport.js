@@ -2,12 +2,13 @@
 // group, a First Name and Surname column, then a column per surah or du'aa holding 1 (Incomplete), 2 (Completed with
 // help) or 3 (Achieved), an empty box meaning not assessed yet. Each sheet's pupils are matched to the school's pupils by
 // name and each column to its list by name (spellings boiled down — "Faatihah" = "Al-Fatihah"; a surah also by its
-// number); columns not on the list yet can be added, each with the year it's learnt in. Read in the browser
-// (src/lib/xlsx.js); only the matched marks are sent (server/routes/studies.js ?action=import).
+// number). **Marks only** (the owner's choice): the import never adds, renames or moves a surah/du'aa — what each year
+// learns is set in the Year plan (Studies.js YearPlan); a column not in the plan is listed and left out. Read in the
+// browser (src/lib/xlsx.js); only the matched marks are sent (server/routes/studies.js ?action=import).
 import React, { useState, useMemo } from 'react';
 import { X, Upload, Check } from 'lucide-react';
 import { xlsxSheets } from '../lib/xlsx';
-import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks, removeStudiesItems, orderStudiesItems } from '../lib/store';
+import { getStudents, getStudiesItems, importStudiesMarks } from '../lib/store';
 import { markMarksImported } from './GettingStarted';
 import { useAuth } from '../lib/AuthContext';
 import { pupilFinder } from '../lib/nameMatch';
@@ -121,20 +122,14 @@ function readSheet({ name, rows, fills = [] }) {
 export default function StudiesImport({ onClose, onDone }) {
   const { user } = useAuth();
   const close = useBackToClose(true, onClose);
-  const [newKinds, setNewKinds] = useState({}); // new column → its list, when changed by hand
   const [picked, setPicked] = useState({}); // a name not found → the pupil the head chose for it (id), or none
   const [sheets, setSheets] = useState(null); // parsed sheets
   const [use, setUse] = useState({}); // sheet name → ticked
   const [pupils, setPupils] = useState([]);
   const [items, setItems] = useState([]);
-  const [starter, setStarter] = useState([]); // the starter lists' years, to suggest a new column's year
-  const [newYears, setNewYears] = useState({}); // new column → year group, or 'skip'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(null);
-  const [drop, setDrop] = useState([]); // after the import: ready-made items not in the spreadsheet, ticked to remove
-  const [dropped, setDropped] = useState(null);
-  const [showSpare, setShowSpare] = useState(false); // "See which N" opened
 
   async function pick(file) {
     setError(''); setBusy(true);
@@ -162,8 +157,7 @@ export default function StudiesImport({ onClose, onDone }) {
       setUse(Object.fromEntries(parsed.map(s => [s.name, parsed.length === 1 || (s.year !== null && !/^\s*(19|20)\d\d\b/.test(s.name))])));
       setPupils(studs.filter(s => s.status !== 'Inactive'));
       setItems(its.items);
-      setStarter(its.starter || []);
-      setNewYears({}); setNewKinds({}); setPicked({});
+      setPicked({});
     } catch (e) { setError(e.message || 'Could not read that file — save it as .xlsx and try again.'); }
     setBusy(false);
   }
@@ -190,10 +184,9 @@ export default function StudiesImport({ onClose, onDone }) {
     for (const c of sh.columns) {
       if (kindOf[c]) { prev = kindOf[c]; continue; }
       // A surah's own name ("Bayyinah", "Qadr") always means a surah, whatever heading is above it.
-      const hint = newKinds[c] || (surahNumber(c) ? 'surah' : null) || sh.sections[c] || wordKind(c);
-      const it = newKinds[c] ? findIn(items.filter(i => i.kind === newKinds[c]), c)
-        : (hint && findIn(items.filter(i => i.kind === hint), c)) || findIn(items, c);
-      kindOf[c] = newKinds[c] || (it ? it.kind : hint || (surahNumber(c) ? 'surah' : prev) || 'surah');
+      const hint = (surahNumber(c) ? 'surah' : null) || sh.sections[c] || wordKind(c);
+      const it = (hint && findIn(items.filter(i => i.kind === hint), c)) || findIn(items, c);
+      kindOf[c] = it ? it.kind : hint || (surahNumber(c) ? 'surah' : prev) || 'surah';
       if (it) itemOf[c] = it;
       prev = kindOf[c];
     }
@@ -202,85 +195,28 @@ export default function StudiesImport({ onClose, onDone }) {
   const columns = [...new Set(chosen.flatMap(s => s.columns))];
   const perKind = STUDY_KINDS.map(([k, label]) => [label, columns.filter(c => kindOf[c] === k).length]).filter(([, n]) => n);
   const matched = columns.filter(c => matchItem(c));
-  const fresh = columns.filter(c => !matchItem(c));
-  // A new column's year: the earliest ticked sheet whose pupils have marks in it.
-  const colourYear = c => chosen.map(sh => sh.colYears?.[c]).find(y => y !== undefined);
-  // A new column's year: its colour's; else the earliest sheet with marks in it — but never later than the starter lists
-  // put it (a Year 1 sheet revising Al-Faatihah doesn't make Al-Faatihah a Year 1 surah: it's Reception's).
-  const starterYear = c => starter.find(s => s.kind === kindOf[c] && ((s.surah && s.surah === surahNumber(c)) || plainName(s.name) === plainName(c)))?.year;
-  const guessYear = c => {
-    if (colourYear(c) !== undefined) return colourYear(c);
-    const ys = chosen.filter(s => s.rows.some(r => r.values[c])).map(s => s.year).filter(y => y !== null);
-    const st = starterYear(c);
-    const fromSheets = ys.length ? Math.min(...ys) : null;
-    if (fromSheets === null) return st ?? 0;
-    return st !== undefined && st < fromSheets ? st : fromSheets;
-  };
-  const yearFor = c => (newYears[c] === undefined ? guessYear(c) : newYears[c]);
-  // Already on the list but the sheet's colours say another year (e.g. added to the wrong year by an earlier import):
-  // "Learnt in" moves to the colour's year.
-  const moves = columns.filter(c => itemOf[c] && colourYear(c) !== undefined && colourYear(c) !== itemOf[c].yearGroup)
-    .filter((c, i, a) => a.findIndex(x => itemOf[x].id === itemOf[c].id) === i);
+  const fresh = columns.filter(c => !matchItem(c)); // not in the year plan: listed, left out
   const rowsFound = chosen.flatMap(s => s.rows);
   const unknown = [...new Set(rowsFound.filter(r => !findPupil(r.first, r.last)).map(nameOf))]; // the head can pick each one's pupil
   const nearNames = [...new Map(rowsFound.map(r => [r, findPupil(r.first, r.last)]).filter(([, m]) => m?.close)
     .map(([r, m]) => [`${r.first} ${r.last}`, `${m.pupil.forename} ${m.pupil.surname}`])).entries()];
   const marksCount = rowsFound.filter(r => pupilOf(r))
-    .reduce((t, r) => t + Object.keys(r.values).filter(c => matchItem(c) || yearFor(c) !== 'skip').length, 0);
-
-  // The school's own list replaces ours: items of the lists the spreadsheet has (surahs, du'aas …), in the years its
-  // sheets are for (all years if no sheet names a year), that no column matched.
-  function spareItems(ids) {
-    const used = new Set(Object.values(ids).map(String));
-    const kinds = new Set(Object.keys(ids).map(c => kindOf[c]));
-    const ys = chosen.map(s => s.year).filter(y => y !== null);
-    const lo = ys.length ? Math.min(...ys) : -Infinity, hi = ys.length ? Math.max(...ys) : Infinity;
-    return items.filter(i => kinds.has(i.kind) && !used.has(String(i.id)) && i.yearGroup >= lo && i.yearGroup <= hi)
-      .sort((a, b) => a.yearGroup - b.yearGroup || STUDY_KINDS.findIndex(k => k[0] === a.kind) - STUDY_KINDS.findIndex(k => k[0] === b.kind));
-  }
-
-  async function removeSpare() {
-    setBusy(true); setError('');
-    try { const r = await removeStudiesItems(drop); setDropped(r.removed); await onDone?.(); }
-    catch (e) { setError(e.message || 'Could not remove them'); }
-    setBusy(false);
-  }
+    .reduce((t, r) => t + Object.keys(r.values).filter(c => matchItem(c)).length, 0);
 
   async function run() {
     setBusy(true); setError('');
     try {
       const ids = Object.fromEntries(matched.map(c => [c, matchItem(c).id]));
-      for (const c of moves) {
-        const it = itemOf[c];
-        await saveStudiesItem({ id: it.id, kind: it.kind, name: it.name, detail: it.detail || '', yearGroup: colourYear(c), surah: it.surah });
-      }
-      for (const c of fresh) {
-        if (yearFor(c) === 'skip') continue;
-        const r = await saveStudiesItem({ kind: kindOf[c], name: c, detail: '', yearGroup: Number(yearFor(c)), surah: kindOf[c] === 'surah' ? surahNumber(c) : null });
-        ids[c] = r.id;
-      }
       const marks = new Map(); // later sheets win
       for (const s of chosen) for (const r of s.rows) {
         const p = pupilOf(r);
         if (!p) continue;
         for (const [c, level] of Object.entries(r.values)) if (ids[c]) marks.set(`${p.id}|${ids[c]}`, { studentId: p.id, itemId: ids[c], level });
       }
-      // Keep the spreadsheet's order: each column's item, left to right (sheet by sheet).
-      await orderStudiesItems(columns.map(c => ids[c]).filter(Boolean));
       const list = [...marks.values()];
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
-      // What the spreadsheet has, for the "only use my list?" question: each list's count, and the years of its sheets.
-      const used = [...new Set(Object.keys(ids))];
-      const sheetYears = [...new Set(chosen.map(sh => sh.year).filter(y => y !== null))].sort((a, b) => a - b);
-      const has = STUDY_KINDS.map(([k, l, one]) => [used.filter(c => kindOf[c] === k).length, l.toLowerCase(), one]).filter(([n]) => n)
-        .map(([n, many, one]) => `${n} ${n === 1 ? one : many}`);
-      const forYears = !sheetYears.length ? '' : sheetYears.length === 1 ? ` for ${yearLabel(sheetYears[0])}`
-        : ` for ${yearLabel(sheetYears[0])} to ${yearLabel(sheetYears[sheetYears.length - 1])}`;
-      setDone({ moved: moves.length, marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length, spare: spareItems(ids),
-        has: has.length ? `${has.slice(0, -1).join(', ')}${has.length > 1 ? ' and ' : ''}${has[has.length - 1]}` : '', forYears });
-      setShowSpare(false);
-      setDrop(spareItems(ids).map(i => i.id));
+      setDone({ marks: n, left: fresh });
       markMarksImported(user?.madrasah?.code); // ticks Getting started's "Bring in the marks you already have"
       await onDone?.();
     } catch (e) { setError(e.message || 'Could not import'); }
@@ -297,66 +233,19 @@ export default function StudiesImport({ onClose, onDone }) {
         <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
           {done ? <>
             <div style={{ fontSize: 14, color: 'var(--green-text)' }}>
-              <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks{done.added ? ` and added ${done.added} to your list` : ''}{done.moved ? `; moved ${done.moved} to the year your colours show` : ''}.
+              <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks.
             </div>
-            {dropped !== null ? (dropped >= 0 &&
-              <div style={{ fontSize: 14, color: 'var(--green-text)' }}><Check size={15} style={{ verticalAlign: -2 }} /> Removed {dropped} — you're using your spreadsheet's list.</div>
-            ) : done.spare.length > 0 && (() => {
-              // Two big choices (the owner's pick): only the spreadsheet's list, or keep Suhuf's extra ones too. The list
-              // itself is behind "See which N", where single items can be unticked.
-              const n = drop.length, total = done.spare.length;
-              const choice = { display: 'grid', gap: 2, textAlign: 'left', padding: '12px 14px', borderRadius: 'var(--r-md)', border: '1.5px solid var(--border)', background: '#fff', cursor: 'pointer', fontFamily: 'var(--font)' };
-              return (
-                <div style={{ display: 'grid', gap: 10, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: 12 }}>
-                  <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.45 }}>
-                    {done.has && <>Your spreadsheet has {done.has}{done.forYears}. </>}
-                    Suhuf's ready-made list has <b>{total} more</b>{done.forYears} that {total === 1 ? "isn't" : "aren't"} in your spreadsheet.
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                    <button type="button" style={{ ...choice, borderColor: 'var(--teal)', background: 'var(--teal-light)' }} disabled={busy || !n} onClick={removeSpare}>
-                      <strong style={{ fontSize: 14 }}>{busy ? 'Removing…' : 'Only use my spreadsheet\'s list'}</strong>
-                      <span className="text-muted" style={{ fontSize: 12.5 }}>Remove the {n === total ? n : `${n} ticked`}{n === 1 ? ' item' : ''}</span>
-                    </button>
-                    <button type="button" style={choice} disabled={busy} onClick={() => setDropped(-1)}>
-                      <strong style={{ fontSize: 14 }}>Keep Suhuf's {total} extra {total === 1 ? 'one' : 'ones'} as well</strong>
-                      <span className="text-muted" style={{ fontSize: 12.5 }}>Nothing is removed</span>
-                    </button>
-                  </div>
-                  <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setShowSpare(v => !v)}>
-                    {showSpare ? 'Hide the list' : `See which ${total}`} {showSpare ? '▴' : '▾'}
-                  </button>
-                  {showSpare && (
-                    <div style={{ display: 'grid', gap: 2, maxHeight: 300, overflowY: 'auto', background: '#fff', borderRadius: 'var(--r-md)', padding: '6px 10px' }}>
-                      <div className="text-muted" style={{ fontSize: 12 }}>Untick any you want to keep.</div>
-                      {[...new Set(done.spare.map(i => i.yearGroup))].map(y => {
-                        const list = done.spare.filter(i => i.yearGroup === y);
-                        const all = list.every(i => drop.includes(i.id));
-                        return (
-                          <div key={y} style={{ display: 'grid', gap: 2, padding: '4px 0' }}>
-                            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 600, textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
-                              <input type="checkbox" checked={all} onChange={() => setDrop(d => (all ? d.filter(id => !list.some(i => i.id === id)) : [...new Set([...d, ...list.map(i => i.id)])]))} />
-                              {yearLabel(y)}
-                            </label>
-                            {list.map(i => (
-                              <label key={i.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingLeft: 22, textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: 'var(--ink)' }}>
-                                <input type="checkbox" checked={drop.includes(i.id)} onChange={() => setDrop(d => (d.includes(i.id) ? d.filter(x => x !== i.id) : [...d, i.id]))} />
-                                <span style={{ minWidth: 0 }}>{i.name} <span className="text-muted" style={{ fontSize: 12 }}>· {STUDY_KINDS.find(k => k[0] === i.kind)[2]}</span></span>
-                              </label>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="text-muted" style={{ fontSize: 12 }}>Removing an item also removes any marks on it. Homework set on it stays.</div>
-                </div>
-              );
-            })()}
+            {done.left.length > 0 && (
+              <div style={{ fontSize: 13, color: 'var(--amber-text)' }}>
+                {done.left.length} column{done.left.length === 1 ? ' wasn\'t' : 's weren\'t'} in your year plan, so {done.left.length === 1 ? 'its' : 'their'} marks were left out: {done.left.join(', ')}.
+                Tick {done.left.length === 1 ? 'it' : 'them'} into a year in <b>Year plan</b>, then import the file again.
+              </div>
+            )}
           </> : <>
             <div className="text-muted" style={{ fontSize: 13 }}>
               Your workbook as it is: a sheet per year, First Name and Surname, then a column per surah, du'aa or practical (all on
               one sheet is fine) with 1 (Incomplete), 2 (Completed with help) or 3 (Achieved). Empty boxes stay "not assessed".
-              Add your pupils first (Pupils → Import).
+              Only marks come in — set what each year learns in <b>Year plan</b> first, and add your pupils (Pupils → Import).
             </div>
             <label className="btn" style={{ justifyContent: 'center', cursor: 'pointer' }}>
               <Upload size={14} /> {sheets ? 'Choose another file' : 'Choose the .xlsx file'}
@@ -381,12 +270,6 @@ export default function StudiesImport({ onClose, onDone }) {
               </div>
               {perKind.length > 0 && (
                 <div className="text-muted" style={{ fontSize: 12.5 }}>Columns found: {perKind.map(([l, n]) => `${l} ${n}`).join(' · ')}</div>
-              )}
-              {moves.length > 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--ink)', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
-                  Your colours put {moves.length === 1 ? 'this' : `these ${moves.length}`} in another year — {moves.length === 1 ? 'it' : 'they'}'ll move:{' '}
-                  {moves.slice(0, 8).map(c => `${itemOf[c].name} (${yearLabel(itemOf[c].yearGroup)} → ${yearLabel(colourYear(c))})`).join(', ')}{moves.length > 8 ? '…' : ''}
-                </div>
               )}
               {nearNames.length > 0 && (
                 <div style={{ fontSize: 12.5, color: 'var(--ink)', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
@@ -415,21 +298,9 @@ export default function StudiesImport({ onClose, onDone }) {
                 </div>
               )}
               {fresh.length > 0 && (
-                <div className="form-group"><label>Not on your list yet — add them?</label>
-                  <div style={{ display: 'grid', gap: 6 }}>
-                    {fresh.map(c => (
-                      <div key={c} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 108px 130px', gap: 6, alignItems: 'center', fontSize: 13.5 }}>
-                        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{c}</span>
-                        <select value={kindOf[c]} aria-label={`${c}: which list`} onChange={e => setNewKinds(n => ({ ...n, [c]: e.target.value }))}>
-                          {STUDY_KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-                        </select>
-                        <select value={yearFor(c)} onChange={e => setNewYears(n => ({ ...n, [c]: e.target.value === 'skip' ? 'skip' : Number(e.target.value) }))}>
-                          {Array.from({ length: 14 }, (_, y) => <option key={y} value={y}>Add · {yearLabel(y)}</option>)}
-                          <option value="skip">Leave out</option>
-                        </select>
-                      </div>
-                    ))}
-                  </div>
+                <div style={{ fontSize: 12.5, color: 'var(--amber-text)', background: 'var(--amber-light)', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
+                  {fresh.length} column{fresh.length === 1 ? ' isn\'t' : 's aren\'t'} in your year plan and will be left out: {fresh.slice(0, 12).join(', ')}{fresh.length > 12 ? '…' : ''}.
+                  To bring {fresh.length === 1 ? 'its' : 'their'} marks in, tick {fresh.length === 1 ? 'it' : 'them'} into a year in Year plan first.
                 </div>
               )}
             </>}
