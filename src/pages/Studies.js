@@ -192,7 +192,7 @@ export default function Studies() {
   const all = data?.items || [];
   const items = all.filter(i => byPupil || i.kind === tab);
   const now = items.filter(i => noYear || i.yearGroup === year);
-  const earlier = noYear ? [] : items.filter(i => i.yearGroup < year);
+  const earlier = noYear ? [] : items.filter(i => i.yearGroup < year).sort((a, b) => b.yearGroup - a.yearGroup); // newest year first
   const pupils = data?.pupils || [];
   const levelOf = (p, it) => levels[p.id]?.[it.id] || 0;
   // This year's items × the class's pupils, for the figures.

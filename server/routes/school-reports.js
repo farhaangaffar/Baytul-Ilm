@@ -126,7 +126,8 @@ const handler = requireAuth(async (req, res) => {
     const yearGroup = pupils[0]?.yearGroup ?? null;
     const { rows: items } = await query(
       `SELECT id::text, kind, name, detail, year_group AS "yearGroup", surah FROM is_items WHERE madrasah_id = $1
-       ORDER BY year_group, CASE WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END, sort, id`, [mid]);
+       ORDER BY year_group, CASE WHEN (SELECT studies_own_order FROM settings WHERE madrasah_id = $1) THEN 0
+         WHEN kind <> 'surah' OR surah = 1 THEN 0 WHEN surah IS NOT NULL THEN 115 - surah ELSE 200 END, sort, id`, [mid]);
     res.status(200).json({ assessment: a, yearGroup, items, pupils, previous });
     return;
   }
