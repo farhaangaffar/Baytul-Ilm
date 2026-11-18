@@ -631,7 +631,7 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
     // "My own list": only the school's own — Suhuf's ready-made ones out of the plan are hidden, and none are suggested.
     if ((data.ownLists || []).includes(kind)) {
       const isStarter = i => starter.some(st => plain(st.name) === plain(i.name));
-      return mine.filter(i => !(isStarter(i) && (i.yearGroup === null || i.yearGroup === undefined))).map(i => ({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
+      return mine.filter(i => !isStarter(i)).map(i => ({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
     }
     const out = mine.map(i => ({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
     starter.filter(st => !mine.some(i => plain(i.name) === plain(st.name)))
@@ -641,12 +641,14 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   const ownList = (data?.ownLists || []).includes(kind);
   async function chooseList(own) {
     if (own === ownList) return;
+    const word = kind === 'duaa' ? "du'aas" : 'practicals';
+    if (own && !window.confirm(`Use only your own ${word}? Suhuf's ${word} will be taken out of your year plan — any pupils' marks on them are kept, and choosing "Suhuf's list" again puts them back.`)) return;
     setBusy(true); setError(''); setNote('');
     try {
       const r = await setStudiesOwnList(kind, own);
       setDraft(null);
       await load(); await onChanged?.();
-      setNote(own ? (r.hidden ? `Suhuf's ${r.hidden} unused ${kind === 'duaa' ? "du'aas" : 'practicals'} are hidden — they're kept, never deleted.` : 'Showing your own list.') : "Showing Suhuf's list too.");
+      setNote(own ? `Suhuf's ${word} are out of your plan${r.hidden ? ` (${r.hidden})` : ''} — marks kept. Add your own below.` : `Suhuf's ${word} are back in their usual years.`);
     } catch (e) { setError(e.message || 'Could not change'); }
     setBusy(false);
   }

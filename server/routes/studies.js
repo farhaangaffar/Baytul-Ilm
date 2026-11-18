@@ -637,8 +637,7 @@ const handler = requireAuth(async (req, res) => {
   // The Year plan's button (the owner's design): the ticked items move into one year — or out of the plan (yearGroup null:
   // kept with every mark, classes stop showing them). `make`: ticked ones not on the list yet (a surah from the Qur'an's list,
   // one of Suhuf's usual du'aas), added straight into that year. Nothing here ever deletes.
-  // "Which du'aas? Suhuf's list / My own list" (and practicals). My own: Suhuf's ready-made ones with no marks leave the plan
-  // (kept — year NULL — never deleted), so only the school's own show; Suhuf's list again shows them as suggestions to tick.
+  // "Which du'aas? Suhuf's list / My own list" (and practicals) — the owner's ask: My own takes all of Suhuf's ready-made ones out.
   if (action === 'own-list' && req.method === 'POST') {
     const b = req.body || {};
     if (!['duaa', 'practical'].includes(b.kind)) { res.status(400).json({ error: 'Unknown list' }); return; }
@@ -646,15 +645,19 @@ const handler = requireAuth(async (req, res) => {
     const set = new Set(String(st?.studies_own_lists || '').split(',').filter(k => KINDS.includes(k)));
     if (b.own) set.add(b.kind); else set.delete(b.kind);
     await query('UPDATE settings SET studies_own_lists = $1 WHERE madrasah_id = $2', [[...set].join(','), mid]);
+    // My own: every one of Suhuf's ready-made ones leaves the plan (year NULL — kept with every mark, never deleted).
+    // Suhuf's list again: they go back to their usual years (only ones out of the plan; ones the school placed stay put).
+    const plain = n => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+    const yearOfStarter = new Map(STARTER.filter(([k]) => k === b.kind).map(([, n, , y]) => [plain(n), y]));
+    const { rows } = await query('SELECT id::text AS id, name, year_group FROM is_items WHERE madrasah_id = $1 AND kind = $2', [mid, b.kind]);
     let hidden = 0;
-    if (b.own) {
-      const plain = n => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
-      const starter = new Set(STARTER.filter(([k]) => k === b.kind).map(([, n]) => plain(n)));
-      const { rows } = await query(
-        `SELECT i.id::text AS id, i.name FROM is_items i WHERE i.madrasah_id = $1 AND i.kind = $2 AND i.year_group IS NOT NULL
-           AND NOT EXISTS (SELECT 1 FROM is_progress p WHERE p.item_id = i.id AND p.madrasah_id = i.madrasah_id)`, [mid, b.kind]);
-      const ids = rows.filter(r => starter.has(plain(r.name))).map(r => r.id);
-      if (ids.length) hidden = (await query('UPDATE is_items SET year_group = NULL WHERE madrasah_id = $1 AND id = ANY($2::bigint[])', [mid, ids])).rowCount;
+    for (const r of rows) {
+      if (!yearOfStarter.has(plain(r.name))) continue;
+      if (b.own && r.year_group !== null) {
+        hidden += (await query('UPDATE is_items SET year_group = NULL WHERE id = $1 AND madrasah_id = $2', [r.id, mid])).rowCount;
+      } else if (!b.own && r.year_group === null) {
+        await query('UPDATE is_items SET year_group = $1 WHERE id = $2 AND madrasah_id = $3', [yearOfStarter.get(plain(r.name)), r.id, mid]);
+      }
     }
     res.status(200).json({ ok: true, hidden });
     return;
