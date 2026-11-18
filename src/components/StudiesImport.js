@@ -11,7 +11,6 @@ import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks } fro
 import { markMarksImported } from './GettingStarted';
 import { useAuth } from '../lib/AuthContext';
 import { STUDY_KINDS, yearLabel, plainName, surahNumber } from '../lib/studies';
-import { ChoiceBoxes } from './StudentDetails';
 import { useBackToClose } from '../lib/useBackToClose';
 
 const personKey = (first, last) => `${first} ${last}`.toLowerCase().replace(/[^a-z]/g, '');
@@ -23,9 +22,19 @@ const yearFromSheet = name => (/reception|^rec\b/i.test(name) ? 0 : (/(?:year|yr
 const squash = c => String(c || '').toLowerCase().replace(/[^a-z]/g, '');
 const isFirst = c => { const k = squash(c); return /(firstname|forename|givenname|christianname)/.test(k) && !/surname|last/.test(k); };
 const isLast = c => { const k = squash(c); return /(surname|lastname|familyname)/.test(k); };
+// A heading's list, from its words: "Surah Al-Asr" → surah, "Du'aa before eating" → du'aa, "Practicals" → practical.
+// A title naming two lists ("Surahs and Du'aas") says nothing.
+function wordKind(v) {
+  const t = String(v || '').toLowerCase();
+  const ks = [/\bsura(h|t)?\b|\bsuraah|\bsurahs\b/.test(t) && 'surah', /\bdu['’`]?aa?s?\b|\bduas?\b|supplication/.test(t) && 'duaa', /practical/.test(t) && 'practical'].filter(Boolean);
+  return ks.length === 1 ? ks[0] : null;
+}
 const isFull = c => ['name', 'names', 'fullname', 'pupilname', 'pupilsname', 'studentname', 'studentsname', 'childname', 'childsname', 'pupil', 'student'].includes(squash(c));
 
-// One sheet → { name, year, columns: [header…], rows: [{ first, last, values: { header: '1'|'2'|'3' } }] }
+// One sheet → { name, year, columns: [header…], sections: { header: kind }, rows: [{ first, last, values: { header: 1|2|3 } }] }
+// One sheet can hold surahs AND du'aas (and practicals): a row above the headings like "Surahs … Du'aas" (often merged
+// cells, so the word sits over the first column of its group) puts each column in its list. Columns with no 1/2/3 in them
+// (a Total or % column) are left out.
 function readSheet({ name, rows }) {
   let h = rows.findIndex(r => r.some(isFirst) && r.some(isLast));
   let full = false;
@@ -47,14 +56,25 @@ function readSheet({ name, rows }) {
     cols.forEach(([i, c]) => { const v = String(r[i] || '').trim(); if (['1', '2', '3'].includes(v)) values[c] = Number(v); });
     out.push({ first, last, values });
   }
+  const sections = {};
+  for (const r of rows.slice(0, h)) {
+    let cur = null, any = false;
+    const lab = [];
+    for (let i = 0; i < Math.max(r.length, hdr.length); i++) {
+      if (String(r[i] || '').trim()) { cur = wordKind(r[i]); if (cur) any = true; }
+      lab[i] = cur;
+    }
+    if (any) cols.forEach(([i, c]) => { if (lab[i]) sections[c] = lab[i]; });
+  }
   const y = yearFromSheet(name);
-  return { name, year: y === undefined ? null : Number(y), columns: cols.map(c => c[1]), rows: out };
+  const used = cols.map(c => c[1]).filter(c => out.some(r => r.values[c]));
+  return { name, year: y === undefined ? null : Number(y), columns: used, sections, rows: out };
 }
 
 export default function StudiesImport({ onClose, onDone }) {
   const { user } = useAuth();
   const close = useBackToClose(true, onClose);
-  const [kind, setKind] = useState('surah');
+  const [newKinds, setNewKinds] = useState({}); // new column → its list, when changed by hand
   const [sheets, setSheets] = useState(null); // parsed sheets
   const [use, setUse] = useState({}); // sheet name → ticked
   const [pupils, setPupils] = useState([]);
@@ -76,22 +96,36 @@ export default function StudiesImport({ onClose, onDone }) {
           ? 'That file looks empty — open it in Excel or Google Sheets, then "Save as" / "Download" an .xlsx and try again.'
           : `Couldn't find the pupils' name columns (First name and Surname, or one Name column).${seen ? ` The first row reads: ${seen}.` : ''}`);
       }
-      const title = book.map(s => (s.rows[0] || []).join(' ')).join(' ');
-      setKind(/du'?a/i.test(title) ? 'duaa' : /surah|suraah/i.test(title) ? 'surah' : kind);
       setSheets(parsed);
       setUse(Object.fromEntries(parsed.map(s => [s.name, s.year !== null])));
       setPupils(studs.filter(s => s.status !== 'Inactive'));
       setItems(its.items);
-      setNewYears({});
+      setNewYears({}); setNewKinds({});
     } catch (e) { setError(e.message || 'Could not read that file — save it as .xlsx and try again.'); }
     setBusy(false);
   }
 
   const chosen = (sheets || []).filter(s => use[s.name]);
   const byPerson = Object.fromEntries(pupils.map(p => [personKey(p.forename, p.surname), p]));
-  const mine = items.filter(i => i.kind === kind);
-  const matchItem = col => mine.find(i => plainName(i.name) === plainName(col) || (kind === 'surah' && i.surah && i.surah === surahNumber(col)));
+  // Each column finds its own list (one sheet can mix surahs, du'aas and practicals): a hint from the section row above it
+  // or its own words, then the school's lists (that list first, then any), then a surah's name, then the column before it.
+  const findIn = (list, col) => list.find(i => plainName(i.name) === plainName(col) || (i.kind === 'surah' && i.surah && i.surah === surahNumber(col)));
+  const kindOf = {}, itemOf = {};
+  for (const sh of chosen) {
+    let prev = null;
+    for (const c of sh.columns) {
+      if (kindOf[c]) { prev = kindOf[c]; continue; }
+      const hint = newKinds[c] || sh.sections[c] || wordKind(c);
+      const it = newKinds[c] ? findIn(items.filter(i => i.kind === newKinds[c]), c)
+        : (hint && findIn(items.filter(i => i.kind === hint), c)) || findIn(items, c);
+      kindOf[c] = newKinds[c] || (it ? it.kind : hint || (surahNumber(c) ? 'surah' : prev) || 'surah');
+      if (it) itemOf[c] = it;
+      prev = kindOf[c];
+    }
+  }
+  const matchItem = col => itemOf[col];
   const columns = [...new Set(chosen.flatMap(s => s.columns))];
+  const perKind = STUDY_KINDS.map(([k, label]) => [label, columns.filter(c => kindOf[c] === k).length]).filter(([, n]) => n);
   const matched = columns.filter(c => matchItem(c));
   const fresh = columns.filter(c => !matchItem(c));
   // A new column's year: the earliest ticked sheet whose pupils have marks in it.
@@ -111,7 +145,7 @@ export default function StudiesImport({ onClose, onDone }) {
       const ids = Object.fromEntries(matched.map(c => [c, matchItem(c).id]));
       for (const c of fresh) {
         if (yearFor(c) === 'skip') continue;
-        const r = await saveStudiesItem({ kind, name: c, detail: '', yearGroup: Number(yearFor(c)), surah: kind === 'surah' ? surahNumber(c) : null });
+        const r = await saveStudiesItem({ kind: kindOf[c], name: c, detail: '', yearGroup: Number(yearFor(c)), surah: kindOf[c] === 'surah' ? surahNumber(c) : null });
         ids[c] = r.id;
       }
       const marks = new Map(); // later sheets win
@@ -144,17 +178,15 @@ export default function StudiesImport({ onClose, onDone }) {
             </div>
           ) : <>
             <div className="text-muted" style={{ fontSize: 13 }}>
-              Your workbook as it is: a sheet per year, First Name and Surname, then a column per surah or du'aa with 1 (Incomplete),
-              2 (Completed with help) or 3 (Achieved). Empty boxes stay "not assessed". Add your pupils first (Pupils → Import).
+              Your workbook as it is: a sheet per year, First Name and Surname, then a column per surah, du'aa or practical (all on
+              one sheet is fine) with 1 (Incomplete), 2 (Completed with help) or 3 (Achieved). Empty boxes stay "not assessed".
+              Add your pupils first (Pupils → Import).
             </div>
             <label className="btn" style={{ justifyContent: 'center', cursor: 'pointer' }}>
               <Upload size={14} /> {sheets ? 'Choose another file' : 'Choose the .xlsx file'}
               <input type="file" accept=".xlsx" hidden onChange={e => e.target.files[0] && pick(e.target.files[0])} />
             </label>
             {sheets && <>
-              <div className="form-group"><label>This sheet is for</label>
-                <ChoiceBoxes options={STUDY_KINDS.map(k => k[1])} value={STUDY_KINDS.find(k => k[0] === kind)[1]}
-                  onChange={v => { setKind(STUDY_KINDS.find(k => k[1] === v)[0]); setNewYears({}); }} /></div>
               <div className="form-group"><label>Sheets to bring in</label>
                 <div style={{ display: 'grid', gap: 4 }}>
                   {sheets.map(s => (
@@ -171,6 +203,9 @@ export default function StudiesImport({ onClose, onDone }) {
                 <div className="info-box"><strong>{matched.length}</strong><span className="info-box-label">Columns matched</span></div>
                 <div className="info-box"><strong>{marksCount}</strong><span className="info-box-label">Marks to import</span></div>
               </div>
+              {perKind.length > 0 && (
+                <div className="text-muted" style={{ fontSize: 12.5 }}>Columns found: {perKind.map(([l, n]) => `${l} ${n}`).join(' · ')}</div>
+              )}
               {unknown.length > 0 && (
                 <div style={{ fontSize: 12.5, color: 'var(--amber-text)' }}>
                   {unknown.length} not found among your pupils (left out): {unknown.slice(0, 8).join(', ')}{unknown.length > 8 ? '…' : ''}
@@ -180,8 +215,11 @@ export default function StudiesImport({ onClose, onDone }) {
                 <div className="form-group"><label>Not on your list yet — add them?</label>
                   <div style={{ display: 'grid', gap: 6 }}>
                     {fresh.map(c => (
-                      <div key={c} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 150px', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
-                        <span>{c}</span>
+                      <div key={c} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 108px 130px', gap: 6, alignItems: 'center', fontSize: 13.5 }}>
+                        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{c}</span>
+                        <select value={kindOf[c]} aria-label={`${c}: which list`} onChange={e => setNewKinds(n => ({ ...n, [c]: e.target.value }))}>
+                          {STUDY_KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                        </select>
                         <select value={yearFor(c)} onChange={e => setNewYears(n => ({ ...n, [c]: e.target.value === 'skip' ? 'skip' : Number(e.target.value) }))}>
                           {Array.from({ length: 14 }, (_, y) => <option key={y} value={y}>Add · {yearLabel(y)}</option>)}
                           <option value="skip">Leave out</option>
