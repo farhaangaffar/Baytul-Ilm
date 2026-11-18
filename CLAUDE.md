@@ -326,7 +326,7 @@ codebase (one codebase, not a fork).
   learning … N of M aayahs", To work on (a closed line each for Surahs / Du'aas / Practicals with a red circle (incomplete) and an amber circle (with help) — just numbers, no words, opening to incomplete
   then with-help chips — the first 8, then "Show all N"); a name elsewhere → `PupilSheet` (the same, as a pop-up).
   **Import** (`src/components/StudiesImport.js`, head): the school's own workbook — a sheet per year, First Name / Surname, a column
-  per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()`), pupils matched by name, columns by `plainName()` /
+  per surah or du'aa with 1/2/3 — read in the browser (`xlsxSheets()` — any XML prefix (`x:row`) and any worksheet file name, via `tags()`), the name columns found however headed (First name / Forename / Given name … + Surname / Last name / Family name, or one Name / Pupil name column split in two — `isFirst`/`isLast`/`isFull`; if none, the error quotes the file's first row), pupils matched by name, columns by `plainName()` /
   `surahNumber()` (`src/lib/studies.js` — "Faatihah" = Al-Fatihah, "Lahab" = Al-Masad), unknown columns added with a chosen year,
   non-year sheets ("2025") unticked; `?action=import`. **Moving pupils** (marks are per pupil, so they follow them): a school pupil's card has "Move to another class" and
   a red "Mark as left the school" (asks first in a pop-up — "Has … left the school?") / "Back at the school" (left pupils are under the Left box/card, shown for a school even when empty);
