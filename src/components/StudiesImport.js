@@ -4,16 +4,16 @@
 // name and each column to its list by name (spellings boiled down — "Faatihah" = "Al-Fatihah"; a surah also by its
 // number); columns not on the list yet can be added, each with the year it's learnt in. Read in the browser
 // (src/lib/xlsx.js); only the matched marks are sent (server/routes/studies.js ?action=import).
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Upload, Check } from 'lucide-react';
 import { xlsxSheets } from '../lib/xlsx';
 import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks, removeStudiesItems, orderStudiesItems } from '../lib/store';
 import { markMarksImported } from './GettingStarted';
 import { useAuth } from '../lib/AuthContext';
+import { pupilFinder } from '../lib/nameMatch';
 import { STUDY_KINDS, yearLabel, plainName, surahNumber } from '../lib/studies';
 import { useBackToClose } from '../lib/useBackToClose';
 
-const personKey = (first, last) => `${first} ${last}`.toLowerCase().replace(/[^a-z]/g, '');
 const yearFromSheet = name => (/reception|^rec\b/i.test(name) ? 0 : (/(?:year|yr|y)\s*(\d{1,2})/i.exec(name) || /^(\d{1,2})[a-z]?$/i.exec(name.trim()) || [])[1]);
 
 // The name columns, however a school heads them: "First Name", "Forename(s)", "Legal forename", "Pupil first name",
@@ -148,7 +148,9 @@ export default function StudiesImport({ onClose, onDone }) {
   }
 
   const chosen = (sheets || []).filter(s => use[s.name]);
-  const byPerson = Object.fromEntries(pupils.map(p => [personKey(p.forename, p.surname), p]));
+  // Pupils found by name — exactly, or by a close spelling ("M Husayn" = Muhammad Husayn, Kareem = Karim; nameMatch.js).
+  const findPupil = useMemo(() => pupilFinder(pupils), [pupils]);
+  const pupilOf = r => findPupil(r.first, r.last)?.pupil;
   // Each column finds its own list (one sheet can mix surahs, du'aas and practicals): a hint from the section row above it
   // or its own words, then the school's lists (that list first, then any), then a surah's name, then the column before it.
   const findIn = (list, col) => list.find(i => plainName(i.name) === plainName(col) || (i.kind === 'surah' && i.surah && i.surah === surahNumber(col)));
@@ -183,8 +185,10 @@ export default function StudiesImport({ onClose, onDone }) {
   const moves = columns.filter(c => itemOf[c] && colourYear(c) !== undefined && colourYear(c) !== itemOf[c].yearGroup)
     .filter((c, i, a) => a.findIndex(x => itemOf[x].id === itemOf[c].id) === i);
   const rowsFound = chosen.flatMap(s => s.rows);
-  const unknown = [...new Set(rowsFound.filter(r => !byPerson[personKey(r.first, r.last)]).map(r => `${r.first} ${r.last}`))];
-  const marksCount = rowsFound.filter(r => byPerson[personKey(r.first, r.last)])
+  const unknown = [...new Set(rowsFound.filter(r => !pupilOf(r)).map(r => `${r.first} ${r.last}`))];
+  const nearNames = [...new Map(rowsFound.map(r => [r, findPupil(r.first, r.last)]).filter(([, m]) => m?.close)
+    .map(([r, m]) => [`${r.first} ${r.last}`, `${m.pupil.forename} ${m.pupil.surname}`])).entries()];
+  const marksCount = rowsFound.filter(r => pupilOf(r))
     .reduce((t, r) => t + Object.keys(r.values).filter(c => matchItem(c) || yearFor(c) !== 'skip').length, 0);
 
   // The school's own list replaces ours: items of the lists the spreadsheet has (surahs, du'aas …), in the years its
@@ -220,7 +224,7 @@ export default function StudiesImport({ onClose, onDone }) {
       }
       const marks = new Map(); // later sheets win
       for (const s of chosen) for (const r of s.rows) {
-        const p = byPerson[personKey(r.first, r.last)];
+        const p = pupilOf(r);
         if (!p) continue;
         for (const [c, level] of Object.entries(r.values)) if (ids[c]) marks.set(`${p.id}|${ids[c]}`, { studentId: p.id, itemId: ids[c], level });
       }
@@ -317,6 +321,11 @@ export default function StudiesImport({ onClose, onDone }) {
                 <div style={{ fontSize: 12.5, color: 'var(--ink)', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
                   Your colours put {moves.length === 1 ? 'this' : `these ${moves.length}`} in another year — {moves.length === 1 ? 'it' : 'they'}'ll move:{' '}
                   {moves.slice(0, 8).map(c => `${itemOf[c].name} (${yearLabel(itemOf[c].yearGroup)} → ${yearLabel(colourYear(c))})`).join(', ')}{moves.length > 8 ? '…' : ''}
+                </div>
+              )}
+              {nearNames.length > 0 && (
+                <div style={{ fontSize: 12.5, color: 'var(--ink)', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
+                  {nearNames.length} matched by a close spelling — check they're right: {nearNames.slice(0, 10).map(([a, b]) => `${a} → ${b}`).join(', ')}{nearNames.length > 10 ? '…' : ''}
                 </div>
               )}
               {unknown.length > 0 && (
