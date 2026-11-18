@@ -561,9 +561,13 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
   const [error, setError] = useState('');
   const load = useCallback(() => getStudiesItems().then(d => setItems(d.items)).catch(e => setError(e.message || 'Could not load')), []);
   useEffect(() => { load(); }, [load]);
-  // Every year with something to learn, and every year a class is in (even if its list is empty so far).
-  const years = [...new Set([...(items || []).map(i => i.yearGroup), ...classYears.filter(y => y !== null && y !== undefined)])]
-    .filter(y => y !== null && y !== undefined).sort((a, b) => a - b);
+  // Every year a class is in (even if its list is empty so far), and years between them with something to learn — never
+  // years the school doesn't have (a primary with Reception to Year 6 doesn't see the starter lists' Years 7–11). With no
+  // classes yet, every year with something to learn.
+  const cy = classYears.filter(y => y !== null && y !== undefined);
+  const lo = cy.length ? Math.min(...cy) : -Infinity, hi = cy.length ? Math.max(...cy) : Infinity;
+  const years = [...new Set([...(items || []).map(i => i.yearGroup), ...cy])]
+    .filter(y => y !== null && y !== undefined && y >= lo && y <= hi).sort((a, b) => a - b);
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
       <div className="modal" style={{ maxWidth: 600 }}>
