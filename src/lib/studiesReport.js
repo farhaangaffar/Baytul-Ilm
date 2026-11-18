@@ -8,8 +8,8 @@ export const EFFORTS = [['Excellent', 'green'], ['Good', 'blue'], ['Needs to imp
 // items: every item (any year); marks: { itemId: 1|2|3 } at this point; previous: the same at the point before (or null).
 export function reportOf({ items, marks = {}, previous = null, yearGroup = null }) {
   const lvl = it => Number(marks[it.id]) || 0;
-  const thisYear = items.filter(it => (yearGroup === null || yearGroup === undefined ? true : it.yearGroup === yearGroup));
-  const earlier = yearGroup === null || yearGroup === undefined ? [] : items.filter(it => it.yearGroup < yearGroup);
+  const thisYear = items.filter(it => (yearGroup === null || yearGroup === undefined ? it.yearGroup !== null && it.yearGroup !== undefined : it.yearGroup === yearGroup));
+  const earlier = yearGroup === null || yearGroup === undefined ? [] : items.filter(it => it.yearGroup !== null && it.yearGroup !== undefined && it.yearGroup < yearGroup);
   const kinds = STUDY_KINDS.map(([k, label]) => ({ kind: k, label, list: thisYear.filter(it => it.kind === k).map(it => ({ ...it, level: lvl(it) })) }))
     .filter(k => k.list.length);
   const counted = [...thisYear, ...earlier];

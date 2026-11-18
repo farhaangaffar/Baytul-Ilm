@@ -13,13 +13,13 @@ import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes } from '../components/StudentDetails';
 import StudiesImport from '../components/StudiesImport';
 import { HomeworkTab, HomeworkModal } from '../components/SchoolHomework';
-import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
+import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, planStudiesItems, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { markStudiesVisited } from '../components/GettingStarted';
 import { useBackToClose } from '../lib/useBackToClose';
 import { yearLabel, STUDY_KINDS, LEVELS, LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, tally, surahNumber, surahAyahs } from '../lib/studies';
 import { SURAHS } from '../lib/quran';
-import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, FileSpreadsheet, ListTree, Paperclip, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, Check, FileSpreadsheet, ListTree, Paperclip, ExternalLink } from 'lucide-react';
 
 // Opening a line closes the one above it, which can leave the page sitting at the bottom of the newly opened list.
 // After it opens, bring the line back up to the top of the screen (the owner's ask) — only when it's out of sight above.
@@ -552,11 +552,11 @@ const YEARS = Array.from({ length: 14 }, (_, i) => i);
 
 // The head's whole plan at a glance: a line per year group (Reception up) opening to that year's surahs, du'aas and
 // practicals; tap one to change its year or remove it, or add one to that year (ItemModal over this pop-up).
-// The year plan (the owner's design — it replaced "Year by year"): pick a year, then tick what it learns. Surahs come from
-// the Qur'an's own list in teaching order (Juz 'Amma first; "Show all 114"), du'aas and practicals from Suhuf's usual list
-// plus the school's own. Ticking one that's in another year moves it here — its pupils' marks stay with it; unticking takes
-// it out of the plan (asking first when pupils have marks for it). Changing the plan next year is the same ticks. This is
-// the only place years are set: the marks import never adds or moves anything.
+// The year plan (the owner's design): one list per kind — every surah from the Qur'an's own list in teaching order (Juz
+// 'Amma first; "Show all 114"), du'aas and practicals = the school's own + Suhuf's usual — each line showing where it sits
+// ("Reception", "Year 1" … or "Not in the plan"). Tick any number, then press the button: "Move N to [Year ▾]", or "Take
+// out of the plan" (kept with every mark — classes stop showing it; move it back any time). Nothing here deletes: only ✎ →
+// Remove does. This is the only place years are set (the marks import never adds or moves anything).
 const TEACHING = [1, ...Array.from({ length: 113 }, (_, i) => 114 - i)]; // 1, 114, 113 … 2
 const JUZ_AMMA = new Set([1, ...Array.from({ length: 37 }, (_, i) => 78 + i)]);
 function YearPlan({ onClose, onChanged, classYears = [] }) {
@@ -564,33 +564,34 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
   const { user } = useAuth();
   useEffect(() => { markStudiesVisited(user?.madrasah?.code); }, [user]); // ticks Getting started's "Set your year plan"
   const [data, setData] = useState(null);
-  const [year, setYear] = useState(null);
   const [kind, setKind] = useState('surah');
+  const [show, setShow] = useState('all'); // 'all' | 'none' (not in the plan) | a year group
   const [allSurahs, setAllSurahs] = useState(false);
-  const [busy, setBusy] = useState('');
+  const [ticked, setTicked] = useState([]); // line keys
+  const [to, setTo] = useState('');
+  const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null);
   const [error, setError] = useState('');
-  const load = useCallback(() => getStudiesItems().then(setData).catch(e => setError(e.message || 'Could not load')), []);
+  const [note, setNote] = useState('');
+  const load = useCallback(() => getStudiesItems(true).then(setData).catch(e => setError(e.message || 'Could not load')), []);
   useEffect(() => { load(); }, [load]);
   // The school's own years: from its youngest class to its oldest (with no classes yet, Reception to Year 11).
   const cy = classYears.filter(y => y !== null && y !== undefined);
   const years = cy.length ? Array.from({ length: Math.max(...cy) - Math.min(...cy) + 1 }, (_, i) => Math.min(...cy) + i) : Array.from({ length: 12 }, (_, i) => i);
-  const y = year ?? years[0];
   const items = data?.items || [];
-  const marksOf = it => (it && data?.marks?.[it.id]) || 0;
+  const placed = it => it && it.yearGroup !== null && it.yearGroup !== undefined;
 
-  // The lines for the chosen list: [{ key, name, item, make }] — make = what to add when ticked and not on the list yet.
-  const rows = useMemo(() => {
+  // Every line of the chosen list: { key, num?, name, sub, item?, make? } — make = what to add when it's moved into a year.
+  const lines = useMemo(() => {
     if (!data) return [];
     const mine = items.filter(i => i.kind === kind);
     if (kind === 'surah') {
       const bySurah = {};
       mine.forEach(i => { if (i.surah && !bySurah[i.surah]) bySurah[i.surah] = i; });
       const out = TEACHING.filter(n => allSurahs || JUZ_AMMA.has(n) || bySurah[n]).map(n => ({
-        key: `s${n}`, num: n, name: bySurah[n]?.name || SURAHS[n - 1][0], sub: `Surah ${n}`, item: bySurah[n],
+        key: `s${n}`, num: n, name: bySurah[n]?.name || SURAHS[n - 1][0], item: bySurah[n],
         make: { kind: 'surah', name: SURAHS[n - 1][0], detail: `Surah ${n}`, surah: n },
       }));
-      // Parts of a surah (Ayat al-Kursi, the first ten aayahs of Al-Kahf …) the school has.
       mine.filter(i => !i.surah || bySurah[i.surah] !== i).forEach(i => out.push({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
       return out;
     }
@@ -600,56 +601,69 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
       .forEach(st => out.push({ key: `st${st.name}`, name: st.name, sub: st.detail, make: { kind, name: st.name, detail: st.detail || '' } }));
     return out;
   }, [data, items, kind, allSurahs]);
+  const shown = lines.filter(l => (show === 'all' ? true : show === 'none' ? !placed(l.item) : l.item?.yearGroup === show));
+  const chosen = lines.filter(l => ticked.includes(l.key));
+  const toggle = key => setTicked(t => (t.includes(key) ? t.filter(k => k !== key) : [...t, key]));
+  const allShownTicked = shown.length > 0 && shown.every(l => ticked.includes(l.key));
 
-  async function toggle(r) {
-    const it = r.item, here = it && it.yearGroup === y;
-    if (here) {
-      const n = marksOf(it);
-      if (n && !window.confirm(`Take ${it.name} out of the plan? ${n} pupil mark${n === 1 ? '' : 's'} for it will be removed too.`)) return;
-    }
-    setBusy(r.key); setError('');
+  async function apply(yearGroup) {
+    if (!chosen.length) return;
+    setBusy(true); setError(''); setNote('');
     try {
-      if (here) await deleteStudiesItem(it.id);
-      else if (it) await saveStudiesItem({ id: it.id, kind: it.kind, name: it.name, detail: it.detail || '', yearGroup: y, surah: it.surah || null });
-      else await saveStudiesItem({ ...r.make, yearGroup: y });
+      const ids = chosen.filter(l => l.item).map(l => l.item.id);
+      const make = yearGroup === null ? [] : chosen.filter(l => !l.item && l.make).map(l => l.make);
+      await planStudiesItems(ids, make, yearGroup);
+      setNote(yearGroup === null ? `Took ${chosen.length} out of the plan — their marks are kept.` : `Moved ${chosen.length} to ${yearLabel(yearGroup)}.`);
+      setTicked([]);
       await load(); await onChanged?.();
     } catch (e) { setError(e.message || 'Could not save'); }
-    setBusy('');
+    setBusy(false);
   }
 
-  const inYear = k => items.filter(i => i.kind === k && i.yearGroup === y).length;
+  const where = l => (placed(l.item) ? yearLabel(l.item.yearGroup) : 'Not in the plan');
+  const count = k => items.filter(i => i.kind === k && placed(i)).length;
   const one = (STUDY_KINDS.find(k => k[0] === kind) || STUDY_KINDS[0])[2];
+  const target = to === '' ? years[0] : Number(to);
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 620 }}>
+      <div className="modal" style={{ maxWidth: 640 }}>
         <div className="modal-header">
           <div className="modal-title">Year plan</div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
         <div className="modal-body" style={{ display: 'grid', gap: 10 }}>
-          <div className="text-muted" style={{ fontSize: 13 }}>Pick a year, then tick what it learns. Ticking one that's in another year moves it here — pupils' marks stay with them.</div>
+          <div className="text-muted" style={{ fontSize: 13 }}>Tick the ones a year learns, then press Move. Moving or taking one out never touches pupils' marks.</div>
           {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
           {!data && !error && <LoadingState />}
           {data && <>
-            <div className="form-group" style={{ margin: 0 }}><label htmlFor="plan-year">Year</label>
-              <select id="plan-year" value={y} onChange={e => setYear(Number(e.target.value))}>
-                {years.map(v => <option key={v} value={v}>{yearLabel(v)} · {items.filter(i => i.yearGroup === v).length} ticked</option>)}
+            <ChoiceBoxes options={STUDY_KINDS.map(([k, l]) => `${l} (${count(k)})`)} value={`${STUDY_KINDS.find(k => k[0] === kind)[1]} (${count(kind)})`}
+              onChange={v => { const k = STUDY_KINDS.find(([, l]) => v.startsWith(l)); if (k) { setKind(k[0]); setTicked([]); } }} />
+            <div className="form-group" style={{ margin: 0 }}><label htmlFor="plan-show">Show</label>
+              <select id="plan-show" value={String(show)} onChange={e => { const v = e.target.value; setShow(v === 'all' || v === 'none' ? v : Number(v)); }}>
+                <option value="all">Everything</option>
+                <option value="none">Not in the plan</option>
+                {years.map(v => <option key={v} value={v}>{yearLabel(v)}</option>)}
               </select></div>
-            <ChoiceBoxes options={STUDY_KINDS.map(([k, l]) => `${l} (${inYear(k)})`)} value={`${STUDY_KINDS.find(k => k[0] === kind)[1]} (${inYear(kind)})`}
-              onChange={v => { const k = STUDY_KINDS.find(([, l]) => v.startsWith(l)); if (k) setKind(k[0]); }} />
+            {note && <div style={{ fontSize: 13, color: 'var(--green-text)' }}><Check size={14} style={{ verticalAlign: -2 }} /> {note}</div>}
+            {shown.length > 0 && (
+              <label className="no-class-head" style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, padding: '2px 12px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={allShownTicked} onChange={() => setTicked(t => (allShownTicked ? t.filter(k => !shown.some(l => l.key === k)) : [...new Set([...t, ...shown.map(l => l.key)])]))} />
+                <span>Tick all {shown.length} shown</span>
+              </label>
+            )}
             <div style={{ display: 'grid', gap: 0 }}>
-              {rows.map(r => {
-                const here = r.item && r.item.yearGroup === y;
-                const elsewhere = r.item && !here;
+              {!shown.length && <div className="text-muted" style={{ fontSize: 13, padding: '8px 2px' }}>Nothing here.</div>}
+              {shown.map(l => {
+                const on = ticked.includes(l.key);
                 return (
-                  <div key={r.key} className={`no-class-row ${here ? 'on' : ''}`} onClick={() => !busy && toggle(r)} style={busy === r.key ? { opacity: 0.5 } : undefined}>
-                    <input type="checkbox" checked={!!here} readOnly aria-label={`${r.name} in ${yearLabel(y)}`} />
+                  <div key={l.key} className={`no-class-row ${on ? 'on' : ''}`} onClick={() => !busy && toggle(l.key)}>
+                    <input type="checkbox" checked={on} readOnly aria-label={l.name} />
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      {r.num && <span className="text-muted" style={{ display: 'inline-block', minWidth: 30, fontSize: 12 }}>{r.num}</span>}
-                      {r.name}{r.sub && kind !== 'surah' ? <span className="text-muted" style={{ fontSize: 12 }}> · {r.sub}</span> : null}
+                      {l.num && <span className="text-muted" style={{ display: 'inline-block', minWidth: 30, fontSize: 12 }}>{l.num}</span>}
+                      {l.name}{l.sub && kind !== 'surah' ? <span className="text-muted" style={{ fontSize: 12 }}> · {l.sub}</span> : null}
                     </span>
-                    {elsewhere && <span className="text-muted" style={{ fontSize: 12, background: '#eceff3', borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap' }}>in {yearLabel(r.item.yearGroup)}</span>}
-                    {r.item && <button type="button" className="btn btn-icon btn-sm" aria-label={`Edit ${r.name}`} onClick={e => { e.stopPropagation(); setEdit(r.item); }}><Pencil size={12} /></button>}
+                    <span style={{ fontSize: 12, borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap', ...(placed(l.item) ? { background: '#e8eef8', color: 'var(--ink)' } : { color: 'var(--text-muted)' }) }}>{where(l)}</span>
+                    {l.item && <button type="button" className="btn btn-icon btn-sm" aria-label={`Edit ${l.name}`} onClick={e => { e.stopPropagation(); setEdit(l.item); }}><Pencil size={12} /></button>}
                   </div>
                 );
               })}
@@ -659,17 +673,27 @@ function YearPlan({ onClose, onChanged, classYears = [] }) {
                 {allSurahs ? "Show Juz 'Amma only" : 'Show all 114 surahs'}
               </button>
             )}
-            <button type="button" className="line-row add" onClick={() => setEdit({ kind, yearGroup: y })}>
-              <Plus size={13} /> {kind === 'surah' ? `Add part of a surah to ${yearLabel(y)} (e.g. Ayat al-Kursi)` : `Add your own ${one} to ${yearLabel(y)}`}
+            <button type="button" className="line-row add" onClick={() => setEdit({ kind, yearGroup: typeof show === 'number' ? show : years[0] })}>
+              <Plus size={13} /> {kind === 'surah' ? 'Add part of a surah (e.g. Ayat al-Kursi)' : `Add your own ${one}`}
             </button>
           </>}
         </div>
-        <div className="modal-footer"><button className="btn btn-primary" onClick={close}>Done</button></div>
+        {data && (
+          <div className="modal-footer" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <span style={{ fontSize: 13, marginRight: 'auto' }}>{chosen.length ? `${chosen.length} ticked` : 'Tick some, then:'}</span>
+            <button className="btn" disabled={busy || !chosen.some(l => l.item)} onClick={() => apply(null)}>Take out of the plan</button>
+            <select value={to === '' ? String(years[0]) : to} onChange={e => setTo(e.target.value)} aria-label="Move to which year" style={{ width: 'auto' }}>
+              {years.map(v => <option key={v} value={v}>{yearLabel(v)}</option>)}
+            </select>
+            <button className="btn btn-primary" disabled={busy || !chosen.length} onClick={() => apply(target)}>{busy ? 'Saving…' : `Move ${chosen.length || ''} to ${yearLabel(target)}`}</button>
+          </div>
+        )}
       </div>
       {edit && <ItemModal item={edit} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
     </div>
   );
 }
+
 // The head adds or changes a surah, du'aa or practical — its name, a short detail, the year group it's learnt in, and for
 // a whole surah which one it is (so the class's tracker shows its aayahs).
 // Where a link goes, for its small icon and the words under its name.
@@ -772,7 +796,7 @@ function LinkModal({ item, link, onClose, onSaved }) {
 }
 
 function ItemModal({ item, onClose, onSaved }) {
-  const [f, setF] = useState({ kind: item.kind, name: item.name || '', detail: item.detail || '', yearGroup: item.yearGroup ?? 0, surah: item.surah || '' });
+  const [f, setF] = useState({ kind: item.kind, name: item.name || '', detail: item.detail || '', yearGroup: item.id ? item.yearGroup ?? null : item.yearGroup ?? 0, surah: item.surah || '' });
   const [surahPicked, setSurahPicked] = useState(!!item.id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -819,7 +843,8 @@ function ItemModal({ item, onClose, onSaved }) {
               <input value={f.detail} maxLength={200} onChange={e => setF(x => ({ ...x, detail: e.target.value }))}
                 placeholder={f.kind === 'surah' ? 'e.g. Surah 112' : 'A few words'} /></div>
             <div className="form-group"><label>Learnt in</label>
-              <select value={f.yearGroup} onChange={e => setF(x => ({ ...x, yearGroup: Number(e.target.value) }))}>
+              <select value={f.yearGroup ?? ''} onChange={e => setF(x => ({ ...x, yearGroup: e.target.value === '' ? null : Number(e.target.value) }))}>
+                {item.id && <option value="">Not in the plan</option>}
                 {YEARS.map(y => <option key={y} value={y}>{yearLabel(y)}</option>)}
               </select></div>
           </div>
