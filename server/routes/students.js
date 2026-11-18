@@ -158,6 +158,30 @@ module.exports = requireAuth(async (req, res) => {
     return;
   }
 
+  // Students → Import with children already here (matched by name in ImportStudents.js): fill in or change their details
+  // from the sheet — only the fields the sheet has a value for; blank cells leave what's there. Never name, class or status.
+  if (action === 'update-details') {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const list = Array.isArray(req.body?.students) ? req.body.students.slice(0, 2000) : [];
+    const str = (v, n = 120) => String(v ?? '').trim().slice(0, n);
+    const BASE = [['parent1Name', 'parent1_name', 120], ['parent1Phone', 'parent1_phone', 40], ['parent2Name', 'parent2_name', 120], ['parent2Phone', 'parent2_phone', 40]];
+    let updated = 0;
+    for (const b of list) {
+      const sets = [], vals = [];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(b.dob || ''))) { vals.push(b.dob); sets.push(`dob = $${vals.length}`); }
+      for (const [key, col, n] of [...BASE, ...DETAILS]) {
+        const v = str(b[key], n);
+        if (v) { vals.push(v); sets.push(`${col} = $${vals.length}`); }
+      }
+      if (!sets.length) continue;
+      vals.push(String(b.id || ''), mid);
+      const r = await query(`UPDATE students SET ${sets.join(', ')} WHERE id = $${vals.length - 1} AND madrasah_id = $${vals.length}`, vals);
+      updated += r.rowCount;
+    }
+    res.status(200).json({ ok: true, updated });
+    return;
+  }
+
   // All-time summary for a set of students (attendance P/L/A, fees paid/owed, daily
   // record count) — spans every academic year, not just the currently-loaded one, so
   // it's computed here rather than reusing the per-year getAttendance/getFees calls.

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { X, Upload, Download, FileSpreadsheet, ArrowLeft } from 'lucide-react';
-import { importStudents, getDefaultWeeklyFee } from '../lib/store';
+import { importStudents, getDefaultWeeklyFee, updateStudentDetails } from '../lib/store';
 import { parseSheet, parseBook, parseDate, SHEET_COLUMNS, SHEET_LEFT } from '../lib/studentSheet';
 import { DETAIL_FIELDS } from '../lib/studentDetails';
 import { xlsxBlob, downloadBlob, xlsxSheetTexts } from '../lib/xlsx';
@@ -11,6 +11,10 @@ import { xlsxBlob, downloadBlob, xlsxSheetTexts } from '../lib/xlsx';
 // sheet named, and the head places them (the sheet's class is kept as a hint, `sheetClass`).
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, '');
 const today = () => new Date().toISOString().slice(0, 10);
+// What a sheet can fill in for a child already here (never name, class, status or fee).
+const UPDATABLE = ['parent1Name', 'parent1Phone', 'parent2Name', 'parent2Phone', ...DETAIL_FIELDS.map(([k]) => k)];
+const FIELD_LABEL = { dob: 'date of birth', parent1Name: 'contact 1 name', parent1Phone: 'contact 1 phone', parent2Name: 'contact 2 name', parent2Phone: 'contact 2 phone',
+  ...Object.fromEntries(DETAIL_FIELDS.map(([k, label]) => [k, label.toLowerCase()])) };
 
 export default function ImportStudents({ students, onClose, onDone }) {
   const [text, setText] = useState('');
@@ -21,17 +25,36 @@ export default function ImportStudents({ students, onClose, onDone }) {
   const fileRef = useRef(null);
 
   const parsed = useMemo(() => (book ? parseBook(book) : parseSheet(text)), [book, text]);
-  const existing = useMemo(() => new Set(students.map(s => norm(s.forename + s.surname))), [students]);
+  const byName = useMemo(() => {
+    const m = {};
+    students.forEach(s => { const k = norm(s.forename + s.surname); (m[k] = m[k] || []).push(s); });
+    return m;
+  }, [students]);
 
+  // A child already here: the sheet fills in or changes their details (date of birth, contacts …) — the fields it has a
+  // value for that differ from what's saved. Two children with one name: the sheet's class (or sheet name) picks one.
+  const changesFor = (s, r, dob) => {
+    const out = {};
+    if (dob && String(s.dob || '').slice(0, 10) !== dob) out.dob = dob;
+    for (const k of UPDATABLE) if (r[k] && String(r[k]).trim() !== String(s[k] || '').trim()) out[k] = String(r[k]).trim();
+    return out;
+  };
   const checked = parsed.rows.map(r => {
     const issues = [];
     if (!r.forename || !r.surname) return { r, skip: 'No name' };
-    if (existing.has(norm(r.forename + r.surname))) return { r, skip: 'Already added' };
     const dob = parseDate(r.dob);
     if (dob === null) issues.push(`date of birth "${r.dob}" not understood`);
+    let same = byName[norm(r.forename + r.surname)] || [];
+    if (same.length > 1 && r.class) { const inClass = same.filter(s => norm(s.class) === norm(r.class) || norm(s.sheetClass) === norm(r.class)); if (inClass.length) same = inClass; }
+    if (same.length > 1) return { r, skip: 'Two with this name' };
+    if (same.length === 1) {
+      const changes = changesFor(same[0], r, dob || '');
+      return Object.keys(changes).length ? { r, update: same[0], changes, issues } : { r, skip: 'Already added' };
+    }
     return { r, dob: dob || '', issues };
   });
-  const toAdd = checked.filter(c => !c.skip);
+  const toAdd = checked.filter(c => !c.skip && !c.update);
+  const toUpdate = checked.filter(c => c.update);
   const skipped = checked.filter(c => c.skip);
 
   async function chooseFile(e) {
@@ -71,8 +94,12 @@ export default function ImportStudents({ students, onClose, onDone }) {
           ...Object.fromEntries(DETAIL_FIELDS.map(([k]) => [k, r[k] || ''])),
         };
       });
-      const res = await importStudents(list);
-      onDone(`${res.added} student${res.added === 1 ? '' : 's'} added — choose their classes in "Not in a class"`);
+      const res = list.length ? await importStudents(list) : { added: 0 };
+      const up = toUpdate.length ? await updateStudentDetails(toUpdate.map(c => ({ id: c.update.id, ...c.changes }))) : { updated: 0 };
+      onDone([
+        res.added ? `${res.added} student${res.added === 1 ? '' : 's'} added — choose their classes in "Not in a class"` : '',
+        up.updated ? `${up.updated} student${up.updated === 1 ? '' : 's'}' details updated` : '',
+      ].filter(Boolean).join('; ') || 'Nothing to change');
     } catch (err) { setError(err.message || 'Could not add the students'); }
     setBusy(false);
   }
@@ -109,12 +136,26 @@ export default function ImportStudents({ students, onClose, onDone }) {
             {!book && text && !parsed.rows.length && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>No rows found.</div>}
             {!book && text && parsed.rows.length > 0 && !parsed.headed && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>No heading row found — reading the columns as Forename, Surname, Class, Date of birth, Contact 1 name, Contact 1 phone…</div>}
           </>) : (<>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{toAdd.length} student{toAdd.length === 1 ? '' : 's'} to add</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+              {toAdd.length} student{toAdd.length === 1 ? '' : 's'} to add{toUpdate.length ? ` · ${toUpdate.length} to update` : ''}
+            </div>
             {skipped.length > 0 && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 4 }}>
               {skipped.length} skipped: {skipped.slice(0, 4).map(c => `${[c.r.forename, c.r.surname].filter(Boolean).join(' ') || 'a row'} (${c.skip.toLowerCase()})`).join(', ')}{skipped.length > 4 ? '…' : ''}
             </div>}
-            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6 }}>They'll be added without a class — then choose a class for them on Students, under "Not in a class".</div>
-            <div className="form-section-title" style={{ margin: '14px 0 8px' }}>Students</div>
+            {toAdd.length > 0 && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6 }}>They'll be added without a class — then choose a class for them on Students, under "Not in a class".</div>}
+            {toUpdate.length > 0 && <>
+              <div className="form-section-title" style={{ margin: '14px 0 4px' }}>Already here — details to fill in</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 8 }}>Only what the sheet has is changed; empty cells leave their details as they are.</div>
+              <div style={{ display: 'grid', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                {toUpdate.map((c, i) => (
+                  <div key={i} style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '6px 10px', fontSize: 12.5 }}>
+                    <strong>{c.r.forename} {c.r.surname}</strong>
+                    <span className="text-muted"> · {Object.keys(c.changes).map(k => FIELD_LABEL[k] || k).join(', ')}</span>
+                  </div>
+                ))}
+              </div>
+            </>}
+            {toAdd.length > 0 && <div className="form-section-title" style={{ margin: '14px 0 8px' }}>Students</div>}
             <div style={{ display: 'grid', gap: 4, maxHeight: 260, overflowY: 'auto' }}>
               {toAdd.map((c, i) => (
                 <div key={i} style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '6px 10px', fontSize: 12.5 }}>
@@ -133,8 +174,8 @@ export default function ImportStudents({ students, onClose, onDone }) {
             <button className="btn btn-primary" style={{ background: 'var(--blue)' }} disabled={!parsed.rows.length} onClick={() => setStep('check')}>Next</button>
           </>) : (<>
             <button className="btn" onClick={() => setStep('paste')} disabled={busy}><ArrowLeft size={13} />Back</button>
-            <button className="btn btn-primary" style={{ background: 'var(--blue)' }} disabled={!toAdd.length || busy} onClick={add}>
-              {busy ? 'Adding…' : `Add ${toAdd.length} student${toAdd.length === 1 ? '' : 's'}`}
+            <button className="btn btn-primary" style={{ background: 'var(--blue)' }} disabled={(!toAdd.length && !toUpdate.length) || busy} onClick={add}>
+              {busy ? 'Saving…' : [toAdd.length ? `Add ${toAdd.length}` : '', toUpdate.length ? `Update ${toUpdate.length}` : ''].filter(Boolean).join(' · ')}
             </button>
           </>)}
         </div>
