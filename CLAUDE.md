@@ -537,7 +537,7 @@ codebase (one codebase, not a fork).
   grouped by the sheet's class, one "Move to" drop-down; both demos have six just-imported children there — `demoImported()`).
 - **Students ⇄ spreadsheets** (`src/lib/studentSheet.js`): Students → Import
   (`ImportStudents.js`, `/api/students?action=import`) takes rows pasted from Excel/Google Sheets,
-  an .xlsx or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`). **Import brings in
+  an .xlsx (**every sheet** of a workbook — `xlsxSheetTexts()` + `parseBook()`: each sheet's heading row found within its first 10 rows, sheets without one left out, a sheet's name is the class hint when it has no Class column, Average/Total rows skipped; tracker columns like "Surah …" / "An-Naas" are never names) or a .csv, matches headings (mother/father/mum/dad columns are paired so each parent's name and number stay together), puts back phone numbers' lost leading 0 (`fixPhone`). **Import brings in
   children only** — never classes, and nobody is put into a class (the owner's choice: keep it simple): each lands in
   Students → "Not in a class" (or the Waiting list if the sheet says so), the sheet's class kept as a hint
   (`students.sheet_class`), and the head ticks children — or a whole sheet-class group — and moves them together; Settings → Backup → "Download students to spreadsheet"

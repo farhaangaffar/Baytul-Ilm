@@ -1,9 +1,9 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { X, Upload, Download, FileSpreadsheet, ArrowLeft } from 'lucide-react';
 import { importStudents, getDefaultWeeklyFee } from '../lib/store';
-import { parseSheet, parseDate, SHEET_COLUMNS, SHEET_LEFT } from '../lib/studentSheet';
+import { parseSheet, parseBook, parseDate, SHEET_COLUMNS, SHEET_LEFT } from '../lib/studentSheet';
 import { DETAIL_FIELDS } from '../lib/studentDetails';
-import { xlsxBlob, downloadBlob, xlsxToText } from '../lib/xlsx';
+import { xlsxBlob, downloadBlob, xlsxSheetTexts } from '../lib/xlsx';
 
 // Students → Import: paste rows copied from Excel / Google Sheets (or choose a .csv), check
 // them, then add them all at once. Only children and their details come in — never classes, and
@@ -14,12 +14,13 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export default function ImportStudents({ students, onClose, onDone }) {
   const [text, setText] = useState('');
+  const [book, setBook] = useState(null); // a chosen .xlsx with several sheets: every sheet comes in
   const [step, setStep] = useState('paste'); // paste → check
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef(null);
 
-  const parsed = useMemo(() => parseSheet(text), [text]);
+  const parsed = useMemo(() => (book ? parseBook(book) : parseSheet(text)), [book, text]);
   const existing = useMemo(() => new Set(students.map(s => norm(s.forename + s.surname))), [students]);
 
   const checked = parsed.rows.map(r => {
@@ -38,13 +39,17 @@ export default function ImportStudents({ students, onClose, onDone }) {
     e.target.value = '';
     if (!f) return;
     if (/\.xlsx$/i.test(f.name)) {
-      try { setText(await xlsxToText(f)); setError(''); }
+      try {
+        const sheets = await xlsxSheetTexts(f);
+        if (sheets.length > 1) { setBook(sheets); setText(''); } else { setBook(null); setText(sheets[0]?.text || ''); }
+        setError('');
+      }
       catch { setError("Couldn't read that Excel file — open it, copy the rows and paste them here instead."); }
       return;
     }
     if (/\.(xls|numbers|ods)$/i.test(f.name)) { setError('Save it as an Excel (.xlsx) file first — or copy the rows and paste them here.'); return; }
     const reader = new FileReader();
-    reader.onload = () => { setText(String(reader.result || '')); setError(''); };
+    reader.onload = () => { setBook(null); setText(String(reader.result || '')); setError(''); };
     reader.readAsText(f);
   }
 
@@ -87,15 +92,22 @@ export default function ImportStudents({ students, onClose, onDone }) {
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
               In Excel or Google Sheets, select the rows (with the heading row) and copy them, then paste below. Or choose the file (.xlsx or .csv).
             </div>
-            <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={8} placeholder={'Forename\tSurname\tClass\tDate of birth\tContact 1 name\tContact 1 phone\nAisha\tPatel\tQaa\'idah 1\t04/05/2017\tFatima Patel\t07700 900123'}
-              style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 'var(--r-md)', resize: 'vertical' }} />
+            {book && (
+              <div style={{ background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '10px 12px', fontSize: 13, marginBottom: 8 }}>
+                <strong>Every sheet of the workbook</strong>{parsed.sheets?.length ? `: ${parsed.sheets.map(s => `${s.name} (${s.count})`).join(', ')}` : ' — no pupils found on any sheet.'}
+                {parsed.sheets?.length < book.length && <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>Sheets without a name heading row are left out.</div>}
+                <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => { setBook(null); setText(''); }}>Clear</button>
+              </div>
+            )}
+            {!book && <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={8} placeholder={'Forename\tSurname\tClass\tDate of birth\tContact 1 name\tContact 1 phone\nAisha\tPatel\tQaa\'idah 1\t04/05/2017\tFatima Patel\t07700 900123'}
+              style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 'var(--r-md)', resize: 'vertical' }} />}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
               <button className="btn btn-sm" onClick={() => fileRef.current?.click()}><Upload size={13} />Choose a file</button>
               <button className="btn btn-sm" onClick={blankSheet}><Download size={13} />Blank sheet to fill in</button>
               <input ref={fileRef} type="file" accept=".xlsx,.csv,text/csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} style={{ display: 'none' }} />
             </div>
-            {text && !parsed.rows.length && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>No rows found.</div>}
-            {text && parsed.rows.length > 0 && !parsed.headed && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>No heading row found — reading the columns as Forename, Surname, Class, Date of birth, Contact 1 name, Contact 1 phone…</div>}
+            {!book && text && !parsed.rows.length && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 8 }}>No rows found.</div>}
+            {!book && text && parsed.rows.length > 0 && !parsed.headed && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>No heading row found — reading the columns as Forename, Surname, Class, Date of birth, Contact 1 name, Contact 1 phone…</div>}
           </>) : (<>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{toAdd.length} student{toAdd.length === 1 ? '' : 's'} to add</div>
             {skipped.length > 0 && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 4 }}>

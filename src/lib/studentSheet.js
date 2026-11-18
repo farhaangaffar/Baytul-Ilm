@@ -72,6 +72,9 @@ function splitRows(text) {
 // Heading words → field. Checked in order, so "parent 2 phone" wins over "phone", and the
 // extra details ("Emergency phone", "Contact 1 email", "School year") before the usual ones.
 const HEADINGS = [
+  // A school's tracker columns ("Surah Al-Asr", "Du'aa before eating", "An-Naas") are never a name, class or contact —
+  // "Surah" would otherwise read as Surname.
+  [/surah|suraah|du'?aa?\b|^(al|an|at|as|ad|az|ar|ash|ad)[- ]/, null],
   [/^(full\s*)?name$|^(student|child|pupil)('?s)?\s*name$/, 'fullName'],
   [/emergency.*(phone|mobile|tel|number)/, 'emergencyPhone'], [/emergency.*relat/, 'emergencyRelation'], [/emergency/, 'emergencyName'],
   [/2.*e-?mail|e-?mail.*2/, 'parent2Email'], [/e-?mail/, 'parent1Email'],
@@ -93,9 +96,28 @@ const HEADINGS = [
   [/status/, 'status'], [/note|comment/, 'notes'],
 ];
 function headingField(h) {
-  const s = h.toLowerCase().replace(/[_\-.]+/g, ' ').trim();
+  const s = h.toLowerCase().replace(/[_.]+/g, ' ').trim();
   for (const [re, f] of HEADINGS) if (re.test(s)) return f;
   return null;
+}
+
+// A whole workbook ([{ name, text }], one sheet per class or year group) → the same { rows, headed } as parseSheet, plus
+// `sheets` ([{ name, count }]). Each sheet's heading row is found within its first 10 rows (a title above it is fine);
+// a sheet with no heading row is left out when there are several; a child with no class column takes the sheet's name
+// as their class hint (not for "Sheet1"). Rows like "Average" or "Total" are skipped.
+export function parseBook(book) {
+  const rows = [], sheets = [];
+  for (const { name, text } of book) {
+    const lines = String(text || '').split('\n');
+    const h = lines.slice(0, 10).findIndex(l => l.split('\t').map(c => headingField(c.trim())).filter(Boolean).length >= 2);
+    const got = parseSheet(lines.slice(Math.max(0, h)).join('\n'));
+    if (!got.headed && book.length > 1) continue;
+    const hint = /^sheet\s*\d*$/i.test(name.trim()) ? '' : name.trim();
+    const mine = got.rows.filter(r => r.forename && !/^(average|total|class average)/i.test(r.forename))
+      .map(r => (r.class || !hint ? r : { ...r, class: hint }));
+    if (mine.length) { rows.push(...mine); sheets.push({ name, count: mine.length }); }
+  }
+  return { rows, headed: true, sheets };
 }
 
 // '12/03/2015', '12-3-15', '2015-03-12', '12.03.2015' → '2015-03-12' (day first, UK style).
