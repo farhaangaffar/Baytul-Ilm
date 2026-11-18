@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, Upload, Check } from 'lucide-react';
 import { xlsxSheets } from '../lib/xlsx';
-import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks } from '../lib/store';
+import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks, removeStudiesItems } from '../lib/store';
 import { markMarksImported } from './GettingStarted';
 import { useAuth } from '../lib/AuthContext';
 import { STUDY_KINDS, yearLabel, plainName, surahNumber } from '../lib/studies';
@@ -83,6 +83,8 @@ export default function StudiesImport({ onClose, onDone }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(null);
+  const [drop, setDrop] = useState([]); // after the import: ready-made items not in the spreadsheet, ticked to remove
+  const [dropped, setDropped] = useState(null);
 
   async function pick(file) {
     setError(''); setBusy(true);
@@ -139,6 +141,24 @@ export default function StudiesImport({ onClose, onDone }) {
   const marksCount = rowsFound.filter(r => byPerson[personKey(r.first, r.last)])
     .reduce((t, r) => t + Object.keys(r.values).filter(c => matchItem(c) || yearFor(c) !== 'skip').length, 0);
 
+  // The school's own list replaces ours: items of the lists the spreadsheet has (surahs, du'aas …), in the years its
+  // sheets are for (all years if no sheet names a year), that no column matched.
+  function spareItems(ids) {
+    const used = new Set(Object.values(ids).map(String));
+    const kinds = new Set(Object.keys(ids).map(c => kindOf[c]));
+    const ys = chosen.map(s => s.year).filter(y => y !== null);
+    const lo = ys.length ? Math.min(...ys) : -Infinity, hi = ys.length ? Math.max(...ys) : Infinity;
+    return items.filter(i => kinds.has(i.kind) && !used.has(String(i.id)) && i.yearGroup >= lo && i.yearGroup <= hi)
+      .sort((a, b) => a.yearGroup - b.yearGroup || STUDY_KINDS.findIndex(k => k[0] === a.kind) - STUDY_KINDS.findIndex(k => k[0] === b.kind));
+  }
+
+  async function removeSpare() {
+    setBusy(true); setError('');
+    try { const r = await removeStudiesItems(drop); setDropped(r.removed); await onDone?.(); }
+    catch (e) { setError(e.message || 'Could not remove them'); }
+    setBusy(false);
+  }
+
   async function run() {
     setBusy(true); setError('');
     try {
@@ -157,7 +177,8 @@ export default function StudiesImport({ onClose, onDone }) {
       const list = [...marks.values()];
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
-      setDone({ marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length });
+      setDone({ marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length, spare: spareItems(ids) });
+      setDrop(spareItems(ids).map(i => i.id));
       markMarksImported(user?.madrasah?.code); // ticks Getting started's "Bring in the marks you already have"
       await onDone?.();
     } catch (e) { setError(e.message || 'Could not import'); }
@@ -172,11 +193,45 @@ export default function StudiesImport({ onClose, onDone }) {
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
         <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
-          {done ? (
+          {done ? <>
             <div style={{ fontSize: 14, color: 'var(--green-text)' }}>
               <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks{done.added ? ` and added ${done.added} to your list` : ''}.
             </div>
-          ) : <>
+            {dropped !== null ? (dropped >= 0 &&
+              <div style={{ fontSize: 14, color: 'var(--green-text)' }}><Check size={15} style={{ verticalAlign: -2 }} /> Removed {dropped} — your lists are now your own.</div>
+            ) : done.spare.length > 0 && (
+              <div style={{ display: 'grid', gap: 8, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: 12 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>Use your own list instead of ours?</div>
+                <div className="text-muted" style={{ fontSize: 13 }}>
+                  Your spreadsheet doesn't have these {done.spare.length} from our ready-made list. Remove the ticked ones (and any marks on them)?
+                </div>
+                <div style={{ display: 'grid', gap: 2, maxHeight: 300, overflowY: 'auto', background: '#fff', borderRadius: 'var(--r-md)', padding: '6px 10px' }}>
+                  {[...new Set(done.spare.map(i => i.yearGroup))].map(y => {
+                    const list = done.spare.filter(i => i.yearGroup === y);
+                    const all = list.every(i => drop.includes(i.id));
+                    return (
+                      <div key={y} style={{ display: 'grid', gap: 2, padding: '4px 0' }}>
+                        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 600, textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
+                          <input type="checkbox" checked={all} onChange={() => setDrop(d => (all ? d.filter(id => !list.some(i => i.id === id)) : [...new Set([...d, ...list.map(i => i.id)])]))} />
+                          {yearLabel(y)}
+                        </label>
+                        {list.map(i => (
+                          <label key={i.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingLeft: 22, textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: 'var(--ink)' }}>
+                            <input type="checkbox" checked={drop.includes(i.id)} onChange={() => setDrop(d => (d.includes(i.id) ? d.filter(x => x !== i.id) : [...d, i.id]))} />
+                            <span style={{ minWidth: 0 }}>{i.name} <span className="text-muted" style={{ fontSize: 12 }}>· {STUDY_KINDS.find(k => k[0] === i.kind)[2]}</span></span>
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-primary" disabled={busy || !drop.length} onClick={removeSpare}>{busy ? 'Removing…' : `Remove ${drop.length}`}</button>
+                  <button className="btn" disabled={busy} onClick={() => setDropped(-1)}>Keep them</button>
+                </div>
+              </div>
+            )}
+          </> : <>
             <div className="text-muted" style={{ fontSize: 13 }}>
               Your workbook as it is: a sheet per year, First Name and Surname, then a column per surah, du'aa or practical (all on
               one sheet is fine) with 1 (Incomplete), 2 (Completed with help) or 3 (Achieved). Empty boxes stay "not assessed".

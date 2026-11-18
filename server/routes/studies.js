@@ -588,6 +588,22 @@ const handler = requireAuth(async (req, res) => {
     res.status(200).json({ ok: true });
     return;
   }
+  // After importing the school's own spreadsheet: take the ready-made items it doesn't use off the lists, in one go
+  // (StudiesImport.js — the head ticks which). Same as removing each one: marks, aayahs and links go, homework stays.
+  if (action === 'remove-items' && req.method === 'POST') {
+    const ids = (Array.isArray((req.body || {}).ids) ? req.body.ids : []).slice(0, 2000).map(x => String(x).replace(/\D/g, '')).filter(Boolean);
+    if (!ids.length) { res.status(200).json({ removed: 0 }); return; }
+    const removed = await transaction(async c => {
+      await c.query('DELETE FROM is_progress WHERE madrasah_id = $1 AND item_id = ANY($2::bigint[])', [mid, ids]);
+      await c.query('DELETE FROM is_class_ayahs WHERE madrasah_id = $1 AND item_id = ANY($2::bigint[])', [mid, ids]);
+      await c.query('DELETE FROM is_links WHERE madrasah_id = $1 AND item_id = ANY($2::bigint[])', [mid, ids]);
+      await c.query('UPDATE is_homework SET item_id = NULL WHERE madrasah_id = $1 AND item_id = ANY($2::bigint[])', [mid, ids]);
+      const r = await c.query('DELETE FROM is_items WHERE madrasah_id = $1 AND id = ANY($2::bigint[])', [mid, ids]);
+      return r.rowCount;
+    });
+    res.status(200).json({ removed });
+    return;
+  }
   if (action === 'starter' && req.method === 'POST') {
     const added = await transaction(c => addStarter(c, mid));
     res.status(200).json({ added });
