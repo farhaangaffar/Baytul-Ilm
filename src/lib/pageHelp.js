@@ -249,7 +249,7 @@ const STUDIES_STEPS = [
   'Earlier years\' lists are behind the "Earlier years" line, to check pupils still know them.',
   'Homework: open a surah, du\'aa or practical and tap "Set homework" — write what to do, the due date, and the whole class or chosen pupils. Its links go to the pupils with it. The Homework tab lists what\'s been set and who has ticked it done (tap one to change or remove it); "Add homework" there adds another — a surah, du\'aa, practical or something else.',
   'Quizzes: "Add homework" → Quiz, and give it a name. Tap "Add a question" for each one (one answer, tick boxes, true / false, two choices each — a list where each line is one of two choices, e.g. Fardh or Sunnah — short answer or long answer) and tap the right answer — it turns green. Tick boxes and two-choice lists give points for each right answer. Choose the four settings, then "Set the quiz" (or "Save for later"). Once a pupil has handed a quiz in, its questions can\'t be changed — tap "Copy this quiz" to make a changed version. Pupils\' answers are marked by themselves except long answers: open the quiz, tap a pupil and give the mark. "Send scores to pupils" when you chose to send them yourself.',
-  'Head: "Year by year" (bottom of the page) shows what every year group learns — tap one to move it to another year or remove it, or add one.',
+  'Head: "Year plan" (bottom of the page) — pick a year, then tick what it learns. Ticking one that\'s in another year moves it there; pupils\' marks stay with them. Change it the same way next year.',
   'Pupils: a line for each child — tap their name for everything of theirs: how much they\'ve achieved, each list with their bar and the class\'s underneath (tap a list to mark its items), their average and the class\'s, the surah the class is on, and what to work on.',
   'Tap a pupil\'s name to see and mark everything of theirs.',
 ];
@@ -289,7 +289,7 @@ const SCHOOL_HEAD = {
   '/studies': { title: 'Islamic Studies', steps: [
     ...STUDIES_STEPS,
     'The lists are yours: "Add a surah" (or du\'aa or practical) at the bottom, and Edit inside an open line to rename it, move it to another year or remove it.',
-    '"Import marks from your spreadsheets": choose your workbook (.xlsx) — surahs, du\'aas and practicals can share one sheet; pupils are matched by name, each column to its own list, and new ones can be added (pick their list and year). If your columns are coloured by year with a key, the colours set each one\'s year. Afterwards you can remove our ready-made items your spreadsheet doesn\'t have.',
+    '"Import marks from your spreadsheets": set your Year plan first, then choose your assessment workbook (.xlsx). Only marks come in — pupils are matched by name and each column to a surah, du\'aa or practical in your plan; a column not in the plan is left out (tick it into a year, then import again).',
   ] },
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add your teachers first, then your classes — each with its year group (Reception to Year 13), so it gets that year\'s lists.',

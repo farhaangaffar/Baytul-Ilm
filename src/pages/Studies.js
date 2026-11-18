@@ -121,7 +121,6 @@ function AyahTracker({ surah, covered = [], onChange, busy }) {
 
 export default function Studies() {
   const { isOwner, user } = useAuth();
-  useEffect(() => { if (isOwner) markStudiesVisited(user?.madrasah?.code); }, [isOwner, user]);
   const [classes, setClasses] = useState(null);
   const [cls, setCls] = useState(() => recall('studies_class', ''));
   const [tab, setTab] = useState('surah'); // always opens on Surahs, and again when a class is picked (the owner's ask)
@@ -381,7 +380,7 @@ export default function Studies() {
             )}
             {isOwner && (
               <button type="button" className="line-row add" style={{ marginTop: 10 }} onClick={() => setModal({ kind: 'plan' })}>
-                <ListTree size={13} /> Year by year — what each year learns
+                <ListTree size={13} /> Year plan — tick what each year learns
               </button>
             )}
             {isOwner && (
@@ -553,80 +552,124 @@ const YEARS = Array.from({ length: 14 }, (_, i) => i);
 
 // The head's whole plan at a glance: a line per year group (Reception up) opening to that year's surahs, du'aas and
 // practicals; tap one to change its year or remove it, or add one to that year (ItemModal over this pop-up).
+// The year plan (the owner's design — it replaced "Year by year"): pick a year, then tick what it learns. Surahs come from
+// the Qur'an's own list in teaching order (Juz 'Amma first; "Show all 114"), du'aas and practicals from Suhuf's usual list
+// plus the school's own. Ticking one that's in another year moves it here — its pupils' marks stay with it; unticking takes
+// it out of the plan (asking first when pupils have marks for it). Changing the plan next year is the same ticks. This is
+// the only place years are set: the marks import never adds or moves anything.
+const TEACHING = [1, ...Array.from({ length: 113 }, (_, i) => 114 - i)]; // 1, 114, 113 … 2
+const JUZ_AMMA = new Set([1, ...Array.from({ length: 37 }, (_, i) => 78 + i)]);
 function YearPlan({ onClose, onChanged, classYears = [] }) {
   const close = useBackToClose(true, onClose);
-  const [items, setItems] = useState(null);
-  const [open, setOpen] = useState(null);
+  const { user } = useAuth();
+  useEffect(() => { markStudiesVisited(user?.madrasah?.code); }, [user]); // ticks Getting started's "Set your year plan"
+  const [data, setData] = useState(null);
+  const [year, setYear] = useState(null);
+  const [kind, setKind] = useState('surah');
+  const [allSurahs, setAllSurahs] = useState(false);
+  const [busy, setBusy] = useState('');
   const [edit, setEdit] = useState(null);
   const [error, setError] = useState('');
-  const load = useCallback(() => getStudiesItems().then(d => setItems(d.items)).catch(e => setError(e.message || 'Could not load')), []);
+  const load = useCallback(() => getStudiesItems().then(setData).catch(e => setError(e.message || 'Could not load')), []);
   useEffect(() => { load(); }, [load]);
-  // Every year a class is in (even if its list is empty so far), and years between them with something to learn — never
-  // years the school doesn't have (a primary with Reception to Year 6 doesn't see the starter lists' Years 7–11). With no
-  // classes yet, every year with something to learn.
+  // The school's own years: from its youngest class to its oldest (with no classes yet, Reception to Year 11).
   const cy = classYears.filter(y => y !== null && y !== undefined);
-  const lo = cy.length ? Math.min(...cy) : -Infinity, hi = cy.length ? Math.max(...cy) : Infinity;
-  const years = [...new Set([...(items || []).map(i => i.yearGroup), ...cy])]
-    .filter(y => y !== null && y !== undefined && y >= lo && y <= hi).sort((a, b) => a - b);
+  const years = cy.length ? Array.from({ length: Math.max(...cy) - Math.min(...cy) + 1 }, (_, i) => Math.min(...cy) + i) : Array.from({ length: 12 }, (_, i) => i);
+  const y = year ?? years[0];
+  const items = data?.items || [];
+  const marksOf = it => (it && data?.marks?.[it.id]) || 0;
+
+  // The lines for the chosen list: [{ key, name, item, make }] — make = what to add when ticked and not on the list yet.
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const mine = items.filter(i => i.kind === kind);
+    if (kind === 'surah') {
+      const bySurah = {};
+      mine.forEach(i => { if (i.surah && !bySurah[i.surah]) bySurah[i.surah] = i; });
+      const out = TEACHING.filter(n => allSurahs || JUZ_AMMA.has(n) || bySurah[n]).map(n => ({
+        key: `s${n}`, num: n, name: bySurah[n]?.name || SURAHS[n - 1][0], sub: `Surah ${n}`, item: bySurah[n],
+        make: { kind: 'surah', name: SURAHS[n - 1][0], detail: `Surah ${n}`, surah: n },
+      }));
+      // Parts of a surah (Ayat al-Kursi, the first ten aayahs of Al-Kahf …) the school has.
+      mine.filter(i => !i.surah || bySurah[i.surah] !== i).forEach(i => out.push({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
+      return out;
+    }
+    const plain = n => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+    const out = mine.map(i => ({ key: `i${i.id}`, name: i.name, sub: i.detail, item: i }));
+    (data.starter || []).filter(st => st.kind === kind && !mine.some(i => plain(i.name) === plain(st.name)))
+      .forEach(st => out.push({ key: `st${st.name}`, name: st.name, sub: st.detail, make: { kind, name: st.name, detail: st.detail || '' } }));
+    return out;
+  }, [data, items, kind, allSurahs]);
+
+  async function toggle(r) {
+    const it = r.item, here = it && it.yearGroup === y;
+    if (here) {
+      const n = marksOf(it);
+      if (n && !window.confirm(`Take ${it.name} out of the plan? ${n} pupil mark${n === 1 ? '' : 's'} for it will be removed too.`)) return;
+    }
+    setBusy(r.key); setError('');
+    try {
+      if (here) await deleteStudiesItem(it.id);
+      else if (it) await saveStudiesItem({ id: it.id, kind: it.kind, name: it.name, detail: it.detail || '', yearGroup: y, surah: it.surah || null });
+      else await saveStudiesItem({ ...r.make, yearGroup: y });
+      await load(); await onChanged?.();
+    } catch (e) { setError(e.message || 'Could not save'); }
+    setBusy('');
+  }
+
+  const inYear = k => items.filter(i => i.kind === k && i.yearGroup === y).length;
+  const one = (STUDY_KINDS.find(k => k[0] === kind) || STUDY_KINDS[0])[2];
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 600 }}>
+      <div className="modal" style={{ maxWidth: 620 }}>
         <div className="modal-header">
-          <div className="modal-title">Year by year</div>
+          <div className="modal-title">Year plan</div>
           <button className="btn btn-icon" onClick={close}><X size={16} /></button>
         </div>
-        <div className="modal-body" style={{ display: 'grid', gap: 8 }}>
-          <div className="text-muted" style={{ fontSize: 13 }}>What each year group learns. Tap one to move it to another year or remove it.</div>
+        <div className="modal-body" style={{ display: 'grid', gap: 10 }}>
+          <div className="text-muted" style={{ fontSize: 13 }}>Pick a year, then tick what it learns. Ticking one that's in another year moves it here — pupils' marks stay with them.</div>
           {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
-          {!items && !error && <LoadingState />}
-          {items && years.map(y => {
-            const mine = items.filter(i => i.yearGroup === y);
-            const isOpen = open === y;
-            const count = k => mine.filter(i => i.kind === k).length;
-            return (
-              <div key={y} className={`st-pupil-wrap ${isOpen ? 'open' : ''}`}>
-                <button type="button" className={`line-row ${isOpen ? 'on' : ''}`} onClick={e => { setOpen(isOpen ? null : y); if (!isOpen) showTop(e); }}>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span className="line-row-name" style={{ display: 'block' }}>{yearLabel(y)}</span>
-                    <span className="line-row-sub" style={{ display: 'block' }}>{STUDY_KINDS.map(([k, l, one]) => `${count(k)} ${count(k) === 1 ? one : l.toLowerCase()}`).join(' · ')}</span>
-                  </span>
-                  {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {isOpen && (
-                  <div className="st-open">
-                    {STUDY_KINDS.map(([k, l, one]) => (
-                      <div key={k} style={{ display: 'grid', gap: 6 }}>
-                        <div className="st-year">{l}</div>
-                        {mine.filter(i => i.kind === k).map(it => (
-                          <button key={it.id} type="button" className="line-row" onClick={() => setEdit(it)}>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span className="line-row-name" style={{ display: 'block' }}>{it.name}</span>
-                              {it.detail && <span className="line-row-sub" style={{ display: 'block' }}>{it.detail}</span>}
-                            </span>
-                            <Pencil size={13} />
-                          </button>
-                        ))}
-                        <button type="button" className="line-row add" onClick={() => setEdit({ kind: k, yearGroup: y })}>
-                          <Plus size={13} /> Add a {one} to {yearLabel(y)}
-                        </button>
-                      </div>
-                    ))}
-                    <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={e => closeBack(e, () => setOpen(null))}><ChevronUp size={13} />Close {yearLabel(y)}</button>
+          {!data && !error && <LoadingState />}
+          {data && <>
+            <div className="form-group" style={{ margin: 0 }}><label htmlFor="plan-year">Year</label>
+              <select id="plan-year" value={y} onChange={e => setYear(Number(e.target.value))}>
+                {years.map(v => <option key={v} value={v}>{yearLabel(v)} · {items.filter(i => i.yearGroup === v).length} ticked</option>)}
+              </select></div>
+            <ChoiceBoxes options={STUDY_KINDS.map(([k, l]) => `${l} (${inYear(k)})`)} value={`${STUDY_KINDS.find(k => k[0] === kind)[1]} (${inYear(kind)})`}
+              onChange={v => { const k = STUDY_KINDS.find(([, l]) => v.startsWith(l)); if (k) setKind(k[0]); }} />
+            <div style={{ display: 'grid', gap: 0 }}>
+              {rows.map(r => {
+                const here = r.item && r.item.yearGroup === y;
+                const elsewhere = r.item && !here;
+                return (
+                  <div key={r.key} className={`no-class-row ${here ? 'on' : ''}`} onClick={() => !busy && toggle(r)} style={busy === r.key ? { opacity: 0.5 } : undefined}>
+                    <input type="checkbox" checked={!!here} readOnly aria-label={`${r.name} in ${yearLabel(y)}`} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      {r.num && <span className="text-muted" style={{ display: 'inline-block', minWidth: 30, fontSize: 12 }}>{r.num}</span>}
+                      {r.name}{r.sub && kind !== 'surah' ? <span className="text-muted" style={{ fontSize: 12 }}> · {r.sub}</span> : null}
+                    </span>
+                    {elsewhere && <span className="text-muted" style={{ fontSize: 12, background: '#eceff3', borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap' }}>in {yearLabel(r.item.yearGroup)}</span>}
+                    {r.item && <button type="button" className="btn btn-icon btn-sm" aria-label={`Edit ${r.name}`} onClick={e => { e.stopPropagation(); setEdit(r.item); }}><Pencil size={12} /></button>}
                   </div>
-                )}
-              </div>
-            );
-          })}
-          {items && (
-            <div className="field-hint" style={{ fontSize: 12.5 }}>Another year group: add an item and choose its year in "Learnt in".</div>
-          )}
+                );
+              })}
+            </div>
+            {kind === 'surah' && (
+              <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setAllSurahs(v => !v)}>
+                {allSurahs ? "Show Juz 'Amma only" : 'Show all 114 surahs'}
+              </button>
+            )}
+            <button type="button" className="line-row add" onClick={() => setEdit({ kind, yearGroup: y })}>
+              <Plus size={13} /> {kind === 'surah' ? `Add part of a surah to ${yearLabel(y)} (e.g. Ayat al-Kursi)` : `Add your own ${one} to ${yearLabel(y)}`}
+            </button>
+          </>}
         </div>
+        <div className="modal-footer"><button className="btn btn-primary" onClick={close}>Done</button></div>
       </div>
       {edit && <ItemModal item={edit} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
     </div>
   );
 }
-
 // The head adds or changes a surah, du'aa or practical — its name, a short detail, the year group it's learnt in, and for
 // a whole surah which one it is (so the class's tracker shows its aayahs).
 // Where a link goes, for its small icon and the words under its name.

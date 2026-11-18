@@ -458,8 +458,14 @@ const handler = requireAuth(async (req, res) => {
       res.status(200).json({ yearGroup: year, items: await items(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
       return;
     }
-    // The starter lists' years go with the full list, so the marks import can suggest a sensible year for a new column.
-    res.status(200).json({ items: await items(mid), starter: STARTER.map(([kind, name, , year, surah]) => ({ kind, name, year, surah: surah || null })) });
+    // The whole list, with Suhuf's usual du'aas and practicals (the year plan's tick lists offer them) and how many marks each
+    // item has (taking one out of the plan asks first when pupils have marks for it).
+    const { rows: counts } = await query('SELECT item_id::text AS id, count(*)::int AS n FROM is_progress WHERE madrasah_id = $1 GROUP BY item_id', [mid]);
+    res.status(200).json({
+      items: await items(mid),
+      starter: STARTER.map(([kind, name, detail, year, surah]) => ({ kind, name, detail, year, surah: surah || null })),
+      marks: Object.fromEntries(counts.map(r => [r.id, r.n])),
+    });
     return;
   }
 

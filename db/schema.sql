@@ -670,6 +670,8 @@ CREATE TABLE IF NOT EXISTS is_assessments (
   published_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_is_assessments_madrasah ON is_assessments (madrasah_id, year);
+-- The year plan when the point was taken (item id → year group), so a plan changed later doesn't rewrite it.
+ALTER TABLE is_assessments ADD COLUMN IF NOT EXISTS plan JSONB;
 
 CREATE TABLE IF NOT EXISTS is_assessment_pupils (
   assessment_id BIGINT NOT NULL,

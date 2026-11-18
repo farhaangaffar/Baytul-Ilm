@@ -132,10 +132,13 @@ module.exports = requireAuth(async (req, res) => {
     'SELECT id::text AS id, name, year_group FROM is_items WHERE madrasah_id = $1 AND kind = $2 AND year_group IS NOT NULL', [mid, kind]);
 
   // A snapshot (an assessment point) as pupils + a mark lookup.
+  // Each item counts in the year it was planned in when the point was taken (is_assessments.plan), if kept.
   async function snapshot(id) {
     const { rows } = await query(
       'SELECT student_id AS id, class, year_group AS "yearGroup", marks FROM is_assessment_pupils WHERE assessment_id = $1 AND madrasah_id = $2', [id, mid]);
-    return tally(rows, items, (p, it) => Number((p.marks || {})[it.id]) || 0);
+    const { rows: [pl] } = await query('SELECT plan FROM is_assessments WHERE id = $1 AND madrasah_id = $2', [id, mid]);
+    const planned = pl?.plan ? items.map(i => (pl.plan[i.id] !== undefined ? { ...i, year_group: pl.plan[i.id] } : i)) : items;
+    return tally(rows, planned, (p, it) => Number((p.marks || {})[it.id]) || 0);
   }
 
   // The year groups and their forms: this year from the marks now; an earlier year from its last assessment point.

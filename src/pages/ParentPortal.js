@@ -253,7 +253,8 @@ function StudiesCards({ studies, child }) {
   // A report the school has sent (routes/school-reports.js): just the stats, with its PDF.
   const one = r => ({
     name: `${child.forename} ${child.surname || ''}`.trim(), className: r.class, assessment: r, effort: r.effort,
-    report: reportOf({ items: studies.allItems || studies.items, marks: r.marks, previous: r.previous, yearGroup: r.yearGroup }),
+    // Each report with the year plan it was made with (r.plan: item → year), so a plan changed later doesn't rewrite it.
+    report: reportOf({ items: (studies.allItems || studies.items).map(i => (r.plan && r.plan[i.id] !== undefined ? { ...i, yearGroup: r.plan[i.id] } : i)), marks: r.marks, previous: r.previous, yearGroup: r.yearGroup }),
   });
   return (
     <>
