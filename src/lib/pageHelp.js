@@ -31,7 +31,7 @@ const HEAD = {
     'Children are grouped by class — tap a class to open it.',
     'Tap a child to see their details, attendance and fees. Tap Edit to change them — parents, home, emergency contact, health and going home.',
     'Allergies, conditions or medication show in red on the child\'s card, and as a red heart by their name on the register.',
-    'Add a new child with Enroll, or a whole spreadsheet of children with Import.',
+    'Add a new child with Enroll, or a whole spreadsheet of children with Import (a workbook with several sheets brings in every sheet).',
     'Set up a parent login from the child\'s card (switch the parent portal on in Settings first) — then Share or WhatsApp the ready-made message to the parent.',
     'Children who have left are kept at the bottom.',
     'Children added by Import (or whose class was deleted) show in "Not in a class" at the top — tick them (or a whole group) and choose their class.',
@@ -274,7 +274,7 @@ const SCHOOL_HEAD = {
   ] },
   '/students': { title: 'Pupils', steps: [
     'Pupils are grouped by class — tap a class to open it. Each class shows its year group and how much of this year\'s Islamic Studies is achieved.',
-    'Import adds a whole spreadsheet of pupils — an export from your school\'s pupil database works. They land in "Not in a class": tick them and move them into a class.',
+    'Import adds a whole spreadsheet of pupils — an export from your school\'s pupil database works, and a workbook with a sheet per year or class brings in every sheet. They land in "Not in a class": tick them and move them into a class.',
     'Tap a pupil for their details; "Surahs, du\'aas & practicals" shows everything of theirs.',
     'A pupil who changes class: open them and choose "Move to another class". Leaving: "Mark as left the school" (it asks first) — they go under Left (tap the Left box), marks kept.',
     'End of the year: first add next year\'s classes on Classes & Teachers, then "New school year" (bottom of the page) — choose which class each class goes into, or "Left the school". Marks go with every pupil, and it can be undone.',

@@ -130,20 +130,32 @@ const colIndex = ref => { let n = 0; for (const ch of ref.replace(/\d+$/, '')) n
 // An .xlsx File → tab-separated text of its first sheet (what pasting from Excel gives),
 // so it goes through the same reading as pasted rows. Dates come out as dd/mm/yyyy.
 export async function xlsxToText(file) {
+  const sheets = await xlsxSheetTexts(file);
+  return sheets[0]?.text || '';
+}
+
+// An .xlsx File → every sheet as that text, in order: [{ name, text }] — Students → Import reads a workbook with a
+// sheet per class or year group (ImportStudents.js).
+export async function xlsxSheetTexts(file) {
   const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || n === 'xl/styles.xml' || SHEET_FILE.test(n));
   const dec = new TextDecoder(), parse = s => new DOMParser().parseFromString(s, 'application/xml');
   const text = n => (files[n] ? dec.decode(files[n]) : '');
   const shared = files['xl/sharedStrings.xml']
     ? [...tags(parse(text('xl/sharedStrings.xml')), 'si')].map(si => [...tags(si, 't')].map(t => t.textContent).join(''))
     : [];
-  // The first sheet's file, via the workbook's relationships.
-  let sheetFile = 'xl/worksheets/sheet1.xml';
+  // Each sheet's name and file, via the workbook's relationships (else sheet1.xml, sheet2.xml …).
+  const rels = {};
   try {
-    const rid = tags(parse(text('xl/workbook.xml')), 'sheet')[0].getAttribute('r:id');
-    const rel = [...tags(parse(text('xl/_rels/workbook.xml.rels')), 'Relationship')].find(r => r.getAttribute('Id') === rid);
-    const target = rel.getAttribute('Target').replace(/^\/?(xl\/)?/, '');
-    if (files[`xl/${target}`]) sheetFile = `xl/${target}`;
-  } catch { /* use sheet1 */ }
+    [...tags(parse(text('xl/_rels/workbook.xml.rels')), 'Relationship')].forEach(r => { rels[r.getAttribute('Id')] = `xl/${r.getAttribute('Target').replace(/^\/?(xl\/)?/, '')}`; });
+  } catch { /* none */ }
+  let sheetList = [];
+  try {
+    sheetList = [...tags(parse(text('xl/workbook.xml')), 'sheet')].map((s, i) => ({ name: s.getAttribute('name') || `Sheet${i + 1}`, file: rels[s.getAttribute('r:id')] || `xl/worksheets/sheet${i + 1}.xml` }));
+  } catch { /* below */ }
+  if (!sheetList.some(s => files[s.file])) {
+    const any = Object.keys(files).filter(n => SHEET_FILE.test(n)).sort();
+    sheetList = any.map((file, i) => ({ name: `Sheet${i + 1}`, file }));
+  }
   // Which cell styles are dates (so a number like 42000 becomes 26/12/2014).
   const dateStyles = new Set();
   try {
@@ -156,6 +168,7 @@ export async function xlsxToText(file) {
       if ((id >= 14 && id <= 22) || /[dy]/i.test((custom[id] || '').replace(/"[^"]*"|\[[^\]]*\]/g, ''))) dateStyles.add(i);
     });
   } catch { /* no dates */ }
+  const sheetText = sheetFile => {
   const sheet = parse(text(sheetFile));
   const rows = [];
   [...tags(sheet, 'row')].forEach(r => {
@@ -180,6 +193,8 @@ export async function xlsxToText(file) {
     rows.push(Array.from(cells, c => c ?? '').join('\t'));
   });
   return rows.join('\n');
+  };
+  return sheetList.filter(s => files[s.file]).map(s => ({ name: s.name, text: sheetText(s.file) }));
 }
 
 // An .xlsx File → every sheet, in order: [{ name, rows: [[cell text…]…] }] (values as shown, no date conversion) — for
