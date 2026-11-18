@@ -28,12 +28,17 @@ export function billingStart(freeUntil) {
   return d === 1 ? freeUntil : iso(y, m + 1, 1);
 }
 
+// A place's monthly and yearly price. Its own price (set on the Madaaris page) is for the plan it's on; the other plan is
+// worked out from it the same way as the standard prices — a year costs 10 months (£20 / £200) — never the kind's default
+// (a 2-form school at £800 a year pays £80 a month, not the standard school £50).
+export const YEAR_IN_MONTHS = 10;
+const pence = n => Math.round(n * 100) / 100;
 export function prices(m) {
   const amount = Number(m.billingAmount), d = defaultPrice(m);
-  return {
-    monthly: m.billingPlan === 'monthly' && amount > 0 ? amount : d.monthly,
-    yearly: m.billingPlan === 'yearly' && amount > 0 ? amount : d.yearly,
-  };
+  if (!(amount > 0)) return { monthly: d.monthly, yearly: d.yearly };
+  return m.billingPlan === 'yearly'
+    ? { yearly: amount, monthly: pence(amount / YEAR_IN_MONTHS) }
+    : { monthly: amount, yearly: pence(amount * YEAR_IN_MONTHS) };
 }
 
 // { state: 'yours'|'off'|'free'|'paid'|'overdue', warn, label, fill (0–1), start, paidTo, nextDue, owed, monthsOwed }

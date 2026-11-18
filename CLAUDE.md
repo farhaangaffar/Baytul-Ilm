@@ -79,7 +79,7 @@ codebase (one codebase, not a fork).
   along the bottom: grey free / green paid / yellow due within 2 weeks / red overdue); tapping it
   opens everything (`DetailModal`): status, one-tap "Next month" / "A year" payments, month boxes
   (tap one to pay up to it), plan `madaaris.billing_plan` monthly/yearly + `billing_amount` (default
-  £20/£200), payments received (`madrasah_payments`: date/amount/months), contact, size, and the
+  £20/£200; the price is for the plan it's on and the other plan is worked out from it — a year = 10 months, `prices()` in billing.js; switching plan converts it), payments received (`madrasah_payments`: date/amount/months), contact, size, and the
   manage buttons (Edit details, reset password, switch off, delete). **Payments run from the 1st**
   (`src/lib/billing.js`): free until the end of the month `free_until` falls in, then each payment's
   months cover the next unpaid months in order — the date paid moves nothing. A "Payments from
