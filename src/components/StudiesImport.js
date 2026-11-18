@@ -82,7 +82,7 @@ function readSheet({ name, rows, fills = [] }) {
     if (!first || /average/i.test(first) || /^(key|legend)\b/i.test(first) || legendYear(`${first} ${last}`) !== undefined) { if (out.length) break; continue; }
     const values = {};
     cols.forEach(([i, c]) => { const v = String(r[i] || '').trim(); if (['1', '2', '3'].includes(v)) values[c] = Number(v); });
-    out.push({ first, last, values });
+    out.push({ first, last, values, sheet: name });
   }
   const sections = {};
   for (const r of rows.slice(0, h)) {
@@ -115,6 +115,7 @@ export default function StudiesImport({ onClose, onDone }) {
   const { user } = useAuth();
   const close = useBackToClose(true, onClose);
   const [newKinds, setNewKinds] = useState({}); // new column → its list, when changed by hand
+  const [picked, setPicked] = useState({}); // a name not found → the pupil the head chose for it (id), or none
   const [sheets, setSheets] = useState(null); // parsed sheets
   const [use, setUse] = useState({}); // sheet name → ticked
   const [pupils, setPupils] = useState([]);
@@ -142,7 +143,7 @@ export default function StudiesImport({ onClose, onDone }) {
       setUse(Object.fromEntries(parsed.map(s => [s.name, s.year !== null])));
       setPupils(studs.filter(s => s.status !== 'Inactive'));
       setItems(its.items);
-      setNewYears({}); setNewKinds({});
+      setNewYears({}); setNewKinds({}); setPicked({});
     } catch (e) { setError(e.message || 'Could not read that file — save it as .xlsx and try again.'); }
     setBusy(false);
   }
@@ -150,7 +151,16 @@ export default function StudiesImport({ onClose, onDone }) {
   const chosen = (sheets || []).filter(s => use[s.name]);
   // Pupils found by name — exactly, or by a close spelling ("M Husayn" = Muhammad Husayn, Kareem = Karim; nameMatch.js).
   const findPupil = useMemo(() => pupilFinder(pupils), [pupils]);
-  const pupilOf = r => findPupil(r.first, r.last)?.pupil;
+  // A name not found is picked once per sheet (two sheets can each have their own Bilal Ahmed).
+  const nameOf = r => `${r.first} ${r.last}${chosen.length > 1 ? ` · ${r.sheet}` : ''}`;
+  const pupilOf = r => (picked[nameOf(r)] ? pupils.find(p => p.id === picked[nameOf(r)]) : findPupil(r.first, r.last)?.pupil);
+  // For a name not found: pupils sharing a word of it first (likely the same child), then everyone A to Z.
+  const byName = (a, b) => `${a.forename} ${a.surname}`.localeCompare(`${b.forename} ${b.surname}`);
+  const allPupils = useMemo(() => [...pupils].sort(byName), [pupils]);
+  const likely = name => {
+    const w = name.toLowerCase().split(/[\s\-']+/).filter(x => x.length > 2);
+    return allPupils.filter(p => `${p.forename} ${p.surname}`.toLowerCase().split(/[\s\-']+/).some(x => w.includes(x)));
+  };
   // Each column finds its own list (one sheet can mix surahs, du'aas and practicals): a hint from the section row above it
   // or its own words, then the school's lists (that list first, then any), then a surah's name, then the column before it.
   const findIn = (list, col) => list.find(i => plainName(i.name) === plainName(col) || (i.kind === 'surah' && i.surah && i.surah === surahNumber(col)));
@@ -185,7 +195,7 @@ export default function StudiesImport({ onClose, onDone }) {
   const moves = columns.filter(c => itemOf[c] && colourYear(c) !== undefined && colourYear(c) !== itemOf[c].yearGroup)
     .filter((c, i, a) => a.findIndex(x => itemOf[x].id === itemOf[c].id) === i);
   const rowsFound = chosen.flatMap(s => s.rows);
-  const unknown = [...new Set(rowsFound.filter(r => !pupilOf(r)).map(r => `${r.first} ${r.last}`))];
+  const unknown = [...new Set(rowsFound.filter(r => !findPupil(r.first, r.last)).map(nameOf))]; // the head can pick each one's pupil
   const nearNames = [...new Map(rowsFound.map(r => [r, findPupil(r.first, r.last)]).filter(([, m]) => m?.close)
     .map(([r, m]) => [`${r.first} ${r.last}`, `${m.pupil.forename} ${m.pupil.surname}`])).entries()];
   const marksCount = rowsFound.filter(r => pupilOf(r))
@@ -310,7 +320,7 @@ export default function StudiesImport({ onClose, onDone }) {
                 <span className="text-muted" style={{ fontSize: 12 }}>Sheets that aren't a year group (e.g. last years' "2025") start unticked.</span>
               </div>
               <div className="box-row-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 6 }}>
-                <div className="info-box"><strong>{rowsFound.length - unknown.length}</strong><span className="info-box-label">Pupils matched</span></div>
+                <div className="info-box"><strong>{rowsFound.filter(r => pupilOf(r)).length}</strong><span className="info-box-label">Pupils matched</span></div>
                 <div className="info-box"><strong>{matched.length}</strong><span className="info-box-label">Columns matched</span></div>
                 <div className="info-box"><strong>{marksCount}</strong><span className="info-box-label">Marks to import</span></div>
               </div>
@@ -329,8 +339,24 @@ export default function StudiesImport({ onClose, onDone }) {
                 </div>
               )}
               {unknown.length > 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--amber-text)' }}>
-                  {unknown.length} not found among your pupils (left out): {unknown.slice(0, 8).join(', ')}{unknown.length > 8 ? '…' : ''}
+                <div className="form-group"><label>Not found among your pupils — who are they?</label>
+                  <span className="text-muted" style={{ fontSize: 12 }}>Pick the pupil for each name, or leave it out (their marks aren't imported).</span>
+                  <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+                    {unknown.map(n => {
+                      const near = likely(n);
+                      return (
+                        <div key={n} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
+                          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{n}</span>
+                          <select value={picked[n] || ''} aria-label={`Which pupil is ${n}?`} onChange={e => setPicked(x => ({ ...x, [n]: e.target.value }))}
+                            style={picked[n] ? undefined : { color: 'var(--amber-text)' }}>
+                            <option value="">Leave out</option>
+                            {near.length > 0 && <optgroup label="Close names">{near.map(p => <option key={p.id} value={p.id}>{p.forename} {p.surname}{p.class ? ` · ${p.class}` : ''}</option>)}</optgroup>}
+                            <optgroup label="All pupils">{allPupils.map(p => <option key={p.id} value={p.id}>{p.forename} {p.surname}{p.class ? ` · ${p.class}` : ''}</option>)}</optgroup>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {fresh.length > 0 && (
