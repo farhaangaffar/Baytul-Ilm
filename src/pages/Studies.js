@@ -759,7 +759,12 @@ function ItemModal({ item, onClose, onSaved }) {
                 onChange={v => setF(x => ({ ...x, kind: STUDY_KINDS.find(k => k[1] === v)[0] }))} /></div>
             <div className="form-group"><label>Name</label>
               <input value={f.name} maxLength={120} autoFocus onChange={e => setName(e.target.value)}
-                placeholder={f.kind === 'surah' ? 'e.g. Al-Ikhlas' : f.kind === 'duaa' ? 'e.g. Before eating' : 'e.g. Wudhu'} /></div>
+                placeholder={f.kind === 'surah' ? 'e.g. Al-Ikhlas' : f.kind === 'duaa' ? 'e.g. Before eating' : 'e.g. Wudhu'} />
+              {item.id && f.name.trim() && f.name.trim() !== item.name && (
+                <span style={{ fontSize: 12, color: 'var(--amber-text)' }}>
+                  Every pupil's marks for {item.name} stay with it under the new name. If this is a different {one}, close this and use "Add a {one}" instead.
+                </span>
+              )}</div>
             {f.kind === 'surah' && (
               <div className="form-group"><label>Which surah</label>
                 <select value={f.surah} style={f.surah ? undefined : { color: 'var(--text-muted)', fontSize: 12, paddingLeft: 12 }} onChange={e => { setSurahPicked(true); setF(x => ({ ...x, surah: e.target.value })); }}>
