@@ -458,7 +458,8 @@ const handler = requireAuth(async (req, res) => {
       res.status(200).json({ yearGroup: year, items: await items(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
       return;
     }
-    res.status(200).json({ items: await items(mid) });
+    // The starter lists' years go with the full list, so the marks import can suggest a sensible year for a new column.
+    res.status(200).json({ items: await items(mid), starter: STARTER.map(([kind, name, , year, surah]) => ({ kind, name, year, surah: surah || null })) });
     return;
   }
 

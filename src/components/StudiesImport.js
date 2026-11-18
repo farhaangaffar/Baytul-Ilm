@@ -127,6 +127,7 @@ export default function StudiesImport({ onClose, onDone }) {
   const [use, setUse] = useState({}); // sheet name → ticked
   const [pupils, setPupils] = useState([]);
   const [items, setItems] = useState([]);
+  const [starter, setStarter] = useState([]); // the starter lists' years, to suggest a new column's year
   const [newYears, setNewYears] = useState({}); // new column → year group, or 'skip'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -161,6 +162,7 @@ export default function StudiesImport({ onClose, onDone }) {
       setUse(Object.fromEntries(parsed.map(s => [s.name, parsed.length === 1 || (s.year !== null && !/^\s*(19|20)\d\d\b/.test(s.name))])));
       setPupils(studs.filter(s => s.status !== 'Inactive'));
       setItems(its.items);
+      setStarter(its.starter || []);
       setNewYears({}); setNewKinds({}); setPicked({});
     } catch (e) { setError(e.message || 'Could not read that file — save it as .xlsx and try again.'); }
     setBusy(false);
@@ -203,10 +205,16 @@ export default function StudiesImport({ onClose, onDone }) {
   const fresh = columns.filter(c => !matchItem(c));
   // A new column's year: the earliest ticked sheet whose pupils have marks in it.
   const colourYear = c => chosen.map(sh => sh.colYears?.[c]).find(y => y !== undefined);
+  // A new column's year: its colour's; else the earliest sheet with marks in it — but never later than the starter lists
+  // put it (a Year 1 sheet revising Al-Faatihah doesn't make Al-Faatihah a Year 1 surah: it's Reception's).
+  const starterYear = c => starter.find(s => s.kind === kindOf[c] && ((s.surah && s.surah === surahNumber(c)) || plainName(s.name) === plainName(c)))?.year;
   const guessYear = c => {
     if (colourYear(c) !== undefined) return colourYear(c);
     const ys = chosen.filter(s => s.rows.some(r => r.values[c])).map(s => s.year).filter(y => y !== null);
-    return ys.length ? Math.min(...ys) : 0;
+    const st = starterYear(c);
+    const fromSheets = ys.length ? Math.min(...ys) : null;
+    if (fromSheets === null) return st ?? 0;
+    return st !== undefined && st < fromSheets ? st : fromSheets;
   };
   const yearFor = c => (newYears[c] === undefined ? guessYear(c) : newYears[c]);
   // Already on the list but the sheet's colours say another year (e.g. added to the wrong year by an earlier import):
