@@ -11,6 +11,7 @@ import { getStudents, getStudiesItems, saveStudiesItem, importStudiesMarks, remo
 import { markMarksImported } from './GettingStarted';
 import { useAuth } from '../lib/AuthContext';
 import { pupilFinder } from '../lib/nameMatch';
+import { guessYearGroup } from '../pages/ClassesTeachers';
 import { STUDY_KINDS, yearLabel, plainName, surahNumber } from '../lib/studies';
 import { useBackToClose } from '../lib/useBackToClose';
 
@@ -64,12 +65,15 @@ function readLegend(rows, fills, h) {
 // cells, so the word sits over the first column of its group) puts each column in its list. Columns with no 1/2/3 in them
 // (a Total or % column) are left out.
 function readSheet({ name, rows, fills = [] }) {
+  // First name + Surname; or "Name" + "Surname" (Name is then the first name); or one Name column (split in two).
   let h = rows.findIndex(r => r.some(isFirst) && r.some(isLast));
+  let nameFirst = false;
+  if (h < 0) { h = rows.findIndex(r => r.some(isFull) && r.some(isLast)); nameFirst = h >= 0; }
   let full = false;
   if (h < 0) { h = rows.findIndex(r => r.some(isFull)); full = h >= 0; }
   if (h < 0) return null;
   const hdr = rows[h];
-  const fi = full ? hdr.findIndex(isFull) : hdr.findIndex(isFirst), si = full ? fi : hdr.findIndex(isLast);
+  const fi = full || nameFirst ? hdr.findIndex(isFull) : hdr.findIndex(isFirst), si = full ? fi : hdr.findIndex(isLast);
   const cols = [];
   for (let i = Math.max(fi, si) + 1; i < hdr.length; i++) {
     if (isFirst(hdr[i]) || (full && isFull(hdr[i]))) break; // the sheet's summary block starts again with the names
@@ -139,8 +143,18 @@ export default function StudiesImport({ onClose, onDone }) {
           ? 'That file looks empty — open it in Excel or Google Sheets, then "Save as" / "Download" an .xlsx and try again.'
           : `Couldn't find the pupils' name columns (First name and Surname, or one Name column).${seen ? ` The first row reads: ${seen}.` : ''}`);
       }
+      // A sheet not named after a year ("Duaas", "Sheet1") takes the year most of its pupils are in (their class's year
+      // group). Only sheets named like a past year ("2019") stay unticked — and a file with one sheet is always ticked.
+      const finder = pupilFinder(studs.filter(s => s.status !== 'Inactive'));
+      parsed.forEach(sh => {
+        if (sh.year !== null) return;
+        const n = {};
+        sh.rows.forEach(r => { const y = guessYearGroup(finder(r.first, r.last)?.pupil?.class); if (y !== null && y !== undefined) n[y] = (n[y] || 0) + 1; });
+        const best = Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+        if (best !== undefined) { sh.year = Number(best); sh.yearFromPupils = true; }
+      });
       setSheets(parsed);
-      setUse(Object.fromEntries(parsed.map(s => [s.name, s.year !== null])));
+      setUse(Object.fromEntries(parsed.map(s => [s.name, parsed.length === 1 || (s.year !== null && !/^\s*(19|20)\d\d\b/.test(s.name))])));
       setPupils(studs.filter(s => s.status !== 'Inactive'));
       setItems(its.items);
       setNewYears({}); setNewKinds({}); setPicked({});
@@ -313,7 +327,7 @@ export default function StudiesImport({ onClose, onDone }) {
                   {sheets.map(s => (
                     <label key={s.name} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: 'var(--ink)' }}>
                       <input type="checkbox" checked={!!use[s.name]} onChange={e => setUse(u => ({ ...u, [s.name]: e.target.checked }))} />
-                      <span><b>{s.name}</b> · {s.rows.length} pupils</span>
+                      <span><b>{s.name}</b> · {s.rows.length} pupils{s.yearFromPupils ? ` · ${yearLabel(s.year)} (from its pupils' class)` : ''}</span>
                     </label>
                   ))}
                 </div>
