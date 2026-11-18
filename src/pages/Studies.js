@@ -658,8 +658,13 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   const removed = lines.filter(l => saved.includes(l.key) && !ticked.includes(l.key));
   const changed = added.length + removed.length > 0;
   const toggle = key => setDraft(t => { const cur = t || saved; return cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key]; });
-  // Switching year or list with changes not saved asks first.
-  const leave = fn => { if (!changed || window.confirm(`You haven't saved ${yearLabel(year)}'s changes. Leave them?`)) { setDraft(null); setNote(''); fn(); } };
+  // Switching year or list (or closing) with changes not saved asks first — in a small bar, not the browser's pop-up.
+  const [pending, setPending] = useState(null); // what to do once Saved or Don't save is pressed
+  const leave = fn => { if (!changed) { setNote(''); fn(); } else setPending(() => fn); };
+  const dontSave = () => { const fn = pending; setPending(null); setDraft(null); setNote(''); fn?.(); };
+  // First time on this device: say why things are already ticked (gone once anything is saved).
+  const hintKey = `yearplan_hint:${user?.madrasah?.code || ''}`;
+  const [hint, setHint] = useState(() => { try { return !localStorage.getItem(hintKey); } catch { return true; } });
 
   async function save() {
     setBusy(true); setError(''); setNote('');
@@ -669,6 +674,8 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
       await load(); await onChanged?.();
       setDraft(null);
       setNote(`Saved ${yearLabel(year)}.`);
+      setHint(false); try { localStorage.setItem(hintKey, '1'); } catch { /* fine */ }
+      if (pending) { const fn = pending; setPending(null); fn(); }
     } catch (e) { setError(e.message || 'Could not save'); }
     setBusy(false);
   }
@@ -707,9 +714,14 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                   onChange={v => leave(() => chooseList(v === 'My own list'))} /></div>
             )}
             {note && <div style={{ fontSize: 12.5, color: 'var(--green-text)' }}>{note}</div>}
-            <div className="text-muted" style={{ fontSize: 12.5 }}>
+            {hint && (
+              <div style={{ fontSize: 12.5, color: 'var(--ink)', background: 'var(--teal-light)', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
+                Suhuf has ticked the usual surahs, du'aas and practicals for each year — change anything that's different, then press Save.
+              </div>
+            )}
+            {!hint && <div className="text-muted" style={{ fontSize: 12.5 }}>
               {kind !== 'surah' && ownList && !lines.length ? `Add your own ${one}s below, then tick them and press Save.` : `Tick what ${yearLabel(year)} learns, then press Save.`}
-            </div>
+            </div>}
             {/* What the year has, in one line — no scrolling to check (the owner's pick). */}
             {lines.length > 0 && (
               <div style={{ fontSize: 12.5, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
@@ -744,7 +756,14 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
             </button>
           </>}
         </div>
-        {data && (
+        {data && pending && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 22px', background: 'var(--amber-light)', borderTop: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 13, marginRight: 'auto' }}>{yearLabel(year)} isn't saved yet.</span>
+            <button className="btn btn-sm" disabled={busy} onClick={dontSave}>Don't save</button>
+            <button className="btn btn-sm btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button>
+          </div>
+        )}
+        {data && !pending && (
           <div className="modal-footer">
             {note && note.startsWith('Saved') && !changed && <span style={{ fontSize: 13, color: 'var(--green-text)', marginRight: 'auto' }}><Check size={14} style={{ verticalAlign: -2 }} /> {note}</span>}
             <button className="btn btn-primary" disabled={busy || !changed} onClick={save}>{busy ? 'Saving…' : `Save ${yearLabel(year)}`}</button>
