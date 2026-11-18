@@ -31,11 +31,39 @@ function wordKind(v) {
 }
 const isFull = c => ['name', 'names', 'fullname', 'pupilname', 'pupilsname', 'studentname', 'studentsname', 'childname', 'childsname', 'pupil', 'student'].includes(squash(c));
 
-// One sheet → { name, year, columns: [header…], sections: { header: kind }, rows: [{ first, last, values: { header: 1|2|3 } }] }
+// A legend's words → its year group: "Reception" / "EYFS" → 0, "Year 3" / "Yr 3" / "Y3 du'aas" → 3.
+const legendYear = v => {
+  const t = String(v || '');
+  if (/\breception\b|\brec\b|\beyfs\b|\bnursery\b/i.test(t)) return 0;
+  const m = /\b(?:year|yr|y)\s*(\d{1,2})\b/i.exec(t);
+  return m && Number(m[1]) <= 13 ? Number(m[1]) : undefined;
+};
+
+// A colour legend (the owner's sheets: each du'aa's column coloured by the year it's learnt in, a key at the bottom): every
+// coloured cell, other than the headings row, whose own words — or the words just beside it — name a year.
+function readLegend(rows, fills, h) {
+  const legend = {};
+  rows.forEach((r, ri) => {
+    if (ri === h) return;
+    (fills[ri] || []).forEach((f, ci) => {
+      if (!f || legend[f] !== undefined) return;
+      let y = legendYear(r[ci]);
+      for (let d = 1; y === undefined && d <= 3; d++) {
+        if (String(r[ci + d] || '').trim()) { y = legendYear(r[ci + d]); if (y === undefined && !(fills[ri] || [])[ci + d]) break; }
+      }
+      if (y === undefined && ci > 0 && !(fills[ri] || [])[ci - 1]) y = legendYear(r[ci - 1]);
+      if (y !== undefined) legend[f] = y;
+    });
+  });
+  return legend;
+}
+
+// One sheet → { name, year, columns: [header…], sections: { header: kind }, colYears: { header: year from its colour },
+// rows: [{ first, last, values: { header: 1|2|3 } }] }
 // One sheet can hold surahs AND du'aas (and practicals): a row above the headings like "Surahs … Du'aas" (often merged
 // cells, so the word sits over the first column of its group) puts each column in its list. Columns with no 1/2/3 in them
 // (a Total or % column) are left out.
-function readSheet({ name, rows }) {
+function readSheet({ name, rows, fills = [] }) {
   let h = rows.findIndex(r => r.some(isFirst) && r.some(isLast));
   let full = false;
   if (h < 0) { h = rows.findIndex(r => r.some(isFull)); full = h >= 0; }
@@ -51,7 +79,7 @@ function readSheet({ name, rows }) {
   for (const r of rows.slice(h + 1)) {
     let first = (r[fi] || '').trim(), last = (r[si] || '').trim();
     if (full) { const parts = first.split(/\s+/); last = parts.length > 1 ? parts.pop() : ''; first = parts.join(' '); }
-    if (!first || /average/i.test(first)) { if (out.length) break; continue; }
+    if (!first || /average/i.test(first) || /^(key|legend)\b/i.test(first) || legendYear(`${first} ${last}`) !== undefined) { if (out.length) break; continue; }
     const values = {};
     cols.forEach(([i, c]) => { const v = String(r[i] || '').trim(); if (['1', '2', '3'].includes(v)) values[c] = Number(v); });
     out.push({ first, last, values });
@@ -66,9 +94,21 @@ function readSheet({ name, rows }) {
     }
     if (any) cols.forEach(([i, c]) => { if (lab[i]) sections[c] = lab[i]; });
   }
+  // Each column's year from its colour: the heading's fill, else the fill most of its mark cells share.
+  const legend = readLegend(rows, fills, h);
+  const colYears = {};
+  if (Object.keys(legend).length) cols.forEach(([i, c]) => {
+    let f = (fills[h] || [])[i];
+    if (legend[f] === undefined) {
+      const n = {};
+      rows.slice(h + 1, h + 1 + out.length + 5).forEach((_, k) => { const g = (fills[h + 1 + k] || [])[i]; if (legend[g] !== undefined) n[g] = (n[g] || 0) + 1; });
+      f = Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+    }
+    if (legend[f] !== undefined) colYears[c] = legend[f];
+  });
   const y = yearFromSheet(name);
   const used = cols.map(c => c[1]).filter(c => out.some(r => r.values[c]));
-  return { name, year: y === undefined ? null : Number(y), columns: used, sections, rows: out };
+  return { name, year: y === undefined ? null : Number(y), columns: used, sections, colYears, rows: out };
 }
 
 export default function StudiesImport({ onClose, onDone }) {
@@ -131,11 +171,17 @@ export default function StudiesImport({ onClose, onDone }) {
   const matched = columns.filter(c => matchItem(c));
   const fresh = columns.filter(c => !matchItem(c));
   // A new column's year: the earliest ticked sheet whose pupils have marks in it.
+  const colourYear = c => chosen.map(sh => sh.colYears?.[c]).find(y => y !== undefined);
   const guessYear = c => {
+    if (colourYear(c) !== undefined) return colourYear(c);
     const ys = chosen.filter(s => s.rows.some(r => r.values[c])).map(s => s.year).filter(y => y !== null);
     return ys.length ? Math.min(...ys) : 0;
   };
   const yearFor = c => (newYears[c] === undefined ? guessYear(c) : newYears[c]);
+  // Already on the list but the sheet's colours say another year (e.g. added to the wrong year by an earlier import):
+  // "Learnt in" moves to the colour's year.
+  const moves = columns.filter(c => itemOf[c] && colourYear(c) !== undefined && colourYear(c) !== itemOf[c].yearGroup)
+    .filter((c, i, a) => a.findIndex(x => itemOf[x].id === itemOf[c].id) === i);
   const rowsFound = chosen.flatMap(s => s.rows);
   const unknown = [...new Set(rowsFound.filter(r => !byPerson[personKey(r.first, r.last)]).map(r => `${r.first} ${r.last}`))];
   const marksCount = rowsFound.filter(r => byPerson[personKey(r.first, r.last)])
@@ -163,6 +209,10 @@ export default function StudiesImport({ onClose, onDone }) {
     setBusy(true); setError('');
     try {
       const ids = Object.fromEntries(matched.map(c => [c, matchItem(c).id]));
+      for (const c of moves) {
+        const it = itemOf[c];
+        await saveStudiesItem({ id: it.id, kind: it.kind, name: it.name, detail: it.detail || '', yearGroup: colourYear(c), surah: it.surah });
+      }
       for (const c of fresh) {
         if (yearFor(c) === 'skip') continue;
         const r = await saveStudiesItem({ kind: kindOf[c], name: c, detail: '', yearGroup: Number(yearFor(c)), surah: kindOf[c] === 'surah' ? surahNumber(c) : null });
@@ -177,7 +227,7 @@ export default function StudiesImport({ onClose, onDone }) {
       const list = [...marks.values()];
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
-      setDone({ marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length, spare: spareItems(ids) });
+      setDone({ moved: moves.length, marks: n, added: fresh.filter(c => yearFor(c) !== 'skip').length, spare: spareItems(ids) });
       setDrop(spareItems(ids).map(i => i.id));
       markMarksImported(user?.madrasah?.code); // ticks Getting started's "Bring in the marks you already have"
       await onDone?.();
@@ -195,7 +245,7 @@ export default function StudiesImport({ onClose, onDone }) {
         <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
           {done ? <>
             <div style={{ fontSize: 14, color: 'var(--green-text)' }}>
-              <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks{done.added ? ` and added ${done.added} to your list` : ''}.
+              <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks{done.added ? ` and added ${done.added} to your list` : ''}{done.moved ? `; moved ${done.moved} to the year your colours show` : ''}.
             </div>
             {dropped !== null ? (dropped >= 0 &&
               <div style={{ fontSize: 14, color: 'var(--green-text)' }}><Check size={15} style={{ verticalAlign: -2 }} /> Removed {dropped} — your lists are now your own.</div>
@@ -203,7 +253,7 @@ export default function StudiesImport({ onClose, onDone }) {
               <div style={{ display: 'grid', gap: 8, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: 12 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Use your own list instead of ours?</div>
                 <div className="text-muted" style={{ fontSize: 13 }}>
-                  Your spreadsheet doesn't have these {done.spare.length} from our ready-made list. Remove the ticked ones (and any marks on them)?
+                  Your spreadsheet doesn't have {done.spare.length === 1 ? 'this one' : `these ${done.spare.length}`} from our ready-made list. Remove the ticked ones (and any marks on them)?
                 </div>
                 <div style={{ display: 'grid', gap: 2, maxHeight: 300, overflowY: 'auto', background: '#fff', borderRadius: 'var(--r-md)', padding: '6px 10px' }}>
                   {[...new Set(done.spare.map(i => i.yearGroup))].map(y => {
@@ -260,6 +310,12 @@ export default function StudiesImport({ onClose, onDone }) {
               </div>
               {perKind.length > 0 && (
                 <div className="text-muted" style={{ fontSize: 12.5 }}>Columns found: {perKind.map(([l, n]) => `${l} ${n}`).join(' · ')}</div>
+              )}
+              {moves.length > 0 && (
+                <div style={{ fontSize: 12.5, color: 'var(--ink)', background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
+                  Your colours put {moves.length === 1 ? 'this' : `these ${moves.length}`} in another year — {moves.length === 1 ? 'it' : 'they'}'ll move:{' '}
+                  {moves.slice(0, 8).map(c => `${itemOf[c].name} (${yearLabel(itemOf[c].yearGroup)} → ${yearLabel(colourYear(c))})`).join(', ')}{moves.length > 8 ? '…' : ''}
+                </div>
               )}
               {unknown.length > 0 && (
                 <div style={{ fontSize: 12.5, color: 'var(--amber-text)' }}>
