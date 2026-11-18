@@ -20,8 +20,9 @@ import InstallSteps from '../components/InstallSteps';
 import { usePageHelp, PageHelpButton } from '../components/PageHelp';
 import { DemoBar, leaveDemo } from '../components/Demo';
 import { useAuth } from '../lib/AuthContext';
+import PlacesModal, { openPlace } from '../components/Places';
 import BoxRow from '../components/BoxRow';
-import { LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react';
+import { ArrowLeftRight, LogOut, KeyRound, Download, CalendarX, Check, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react';
 
 // The parent portal: one page, made for a phone. A family login sees each of their
 // children's attendance, fees, finished reports and Qur'aan progress, and can tell the
@@ -485,6 +486,7 @@ export default function ParentPortal() {
   const [error, setError] = useState('');
   const [active, setActive] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+  const [places, setPlaces] = useState(false);
 
   useEffect(() => {
     getParentHome()
@@ -492,7 +494,13 @@ export default function ParentPortal() {
       .catch(err => setError(err.message || 'Could not load'));
   }, []);
 
-  async function signOut() { if (user?.demo) { leaveDemo(); return; } await logout().catch(() => {}); window.location.reload(); }
+  async function signOut() {
+    if (user?.demo) { leaveDemo(); return; }
+    const r = await logout().catch(() => null);
+    if (r?.stillSignedIn) { openPlace(r.madrasah?.code); return; } // Switch: another place on this device takes over
+    window.location.reload();
+  }
+  const placesLabel = 'Your places';
   const child = home?.children.find(c => c.id === active);
 
   return (
@@ -505,6 +513,7 @@ export default function ParentPortal() {
           <div style={{ fontSize: 12, opacity: 0.8 }}>{settings.schoolName} · Parents</div>
         </div>
         {!user?.demo && <button onClick={() => setChangingPassword(true)} aria-label="Change password" title="Change password" style={headerBtn}><KeyRound size={18} /></button>}
+        {!user?.demo && <button onClick={() => setPlaces(true)} aria-label={placesLabel} title={placesLabel} style={headerBtn}><ArrowLeftRight size={18} /></button>}
         <button onClick={signOut} aria-label="Log out" title="Log out" style={headerBtn}><LogOut size={18} /></button>
       </div>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 16 }}>
@@ -531,6 +540,7 @@ export default function ParentPortal() {
         <MadeWith style={{ marginBottom: 8 }} />
       </div>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+      {places && <PlacesModal onClose={() => setPlaces(false)} />}
       <InstallSteps steps={pageHelp.open ? pageHelp.help : null} onClose={pageHelp.close} />
     </div>
   );

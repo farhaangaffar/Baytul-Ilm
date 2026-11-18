@@ -58,8 +58,9 @@ async function apiFetch(path, options = {}) {
 // Normal sign-in. Before the owner account exists, the school password answers
 // { setupRequired: true } instead of signing in (see server/routes/login.js).
 // code: the madrasah's sign-in code (optional when the username + password match only one login).
-export async function login(code, loginName, password) {
-  return apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ code, login: loginName, password }) });
+// keep: "Add another madrasah or school" (Switch) — the place in use stays signed in on this device.
+export async function login(code, loginName, password, keep = false) {
+  return apiFetch('/api/login', { method: 'POST', body: JSON.stringify({ code, login: loginName, password, ...(keep ? { keep: true } : {}) }) });
 }
 export async function setupOwner(recoveryKey, loginName, password) {
   return apiFetch('/api/login?action=setup', { method: 'POST', body: JSON.stringify({ recoveryKey, login: loginName, password }) });
@@ -78,8 +79,13 @@ export async function signupCodeFree(code) { return apiFetch(`/api/signup?code=$
 export async function startDemo(role, kind) {
   return apiFetch('/api/demo', { method: 'POST', body: JSON.stringify({ role, kind }) });
 }
-export async function logout() {
-  return apiFetch('/api/logout', { method: 'POST' });
+// Signs out of the place in use; another place this device is signed in to takes over ({ stillSignedIn }). all = everything.
+export async function logout(all = false) {
+  return apiFetch(`/api/logout${all ? '?all=1' : ''}`, { method: 'POST' });
+}
+// Switch to another place this device is signed in to (a user id from the session's `others`) → { madrasah: { code } }.
+export async function switchPlace(id) {
+  return apiFetch('/api/session?action=switch', { method: 'POST', body: JSON.stringify({ id }) });
 }
 // → { authenticated, setupRequired, user?: { login, role, teacherId, classId, classNames,
 //     platformAdmin, madrasah: { code, name } } }

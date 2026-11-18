@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { ensureUsersTable, getUser, teacherClassNames, teachingClassNames } = require('../auth');
+const { ensureUsersTable, getUser, teacherClassNames, teachingClassNames, savedSessions, switchSession } = require('../auth');
 const { ensureSignupColumns } = require('../newMadrasah');
 
 // Who is signed in (and, for a teacher or class login, which classes they can see),
@@ -37,6 +37,16 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // POST ?action=switch { id } — Switch to another place this device is signed in to (its user id).
+  if (req.query.action === 'switch') {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const to = await switchSession(req, res, String((req.body || {}).id || ''));
+    if (!to) { res.status(404).json({ error: "That place isn't signed in on this device any more — sign in to it again." }); return; }
+    const { rows: [m] } = await query('SELECT code, name, kind FROM madaaris WHERE id = $1', [to.madrasahId]);
+    res.status(200).json({ ok: true, madrasah: m });
+    return;
+  }
+
   // GET ?action=dpa — a school's head: what goes on their copy of the data processing agreement (Settings → Your school).
   if (req.query.action === 'dpa') {
     if (!user || user.role !== 'owner') { res.status(403).json({ error: "You don't have access to this." }); return; }
@@ -71,11 +81,23 @@ module.exports = async (req, res) => {
     if (maintenanceDuty && !classNames.length) maintenanceOnly = !(await teachingClassNames(user)).length;
   }
   const termsNeeded = user.role === 'owner' && !user.platformAdmin && !user.demo && m.terms_version !== termsVersionFor(m.kind);
+  // Switch: the other places this device is signed in to — their name and the person's role there, never more.
+  const others = [];
+  if (user.role !== 'pupil' && !user.demo) {
+    for (const { user: o } of await savedSessions(req)) {
+      // The name it shows itself by (Settings), else its name on the Madaaris page.
+      const { rows: [om] } = await query(
+        `SELECT m.code, COALESCE(NULLIF(s.school_name, ''), m.name) AS name, m.kind FROM madaaris m
+           LEFT JOIN settings s ON s.madrasah_id = m.id WHERE m.id = $1`, [o.madrasahId]);
+      if (om) others.push({ id: o.id, role: o.role, login: o.login, madrasah: om });
+    }
+  }
   res.status(200).json({
     authenticated: true, setupRequired,
     user: {
       login: user.login, role: user.role, teacherId: user.teacherId, classId: user.classId, classNames,
       platformAdmin: user.platformAdmin, demo: user.demo, madrasah: { code: m.code, name: m.name, kind: m.kind }, termsNeeded, boarding, boardingDuty, maintenanceDuty, maintenanceOnly,
+      id: user.id, others,
     },
   });
 };

@@ -116,6 +116,11 @@ export default function App() {
     }
   }
 
+  // Switch: "Add another madrasah or school" — sign in to one more place, keeping this one (pages/Login.js add mode).
+  if (session.authenticated && params.has('add') && !session.user.demo && session.user.role !== 'pupil') {
+    return <Login add setupRequired={false} onSuccess={refreshSession} />;
+  }
+
   // "Start free": a madrasah signs itself up (pages/Signup.js), then it's straight in.
   if (!session.authenticated && !session.setupRequired && params.has('start')) {
     return <Signup onDone={refreshSession} />;

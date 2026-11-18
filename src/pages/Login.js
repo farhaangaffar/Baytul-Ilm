@@ -23,13 +23,15 @@ const demoLink = () => { try { return new URLSearchParams(window.location.search
 // school's Islamic Studies department.
 const demoKind = () => { try { return { 'darul-uloom': 'darul_uloom', school: 'school' }[new URLSearchParams(window.location.search).get('demo')] || 'maktab'; } catch { return 'maktab'; } };
 
-export default function Login({ setupRequired, notice, onSuccess }) {
-  const [mode, setMode] = useState(() => (!setupRequired && demoLink() ? 'demo' : 'signin')); // 'signin' | 'setup' | 'recover' | 'demo'
-  const [code, setCode] = useState(getMadrasahCode());
-  const [editingCode, setEditingCode] = useState(!getMadrasahCode());
+// add: "Add another madrasah or school" (Switch, components/Places.js) — someone already signed in signs in to one more
+// place; the one in use stays signed in on this device (login's keep). Blank code, Suhuf's own look, Cancel goes back.
+export default function Login({ setupRequired, notice, onSuccess, add = false }) {
+  const [mode, setMode] = useState(() => (!add && !setupRequired && demoLink() ? 'demo' : 'signin')); // 'signin' | 'setup' | 'recover' | 'demo'
+  const [code, setCode] = useState(add ? '' : getMadrasahCode());
+  const [editingCode, setEditingCode] = useState(add || !getMadrasahCode());
   const [loginName, setLoginName] = useState('');
   // Pupils who have signed in on this device before (brothers and sisters sharing it): tap a name, type the password.
-  const [pupils, setPupils] = useState(() => devicePupils(getMadrasahCode()));
+  const [pupils, setPupils] = useState(() => (add ? [] : devicePupils(getMadrasahCode())));
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -43,6 +45,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
   // A madrasah's name is public (api/settings serves it before sign-in, by code), so the
   // login screen shows the madrasah this device belongs to — or a neutral name.
   useEffect(() => {
+    if (add) return;
     getSettings().then(s => {
       if (s.schoolName) { setBranding({ schoolName: s.schoolName, schoolNameArabic: s.schoolNameArabic }); setBrandingState(getBranding()); }
     }).catch(() => {});
@@ -69,7 +72,13 @@ export default function Login({ setupRequired, notice, onSuccess }) {
     e.preventDefault();
     if (!password) return;
     run(async () => {
-      const result = await login(code.trim().toLowerCase(), loginName, password);
+      const result = await login(code.trim().toLowerCase(), loginName, password, add);
+      if (add) { // straight into the place just added (its code remembered, so its name and logo show)
+        if (result.setupRequired || !result.madrasah?.code) throw new Error("That didn't sign in — check the code, username and password.");
+        setMadrasahCode(result.madrasah.code);
+        window.location.assign('/');
+        return;
+      }
       if (result.setupRequired) {
         // The school password was right, but there's no owner account yet.
         setRecoveryKey(password);
@@ -107,7 +116,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
 
   const usernameProps = { autoCapitalize: 'none', autoCorrect: 'off', autoComplete: 'username', spellCheck: false };
   // A demo never shows the madrasah this device remembers — it's Suhuf's own made-up madrasah, Darul Uloom or school.
-  const neutral = isNeutralBranding() || mode === 'demo';
+  const neutral = add || isNeutralBranding() || mode === 'demo';
   const linkBtn = { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font)' };
 
   return (
@@ -120,7 +129,7 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             {/* No madrasah on this device yet: the app's own name. */}
             <div className="signin-ar">{APP_NAME_ARABIC}</div>
             <div className="signin-name">{APP_NAME}</div>
-            <p>{mode === 'demo' ? `Look around a made-up ${{ darul_uloom: 'Darul Uloom', school: 'school' }[demoKind()] || 'madrasah'} — nothing real is shown.` : 'Sign in to your madrasah, Darul Uloom or school.'}</p>
+            <p>{add ? 'Add another madrasah, Darul Uloom or school you belong to, then switch between them from the menu.' : mode === 'demo' ? `Look around a made-up ${{ darul_uloom: 'Darul Uloom', school: 'school' }[demoKind()] || 'madrasah'} — nothing real is shown.` : 'Sign in to your madrasah, Darul Uloom or school.'}</p>
             <div className="signin-chips"><span>Maktabs</span><span>Darul Ulooms</span><span>Schools</span></div>
           </> : <>
             {branding.schoolNameArabic && <div className="signin-ar">{branding.schoolNameArabic}</div>}
@@ -144,6 +153,8 @@ export default function Login({ setupRequired, notice, onSuccess }) {
 
         {mode === 'signin' && (
           <form onSubmit={submitSignIn}>
+            {add && <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4, textAlign: 'left' }}>Add another madrasah or school</div>}
+            {add && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, textAlign: 'left' }}>Sign in with the code, username and password from that place. You stay signed in to this one too.</div>}
             {notice && <div style={{ fontSize: 12.5, background: 'var(--red-light)', color: 'var(--red-text)', borderRadius: 'var(--r-md)', padding: '8px 12px', marginBottom: 14, textAlign: 'left' }}>{notice}</div>}
             {setupRequired ? (
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, textAlign: 'left' }}>
@@ -183,17 +194,18 @@ export default function Login({ setupRequired, notice, onSuccess }) {
             {field(setupRequired ? 'School password' : 'Password', password, setPassword, { id: 'signin-password', type: 'password', autoComplete: 'current-password', autoFocus: setupRequired })}
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, textAlign: 'left' }}>{error}</div>}
             {submitBtn(<LogIn size={14} />, 'Sign in', 'Signing in…', !password || (!setupRequired && (!loginName || !code.trim())))}
-            {!setupRequired && (
+            {add && <a href="/" style={{ ...linkBtn, display: 'inline-block', marginTop: 14, textDecoration: 'underline' }}>Cancel</a>}
+            {!add && !setupRequired && (
               <button type="button" onClick={() => switchMode('recover')} style={{ ...linkBtn, marginTop: 14 }}>
                 Forgot the platform owner password?
               </button>
             )}
-            {!setupRequired && (
+            {!add && !setupRequired && (
               <div style={{ fontSize: 11.5, color: 'var(--text-soft)', marginTop: 6 }}>Everyone else: ask your school or madrasah office to reset your password.</div>
             )}
             {/* Only on a device that isn't any madrasah's yet, so a madrasah's own people
                 don't see it; the ?demo link works anywhere. */}
-            {!setupRequired && !getMadrasahCode() && (<>
+            {!add && !setupRequired && !getMadrasahCode() && (<>
               <a href="/?start" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 18, boxSizing: 'border-box', textDecoration: 'none' }}>
                 <Rocket size={14} />New madrasah? Start free
               </a>

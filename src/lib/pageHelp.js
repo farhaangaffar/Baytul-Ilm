@@ -26,6 +26,7 @@ const HEAD = {
     'Tap "View all" on a box to go to that page.',
     'The charts show this week\'s attendance and this month\'s (or term\'s) fees.',
     'At the bottom, "Recommend Suhuf": send your link to another madrasah — you get a month free for each one that signs up.',
+    'Belong to another madrasah or school on Suhuf too? "Your places" (the ⇄ button) adds it — then switch between them with one tap, no password.',
   ] },
   '/students': { title: 'Students', steps: [
     'Children are grouped by class — tap a class to open it.',
@@ -153,6 +154,7 @@ const PARENT = { title: 'How to use this page', steps: [
   'Report an absence at the bottom to let the teacher know.',
   'Your details: tap "Check & update" to change phone numbers, address, emergency contact or health.',
   'Boarders: "Going home" shows the next home weekends and your child\'s trips home.',
+  'Children at another madrasah or school on Suhuf? "Your places" (the ⇄ button) adds that login — then switch with one tap.',
 ] };
 
 // Boarding (a Darul Uloom): the head, and teachers on boarding duty (who can't change rooms or home weekends).
@@ -272,6 +274,7 @@ const SCHOOL_HEAD = {
     'The boxes on top: pupils, classes, and how much of this year\'s surahs, du\'aas and practicals are achieved or being worked towards.',
     'Each class has a line with its year group, teacher and a bar — green achieved, amber completed with help. Tap it to open the class on Islamic Studies.',
     'At the bottom, "Recommend Suhuf": send your link to another school or madrasah — you get a month free for each one that signs up.',
+    'Belong to another madrasah or school on Suhuf too? "Your places" (the ⇄ button) adds it — then switch between them with one tap, no password.',
   ] },
   '/students': { title: 'Pupils', steps: [
     'Pupils are grouped by class — tap a class to open it. Each class shows its year group and how much of this year\'s Islamic Studies is achieved.',
@@ -312,6 +315,7 @@ const SCHOOL_PARENT = { title: 'How to use this page', steps: [
   'Reports: each one the school has sent — tap it to see it and download the PDF.',
   'Homework: what your child\'s teacher has set, when it\'s due, and whether your child has ticked it done.',
   'Your details: tap "Check & update" to change your names, phone numbers and emails.',
+  'Children at another madrasah or school on Suhuf? "Your places" (the ⇄ button) adds that login — then switch with one tap.',
 ] };
 
 const SCHOOL_PUPIL = { title: 'How to use this page', steps: [
