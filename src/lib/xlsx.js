@@ -197,10 +197,12 @@ export async function xlsxSheetTexts(file) {
   return sheetList.filter(s => files[s.file]).map(s => ({ name: s.name, text: sheetText(s.file) }));
 }
 
-// An .xlsx File → every sheet, in order: [{ name, rows: [[cell text…]…] }] (values as shown, no date conversion) — for
-// a school's Islamic Studies import, whose workbooks keep one sheet per year group (src/components/StudiesImport.js).
+// An .xlsx File → every sheet, in order: [{ name, rows: [[cell text…]…], fills: [[fill…]…] }] (values as shown, no date
+// conversion) — for a school's Islamic Studies import, whose workbooks keep one sheet per year group
+// (src/components/StudiesImport.js). `fills` is each cell's background colour as a key ('FFFFC000', 'theme4:0.4', '' for
+// none) — schools colour their columns by the year they're learnt in, with a legend.
 export async function xlsxSheets(file) {
-  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || SHEET_FILE.test(n));
+  const files = await unzip(await file.arrayBuffer(), n => n === 'xl/sharedStrings.xml' || n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' || n === 'xl/styles.xml' || SHEET_FILE.test(n));
   const dec = new TextDecoder(), parse = s => new DOMParser().parseFromString(s, 'application/xml');
   const text = n => (files[n] ? dec.decode(files[n]) : '');
   const shared = files['xl/sharedStrings.xml']
@@ -210,13 +212,32 @@ export async function xlsxSheets(file) {
   try {
     [...tags(parse(text('xl/_rels/workbook.xml.rels')), 'Relationship')].forEach(r => { rels[r.getAttribute('Id')] = `xl/${r.getAttribute('Target').replace(/^\/?(xl\/)?/, '')}`; });
   } catch { /* none */ }
+  // Style number → fill key, from styles.xml (fills, then cellXfs' fillId). Solid fills only; white and "no fill" are ''.
+  let styleFill = [];
+  try {
+    const st = parse(text('xl/styles.xml'));
+    const fillsEl = tags(st, 'fills')[0];
+    const fills = fillsEl ? [...tags(fillsEl, 'fill')].map(f => {
+      const pf = tags(f, 'patternFill')[0];
+      if (!pf || (pf.getAttribute('patternType') || 'none') === 'none') return '';
+      const fg = tags(pf, 'fgColor')[0];
+      if (!fg) return '';
+      const rgb = fg.getAttribute('rgb');
+      if (rgb) return /^(FF)?FFFFFF$/i.test(rgb) ? '' : rgb.toUpperCase();
+      if (fg.getAttribute('theme') !== null) return `theme${fg.getAttribute('theme')}:${Math.round(Number(fg.getAttribute('tint') || 0) * 100) / 100}`;
+      if (fg.getAttribute('indexed') !== null) return fg.getAttribute('indexed') === '64' ? '' : `indexed${fg.getAttribute('indexed')}`;
+      return '';
+    }) : [];
+    const xfs = tags(st, 'cellXfs')[0];
+    styleFill = xfs ? [...xfs.children].filter(x => x.localName === 'xf').map(x => fills[Number(x.getAttribute('fillId') || 0)] || '') : [];
+  } catch { /* no colours */ }
   const out = [];
   [...tags(parse(text('xl/workbook.xml')), 'sheet')].forEach((s, i) => {
     const file = rels[s.getAttribute('r:id')] || `xl/worksheets/sheet${i + 1}.xml`;
     if (!files[file]) return;
-    const rows = [];
+    const rows = [], fillRows = [];
     [...tags(parse(text(file)), 'row')].forEach(r => {
-      const cells = [];
+      const cells = [], cellFills = [];
       [...tags(r, 'c')].forEach(c => {
         const t = c.getAttribute('t');
         const vEl = tags(c, 'v')[0];
@@ -224,11 +245,15 @@ export async function xlsxSheets(file) {
         if (t === 's') val = shared[Number(vEl?.textContent)] ?? '';
         else if (t === 'inlineStr') val = [...tags(c, 't')].map(x => x.textContent).join('');
         else if (vEl) val = vEl.textContent;
-        cells[colIndex(c.getAttribute('r') || colName(cells.length))] = String(val).trim();
+        const at = colIndex(c.getAttribute('r') || colName(cells.length));
+        cells[at] = String(val).trim();
+        cellFills[at] = styleFill[Number(c.getAttribute('s') || 0)] || '';
       });
-      rows[Number(r.getAttribute('r')) - 1 || rows.length] = Array.from(cells, x => x ?? '');
+      const ri = Number(r.getAttribute('r')) - 1 || rows.length;
+      rows[ri] = Array.from(cells, x => x ?? '');
+      fillRows[ri] = Array.from(cellFills, x => x ?? '');
     });
-    out.push({ name: s.getAttribute('name'), rows: Array.from(rows, x => x || []) });
+    out.push({ name: s.getAttribute('name'), rows: Array.from(rows, x => x || []), fills: Array.from({ length: rows.length }, (_, k) => fillRows[k] || []) });
   });
   return out;
 }
