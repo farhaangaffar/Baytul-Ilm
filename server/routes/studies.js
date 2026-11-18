@@ -158,6 +158,16 @@ async function items(mid, upToYear = null, unplanned = false) {
   return rows;
 }
 
+// "Working ahead": the year plan's items for the years after a class's (a class that has finished its own year's goes on
+// to the next ones — marked like any other; the plan isn't changed and this year's figures don't count them).
+async function aheadItems(mid, year) {
+  if (year === null || year === undefined) return [];
+  const { rows } = await query(
+    `SELECT ${ITEM_COLS} FROM is_items WHERE madrasah_id = $1 AND year_group > $2
+     ORDER BY year_group, ${SURAH_ORDER}, sort, id`, [mid, year]);
+  return rows;
+}
+
 // The first time a school opens Islamic Studies, its lists start as the starter lists.
 async function seedOnce(mid) {
   const { rows: [s] } = await query('SELECT studies_seeded FROM settings WHERE madrasah_id = $1', [mid]);
@@ -442,8 +452,9 @@ const handler = requireAuth(async (req, res) => {
         `SELECT id, forename || ' ' || surname AS name, class FROM students WHERE id = $1 AND madrasah_id = $2`, [sid, mid]);
       const year = await yearGroupOfClass(mid, p.class);
       const { rows: progress } = await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = $2`, [mid, sid]);
+      const marked = new Set(progress.map(r => r.itemId));
       res.status(200).json({ pupil: { ...p, yearGroup: year }, items: await items(mid, year), progress, ayahs: await classAyahs(mid, p.class),
-        classAverage: await classAverageOf(mid, p.class, year) });
+        classAverage: await classAverageOf(mid, p.class, year), ahead: (await aheadItems(mid, year)).filter(i => marked.has(i.id)) });
       return;
     }
     if (req.query.class !== undefined) {
@@ -458,7 +469,7 @@ const handler = requireAuth(async (req, res) => {
       const { rows: progress } = ids.length
         ? await query(`SELECT ${PROGRESS_COLS} FROM is_progress WHERE madrasah_id = $1 AND student_id = ANY($2)`, [mid, ids])
         : { rows: [] };
-      res.status(200).json({ yearGroup: year, items: await items(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
+      res.status(200).json({ yearGroup: year, items: await items(mid, year), ahead: await aheadItems(mid, year), pupils, progress, ayahs: await classAyahs(mid, cls), links: await linksOf(mid, req) });
       return;
     }
     // The whole list, with Suhuf's usual du'aas and practicals (the year plan's tick lists offer them) and how many marks each

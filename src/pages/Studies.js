@@ -128,6 +128,7 @@ export default function Studies() {
   const [error, setError] = useState(null);
   const [openItem, setOpenItem] = useState(null);
   const [showEarlier, setShowEarlier] = useState(false);
+  const [aheadYear, setAheadYear] = useState(null); // "Working ahead": which later year is open (null = closed)
   const [modal, setModal] = useState(null); // { kind: 'item', item? } | { kind: 'pupil', id } | { kind: 'import' }
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
@@ -192,8 +193,13 @@ export default function Studies() {
   const items = all.filter(i => byPupil || i.kind === tab);
   const now = items.filter(i => noYear || i.yearGroup === year);
   const earlier = noYear ? [] : items.filter(i => i.yearGroup < year).sort((a, b) => b.yearGroup - a.yearGroup); // newest year first
+  // Working ahead: the later years' items (the plan isn't changed; this year's figures don't count them).
+  const ahead = (data?.ahead || []).filter(i => byPupil || i.kind === tab);
+  const aheadYears = [...new Set(ahead.map(i => i.yearGroup))];
   const pupils = data?.pupils || [];
   const levelOf = (p, it) => levels[p.id]?.[it.id] || 0;
+  // A pupil's card also shows the later years' items they have marks for (as "Working ahead").
+  const withAhead = p => [...all, ...(data?.ahead || []).filter(it => levelOf(p, it))];
   // This year's items × the class's pupils, for the figures.
   const classTally = tally(now.flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
   // The class's average for each list (their year and earlier), to compare a child with.
@@ -205,7 +211,7 @@ export default function Studies() {
   // On a computer something is always shown in the panel: the line picked, else the first.
   const sel = !wide ? openItem
     : byPupil ? (pupils.some(p => `p:${p.id}` === openItem) ? openItem : (pupils[0] ? `p:${pupils[0].id}` : null))
-    : (items.some(i => i.id === openItem) ? openItem : (now[0] || items[0])?.id ?? null);
+    : ([...items, ...ahead].some(i => i.id === openItem) ? openItem : (now[0] || items[0])?.id ?? null);
 
   // What an opened line shows: its resources, the aayahs covered, Everyone and a row per pupil, then Set homework / Edit.
   const itemBody = (it, closeBtn) => {
@@ -278,7 +284,7 @@ export default function Studies() {
 
   // The panel on a computer: the picked surah / du'aa / practical (its name, figures and everything its line opens to), or
   // the picked pupil's PupilDetail.
-  const selItem = wide && !byPupil ? items.find(i => i.id === sel) : null;
+  const selItem = wide && !byPupil ? [...items, ...ahead].find(i => i.id === sel) : null;
   const selPupil = wide && byPupil ? pupils.find(p => `p:${p.id}` === sel) : null;
   const panel = selItem ? (() => {
     const t = tally(pupils, p => levelOf(p, selItem));
@@ -298,7 +304,7 @@ export default function Studies() {
   })() : selPupil ? (
     <>
       <div className="st-panel-head"><div className="st-panel-name">{selPupil.name}</div></div>
-      <PupilDetail key={selPupil.id} name={selPupil.name.split(' ')[0]} items={all} levelOf={it => levelOf(selPupil, it)} onPick={(it, v) => mark(it.id, [selPupil.id], v)} busy={busy}
+      <PupilDetail key={selPupil.id} name={selPupil.name.split(' ')[0]} items={withAhead(selPupil)} levelOf={it => levelOf(selPupil, it)} onPick={(it, v) => mark(it.id, [selPupil.id], v)} busy={busy}
         classAverage={classAverage} ayahs={data?.ayahs} yearGroup={year} />
     </>
   ) : <div className="text-muted" style={{ fontSize: 13 }}>{byPupil ? 'No pupils in this class yet.' : `No ${tabLabel.toLowerCase()} yet.`}</div>;
@@ -341,7 +347,7 @@ export default function Studies() {
                       </button>
                       {open && !wide && (
                         <div className="st-open">
-                          <PupilDetail name={p.name.split(' ')[0]} items={all} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
+                          <PupilDetail name={p.name.split(' ')[0]} items={withAhead(p)} levelOf={it => levelOf(p, it)} onPick={(it, v) => mark(it.id, [p.id], v)} busy={busy}
                             classAverage={classAverage} ayahs={data.ayahs} yearGroup={year} />
                           <button type="button" className="btn btn-sm" style={{ justifySelf: 'center' }} onClick={e => closeBack(e, () => setOpenItem(null))}><ChevronUp size={13} />Close {p.name.split(' ')[0]}</button>
                         </div>
@@ -371,8 +377,29 @@ export default function Studies() {
                   ))}
                 </>
               )}
+              {aheadYears.length > 0 && (() => {
+                // A class that has finished its own year's goes on to the next — one later year at a time.
+                const open = aheadYear !== null && aheadYears.includes(aheadYear);
+                const shownYear = open ? aheadYear : aheadYears[0];
+                const list = ahead.filter(i => i.yearGroup === shownYear);
+                const next = aheadYears[aheadYears.indexOf(shownYear) + 1];
+                const t = tally(list.flatMap(it => pupils.map(p => ({ it, p }))), x => levelOf(x.p, x.it));
+                return (
+                  <>
+                    <button type="button" className={`line-row ${open ? 'on' : ''}`} onClick={() => setAheadYear(open ? null : shownYear)} style={{ marginTop: 6 }}>
+                      <span className="line-row-name">Working ahead · {yearLabel(shownYear)}</span>
+                      <span className="line-row-sub">{list.length}{t.assessed ? ` · ${t.pctAchieved}% achieved` : ''}</span>
+                      {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                    {open && list.map(itemLine)}
+                    {open && next !== undefined && (
+                      <button type="button" className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setAheadYear(next)}>Go on to {yearLabel(next)}</button>
+                    )}
+                  </>
+                );
+              })()}
               {isOwner && (
-                <button type="button" className="line-row add" style={{ marginTop: 6 }} onClick={() => setModal({ kind: 'item', item: { kind: tab, yearGroup: year ?? 0 } })}>
+                <button type="button" className="line-row add" style={{ marginTop: 6 }} onClick={() => setModal({ kind: 'plan', year, list: tab })}>
                   <Plus size={13} /> Add a {oneWord}
                 </button>
               )}
@@ -410,7 +437,7 @@ export default function Studies() {
         <PupilSheet id={modal.id} onClose={() => setModal(null)} onChanged={load} />
       )}
       {modal?.kind === 'plan' && (
-        <YearPlan onClose={() => setModal(null)} onChanged={load} classYears={classes.map(c => c.yearGroup)} />
+        <YearPlan onClose={() => setModal(null)} onChanged={load} classYears={classes.map(c => c.yearGroup)} startYear={modal.year} startList={modal.list} />
       )}
       {modal?.kind === 'import' && (
         <StudiesImport onClose={() => setModal(null)} onDone={load} />
@@ -427,8 +454,12 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
   const [workOpen, setWorkOpen] = useState('');
   const [workAll, setWorkAll] = useState(false); // a long list shows its first few until "Show all"
   const FEW = 8;
-  const t = tally(items, levelOf);
-  const toWork = [...items.filter(it => levelOf(it) === 1), ...items.filter(it => levelOf(it) === 2)];
+  const has0 = v => v !== null && v !== undefined;
+  // Items from a later year (the pupil working ahead) get their own "Working ahead" card and stay out of the figures.
+  const isAhead = it => has0(yearGroup) && has0(it.yearGroup) && it.yearGroup > yearGroup;
+  const counted = items.filter(it => !isAhead(it));
+  const t = tally(counted, levelOf);
+  const toWork = [...counted.filter(it => levelOf(it) === 1), ...counted.filter(it => levelOf(it) === 2)];
   // The surah the class is learning now: this year's first surah not fully covered.
   const learning = items.filter(it => it.kind === 'surah' && it.surah && (yearGroup === null || yearGroup === undefined || it.yearGroup === yearGroup))
     .find(it => (ayahs[it.id] || []).length < surahAyahs(it.surah));
@@ -447,7 +478,7 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
       {STUDY_KINDS.map(([k, l]) => {
         const list = items.filter(it => it.kind === k);
         if (!list.length) return null;
-        const kt = tally(list, levelOf);
+        const kt = tally(list.filter(it => !isAhead(it)), levelOf);
         const isOpen = open === k;
         return (
           <div key={k} className="pd-list" style={{ display: 'grid', gap: 6 }}>
@@ -481,6 +512,7 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
                   <div className="pd-year-head">
                     <span>{yearLabel(yg)}</span>
                     {now && <span className="pd-tag">This year</span>}
+                    {has0(yearGroup) && has0(yg) && yg > yearGroup && <span className="pd-tag">Working ahead</span>}
                   </div>
                   {mine.map(it => (
                     <div key={it.id} className="st-pupil">
@@ -560,15 +592,16 @@ const YEARS = Array.from({ length: 14 }, (_, i) => i);
 // Suhuf's usual. The only place years are set — the marks import never adds or moves anything.
 const TEACHING = [1, ...Array.from({ length: 113 }, (_, i) => 114 - i)]; // 1, 114, 113 … 2
 const JUZ_AMMA = new Set([1, ...Array.from({ length: 37 }, (_, i) => 78 + i)]);
-function YearPlan({ onClose, onChanged, classYears = [] }) {
+function YearPlan({ onClose, onChanged, classYears = [], startYear, startList }) {
   const close = useBackToClose(true, onClose);
   const { user } = useAuth();
   useEffect(() => { markStudiesVisited(user?.madrasah?.code); }, [user]); // ticks Getting started's "Set your year plan"
   const cy = classYears.filter(y => y !== null && y !== undefined);
   const years = cy.length ? Array.from({ length: Math.max(...cy) - Math.min(...cy) + 1 }, (_, i) => Math.min(...cy) + i) : Array.from({ length: 12 }, (_, i) => i);
   const [data, setData] = useState(null);
-  const [year, setYear] = useState(years[0]);
-  const [kind, setKind] = useState('surah');
+  // Opened from a class's "Add a surah": that class's year and list.
+  const [year, setYear] = useState(startYear !== null && startYear !== undefined && years.includes(startYear) ? startYear : years[0]);
+  const [kind, setKind] = useState(['surah', 'duaa', 'practical'].includes(startList) ? startList : 'surah');
   const [allSurahs, setAllSurahs] = useState(false);
   const [draft, setDraft] = useState(null); // ticked line keys while changing (null = as saved)
   const [busy, setBusy] = useState(false);
@@ -866,7 +899,7 @@ export function PupilSheet({ id, onClose, onChanged }) {
         <div className="modal-body">
           {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
           {!d && !error && <LoadingState />}
-          {d && <PupilDetail name={d.pupil.name.split(' ')[0]} items={d.items} levelOf={level} onPick={pick} classAverage={d.classAverage} ayahs={d.ayahs} yearGroup={d.pupil.yearGroup} />}
+          {d && <PupilDetail name={d.pupil.name.split(' ')[0]} items={[...d.items, ...(d.ahead || [])]} levelOf={level} onPick={pick} classAverage={d.classAverage} ayahs={d.ayahs} yearGroup={d.pupil.yearGroup} />}
         </div>
       </div>
     </div>
