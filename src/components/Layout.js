@@ -146,7 +146,7 @@ export default function Layout({ children, title, subtitle }) {
             <span className="mobile-topbar-arabic">{settings.schoolNameArabic}</span>
           </div>
           <span className="mobile-topbar-title">{title}</span>
-          <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <div className="mobile-topbar-actions">
             {installPrompt.available && (
               <button className="mobile-topbar-logout" onClick={installPrompt.install} aria-label="Install app" title="Install app">
                 <Download size={18}/>

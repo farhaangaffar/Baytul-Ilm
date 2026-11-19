@@ -520,9 +520,12 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
      track entirely instead of trying to reserve or match its width. */
   .main-content { height: 100vh; height: 100dvh; scrollbar-width: none; }
   .main-content::-webkit-scrollbar { display: none; width: 0; height: 0; }
-  .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 18px; flex-shrink: 0; }
+  .mobile-topbar { display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); padding: 13px 14px; flex-shrink: 0; }
   .mobile-topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
-  .mobile-topbar-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  /* The page title sits in the middle whether or not there's an Arabic name on the left: both sides share the space equally. */
+  .mobile-topbar-brand { display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+  .mobile-topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex: 1 1 0; }
+  .mobile-topbar-title { text-align: center; white-space: nowrap; padding: 0 8px; }
   .mobile-topbar-arabic { font-family: var(--font-arabic); font-size: 21px; color: #ffffff; }
   .mobile-topbar-logout { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #ffffff; opacity: 0.8; cursor: pointer; flex-shrink: 0; }
   .mobile-topbar-logout:active { background: rgba(255,255,255,0.12); }
