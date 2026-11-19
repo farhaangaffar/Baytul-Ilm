@@ -124,20 +124,73 @@ function verify(token) {
 
 // The cookie names a user and their session_version; bumping the version (password
 // change/reset, access removed) signs that user out everywhere.
-function setSessionCookie(res, user) {
-  const token = sign({ uid: String(user.id), sv: user.session_version, exp: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000, ...(user.role === 'pupil' ? { p: 1 } : {}) });
-  const isProd = process.env.NODE_ENV === 'production';
-  const attrs = [
-    `${COOKIE_NAME}=${encodeURIComponent(token)}`,
-    'HttpOnly', 'Path=/', 'SameSite=Lax',
-    `Max-Age=${SESSION_DAYS * 24 * 60 * 60}`,
-  ];
-  if (isProd) attrs.push('Secure');
-  res.setHeader('Set-Cookie', attrs.join('; '));
+const tokenFor = user => sign({ uid: String(user.id), sv: user.session_version, exp: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000, ...(user.role === 'pupil' ? { p: 1 } : {}) });
+// Adds a Set-Cookie line without dropping one already set in this response (switching sets two).
+function addCookie(res, name, value, maxAge) {
+  const attrs = [`${name}=${encodeURIComponent(value)}`, 'HttpOnly', 'Path=/', 'SameSite=Lax', `Max-Age=${maxAge}`];
+  if (process.env.NODE_ENV === 'production') attrs.push('Secure');
+  const prev = res.getHeader('Set-Cookie');
+  res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []).filter(c => !c.startsWith(`${name}=`)), attrs.join('; ')]);
 }
+function setSessionCookie(res, user) { addCookie(res, COOKIE_NAME, tokenFor(user), SESSION_DAYS * 24 * 60 * 60); }
+function clearSessionCookie(res) { addCookie(res, COOKIE_NAME, '', 0); }
 
-function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0`);
+// ── Switch: the other places this device is signed in to ──
+// One person can belong to more than one madrasah or school (a teacher at a maktab and a school; a parent with children at
+// two). The device keeps their other sign-ins in a second cookie — each one the same signed token as the main cookie, so it
+// can only be one they signed in with here, with their own password — and "Switch" swaps one in. Each place is checked on
+// every request exactly as before (getUser); a password change or a removed login drops it. Never pupils or demos; up to 5.
+const SAVED_COOKIE = 'baytul_saved';
+const MAX_SAVED = 5;
+const savedTokens = req => String(parseCookies(req.headers.cookie)[SAVED_COOKIE] || '').split('|').filter(Boolean).slice(0, MAX_SAVED);
+function setSaved(res, tokens) {
+  if (tokens.length) addCookie(res, SAVED_COOKIE, tokens.slice(0, MAX_SAVED).join('|'), SESSION_DAYS * 24 * 60 * 60);
+  else addCookie(res, SAVED_COOKIE, '', 0);
+}
+// A token → its user (as getUser), or null when it no longer works.
+async function userOfToken(token) { return userFromPayload(verify(token)); }
+const switchable = u => u && u.role !== 'pupil' && !u.demo;
+// The device's other places, still valid: [{ token, user }] (not the one in use).
+async function savedSessions(req) {
+  const active = await getUser(req);
+  const out = [];
+  for (const token of savedTokens(req)) {
+    const u = await userOfToken(token);
+    if (switchable(u) && (!active || u.id !== active.id) && !out.some(x => x.user.id === u.id)) out.push({ token, user: u });
+  }
+  return out;
+}
+// Before signing someone else in ("Add another madrasah or school"): keep the place in use on this device.
+async function keepCurrentSession(req, res, newUserId) {
+  const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
+  const current = await userOfToken(token);
+  const saved = (await savedSessions(req)).filter(x => x.user.id !== String(newUserId)).map(x => x.token);
+  if (switchable(current) && current.id !== String(newUserId)) saved.unshift(token);
+  setSaved(res, saved);
+}
+// An ordinary sign-in (not "Add another"): the device forgets any other places — so a pupil, or the next person on a
+// shared device, never lands in someone else's place when they sign out.
+function forgetOtherSessions(res) { setSaved(res, []); }
+// Switch to one of the device's other places (its user id): it becomes the one in use, the current one is kept.
+async function switchSession(req, res, userId) {
+  const saved = await savedSessions(req);
+  const to = saved.find(x => x.user.id === String(userId));
+  if (!to) return null;
+  const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
+  const current = await userOfToken(token);
+  const rest = saved.filter(x => x !== to).map(x => x.token);
+  if (switchable(current)) rest.unshift(token);
+  addCookie(res, COOKIE_NAME, to.token, SESSION_DAYS * 24 * 60 * 60);
+  setSaved(res, rest);
+  return to.user;
+}
+// Sign out of the place in use: the next place on this device (if any) takes over. all = sign out of everything.
+async function signOutSession(req, res, all = false) {
+  const saved = all ? [] : await savedSessions(req);
+  if (!saved.length) { clearSessionCookie(res); setSaved(res, []); return null; }
+  addCookie(res, COOKIE_NAME, saved[0].token, SESSION_DAYS * 24 * 60 * 60);
+  setSaved(res, saved.slice(1).map(x => x.token));
+  return saved[0].user;
 }
 
 // The signed-in user, or null. Sessions from before accounts existed carry no uid
@@ -148,7 +201,9 @@ const PUPIL_COLS = payload => (payload.p
   ? `u.student_id AS "studentId", (SELECT s.status FROM students s WHERE s.id = u.student_id AND s.madrasah_id = u.madrasah_id) AS "pupilStatus", m.kind,`
   : '');
 async function getUser(req) {
-  const payload = verify(parseCookies(req.headers.cookie)[COOKIE_NAME]);
+  return userFromPayload(verify(parseCookies(req.headers.cookie)[COOKIE_NAME]));
+}
+async function userFromPayload(payload) {
   if (!payload || !payload.uid) return null;
   await ensureUsersTable();
   if (payload.p) await require('./pupils').ensurePupilTables(); // a pupil's session: users.student_id exists
@@ -256,5 +311,6 @@ async function teacherScope(req, opts) {
 module.exports = {
   COOKIE_NAME, ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual,
   normalizeLogin, validateLogin, validateNewCredentials, setSessionCookie, clearSessionCookie,
+  savedSessions, keepCurrentSession, switchSession, signOutSession, forgetOtherSessions,
   getUser, requireAuth, isOwner, teacherClassNames, teachingClassNames, whoName, accessScope, teacherScope,
 };

@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const {
   ensureUsersTable, hashPassword, verifyPassword, timingSafeStringEqual, normalizeLogin,
-  validateNewCredentials, setSessionCookie, getUser,
+  validateNewCredentials, setSessionCookie, getUser, keepCurrentSession, forgetOtherSessions,
 } = require('../auth');
 const { ensurePupilTables, MAX_TRIES, LOCK_MINUTES } = require('../pupils');
 
@@ -145,6 +145,9 @@ module.exports = async (req, res) => {
       [user.student_id, user.madrasah_id]);
     if (!p || p.status !== 'Active' || p.kind !== 'school') { res.status(401).json({ error: 'This login is no longer in use — ask your teacher.' }); return; }
   }
+  // "Add another madrasah or school" (Switch): the place in use stays signed in on this device. Never for a pupil.
+  if (b.keep && user.role !== 'pupil') await keepCurrentSession(req, res, user.id);
+  else forgetOtherSessions(res);
   setSessionCookie(res, user);
   res.status(200).json({ ok: true, user: publicUser(user), madrasah: { code: madrasah.code, name: madrasah.name } });
 };

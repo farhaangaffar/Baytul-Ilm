@@ -48,7 +48,7 @@ export const PRIVACY = [
     'Their own children\'s attendance, fees, Qur\'aan progress, finished reports and published exam report cards, and for a boarder the home weekends and when they were signed out and back in — never teachers\' daily comments or lesson notes, and never anyone else\'s child.',
   ]],
   ['Cookies', [
-    'One cookie keeps you signed in. Your device also remembers small things, such as your madrasah\'s code and which tab you last used. There are no tracking or advertising cookies.',
+    'One cookie keeps you signed in. If you belong to more than one madrasah or school and add them under "Your places", a second cookie keeps those other sign-ins on that device only, so you can switch without your password; "Sign out of everything" removes it. Your device also remembers small things, such as your madrasah\'s code and which tab you last used. There are no tracking or advertising cookies.',
     'On the public pages only (the front page, this policy and the terms, and the demo) we count visits with Vercel Web Analytics: which page, roughly which country, and the type of device. It uses no cookies and doesn\'t identify anyone. Nothing inside a madrasah\'s app is counted.',
   ]],
   ['How long it\'s kept', [

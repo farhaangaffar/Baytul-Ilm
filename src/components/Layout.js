@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { appNavigate } from './BackToExit';
-import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList, BedDouble, Wrench, BookMarked } from 'lucide-react';
+import { LayoutDashboard, Users, CheckSquare, Coins, FileText, GraduationCap, Settings as SettingsIcon, BookOpen, LogOut, BarChart3, Download, KeyRound, Building2, Library, CalendarClock, ClipboardList, BedDouble, Wrench, BookMarked, ArrowLeftRight } from 'lucide-react';
+import PlacesModal, { openPlace } from './Places';
 import { logout } from '../lib/store';
 import { useSettings } from '../lib/SettingsContext';
 import { useInstallPrompt } from '../lib/installPrompt';
@@ -59,6 +60,7 @@ export default function Layout({ children, title, subtitle }) {
   const installPrompt = useInstallPrompt();
   const { user, isOwner, isPlatformAdmin, isDarulUloom, isSchool } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
+  const [places, setPlaces] = useState(false);
   const pageHelp = usePageHelp(pathname, user?.role);
   // Teachers only get their own pages (and no section headings).
   const visibleNav = isSchool
@@ -85,9 +87,16 @@ export default function Layout({ children, title, subtitle }) {
 
   async function handleLogout() {
     if (user?.demo) { leaveDemo(); return; }
-    await logout().catch(() => {});
+    const r = await logout().catch(() => null);
+    // Switch: another place this device is signed in to takes over — open it.
+    if (r?.stillSignedIn) { openPlace(r.madrasah?.code); return; }
     window.location.reload();
   }
+  // Switch — never for a demo (pupils have their own page, never this one).
+  const canSwitch = !!user && !user.demo;
+  const others = user?.others || [];
+  const placesLabel = 'Your places';
+  const logoutLabel = others.length ? `Sign out of ${settings.schoolName || user?.madrasah?.name || 'this place'}` : 'Log out';
 
   return (
     <div className="app-shell">
@@ -120,8 +129,13 @@ export default function Layout({ children, title, subtitle }) {
             <KeyRound size={16}/><span>Change password</span>
           </button>
         )}
+        {canSwitch && (
+          <button className="nav-link" onClick={() => setPlaces(true)}>
+            <ArrowLeftRight size={16}/><span>{placesLabel}</span>
+          </button>
+        )}
         <button className="nav-link" onClick={handleLogout} style={{marginBottom:12}} title={user ? `Signed in as ${user.login}` : undefined}>
-          <LogOut size={16}/><span>Log out</span>
+          <LogOut size={16}/><span>{logoutLabel}</span>
         </button>
       </aside>
       <div className="main-content">
@@ -143,7 +157,12 @@ export default function Layout({ children, title, subtitle }) {
                 <KeyRound size={18}/>
               </button>
             )}
-            <button className="mobile-topbar-logout" onClick={handleLogout} aria-label="Log out">
+            {canSwitch && (
+              <button className="mobile-topbar-logout" onClick={() => setPlaces(true)} aria-label={placesLabel} title={placesLabel}>
+                <ArrowLeftRight size={18}/>
+              </button>
+            )}
+            <button className="mobile-topbar-logout" onClick={handleLogout} aria-label={logoutLabel} title={logoutLabel}>
               <LogOut size={18}/>
             </button>
           </div>
@@ -178,6 +197,7 @@ export default function Layout({ children, title, subtitle }) {
         </div>
         <InstallSteps steps={pageHelp.open ? pageHelp.help : null} onClose={pageHelp.close} />
         {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+        {places && <PlacesModal onClose={() => setPlaces(false)} />}
         <InstallSteps steps={installPrompt.steps} onClose={installPrompt.closeSteps} />
       </div>
     </div>

@@ -272,6 +272,16 @@ codebase (one codebase, not a fork).
   platform owner's **Change head** (Madaaris page → a madrasah → `ChangeHeadModal`, `?action=change-head`, `replaceHead()`)
   does the same for a head who left without handing over (never your own madrasah). "Reset head's password" still resets the
   main head's.
+- **Switch — "Your places"** (one person in more than one madrasah or school: a teacher at a maktab and a school, a parent
+  with children at two; the owner's plan): each place keeps its own login and data — nothing is linked between madaaris. The
+  device keeps the other sign-ins in a second cookie `baytul_saved` (the same signed tokens as the main cookie, up to 5,
+  `server/auth.js`: `keepCurrentSession` / `switchSession` / `signOutSession` / `forgetOtherSessions`); each is re-checked on
+  every use, so a password change or removed login drops it. "Your places" (⇄ in the menu, the phone top bar and the parent
+  portal header; `src/components/Places.js`) lists them (`others` in the session — name, role, kind only) → tap to switch
+  (`POST /api/session?action=switch`, then the device's code is set and the app reloads), "Add another madrasah or school"
+  (`/?add` → Login's `add` mode, `login(..., keep)`), "Sign out of everything" (`/api/logout?all=1`). Log out signs out of the
+  place in use only and the next one takes over ("Sign out of <name>" when there are others). An ordinary sign-in forgets the
+  saved places (a pupil or the next person on a shared device never lands in someone else's). Never for pupils or demos.
 - **School launch (stage 5)**: schools sign themselves up — `/?start=school` (Signup.js: a third box **School**, then
   Primary / Secondary / All-through and forms of entry 1 · 2 · 3 · "4 or more" — 4+ shows "Message us" instead of the form;
   `madaaris.school_phase`, `school_forms`). Price by forms, yearly (`schoolPrice()` in `server/newMadrasah.js`: £500 / £800 /
