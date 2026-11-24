@@ -13,13 +13,13 @@ import BoxRow from '../components/BoxRow';
 import { ChoiceBoxes } from '../components/StudentDetails';
 import StudiesImport from '../components/StudiesImport';
 import { HomeworkTab, HomeworkModal } from '../components/SchoolHomework';
-import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, planStudiesItems, setStudiesOwnList, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
+import { getClasses, getStudiesClass, getStudiesPupil, getStudiesItems, planStudiesItems, orderStudiesList, setStudiesOwnList, markStudies, saveStudiesItem, deleteStudiesItem, saveClassAyahs, saveStudiesLink, deleteStudiesLink } from '../lib/store';
 import { useAuth } from '../lib/AuthContext';
 import { markStudiesVisited } from '../components/GettingStarted';
 import { useBackToClose } from '../lib/useBackToClose';
 import { yearLabel, STUDY_KINDS, LEVELS, LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, tally, surahNumber, surahAyahs } from '../lib/studies';
 import { SURAHS } from '../lib/quran';
-import { ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, Check, FileSpreadsheet, ListTree, Paperclip, ExternalLink } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, Check, FileSpreadsheet, ListTree, Paperclip, ExternalLink } from 'lucide-react';
 
 // Opening a line closes the one above it, which can leave the page sitting at the bottom of the newly opened list.
 // After it opens, bring the line back up to the top of the screen (the owner's ask) — only when it's out of sight above.
@@ -582,6 +582,46 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
 
 const YEARS = Array.from({ length: 14 }, (_, i) => i);
 
+// Year plan → "Change the order": one year's du'aas or practicals, each with ↑ ↓ (big enough for phones), then Save.
+function OrderModal({ title, list, onClose, onSaved }) {
+  const close = useBackToClose(true, onClose);
+  const [order, setOrder] = useState(list);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const move = (i, d) => setOrder(o => { const n = [...o]; const j = i + d; if (j < 0 || j >= n.length) return o; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  async function save() {
+    setBusy(true); setError('');
+    try { await orderStudiesList(order.map(it => it.id)); await onSaved(); }
+    catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 520 }}>
+        <div className="modal-header">
+          <div className="modal-title">Order of {title}</div>
+          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+        </div>
+        <div className="modal-body" style={{ display: 'grid', gap: 6 }}>
+          <div className="text-muted" style={{ fontSize: 12.5, marginBottom: 4 }}>Move each one up or down into the order it's taught, then press Save.</div>
+          {order.map((it, i) => (
+            <div key={it.id} className="no-class-row" style={{ cursor: 'default' }}>
+              <span className="text-muted" style={{ minWidth: 22, fontSize: 12 }}>{i + 1}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{it.name}</span>
+              <button type="button" className="btn btn-icon" aria-label={`Move ${it.name} up`} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={15} /></button>
+              <button type="button" className="btn btn-icon" aria-label={`Move ${it.name} down`} disabled={i === order.length - 1} onClick={() => move(i, 1)}><ArrowDown size={15} /></button>
+            </div>
+          ))}
+          {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={close}>Cancel</button>
+          <button className="btn btn-primary" disabled={busy} onClick={save}><Save size={14} />{busy ? 'Saving…' : 'Save order'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The head's whole plan at a glance: a line per year group (Reception up) opening to that year's surahs, du'aas and
 // practicals; tap one to change its year or remove it, or add one to that year (ItemModal over this pop-up).
 // The year plan — kept as simple as possible (the owner's pick, "one year at a time + Save"): big boxes to pick a year,
@@ -606,6 +646,7 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   const [draft, setDraft] = useState(null); // ticked line keys while changing (null = as saved)
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null);
+  const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const load = useCallback(() => getStudiesItems(true).then(setData).catch(e => setError(e.message || 'Could not load')), []);
@@ -733,6 +774,13 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                 <b style={{ fontWeight: 600 }}>{yearLabel(year)} has:</b> {lines.filter(l => ticked.includes(l.key)).map(l => l.name).join(', ') || 'nothing ticked yet'}
               </div>
             )}
+            {/* Du'aas and practicals: the order they're taught in (surahs already follow the Qur'an's teaching order). */}
+            {kind !== 'surah' && saved.length > 1 && (
+              <button type="button" className="line-row" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left' }}
+                disabled={busy} onClick={() => (changed ? setError(`Save ${yearLabel(year)} first, then change the order.`) : setOrdering(true))}>
+                <ArrowUpDown size={14} /><span className="line-row-name" style={{ flex: 1 }}>Change the order</span>
+              </button>
+            )}
             <div style={{ display: 'grid', gap: 0 }}>
               {lines.map(l => {
                 const on = ticked.includes(l.key);
@@ -775,7 +823,10 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
           </div>
         )}
       </div>
-      {edit && <ItemModal item={edit} existing={items} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
+      {ordering && <OrderModal title={`${yearLabel(year)}'s ${kind === 'duaa' ? "du'aas" : 'practicals'}`}
+          list={items.filter(it => it.kind === kind && it.yearGroup === year)}
+          onClose={() => setOrdering(false)} onSaved={async () => { setOrdering(false); await load(); await onChanged?.(); setNote('Order saved.'); }} />}
+        {edit && <ItemModal item={edit} existing={items} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
     </div>
   );
 }

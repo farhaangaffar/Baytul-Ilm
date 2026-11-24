@@ -687,6 +687,17 @@ const handler = requireAuth(async (req, res) => {
   }
   // The school's own order, from its imported spreadsheet (StudiesImport.js: each column's item, left to right, sheet by
   // sheet). Those come first in their year, in that order; the rest keep their order after them.
+  // POST ?action=order-list { ids } — one year's du'aas or practicals in the order the head wants (Year plan → Order).
+  // Only du'aas and practicals: surahs keep their teaching order, and this never switches on studies_own_order.
+  if (action === 'order-list' && req.method === 'POST') {
+    const ids = [...new Set((Array.isArray((req.body || {}).ids) ? req.body.ids : []).slice(0, 500).map(x => String(x).replace(/\D/g, '')).filter(Boolean))];
+    if (!ids.length) { res.status(200).json({ ok: true }); return; }
+    await query(
+      `UPDATE is_items i SET sort = u.p FROM unnest($2::bigint[]) WITH ORDINALITY AS u(uid, p)
+        WHERE i.id = u.uid AND i.madrasah_id = $1 AND i.kind <> 'surah'`, [mid, ids]);
+    res.status(200).json({ ok: true });
+    return;
+  }
   if (action === 'order' && req.method === 'POST') {
     const ids = [...new Set((Array.isArray((req.body || {}).ids) ? req.body.ids : []).slice(0, 2000).map(x => String(x).replace(/\D/g, '')).filter(Boolean))];
     if (!ids.length) { res.status(200).json({ ok: true }); return; }

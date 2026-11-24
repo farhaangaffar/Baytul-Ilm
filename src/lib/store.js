@@ -781,6 +781,8 @@ export const deleteAssessment = id => apiFetch(`/api/school-reports?id=${encodeU
 export const getStudiesItems = (plan = false) => apiFetch(`/api/studies${plan ? '?plan=1' : ''}`);
 // Year plan: move items into a year (or out of the plan: yearGroup null), adding `make` ones not on the list yet.
 export const setStudiesOwnList = (kind, own) => apiFetch('/api/studies?action=own-list', { method: 'POST', body: JSON.stringify({ kind, own }) });
+// One year's du'aas or practicals in a new order (Year plan → Order; never surahs).
+export const orderStudiesList = ids => apiFetch('/api/studies?action=order-list', { method: 'POST', body: JSON.stringify({ ids }) });
 export const planStudiesItems = (ids, make, yearGroup) => apiFetch('/api/studies?action=plan', { method: 'POST', body: JSON.stringify({ ids, make, yearGroup }) });
 export const getStudiesPupil = id => apiFetch(`/api/studies?studentId=${encodeURIComponent(id)}`);
 export const markStudies = (itemId, studentIds, level) => apiFetch('/api/studies?action=mark', { method: 'POST', body: JSON.stringify({ itemId, studentIds, level }) });
