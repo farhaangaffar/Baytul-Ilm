@@ -684,15 +684,14 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   const one = (STUDY_KINDS.find(k => k[0] === kind) || STUDY_KINDS[0])[2];
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ maxWidth: 620 }}>
+      {/* The year boxes and the Surahs · Du'aas · Practicals choice stay put; only the list below them scrolls (the owner's ask). */}
+      <div className="modal" style={{ maxWidth: 620, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="modal-header">
           <div className="modal-title">Year plan</div>
           <button className="btn btn-icon" onClick={() => leave(close)}><X size={16} /></button>
         </div>
-        <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
-          {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
-          {!data && !error && <LoadingState />}
-          {data && <>
+        {data && (
+          <div className="yp-top">
             <div className="form-group" style={{ margin: 0 }}><label>Which year?</label>
               {/* Each year with how many it has ticked of this list — an unfinished year is easy to spot (the owner's pick). */}
               <div className="choice-boxes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
@@ -713,6 +712,12 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                 <ChoiceBoxes options={["Suhuf's list", 'My own list']} value={ownList ? 'My own list' : "Suhuf's list"}
                   onChange={v => leave(() => chooseList(v === 'My own list'))} /></div>
             )}
+          </div>
+        )}
+        <div className="modal-body" style={{ display: 'grid', gap: 12, alignContent: 'start', overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
+          {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
+          {!data && !error && <LoadingState />}
+          {data && <>
             {note && <div style={{ fontSize: 12.5, color: 'var(--green-text)' }}>{note}</div>}
             {hint && (
               <div style={{ fontSize: 12.5, color: 'var(--ink)', background: 'var(--teal-light)', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
