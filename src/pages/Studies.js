@@ -804,11 +804,16 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                 {allSurahs ? "Show Juz 'Amma only" : 'Show all 114 surahs'}
               </button>
             )}
-            <button type="button" className="line-row add" onClick={() => setEdit({ kind, yearGroup: year })}>
-              <Plus size={13} /> {kind === 'surah' ? 'Add part of a surah (e.g. Ayat al-Kursi)' : `Add your own ${one}`}
-            </button>
           </>}
         </div>
+        {/* "Add your own du'aa / practical" stays at the bottom, under the scrolling list (the owner's ask). */}
+        {data && (
+          <div className="yp-bottom">
+            <button type="button" className="line-row add" style={{ width: '100%' }} onClick={() => setEdit({ kind, yearGroup: year })}>
+              <Plus size={13} /> {kind === 'surah' ? 'Add part of a surah (e.g. Ayat al-Kursi)' : `Add your own ${one}`}
+            </button>
+          </div>
+        )}
         {data && pending && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 22px', background: 'var(--amber-light)', borderTop: '1px solid var(--border)' }}>
             <span style={{ fontSize: 13, marginRight: 'auto' }}>{yearLabel(year)} isn't saved yet.</span>
