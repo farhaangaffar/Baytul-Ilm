@@ -718,9 +718,15 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
       setNote(`Saved ${yearLabel(year)}.`);
       setHint(false); try { localStorage.setItem(hintKey, '1'); } catch { /* fine */ }
       if (pending) { const fn = pending; setPending(null); fn(); }
+      setBusy(false);
+      return true;
     } catch (e) { setError(e.message || 'Could not save'); }
     setBusy(false);
+    return false;
   }
+  // "Change the order": unsaved ticks are saved first, then the order opens (it used to show a message up at the top of the
+  // list instead — out of sight once scrolled, so the button seemed to do nothing).
+  async function openOrder() { if (!changed || await save()) setOrdering(true); }
 
   const kinds = STUDY_KINDS.map(([, l]) => l);
   const one = (STUDY_KINDS.find(k => k[0] === kind) || STUDY_KINDS[0])[2];
@@ -755,16 +761,17 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                   onChange={v => leave(() => chooseList(v === 'My own list'))} /></div>
             )}
             {/* Stays at the top with the year and list. Du'aas and practicals: the order they're taught in (surahs already follow the Qur'an's teaching order). */}
-            {kind !== 'surah' && saved.length > 1 && (
+            {kind !== 'surah' && ticked.length > 1 && (
               <button type="button" className="line-row" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left' }}
-                disabled={busy} onClick={() => (changed ? setError(`Save ${yearLabel(year)} first, then change the order.`) : setOrdering(true))}>
+                disabled={busy} onClick={openOrder}>
                 <ArrowUpDown size={14} /><span className="line-row-name" style={{ flex: 1 }}>Change the order</span>
               </button>
             )}
+            {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
           </div>
         )}
         <div className="modal-body" style={{ display: 'grid', gap: 12, alignContent: 'start', overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
-          {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
+          {error && !data && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
           {!data && !error && <LoadingState />}
           {data && <>
             {note && <div style={{ fontSize: 12.5, color: 'var(--green-text)' }}>{note}</div>}
