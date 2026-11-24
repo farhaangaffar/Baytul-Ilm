@@ -5,8 +5,8 @@
 // number). **Marks only** (the owner's choice): the import never adds, renames or moves a surah/du'aa — what each year
 // learns is set in the Year plan (Studies.js YearPlan); a column not in the plan is listed and left out. Read in the
 // browser (src/lib/xlsx.js); only the matched marks are sent (server/routes/studies.js ?action=import).
-import React, { useState, useMemo } from 'react';
-import { X, Upload, Check } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { X, Upload, Check, AlertTriangle, ArrowDown } from 'lucide-react';
 import { xlsxSheets } from '../lib/xlsx';
 import { getStudents, getStudiesItems, importStudiesMarks } from '../lib/store';
 import { markMarksImported } from './GettingStarted';
@@ -200,6 +200,8 @@ export default function StudiesImport({ onClose, onDone }) {
   const unknown = [...new Set(rowsFound.filter(r => !findPupil(r.first, r.last)).map(nameOf))]; // the head can pick each one's pupil
   const nearNames = [...new Map(rowsFound.map(r => [r, findPupil(r.first, r.last)]).filter(([, m]) => m?.close)
     .map(([r, m]) => [`${r.first} ${r.last}`, `${m.pupil.forename} ${m.pupil.surname}`])).entries()];
+  const unpicked = unknown.filter(n => !picked[n]); // names still left out — shown up top so they aren't missed (the owner's ask)
+  const namesRef = useRef(null);
   const marksCount = rowsFound.filter(r => pupilOf(r))
     .reduce((t, r) => t + Object.keys(r.values).filter(c => matchItem(c)).length, 0);
 
@@ -216,7 +218,7 @@ export default function StudiesImport({ onClose, onDone }) {
       const list = [...marks.values()];
       let n = 0;
       for (let i = 0; i < list.length; i += 4000) n += (await importStudiesMarks(list.slice(i, i + 4000))).imported;
-      setDone({ marks: n, left: fresh });
+      setDone({ marks: n, left: fresh, names: unpicked });
       markMarksImported(user?.madrasah?.code); // ticks Getting started's "Bring in the marks you already have"
       await onDone?.();
     } catch (e) { setError(e.message || 'Could not import'); }
@@ -235,6 +237,12 @@ export default function StudiesImport({ onClose, onDone }) {
             <div style={{ fontSize: 14, color: 'var(--green-text)' }}>
               <Check size={15} style={{ verticalAlign: -2 }} /> Imported {done.marks} marks.
             </div>
+            {done.names.length > 0 && (
+              <div style={{ fontSize: 13, color: 'var(--amber-text)' }}>
+                {done.names.length} name{done.names.length === 1 ? ' wasn\'t' : 's weren\'t'} matched to a pupil, so their marks were left out: {done.names.slice(0, 12).join(', ')}{done.names.length > 12 ? '…' : ''}.
+                Import the file again and choose who they are.
+              </div>
+            )}
             {done.left.length > 0 && (
               <div style={{ fontSize: 13, color: 'var(--amber-text)' }}>
                 {done.left.length} column{done.left.length === 1 ? ' wasn\'t' : 's weren\'t'} in your year plan, so {done.left.length === 1 ? 'its' : 'their'} marks were left out: {done.left.join(', ')}.
@@ -268,6 +276,14 @@ export default function StudiesImport({ onClose, onDone }) {
                 <div className="info-box"><strong>{matched.length}</strong><span className="info-box-label">Columns matched</span></div>
                 <div className="info-box"><strong>{marksCount}</strong><span className="info-box-label">Marks to import</span></div>
               </div>
+              {unpicked.length > 0 && (
+                <button type="button" onClick={() => namesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', fontFamily: 'var(--font)', fontSize: 13.5, fontWeight: 600, color: 'var(--amber-text)', background: 'var(--amber-light)', border: '1px solid #f1d58a', borderRadius: 'var(--r-md)', padding: '10px 12px', cursor: 'pointer' }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{unpicked.length} name{unpicked.length === 1 ? '' : 's'} not found — their marks won't come in. Choose who they are below.</span>
+                  <ArrowDown size={15} style={{ flexShrink: 0 }} />
+                </button>
+              )}
               {perKind.length > 0 && (
                 <div className="text-muted" style={{ fontSize: 12.5 }}>Columns found: {perKind.map(([l, n]) => `${l} ${n}`).join(' · ')}</div>
               )}
@@ -277,7 +293,7 @@ export default function StudiesImport({ onClose, onDone }) {
                 </div>
               )}
               {unknown.length > 0 && (
-                <div className="form-group"><label>Not found among your pupils — who are they?</label>
+                <div className="form-group" ref={namesRef} style={{ scrollMarginTop: 12, ...(unpicked.length ? { border: '1px solid #f1d58a', background: 'var(--amber-light)', borderRadius: 'var(--r-md)', padding: '10px 12px' } : {}) }}><label>Not found among your pupils — who are they?</label>
                   <span className="text-muted" style={{ fontSize: 12 }}>Pick the pupil for each name, or leave it out (their marks aren't imported).</span>
                   <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
                     {unknown.map(n => {
