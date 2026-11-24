@@ -582,6 +582,37 @@ export function PupilDetail({ name = 'Pupil', items, levelOf, onPick, busy, clas
 
 const YEARS = Array.from({ length: 14 }, (_, i) => i);
 
+// Year plan → the bin on a du'aa or practical: delete it for good, after asking (its pupils' marks go with it).
+function RemoveItemModal({ item, onClose, onRemoved }) {
+  const close = useBackToClose(true, onClose);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function remove() {
+    setBusy(true); setError('');
+    try { await deleteStudiesItem(item.id); await onRemoved(); }
+    catch (e) { setError(e.message || 'Could not remove'); setBusy(false); }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>
+      <div className="modal" style={{ maxWidth: 460 }}>
+        <div className="modal-header">
+          <div className="modal-title">Remove {item.name}?</div>
+          <button className="btn btn-icon" onClick={close}><X size={16} /></button>
+        </div>
+        <div className="modal-body" style={{ display: 'grid', gap: 8, fontSize: 13.5 }}>
+          <div>This deletes <b style={{ fontWeight: 600 }}>{item.name}</b> from your list for good, with any pupils' marks on it.</div>
+          <div className="text-muted" style={{ fontSize: 12.5 }}>To keep it and its marks but take it out of a year, untick it and press Save instead.</div>
+          {error && <div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={close}>Cancel</button>
+          <button className="btn btn-danger" disabled={busy} onClick={remove}><Trash2 size={14} />{busy ? 'Removing…' : 'Remove'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Year plan → "Change the order": one year's du'aas or practicals, each with ↑ ↓ (big enough for phones), then Save.
 function OrderModal({ title, list, onClose, onSaved }) {
   const close = useBackToClose(true, onClose);
@@ -647,6 +678,7 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null);
   const [ordering, setOrdering] = useState(false);
+  const [removing, setRemoving] = useState(null); // a du'aa/practical to delete for good (asks first)
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const load = useCallback(() => getStudiesItems(true).then(setData).catch(e => setError(e.message || 'Could not load')), []);
@@ -803,6 +835,11 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                     </span>
                     {faded && <span style={{ fontSize: 12, whiteSpace: 'nowrap', color: '#b4bac4' }}>{yearLabel(l.item.yearGroup)}</span>}
                     {other && on && <span style={{ fontSize: 12, whiteSpace: 'nowrap', color: 'var(--amber-text)' }}>moving from {yearLabel(l.item.yearGroup)}</span>}
+                    {/* Du'aas and practicals on the school's list can be deleted from here (the owner's ask); surahs can't. */}
+                    {kind !== 'surah' && l.item && (
+                      <button type="button" className="btn btn-icon" style={{ marginLeft: 2 }} aria-label={`Remove ${l.name}`} title="Remove for good"
+                        disabled={busy} onClick={e => { e.stopPropagation(); setRemoving(l.item); }}><Trash2 size={14} /></button>
+                    )}
                   </div>
                 );
               })}
@@ -836,7 +873,9 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
           </div>
         )}
       </div>
-      {ordering && <OrderModal title={`${yearLabel(year)}'s ${kind === 'duaa' ? "du'aas" : 'practicals'}`}
+      {removing && <RemoveItemModal item={removing} onClose={() => setRemoving(null)}
+          onRemoved={async () => { const n = removing.name; setRemoving(null); setDraft(d => (d ? d.filter(k => k !== `i${removing.id}`) : d)); await load(); await onChanged?.(); setNote(`Removed ${n}.`); }} />}
+        {ordering && <OrderModal title={`${yearLabel(year)}'s ${kind === 'duaa' ? "du'aas" : 'practicals'}`}
           list={items.filter(it => it.kind === kind && it.yearGroup === year)}
           onClose={() => setOrdering(false)} onSaved={async () => { setOrdering(false); await load(); await onChanged?.(); setNote('Order saved.'); }} />}
         {edit && <ItemModal item={edit} existing={items} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); await onChanged?.(); }} />}
