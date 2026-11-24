@@ -753,6 +753,13 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                 <ChoiceBoxes options={["Suhuf's list", 'My own list']} value={ownList ? 'My own list' : "Suhuf's list"}
                   onChange={v => leave(() => chooseList(v === 'My own list'))} /></div>
             )}
+            {/* Stays at the top with the year and list. Du'aas and practicals: the order they're taught in (surahs already follow the Qur'an's teaching order). */}
+            {kind !== 'surah' && saved.length > 1 && (
+              <button type="button" className="line-row" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left' }}
+                disabled={busy} onClick={() => (changed ? setError(`Save ${yearLabel(year)} first, then change the order.`) : setOrdering(true))}>
+                <ArrowUpDown size={14} /><span className="line-row-name" style={{ flex: 1 }}>Change the order</span>
+              </button>
+            )}
           </div>
         )}
         <div className="modal-body" style={{ display: 'grid', gap: 12, alignContent: 'start', overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
@@ -773,13 +780,6 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
               <div style={{ fontSize: 12.5, background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
                 <b style={{ fontWeight: 600 }}>{yearLabel(year)} has:</b> {lines.filter(l => ticked.includes(l.key)).map(l => l.name).join(', ') || 'nothing ticked yet'}
               </div>
-            )}
-            {/* Du'aas and practicals: the order they're taught in (surahs already follow the Qur'an's teaching order). */}
-            {kind !== 'surah' && saved.length > 1 && (
-              <button type="button" className="line-row" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left' }}
-                disabled={busy} onClick={() => (changed ? setError(`Save ${yearLabel(year)} first, then change the order.`) : setOrdering(true))}>
-                <ArrowUpDown size={14} /><span className="line-row-name" style={{ flex: 1 }}>Change the order</span>
-              </button>
             )}
             <div style={{ display: 'grid', gap: 0 }}>
               {lines.map(l => {
@@ -804,11 +804,16 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
                 {allSurahs ? "Show Juz 'Amma only" : 'Show all 114 surahs'}
               </button>
             )}
-            <button type="button" className="line-row add" onClick={() => setEdit({ kind, yearGroup: year })}>
-              <Plus size={13} /> {kind === 'surah' ? 'Add part of a surah (e.g. Ayat al-Kursi)' : `Add your own ${one}`}
-            </button>
           </>}
         </div>
+        {/* "Add your own du'aa / practical" stays at the bottom, under the scrolling list (the owner's ask). */}
+        {data && (
+          <div className="yp-bottom">
+            <button type="button" className="line-row add" style={{ width: '100%' }} onClick={() => setEdit({ kind, yearGroup: year })}>
+              <Plus size={13} /> {kind === 'surah' ? 'Add part of a surah (e.g. Ayat al-Kursi)' : `Add your own ${one}`}
+            </button>
+          </div>
+        )}
         {data && pending && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 22px', background: 'var(--amber-light)', borderTop: '1px solid var(--border)' }}>
             <span style={{ fontSize: 13, marginRight: 'auto' }}>{yearLabel(year)} isn't saved yet.</span>
