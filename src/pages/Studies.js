@@ -20,6 +20,7 @@ import { useBackToClose } from '../lib/useBackToClose';
 import { yearLabel, STUDY_KINDS, LEVELS, LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, tally, surahNumber, surahAyahs } from '../lib/studies';
 import { SURAHS } from '../lib/quran';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Plus, X, Save, Trash2, Pencil, Check, FileSpreadsheet, ListTree, Paperclip, ExternalLink } from 'lucide-react';
+import { askConfirm, showAlert } from '../lib/dialog';
 
 // Opening a line closes the one above it, which can leave the page sitting at the bottom of the newly opened list.
 // After it opens, bring the line back up to the top of the screen (the owner's ask) — only when it's out of sight above.
@@ -165,12 +166,12 @@ export default function Studies() {
       ...(level ? studentIds.map(studentId => ({ studentId, itemId, level })) : []),
     ] }));
     setBusy(true);
-    try { await markStudies(itemId, studentIds, level); } catch (e) { window.alert(e.message || 'Could not save'); await load(); }
+    try { await markStudies(itemId, studentIds, level); } catch (e) { showAlert(e.message || 'Could not save'); await load(); }
     setBusy(false);
   }
   async function saveAyahs(itemId, ayahs) {
     setData(d => ({ ...d, ayahs: { ...d.ayahs, [itemId]: ayahs } }));
-    try { await saveClassAyahs(cls, itemId, ayahs); } catch (e) { window.alert(e.message || 'Could not save'); await load(); }
+    try { await saveClassAyahs(cls, itemId, ayahs); } catch (e) { showAlert(e.message || 'Could not save'); await load(); }
   }
 
   if (error) return <Layout title="Islamic Studies"><ErrorState error={error} onRetry={load} /></Layout>;
@@ -226,8 +227,8 @@ export default function Studies() {
               <div className="st-everyone">
                 <span>Everyone</span>
                 <BoxRow fill columns="repeat(3, minmax(0, 1fr))" cells={LEVELS.map(([v, l]) => ({
-                  text: l, wrap: 'words', onClick: busy || !pupils.length ? undefined : () => {
-                    if (window.confirm(`Mark all ${pupils.length} as ${l} for ${it.name}?`)) mark(it.id, pupils.map(p => p.id), v);
+                  text: l, wrap: 'words', onClick: busy || !pupils.length ? undefined : async () => {
+                    if (await askConfirm(`Mark all ${pupils.length} as ${l} for ${it.name}?`, { ok: `Mark all ${l}` })) mark(it.id, pupils.map(p => p.id), v);
                   },
                 }))} />
               </div>
@@ -715,7 +716,7 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   async function chooseList(own) {
     if (own === ownList) return;
     const word = kind === 'duaa' ? "du'aas" : 'practicals';
-    if (own && !window.confirm(`Use only your own ${word}? Suhuf's ${word} will be taken out of your year plan — any pupils' marks on them are kept, and choosing "Suhuf's list" again puts them back.`)) return;
+    if (own && !(await askConfirm(`Use only your own ${word}? Suhuf's ${word} will be taken out of your year plan — any pupils' marks on them are kept, and choosing "Suhuf's list" again puts them back.`, { ok: 'Use my own list' }))) return;
     setBusy(true); setError(''); setNote('');
     try {
       const r = await setStudiesOwnList(kind, own);
@@ -949,7 +950,7 @@ function LinkModal({ item, link, onClose, onSaved }) {
     try { await saveStudiesLink({ id: link?.id, itemId: item.id, name: f.name, url: f.url }); await onSaved(); } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
   }
   async function remove() {
-    if (!window.confirm(`Remove the link "${link.name}"?`)) return;
+    if (!(await askConfirm(`Remove the link "${link.name}"?`, { ok: 'Remove', danger: true }))) return;
     setBusy(true);
     try { await deleteStudiesLink(link.id); await onSaved(); } catch (e) { setError(e.message || 'Could not remove'); setBusy(false); }
   }
@@ -1001,7 +1002,7 @@ function ItemModal({ item, onClose, onSaved, existing = [] }) {
     try { await saveStudiesItem({ ...f, id: item.id, surah: f.kind === 'surah' && f.surah ? Number(f.surah) : null }); await onSaved(); } catch (e) { setError(e.message || 'Could not save'); setBusy(false); }
   }
   async function remove() {
-    if (!window.confirm(`Remove ${item.name}? Every pupil's mark for it goes too.`)) return;
+    if (!(await askConfirm(`Remove ${item.name}? Every pupil's mark for it goes too.`, { ok: 'Remove', danger: true }))) return;
     setBusy(true);
     try { await deleteStudiesItem(item.id); await onSaved(); } catch (e) { setError(e.message || 'Could not remove'); setBusy(false); }
   }
@@ -1072,7 +1073,7 @@ export function PupilSheet({ id, onClose, onChanged }) {
   const level = it => d?.progress.find(p => p.itemId === it.id)?.level || 0;
   async function pick(it, v) {
     setD(x => ({ ...x, progress: [...x.progress.filter(p => p.itemId !== it.id), ...(v ? [{ itemId: it.id, level: v }] : [])] }));
-    try { await markStudies(it.id, [id], v); onChanged?.(); } catch (e) { window.alert(e.message || 'Could not save'); load(); }
+    try { await markStudies(it.id, [id], v); onChanged?.(); } catch (e) { showAlert(e.message || 'Could not save'); load(); }
   }
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && close()}>

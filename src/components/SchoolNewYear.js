@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CalendarPlus, Undo2, Check } from 'lucide-react';
 import { getSchoolYearMove, moveSchoolYear, undoSchoolYear, formatDateGB } from '../lib/store';
 import { useBackToClose } from '../lib/useBackToClose';
+import { askConfirm } from '../lib/dialog';
 
 // The class a year up, by name: "6A" → "7A", "Year 6 Boys" → "Year 7 Boys", "Reception" → "Year 1".
 function nextName(name, yg) {
@@ -73,7 +74,7 @@ function NewYearModal({ onClose, onDone }) {
     setBusy(false);
   }
   async function undo() {
-    if (!window.confirm('Put everyone back in the classes they were in before the last move?')) return;
+    if (!(await askConfirm('Put everyone back in the classes they were in before the last move?', { ok: 'Undo the move' }))) return;
     setBusy(true); setError('');
     try { const r = await undoSchoolYear(); setDone({ undone: r }); await onDone?.(); }
     catch (e) { setError(e.message || 'Could not undo'); }

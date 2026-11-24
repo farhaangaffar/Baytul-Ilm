@@ -6,6 +6,7 @@ import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDate
 import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
 import { Plus, X, Save, Pencil, KeyRound, UserCog, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download } from 'lucide-react';
+import { askConfirm } from '../lib/dialog';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
 // another madrasah's students, fees or reports). Add a madrasah with its head's first
@@ -612,8 +613,8 @@ function DetailModal({ m, onClose, open, onChanged }) {
                   <strong>{money(x.amount)}</strong> · {x.months} month{x.months === 1 ? '' : 's'}
                   <span className="text-muted"> · {formatDateGB(x.paidOn)}{x.note ? ` · ${x.note}` : ''}</span>
                 </span>
-                <button className="btn btn-icon btn-sm" title="Remove this payment" disabled={busy} onClick={() => {
-                  if (window.confirm(`Remove the ${money(x.amount)} payment from ${formatDateGB(x.paidOn)}?`)) run(() => deletePayment(m.id, x.id));
+                <button className="btn btn-icon btn-sm" title="Remove this payment" disabled={busy} onClick={async () => {
+                  if (await askConfirm(`Remove the ${money(x.amount)} payment from ${formatDateGB(x.paidOn)}?`, { ok: 'Remove', danger: true })) run(() => deletePayment(m.id, x.id));
                 }}><Trash2 size={13} /></button>
               </div>
             ))}

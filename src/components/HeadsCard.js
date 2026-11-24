@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, UserPlus, Repeat, Trash2 } from 'lucide-react';
 import { getHeads, addHead, handOverHead, removeHead } from '../lib/store';
+import { askConfirm } from '../lib/dialog';
 
 // Settings → Heads (a head only; in a demo it shows, and the pop-ups open, but nothing saves — the server refuses): the madrasah's or school's head logins — up to two, the main head and an
 // optional second head (a deputy) with the same access. "Add a second head", "Hand over to a new head" (your own login goes to
@@ -16,7 +17,7 @@ export default function HeadsCard({ word = 'madrasah', platformAdmin, demo }) {
   if (!list) return null;
 
   async function remove(h) {
-    if (!window.confirm(`Remove ${h.name || h.login} as a head? They won't be able to sign in any more.`)) return;
+    if (!(await askConfirm(`Remove ${h.name || h.login} as a head? They won't be able to sign in any more.`, { ok: 'Remove', danger: true }))) return;
     try { await removeHead(h.id); setOpen(null); await load(); } catch (err) { setError(err.message || 'Could not remove'); }
   }
 

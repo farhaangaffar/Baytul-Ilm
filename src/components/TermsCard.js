@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Save, CalendarRange } from 'lucide-react';
 import { getTerms, addTerm, updateTerm, deleteTerm, formatDateGB } from '../lib/store';
+import { askConfirm } from '../lib/dialog';
 
 // Settings → Terms: each madrasah's own term dates, per academic year. Used when fees
 // are charged termly (and for termly reports).
@@ -32,7 +33,7 @@ export default function TermsCard({ years, defaultYear }) {
   }
 
   async function remove(t) {
-    if (!window.confirm(`Remove ${t.name}? Fees already added for this term are kept.`)) return;
+    if (!(await askConfirm(`Remove ${t.name}? Fees already added for this term are kept.`, { ok: 'Remove', danger: true }))) return;
     try { await deleteTerm(t.id); await load(); } catch (err) { setError(err.message || 'Could not remove this term'); }
   }
 

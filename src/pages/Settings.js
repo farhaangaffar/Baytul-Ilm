@@ -18,6 +18,7 @@ import { setBranding } from '../lib/branding';
 import { applySettings } from '../lib/SettingsContext';
 import { useAuth } from '../lib/AuthContext';
 import { markSettingsVisited } from '../components/GettingStarted';
+import { askConfirm } from '../lib/dialog';
 
 const CURRENCY_OPTIONS = ['£', '$', '€', 'R', 'RM'];
 
@@ -136,7 +137,7 @@ export default function Settings() {
       + `Fees already added stay exactly as they are. From now on fees are added per ${FREQUENCIES[next].unit}. `
       + `Student fee amounts are not converted — check them after switching.`
       + (next === 'termly' ? '\n\nA Terms section will appear below for your term dates.' : '');
-    if (!window.confirm(msg)) return;
+    if (!(await askConfirm(msg, { ok: 'Switch' }))) return;
     try {
       await updateSettings({ feeFrequency: next });
       setForm(f => ({ ...f, feeFrequency: next }));
@@ -156,7 +157,7 @@ export default function Settings() {
       : next === 'yearly'
       ? 'Make reports yearly?\n\nEach student gets one report per academic year (September to August), covering attendance and fees for the whole year. Reports already saved stay as they are.'
       : 'Make reports monthly?\n\nEach student gets one report per month. Reports already saved stay as they are.';
-    if (!window.confirm(msg)) return;
+    if (!(await askConfirm(msg, { ok: 'Switch' }))) return;
     try {
       await updateSettings({ reportPeriod: next });
       setForm(f => ({ ...f, reportPeriod: next }));
