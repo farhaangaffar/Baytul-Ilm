@@ -18,6 +18,7 @@ import { buildStudiesReports } from '../lib/studiesReportPdf';
 import { downloadPdfBytes } from '../lib/reportPdf';
 import { LEVEL_NAME, LEVEL_TONE, LEVEL_COLOUR, yearLabel } from '../lib/studies';
 import { ChevronDown, ChevronUp, Plus, X, FileDown, Trash2, Printer } from 'lucide-react';
+import { askConfirm, showAlert } from '../lib/dialog';
 
 const recall = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
@@ -154,17 +155,17 @@ function Assessment({ a, classes, isOwner, onChanged, onDeleted }) {
   async function rate(p, effort) {
     const next = p.effort === effort ? '' : effort; // tap the lit one again to clear
     setData(d => ({ ...d, pupils: d.pupils.map(x => (x.id === p.id ? { ...x, effort: next } : x)) }));
-    try { await setEffort(a.id, p.id, next); onChanged(); } catch (e) { window.alert(e.message || 'Could not save'); load(); }
+    try { await setEffort(a.id, p.id, next); onChanged(); } catch (e) { showAlert(e.message || 'Could not save'); load(); }
   }
   async function act(kind, fn) {
     setBusy(kind);
-    try { await fn(); await onChanged(); load(); } catch (e) { window.alert(e.message || 'Could not do that'); }
+    try { await fn(); await onChanged(); load(); } catch (e) { showAlert(e.message || 'Could not do that'); }
     setBusy('');
   }
   async function printClass() {
     setBusy('print');
     try { downloadPdfBytes(await buildStudiesReports(data.pupils.map(one)), `islamic-studies-${fileName(a.name)}-${fileName(cls)}.pdf`); }
-    catch (e) { window.alert(e.message || 'Could not make the PDF'); }
+    catch (e) { showAlert(e.message || 'Could not make the PDF'); }
     setBusy('');
   }
   const rated = data ? data.pupils.filter(p => p.effort).length : 0;
@@ -208,15 +209,15 @@ function Assessment({ a, classes, isOwner, onChanged, onDeleted }) {
             a.publishedAt
               ? { text: `Updated ${formatDateGB(a.takenAt)}`, sub: 'Marks saved', wrap: 'words' }
               : { text: 'Update marks', sub: `Updated ${formatDateGB(a.takenAt)}`, wrap: 'words',
-                  onClick: busy ? undefined : () => window.confirm('Save everyone\'s marks again as they are now? Effort ratings stay.') && act('retake', () => retakeAssessment(a.id)) },
+                  onClick: busy ? undefined : async () => (await askConfirm('Save everyone\'s marks again as they are now? Effort ratings stay.', { ok: 'Update marks' })) && act('retake', () => retakeAssessment(a.id)) },
             a.publishedAt
               ? { text: 'Sent to parents', sub: 'Tap to take back', tone: 'green', wrap: 'words',
-                  onClick: busy ? undefined : () => window.confirm('Take these reports back from the parent portal?') && act('send', () => publishAssessment(a.id, false)) }
+                  onClick: busy ? undefined : async () => (await askConfirm('Take these reports back from the parent portal?', { ok: 'Take back' })) && act('send', () => publishAssessment(a.id, false)) }
               : { text: 'Send to parents', sub: 'Every class', wrap: 'words',
-                  onClick: busy ? undefined : () => window.confirm('Send every class\'s reports to the parent portal?') && act('send', () => publishAssessment(a.id, true)) },
+                  onClick: busy ? undefined : async () => (await askConfirm('Send every class\'s reports to the parent portal?', { ok: 'Send to parents' })) && act('send', () => publishAssessment(a.id, true)) },
           ]} />
           <button type="button" className="btn btn-sm" style={{ justifySelf: 'start', color: 'var(--red)' }} disabled={!!busy}
-            onClick={() => window.confirm(`Delete ${a.name} ${yearName(a.year)} and its reports? Pupils' marks on Islamic Studies stay as they are.`) && act('delete', async () => { await deleteAssessment(a.id); onDeleted(); })}>
+            onClick={async () => (await askConfirm(`Delete ${a.name} ${yearName(a.year)} and its reports? Pupils' marks on Islamic Studies stay as they are.`, { ok: 'Delete', danger: true })) && act('delete', async () => { await deleteAssessment(a.id); onDeleted(); })}>
             <Trash2 size={12} /> Delete this assessment
           </button>
         </>}
@@ -233,7 +234,7 @@ export function ReportModal({ one, onClose }) {
   async function pdf() {
     setBusy(true);
     try { downloadPdfBytes(await buildStudiesReports([one]), `islamic-studies-${fileName(one.assessment.name)}-${fileName(one.name)}.pdf`); }
-    catch (e) { window.alert(e.message || 'Could not make the PDF'); }
+    catch (e) { showAlert(e.message || 'Could not make the PDF'); }
     setBusy(false);
   }
   return (

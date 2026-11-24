@@ -680,6 +680,10 @@ codebase (one codebase, not a fork).
   (`useBackToClose`), page switches replace rather than add history (`appNavigate()`), back
   with nothing open goes to the home page (Dashboard; Attendance for teachers); on the home page back shows
   "Close the app?" (`src/components/BackToExit.js`) — a second back closes it.
+- **No browser pop-ups** (the owner's ask — they look like a website): "Are you sure?" questions and error messages use the
+  app's own pop-up — `askConfirm(message, { ok, danger })` (resolves true/false) and `showAlert(message)` in `src/lib/dialog.js` —
+  never `window.confirm` / `window.alert`. Give the button the action's own word ("Remove", "Mark all Achieved"), red (`danger`)
+  for anything deleted.
 - **Pop-ups on top of pop-ups are never narrower** than the one beneath (the owner's ask — a quiz's question, a pupil's
   answers, a pupil card's login all opened smaller): `src/lib/stackedModals.js` (`matchStackedModals()`, started in
   `src/index.js`) widens any later open `.modal` to the width of the one under it, everywhere — no per-pop-up widths needed.
