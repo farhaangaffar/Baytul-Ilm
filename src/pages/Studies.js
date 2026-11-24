@@ -701,7 +701,8 @@ function YearPlan({ onClose, onChanged, classYears = [], startYear, startList })
   const toggle = key => setDraft(t => { const cur = t || saved; return cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key]; });
   // Switching year or list (or closing) with changes not saved asks first — in a small bar, not the browser's pop-up.
   const [pending, setPending] = useState(null); // what to do once Saved or Don't save is pressed
-  const leave = fn => { if (!changed) { setNote(''); fn(); } else setPending(() => fn); };
+  // Nothing changed: forget the ticks too (else ticking then unticking left this year's ticks showing on the next year).
+  const leave = fn => { if (!changed) { setDraft(null); setNote(''); fn(); } else setPending(() => fn); };
   const dontSave = () => { const fn = pending; setPending(null); setDraft(null); setNote(''); fn?.(); };
   // First time on this device: say why things are already ticked (gone once anything is saved).
   const hintKey = `yearplan_hint:${user?.madrasah?.code || ''}`;
