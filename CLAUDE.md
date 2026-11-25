@@ -76,15 +76,18 @@ codebase (one codebase, not a fork).
   add / rename / switch off a madrasah, reset its head's password, delete one for ever (only once
   switched off, never your own, its code typed to confirm — every table in `TABLES`, `server/demo.js`); plus an AI credit card, a database-space bar (`?action=usage`, Neon free = 0.5 GB) —
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
-  three demo links (maktab, Darul Uloom, school — a line each) to copy or share; a **Demos & sign-ups** card — this month / last month / all time, each with its Darul Uloom
-  share, from `platform_counts` (`countEvent()` in `server/platform.js`, called when a new demo is made and on sign-up;
+  three demo links (maktab, Darul Uloom, school — a line each) to copy or share; a **Demos & sign-ups** pop-up — This month · Last month · All time boxes, a card each for demos tried and signed up
+  (total, a bar split maktab blue / Darul Uloom green / school amber, a line per kind) and "Demos that turned into sign-ups" %
+  per kind, from `platform_counts` (`countEvent()` in `server/platform.js`, called when a new demo is made and on sign-up;
   `?action=counts`), kept for good because Vercel's visitor figures only go back 31 days). Each madrasah is free for 6 months (`madaaris.free_until`, set
   when added, editable there; older rows count 6 months from `created_at`) — payment is by
   standing order, outside the app; the platform owner records each one on the Madaaris page.
-  Each madrasah is a tidy card (name, children · classes · AI this month, payment state, and a bar
-  along the bottom: grey free / green paid / yellow due within 2 weeks / red overdue); tapping it
-  opens everything (`DetailModal`): status, one-tap "Next month" / "A year" payments, month boxes
-  (tap one to pay up to it), plan `madaaris.billing_plan` monthly/yearly + `billing_amount` (default
+  Tapping a customer opens everything (`DetailModal`, the owner's pick "option 2, tidied": white cards with a tinted icon —
+  `CuCard` / `CuRow`, `.cu-*` in index.css — every detail a grey line, label left, answer right, buttons equal slightly-rounded
+  boxes; two columns from 900px, Payments + Payments received on the left, The school/maktab/Darul Uloom (Kind, Size, code,
+  joined, terms, recommended), Head (name, phone, login; WhatsApp · Call · Email) and Manage on the right): Status, Next
+  payment, Plan (Change opens monthly/yearly + price), Months (Show opens the month boxes — tap one to pay up to it), then
+  Paid the year (yearly) or Paid next month · Paid a year (monthly), Another amount, Invoice; plan `madaaris.billing_plan` monthly/yearly + `billing_amount` (default
   £20/£200; the price is for the plan it's on and the other plan is worked out from it — a year = 10 months, `prices()` in billing.js; switching plan converts it), payments received (`madrasah_payments`: date/amount/months), contact, size, and the
   manage buttons (Edit details, reset password, switch off, delete). **Payments run from the 1st**
   (`src/lib/billing.js`): free until the end of the month `free_until` falls in, then each payment's

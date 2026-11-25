@@ -6,7 +6,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment, getInvoiceDetails, saveInvoiceDetails, changeMadrasahHead } from '../lib/store';
 import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, UserCog, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download, Search, Bell } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, UserCog, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download, Search, Bell, PoundSterling, GraduationCap, BookOpen, Building2, UserRound, Settings2 } from 'lucide-react';
 import { askConfirm } from '../lib/dialog';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
@@ -270,7 +270,7 @@ export default function Madaaris() {
         </ModalShell>
       )}
       {modal?.kind === 'counts' && (
-        <ModalShell title="Demos & sign-ups" sub="Kept for good — the visitor figures in Vercel only go back 31 days." width={520} onClose={() => setModal(null)}>
+        <ModalShell title="Demos & sign-ups" sub="Kept for good — Vercel's visitor figures only go back 31 days." width={620} bodyClass="cu-body" onClose={() => setModal(null)}>
           {counts ? <CountsCard counts={counts} /> : <div className="text-muted">Loading…</div>}
         </ModalShell>
       )}
@@ -373,7 +373,7 @@ export default function Madaaris() {
   );
 }
 
-function ModalShell({ title, sub, onClose, busy, children, footer, width = 420 }) {
+function ModalShell({ title, sub, onClose, busy, children, footer, width = 420, bodyClass = '' }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && onClose()}>
       <div className="modal" style={{ maxWidth: width }}>
@@ -384,7 +384,7 @@ function ModalShell({ title, sub, onClose, busy, children, footer, width = 420 }
           </div>
           <button className="btn btn-icon" onClick={onClose} disabled={busy}><X size={16} /></button>
         </div>
-        <div className="modal-body">{children}</div>
+        <div className={`modal-body ${bodyClass}`}>{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>
@@ -550,38 +550,60 @@ function PasswordModal({ m, onClose, onSaved }) {
   );
 }
 
-// Everything about one madrasah: where it is with paying (one-tap payments, month boxes,
-// plan and price, payments received), who to contact, its size, and the manage buttons.
-// Demos tried and madaaris signed up (platform_counts, kept for good): this month · last month · all time, with how many of
-// each were Darul Uloom. Started-demo counts begin the day this card was added; sign-ups include every earlier self sign-up.
+// Demos tried and places signed up (platform_counts, kept for good): This month · Last month · All time boxes, then a
+// card each with its total, a bar split by kind and a line per kind, then how many demos turned into sign-ups, by kind.
+// Started-demo counts begin the day they were first counted; sign-ups include every earlier self sign-up.
+const COUNT_KINDS = [['', 'Maktab', '#5b9cf0'], ['_du', 'Darul Uloom', '#7cbf57'], ['_school', 'School', '#e8c547']];
 function CountsCard({ counts }) {
-  const sum = (a, b, k) => (counts[a]?.[k] || 0) + (counts[b]?.[k] || 0) + (counts[`${a}_school`]?.[k] || 0);
+  const [when, setWhen] = useState('thisMonth');
+  const of = (base, suffix) => counts[`${base}${suffix}`]?.[when] || 0;
   const firstDemo = [counts.demo?.since, counts.demo_du?.since, counts.demo_school?.since].filter(Boolean).sort()[0];
-  const rows = [['Demos tried', 'demo', 'demo_du'], ['Sign-ups', 'signup', 'signup_du']];
+  const block = (base, word) => {
+    const parts = COUNT_KINDS.map(([s, l, c]) => ({ l, c, n: of(base, s) }));
+    const total = parts.reduce((t, x) => t + x.n, 0);
+    return (
+      <div className="cu-card">
+        <div className="cn-total"><b>{total}</b><span>{word}</span></div>
+        <div className="cn-bar">{total > 0 && parts.map(x => x.n > 0 && <div key={x.l} style={{ width: `${(x.n / total) * 100}%`, background: x.c }} />)}</div>
+        {parts.map(x => <div key={x.l} className="cn-line"><span className="cn-dot" style={{ background: x.c }} />{x.l}<b>{x.n}</b></div>)}
+      </div>
+    );
+  };
   return (
-    <div>
-      {rows.map(([label, a, b]) => (
-        <div key={a} style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-            {[['thisMonth', 'This month'], ['lastMonth', 'Last month'], ['allTime', 'All time']].map(([k, l]) => {
-              const du = counts[b]?.[k] || 0;
-              return (
-                <div key={k} className="info-box">
-                  <strong>{sum(a, b, k)}</strong>
-                  <span className="info-box-label">{l}</span>
-                  <span className="info-box-label" style={{ fontSize: 11 }}>{du} Darul Uloom{counts[`${a}_school`]?.[k] ? ` · ${counts[`${a}_school`][k]} school` : ''}</span>
-                </div>
-              );
-            })}
-          </div>
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div className="cu-btns" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        {[['thisMonth', 'This month'], ['lastMonth', 'Last month'], ['allTime', 'All time']].map(([k, l]) => (
+          <button key={k} type="button" className={`cu-btn ${when === k ? 'on' : ''}`} onClick={() => setWhen(k)}>{l}</button>
+        ))}
+      </div>
+      <div className="cn-two">{block('demo', 'demos tried')}{block('signup', 'signed up')}</div>
+      <div className="cu-card">
+        <div className="cu-title" style={{ marginBottom: 0 }}>Demos that turned into sign-ups</div>
+        <div className="cu-btns" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          {COUNT_KINDS.map(([s, l]) => {
+            const d = of('demo', s), u = of('signup', s);
+            return <div key={l} className="cn-fig"><b>{d ? `${Math.round((u / d) * 100)}%` : '—'}</b><span>{l}</span></div>;
+          })}
         </div>
-      ))}
-      <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '0 2px' }}>
         {firstDemo ? `Demos counted since ${formatDateGB(String(firstDemo).slice(0, 10))}.` : 'Demos are counted from today.'}
       </div>
     </div>
   );
+}
+
+function CuCard({ icon: Icon, tone, title, children }) {
+  return (
+    <div className="cu-card">
+      <div className="cu-title"><span className={`cu-icon ${tone || ''}`}><Icon size={15} /></span>{title}</div>
+      {children}
+    </div>
+  );
+}
+// A grey line: the label on the left, the answer on the right.
+function CuRow({ k, children }) {
+  return <div className="cu-row"><span>{k}</span><span>{children}</span></div>;
 }
 
 function DetailModal({ m, onClose, open, onChanged }) {
@@ -592,6 +614,8 @@ function DetailModal({ m, onClose, open, onChanged }) {
   const [payments, setPayments] = useState(null);
   const [year, setYear] = useState(Number(today.slice(0, 4)));
   const [sel, setSel] = useState(null); // a month box tapped: pay up to it
+  const [showMonths, setShowMonths] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
   const [other, setOther] = useState(false);
   const [f, setF] = useState({ paidOn: today, amount: String(p.monthly), months: '1', note: '' });
   const [price, setPrice] = useState(String(m.billingPlan === 'yearly' ? p.yearly : p.monthly));
@@ -615,153 +639,182 @@ function DetailModal({ m, onClose, open, onChanged }) {
   const boxes = monthBoxes(m, year, today);
   const selCount = sel ? sel.n - (m.monthsPaid || 0) + 1 : 0;
   const selAmount = selCount === 12 && m.billingPlan === 'yearly' ? p.yearly : selCount * p.monthly;
-  const big = {
-    yours: null,
-    off: ['Switched off', 'Their logins are stopped. Nothing is deleted.'],
-    free: [`Free until ${formatDateGB(dayBefore(b.start || nextDue))}`, `First payment due ${formatDateGB(b.start || nextDue)}`],
-    paid: [`Paid to ${formatDateGB(b.paidTo || dayBefore(nextDue))}`, `Next due ${formatDateGB(nextDue)}`],
-    overdue: [`Overdue · ${money(b.owed || 0)}`, `Unpaid since ${formatDateGB(nextDue)} (${b.monthsOwed} month${b.monthsOwed === 1 ? '' : 's'})`],
+  const yearly = m.billingPlan === 'yearly';
+  const status = {
+    off: 'Switched off',
+    free: `Free until ${formatDateGB(dayBefore(b.start || nextDue))}`,
+    paid: `Paid to ${formatDateGB(b.paidTo || dayBefore(nextDue))}`,
+    overdue: `Overdue · ${money(b.owed || 0)}`,
   }[b.state];
-  const planLine = m.billingPlan === 'yearly' ? `Yearly · ${money(p.yearly)}` : `Monthly · ${money(p.monthly)} on the 1st`;
+  const statusColour = b.state === 'overdue' ? 'var(--red-text)' : b.warn ? 'var(--amber-text)' : b.state === 'paid' ? 'var(--green-text)' : undefined;
+  const nextLine = b.state === 'overdue'
+    ? `Unpaid since ${formatDateGB(nextDue)} (${b.monthsOwed} month${b.monthsOwed === 1 ? '' : 's'})`
+    : `${formatDateGB(nextDue)} · ${money(yearly ? p.yearly : p.monthly)}`;
+  // Months: a short summary of this year's boxes.
+  const counted = k => boxes.filter(x => x.kind === k).length;
+  const monthsLine = [counted('free') && `${counted('free')} free`, counted('paid') && `${counted('paid')} paid`, counted('owed') && `${counted('owed')} owed`].filter(Boolean).join(' · ') || '—';
   const joined = formatDateGB(String(m.createdAt).slice(0, 10));
+  const kindWord = m.kind === 'school' ? 'school' : m.kind === 'darul_uloom' ? 'Darul Uloom' : 'maktab';
+  const kindLine = m.kind === 'school'
+    ? [PHASE_LABELS[m.schoolPhase] || 'School', m.schoolForms ? `${m.schoolForms} form${m.schoolForms === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
+    : m.kind === 'darul_uloom' ? 'Darul Uloom' : 'Maktab';
+  const sizeLine = m.kind === 'school'
+    ? `${m.students} pupil${m.students === 1 ? '' : 's'} · ${m.teachers} teacher${m.teachers === 1 ? '' : 's'} · ${m.classes} class${m.classes === 1 ? '' : 'es'}`
+    : `${m.students} ${m.kind === 'darul_uloom' ? (m.students === 1 ? 'student' : 'students') : (m.students === 1 ? 'child' : 'children')} · ${m.teachers} teacher${m.teachers === 1 ? '' : 's'} · ${m.classes} class${m.classes === 1 ? '' : 'es'}`;
+  const link = { textDecoration: 'none' };
 
-  return (
-    <ModalShell title={m.name} width={480} onClose={onClose} busy={busy}
-      sub={<>Joined {joined}{m.selfSignup ? ' · signed themselves up' : ''}{!m.isYours && <> · {m.termsAccepted ? `terms agreed ${formatDateGB(m.termsAccepted)}` : 'terms not agreed yet'}</>}</>}>
-      {big && (
-        <div className={`pay-status pay-${b.state === 'paid' && b.warn ? 'warn' : b.state === 'free' && b.warn ? 'warn' : b.state}`}>
-          <div className="pay-status-big">{big[0]}</div>
-          <div className="pay-status-sub">{big[1]}{b.state !== 'off' && <> · {planLine}</>}</div>
-        </div>
-      )}
-
-      {!m.isYours && m.active && <>
-        <div className="form-section-title pay-h">They've just paid…</div>
-        <div className="pay-quick">
-          <button type="button" className="pay-quick-btn" disabled={busy} onClick={() => pay(1, p.monthly)}>
-            Next month<small>{money(p.monthly)} · covers {monthName(nextDue)}</small>
-          </button>
-          <button type="button" className="pay-quick-btn pay-quick-year" disabled={busy} onClick={() => pay(12, p.yearly)}>
-            A year<small>{money(p.yearly)} · {monthName(nextDue)} – {monthName(addMonths(nextDue, 11))}</small>
-          </button>
-        </div>
-        {!other ? (
-          <button type="button" className="pay-link" onClick={() => setOther(true)}>A different amount</button>
-        ) : (
-          <div className="pay-other">
-            <div className="pay-other-grid">
-              <div className="form-group"><label>Amount (£)</label>
-                <input type="number" min="0" step="0.01" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} /></div>
-              <div className="form-group"><label>Months it pays for</label>
-                <input type="number" min="0" max="60" step="1" value={f.months} onChange={e => setF({ ...f, months: e.target.value })} /></div>
-              <div className="form-group"><label>Paid on</label>
-                <input type="date" value={f.paidOn} onChange={e => setF({ ...f, paidOn: e.target.value })} /></div>
-            </div>
-            <div className="form-group" style={{ marginTop: 8 }}>
-              <input value={f.note} onChange={e => setF({ ...f, note: e.target.value })} placeholder="Note (optional)" maxLength={200} />
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button className="btn btn-primary btn-sm" disabled={busy || !(Number(f.amount) > 0) || !f.paidOn}
-                onClick={() => run(async () => { await addPayment(m.id, { paidOn: f.paidOn, amount: Number(f.amount), months: Number(f.months) || 0, note: f.note }); setOther(false); }, `Recorded ${money(Number(f.amount) || 0)}`)}>
-                <Plus size={13} /> Record payment
-              </button>
-              <button className="btn btn-sm" onClick={() => setOther(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-      </>}
-      {done && <div className="pay-done">✓ {done}</div>}
-      {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
-
-      {!m.isYours && <>
-        <div className="pay-year">
-          <button type="button" className="btn btn-icon btn-sm" onClick={() => { setYear(year - 1); setSel(null); }} aria-label="Previous year"><ChevronLeft size={15} /></button>
-          <span>{year}</span>
-          <button type="button" className="btn btn-icon btn-sm" onClick={() => { setYear(year + 1); setSel(null); }} aria-label="Next year"><ChevronRight size={15} /></button>
-        </div>
-        <div className="pay-months">
-          {boxes.map(x => (
-            <button key={x.first} type="button" disabled={!m.active || !(x.kind === 'owed' || x.kind === 'notdue')}
-              className={`pay-month pay-month-${x.kind}${sel && sel.first === x.first ? ' is-sel' : ''}`}
-              onClick={() => setSel(sel && sel.first === x.first ? null : x)}>
-              {x.name}<small>{{ before: '—', free: 'Free', paid: 'Paid', owed: 'Owed', notdue: 'Not due yet' }[x.kind]}</small>
-            </button>
-          ))}
-        </div>
-        {sel ? (
-          <div className="pay-sel">
-            <span>Paid {money(selAmount)} for {selCount === 1 ? monthName(sel.first) : `${monthName(nextDue)} – ${monthName(sel.first)}`}?</span>
-            <span style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-primary btn-sm" disabled={busy} onClick={async () => { await pay(selCount, selAmount); setSel(null); }}>Record</button>
-              <button className="btn btn-sm" onClick={() => setSel(null)}>Cancel</button>
-            </span>
-          </div>
-        ) : m.active && <div className="pay-hint">Tap a month to mark it (and any before it) paid.</div>}
-
-        <div className="form-section-title pay-h">Plan</div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="pill-tabs" style={{ marginBottom: 0 }}>
+  const paymentsCard = !m.isYours && (
+    <CuCard icon={PoundSterling} tone="green" title="Payments">
+      <CuRow k="Status"><b style={{ color: statusColour }}>{status}</b></CuRow>
+      {m.active && <CuRow k={b.state === 'overdue' ? 'Owed' : b.state === 'free' ? 'First payment' : 'Next payment'}>{nextLine}</CuRow>}
+      <button type="button" className="cu-row cu-tap" onClick={() => setShowPlan(v => !v)}>
+        <span>Plan</span><span>{yearly ? `Yearly · ${money(p.yearly)}` : `Monthly · ${money(p.monthly)}`} <b className="cu-link">{showPlan ? 'Close' : 'Change'}</b></span>
+      </button>
+      {showPlan && (
+        <div className="cu-inset">
+          <div className="cu-btns" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
             {[['monthly', 'Monthly'], ['yearly', 'Yearly']].map(([k, l]) => (
-              <button key={k} type="button" className={`pill-tab ${m.billingPlan === k ? 'active' : ''}`} disabled={busy}
+              <button key={k} type="button" className={`cu-btn ${m.billingPlan === k ? 'on' : ''}`} disabled={busy}
                 onClick={() => m.billingPlan !== k && savePlan(k, prices(m)[k])}>{l}</button>
             ))}
           </div>
-          <span className="pay-price">£<input type="number" min="0" step="1" value={price} onChange={e => setPrice(e.target.value)}
+          <span className="pay-price" style={{ marginTop: 8 }}>£<input type="number" min="0" step="1" value={price} onChange={e => setPrice(e.target.value)}
             onBlur={() => Number(price) > 0 && Number(price) !== Number(m.billingAmount) && savePlan(m.billingPlan, Number(price))} />
-            {m.billingPlan === 'yearly' ? 'a year' : 'a month'}</span>
+            {yearly ? 'a year' : 'a month'}</span>
         </div>
-
-        {payments && payments.length > 0 && <>
-          <div className="form-section-title pay-h">Payments received</div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {payments.map(x => (
-              <div key={x.id} className="pay-row">
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <strong>{money(x.amount)}</strong> · {x.months} month{x.months === 1 ? '' : 's'}
-                  <span className="text-muted"> · {formatDateGB(x.paidOn)}{x.note ? ` · ${x.note}` : ''}</span>
-                </span>
-                <button className="btn btn-icon btn-sm" title="Remove this payment" disabled={busy} onClick={async () => {
-                  if (await askConfirm(`Remove the ${money(x.amount)} payment from ${formatDateGB(x.paidOn)}?`, { ok: 'Remove', danger: true })) run(() => deletePayment(m.id, x.id));
-                }}><Trash2 size={13} /></button>
-              </div>
+      )}
+      <button type="button" className="cu-row cu-tap" onClick={() => { setShowMonths(v => !v); setSel(null); }}>
+        <span>Months</span><span>{year}: {monthsLine} <b className="cu-link">{showMonths ? 'Close' : 'Show'}</b></span>
+      </button>
+      {showMonths && (
+        <div className="cu-inset">
+          <div className="pay-year" style={{ margin: '0 0 8px' }}>
+            <button type="button" className="btn btn-icon btn-sm" onClick={() => { setYear(year - 1); setSel(null); }} aria-label="Previous year"><ChevronLeft size={15} /></button>
+            <span>{year}</span>
+            <button type="button" className="btn btn-icon btn-sm" onClick={() => { setYear(year + 1); setSel(null); }} aria-label="Next year"><ChevronRight size={15} /></button>
+          </div>
+          <div className="pay-months">
+            {boxes.map(x => (
+              <button key={x.first} type="button" disabled={!m.active || !(x.kind === 'owed' || x.kind === 'notdue')}
+                className={`pay-month pay-month-${x.kind}${sel && sel.first === x.first ? ' is-sel' : ''}`}
+                onClick={() => setSel(sel && sel.first === x.first ? null : x)}>
+                {x.name}<small>{{ before: '—', free: 'Free', paid: 'Paid', owed: 'Owed', notdue: 'Not due yet' }[x.kind]}</small>
+              </button>
             ))}
           </div>
-        </>}
-      </>}
-
-      <div className="form-section-title pay-h">Contact</div>
-      <div className="pay-contact">
-        {m.contactName && <div><span>Head</span>{m.contactName}</div>}
-        {m.headLogin && <div><span>Login</span>{m.headLogin}</div>}
-        <div><span>Code</span>{m.code}</div>
-        {m.referredBy && <div><span>Recommended by</span>{m.referredBy}{m.referralRewarded ? ' (given a month free)' : ' (same address — no free month)'}</div>}
-        {m.referrals > 0 && <div><span>Recommended</span>{m.referrals} madrasah{m.referrals === 1 ? '' : 's'}</div>}
-        {(m.contactPhone || m.contactEmail) && (
-          <div className="pay-contact-btns">
-            {m.contactPhone && <a className="btn btn-sm" href={`https://wa.me/${whatsappNumber(m.contactPhone)}`} target="_blank" rel="noopener noreferrer"><MessageCircle size={13} /> WhatsApp</a>}
-            {m.contactPhone && <a className="btn btn-sm" href={`tel:${m.contactPhone.replace(/\s/g, '')}`}><Phone size={13} /> {m.contactPhone}</a>}
-            {m.contactEmail && <a className="btn btn-sm" href={`mailto:${m.contactEmail}`}><Mail size={13} /> Email</a>}
+          {sel ? (
+            <div className="pay-sel">
+              <span>Paid {money(selAmount)} for {selCount === 1 ? monthName(sel.first) : `${monthName(nextDue)} – ${monthName(sel.first)}`}?</span>
+              <span style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-primary btn-sm" disabled={busy} onClick={async () => { await pay(selCount, selAmount); setSel(null); }}>Record</button>
+                <button className="btn btn-sm" onClick={() => setSel(null)}>Cancel</button>
+              </span>
+            </div>
+          ) : m.active && <div className="pay-hint">Tap a month to mark it (and any before it) paid.</div>}
+        </div>
+      )}
+      {m.active && (
+        <div className="cu-btns" style={{ gridTemplateColumns: `repeat(${yearly ? 3 : 2}, minmax(0, 1fr))` }}>
+          {yearly ? (
+            <button type="button" className="cu-btn on" disabled={busy} onClick={() => pay(12, p.yearly)}>Paid the year</button>
+          ) : <>
+            <button type="button" className="cu-btn on" disabled={busy} onClick={() => pay(1, p.monthly)}>Paid next month</button>
+            <button type="button" className="cu-btn" disabled={busy} onClick={() => pay(12, p.yearly)}>Paid a year</button>
+          </>}
+          <button type="button" className="cu-btn" onClick={() => setOther(v => !v)}>Another amount</button>
+          <button type="button" className="cu-btn" onClick={() => open('invoice', m)}>Invoice</button>
+        </div>
+      )}
+      {other && (
+        <div className="pay-other" style={{ marginTop: 0 }}>
+          <div className="pay-other-grid">
+            <div className="form-group"><label>Amount (£)</label>
+              <input type="number" min="0" step="0.01" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} /></div>
+            <div className="form-group"><label>Months it pays for</label>
+              <input type="number" min="0" max="60" step="1" value={f.months} onChange={e => setF({ ...f, months: e.target.value })} /></div>
+            <div className="form-group"><label>Paid on</label>
+              <input type="date" value={f.paidOn} onChange={e => setF({ ...f, paidOn: e.target.value })} /></div>
           </div>
-        )}
-      </div>
+          <div className="form-group" style={{ marginTop: 8 }}>
+            <input value={f.note} onChange={e => setF({ ...f, note: e.target.value })} placeholder="Note (optional)" maxLength={200} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button className="btn btn-primary btn-sm" disabled={busy || !(Number(f.amount) > 0) || !f.paidOn}
+              onClick={() => run(async () => { await addPayment(m.id, { paidOn: f.paidOn, amount: Number(f.amount), months: Number(f.months) || 0, note: f.note }); setOther(false); }, `Recorded ${money(Number(f.amount) || 0)}`)}>
+              <Plus size={13} /> Record payment
+            </button>
+            <button className="btn btn-sm" onClick={() => setOther(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {done && <div className="pay-done" style={{ marginTop: 0 }}>✓ {done}</div>}
+      {error && <div style={{ fontSize: 12.5, color: 'var(--red)' }}>{error}</div>}
+    </CuCard>
+  );
 
-      <div className="form-section-title pay-h">Size</div>
-      <div className="pay-stats">
-        {(m.kind === 'school'
-          ? [['Pupils', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['Forms of entry', m.schoolForms || '—'], ['School', PHASE_LABELS[m.schoolPhase] || '—']]
-          : [['Children', m.students], ['Teachers', m.teachers], ['Classes', m.classes], ['AI this month', m.aiThisMonth], ['AI all time', m.aiTotal]]).map(([l, v]) => (
-          <div key={l}><b>{v}</b>{l}</div>
-        ))}
-      </div>
+  const receivedCard = !m.isYours && (
+    <CuCard icon={FileText} title="Payments received">
+      {payments === null ? <CuRow k="Loading…" /> : payments.length === 0 ? <CuRow k="Nothing yet">—</CuRow> : payments.map(x => (
+        <div key={x.id} className="cu-row">
+          <span>{formatDateGB(x.paidOn)}{x.note ? ` · ${x.note}` : ''}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {money(x.amount)} · {x.months} month{x.months === 1 ? '' : 's'}
+            <button className="btn btn-icon btn-sm" title="Remove this payment" aria-label="Remove this payment" disabled={busy} onClick={async () => {
+              if (await askConfirm(`Remove the ${money(x.amount)} payment from ${formatDateGB(x.paidOn)}?`, { ok: 'Remove', danger: true })) run(() => deletePayment(m.id, x.id));
+            }}><Trash2 size={13} /></button>
+          </span>
+        </div>
+      ))}
+    </CuCard>
+  );
 
-      <div className="form-section-title pay-h">Manage</div>
-      <div className="pay-manage">
-        <button className="btn" onClick={() => open('edit', m)}><Pencil size={13} /> Edit details</button>
-        {!m.isYours && <button className="btn" onClick={() => open('invoice', m)}><FileText size={13} /> Invoice</button>}
-        {!m.isYours && <button className="btn" onClick={() => open('password', m)}><KeyRound size={13} /> Reset head's password</button>}
-        {!m.isYours && <button className="btn" onClick={() => open('head', m)}><UserCog size={13} /> Change head</button>}
-        {!m.isYours && <button className="btn" style={m.active ? { color: 'var(--red)' } : undefined} onClick={() => open('power', m)}><Power size={13} /> {m.active ? 'Switch off' : 'Switch on'}</button>}
-        {!m.isYours && !m.active && <button className="btn" style={{ color: 'var(--red)' }} onClick={() => open('delete', m)}><Trash2 size={13} /> Delete</button>}
+  const placeCard = (
+    <CuCard icon={m.kind === 'school' ? GraduationCap : m.kind === 'darul_uloom' ? BookOpen : Building2} tone={m.kind === 'school' ? 'amber' : m.kind === 'darul_uloom' ? 'green' : 'blue'}
+      title={m.kind === 'school' ? 'The school' : m.kind === 'darul_uloom' ? 'The Darul Uloom' : 'The maktab'}>
+      <CuRow k="Kind">{kindLine}</CuRow>
+      <CuRow k="Size">{sizeLine}</CuRow>
+      {m.kind !== 'school' && <CuRow k="AI">{m.aiThisMonth} this month · {m.aiTotal} all time</CuRow>}
+      <CuRow k="Sign-in code">{m.code}</CuRow>
+      <CuRow k="Joined">{joined}{m.selfSignup ? ' · signed themselves up' : ''}</CuRow>
+      {!m.isYours && <CuRow k="Terms">{m.termsAccepted ? `Agreed ${formatDateGB(m.termsAccepted)}` : 'Not agreed yet'}</CuRow>}
+      {m.referredBy && <CuRow k="Recommended by">{m.referredBy}{m.referralRewarded ? ' · given a month free' : ' · same address, no free month'}</CuRow>}
+      {m.referrals > 0 && <CuRow k="Recommended">{m.referrals} {m.referrals === 1 ? 'place' : 'places'}</CuRow>}
+    </CuCard>
+  );
+
+  const headCard = (
+    <CuCard icon={UserRound} tone="blue" title="Head">
+      {m.contactName && <CuRow k="Name">{m.contactName}</CuRow>}
+      {m.contactPhone && <CuRow k="Phone">{m.contactPhone}</CuRow>}
+      {m.headLogin && <CuRow k="Login">{m.headLogin}</CuRow>}
+      {m.contactEmail && m.contactEmail !== m.headLogin && <CuRow k="Email">{m.contactEmail}</CuRow>}
+      {(m.contactPhone || m.contactEmail) && (
+        <div className="cu-btns" style={{ gridTemplateColumns: `repeat(${(m.contactPhone ? 2 : 0) + (m.contactEmail ? 1 : 0)}, minmax(0, 1fr))` }}>
+          {m.contactPhone && <a className="cu-btn" style={link} href={`https://wa.me/${whatsappNumber(m.contactPhone)}`} target="_blank" rel="noopener noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
+          {m.contactPhone && <a className="cu-btn" style={link} href={`tel:${m.contactPhone.replace(/\s/g, '')}`}><Phone size={14} /> Call</a>}
+          {m.contactEmail && <a className="cu-btn" style={link} href={`mailto:${m.contactEmail}`}><Mail size={14} /> Email</a>}
+        </div>
+      )}
+    </CuCard>
+  );
+
+  const manageCard = (
+    <CuCard icon={Settings2} title="Manage">
+      <div className="cu-btns" style={{ gridTemplateColumns: `repeat(${m.isYours ? 1 : 2}, minmax(0, 1fr))` }}>
+        <button type="button" className="cu-btn" onClick={() => open('edit', m)}><Pencil size={14} /> Edit details</button>
+        {!m.isYours && <button type="button" className="cu-btn" onClick={() => open('password', m)}><KeyRound size={14} /> Reset password</button>}
+        {!m.isYours && <button type="button" className="cu-btn" onClick={() => open('head', m)}><UserCog size={14} /> Change head</button>}
+        {!m.isYours && <button type="button" className="cu-btn" style={{ color: 'var(--red-text)' }} onClick={() => open('power', m)}><Power size={14} /> {m.active ? 'Switch off' : 'Switch on'}</button>}
+        {!m.isYours && !m.active && <button type="button" className="cu-btn" style={{ color: 'var(--red-text)' }} onClick={() => open('delete', m)}><Trash2 size={14} /> Delete for ever</button>}
+      </div>
+    </CuCard>
+  );
+
+  return (
+    <ModalShell title={m.name} width={m.isYours ? 480 : 880} onClose={onClose} busy={busy} bodyClass="cu-body">
+      <div className={m.isYours ? 'cu-one' : 'cu-grid'}>
+        {!m.isYours && <div className="cu-col">{paymentsCard}{receivedCard}</div>}
+        <div className="cu-col">{placeCard}{headCard}{manageCard}</div>
       </div>
     </ModalShell>
   );
