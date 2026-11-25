@@ -94,7 +94,7 @@ async function handler(req, res) {
   }
 
   if (req.method === 'POST' && req.query.action === 'handover') {
-    if (req.user.platformAdmin) { res.status(400).json({ error: 'Your login also runs the Madaaris page, so it can\'t be handed over here.' }); return; }
+    if (req.user.platformAdmin) { res.status(400).json({ error: 'Your login also runs Suhuf HQ, so it can\'t be handed over here.' }); return; }
     const n = await checkNew(mid, req.body || {}, req.user.id);
     if (n.error) { res.status(400).json({ error: n.error }); return; }
     const done = await replaceHead(mid, req.user.id, n);
@@ -103,7 +103,7 @@ async function handler(req, res) {
     await notifyPlatformOwner({
       title: `New head: ${m.name}`,
       body: `${n.name}${n.phone ? ` · ${n.phone}` : ''} (was ${done.before})`,
-      emailText: `${m.name} has handed over a head login.\n\nNew head: ${n.name}\nEmail (their login): ${n.login}\nPhone: ${n.phone || '—'}\nBefore: ${done.before}${done.main ? '\n\nTheir contact details on the Madaaris page have changed to the new head.' : ''}\n\nhttps://suhuf.uk/madaaris`,
+      emailText: `${m.name} has handed over a head login.\n\nNew head: ${n.name}\nEmail (their login): ${n.login}\nPhone: ${n.phone || '—'}\nBefore: ${done.before}${done.main ? '\n\nTheir contact details in Suhuf HQ have changed to the new head.' : ''}\n\nhttps://suhuf.uk/madaaris`,
     }).catch(() => {});
     res.status(200).json({ ok: true, signedOut: true });
     return;
@@ -115,7 +115,7 @@ async function handler(req, res) {
     const list = await heads(mid);
     const target = list.find(h => String(h.id) === id);
     if (!target) { res.status(404).json({ error: 'That head was not found.' }); return; }
-    if (target.platform_admin) { res.status(400).json({ error: 'That login runs the Madaaris page and can\'t be removed here.' }); return; }
+    if (target.platform_admin) { res.status(400).json({ error: 'That login runs Suhuf HQ and can\'t be removed here.' }); return; }
     if (list.length < 2) { res.status(400).json({ error: 'A madrasah always keeps one head.' }); return; }
     await query(`DELETE FROM users WHERE id = $1 AND madrasah_id = $2 AND role = 'owner'`, [target.id, mid]);
     // The one left becomes the main head: the madrasah's contact follows if the main head was removed.
