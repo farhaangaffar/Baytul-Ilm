@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import SignupNotifications from '../components/SignupNotifications';
+import BoxRow from '../components/BoxRow';
 import { LoadingState, ErrorState } from '../components/DataState';
 import { getMadaaris, createMadrasah, updateMadrasah, deleteMadrasah, formatDateGB, getDbUsage, getPlatformCounts, getIncome, getPayments, addPayment, deletePayment, getInvoiceDetails, saveInvoiceDetails, changeMadrasahHead } from '../lib/store';
 import { billing, billingStart, prices, monthBoxes, addMonths, dayBefore, monthName, money, todayLocal, defaultPrice, KIND_LABELS } from '../lib/billing';
 import { APP_NAME, APP_URL } from '../lib/branding';
-import { Plus, X, Save, Pencil, KeyRound, UserCog, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, PoundSterling, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download } from 'lucide-react';
+import { Plus, X, Save, Pencil, KeyRound, UserCog, Power, Sparkles, ExternalLink, Copy, Share2, PlayCircle, Database, Trash2, ChevronLeft, ChevronRight, MessageCircle, Phone, Mail, FileText, Download, Search, Bell } from 'lucide-react';
 import { askConfirm } from '../lib/dialog';
 
 // The platform owner's page: every madrasah using the app, with counts only (never
@@ -27,26 +28,45 @@ function whatsappNumber(phone) {
   return d.startsWith('0') ? `44${d.slice(1)}` : d;
 }
 
-// Colours for where a madrasah is with paying: grey (free), green (paid), yellow (due within 2 weeks), red (overdue).
-function tone(b) {
-  if (b.state === 'overdue') return { text: 'var(--red-text)', bar: 'var(--red)' };
-  if (b.warn) return { text: 'var(--amber-text)', bar: '#e0b416' };
-  if (b.state === 'paid') return { text: 'var(--green-text)', bar: '#6fae3c' };
-  if (b.state === 'free') return { text: 'var(--text-muted)', bar: '#94a3b8' };
-  return { text: 'var(--text-soft)', bar: 'transparent' };
-}
-
 function suggestCode(name) {
   return String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+}
+
+// The kinds, in the order they're shown (the boxes at the top of Customers and the Add button's words).
+const KINDS = [['maktab', 'Maktabs', 'a maktab'], ['darul_uloom', 'Darul Ulooms', 'a Darul Uloom'], ['school', 'Schools', 'a school']];
+const TAB_KEY = 'suhuf_hq_tab';
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// One line's second line: what kind of place it is and its size, in its own words.
+function placeWords(m, withKind) {
+  if (m.kind === 'school') {
+    return [PHASE_LABELS[m.schoolPhase] || 'School', m.schoolForms ? plural(m.schoolForms, 'form', 'forms') : '', plural(m.students, 'pupil', 'pupils')].filter(Boolean).join(' · ');
+  }
+  const kind = m.kind === 'darul_uloom' ? 'Darul Uloom' : 'Maktab';
+  const size = m.kind === 'darul_uloom' ? `${plural(m.students, 'student', 'students')} · ${plural(m.classes, 'class', 'classes')}` : `${plural(m.students, 'child', 'children')} · ${plural(m.classes, 'class', 'classes')}`;
+  return withKind ? `${kind} · ${size}` : size;
+}
+
+// Why a place needs the platform owner: overdue, due (or free ending) within 2 weeks, or new (signed up in the last 14 days).
+function needOf(m, b) {
+  if (b.state === 'overdue') return { word: 'Overdue', colour: 'var(--red-text)', rank: 0 };
+  if (b.warn) return { word: b.state === 'free' ? 'Free ending' : 'Due soon', colour: 'var(--amber-text)', rank: 1 };
+  if (m.selfSignup && Date.now() - new Date(m.createdAt) < 14 * 864e5) return { word: 'New', colour: 'var(--teal-dark)', rank: 2 };
+  return null;
 }
 
 export default function Madaaris() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [list, setList] = useState([]);
-  const [modal, setModal] = useState(null); // { kind: 'add' } | { kind: 'detail'|'edit'|'password'|'power'|'delete', m, back }
+  const [modal, setModal] = useState(null); // { kind: 'add', placeKind } | { kind: 'detail'|'edit'|'password'|'power'|'delete'|'invoice'|'head', m, back } | { kind: 'ai'|'db'|'counts'|'demos'|'alerts'|'pick-invoice' }
   const [created, setCreated] = useState(null); // details to hand over after adding one
   const [toast, setToast] = useState('');
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'customers'; } catch { return 'customers'; } });
+  const setTab = t => { setTabState(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* not kept */ } };
+  const [show, setShow] = useState('all'); // 'need' | 'all' | a kind
+  const [find, setFind] = useState('');
+  const [allPayments, setAllPayments] = useState(false);
   const [dbBytes, setDbBytes] = useState(null);
   useEffect(() => { getDbUsage().then(u => setDbBytes(u.dbBytes)).catch(() => {}); }, []);
   const [counts, setCounts] = useState(null);
@@ -66,8 +86,9 @@ export default function Madaaris() {
   // Closing a pop-up opened from a madrasah's details goes back to its details.
   const back = () => setModal(cur => (cur?.back ? { kind: 'detail', m: cur.m } : null));
 
-  if (loading) return <Layout title="Madaaris"><LoadingState /></Layout>;
-  if (error) return <Layout title="Madaaris"><ErrorState error={error} onRetry={load} /></Layout>;
+  const TITLE = 'Suhuf HQ';
+  if (loading) return <Layout title={TITLE}><LoadingState /></Layout>;
+  if (error) return <Layout title={TITLE}><ErrorState error={error} onRetry={load} /></Layout>;
 
   const totals = list.reduce((t, m) => ({ students: t.students + m.students, ai: t.ai + m.aiThisMonth, aiAll: t.aiAll + m.aiTotal }), { students: 0, ai: 0, aiAll: 0 });
   const pounds = n => `£${((n * PENCE_PER_AI_REQUEST) / 100).toFixed(2)}`;
@@ -87,123 +108,211 @@ export default function Madaaris() {
   }
   const signInLink = code => `${APP_URL}/?m=${encodeURIComponent(code)}`;
 
+  // Every place with where it is with paying and whether it needs the platform owner.
+  const rows = list.map(m => { const b = billing(m); return { m, b, need: needOf(m, b) }; });
+  const needCount = rows.filter(r => r.need).length;
+  const kindCount = k => list.filter(m => (m.kind || 'maktab') === k).length;
+  const shownKind = show === 'need' || show === 'all' ? null : show;
+  const q = find.trim().toLowerCase();
+  const shown = rows
+    .filter(r => show === 'need' ? r.need : show === 'all' ? true : (r.m.kind || 'maktab') === show)
+    .filter(r => !q || r.m.name.toLowerCase().includes(q) || String(r.m.code).includes(q))
+    .sort((a, b) => (a.need ? a.need.rank : 9) - (b.need ? b.need.rank : 9) || (b.m.active - a.m.active) || a.m.name.localeCompare(b.m.name));
+  const shownTitle = show === 'need' ? 'Need you' : show === 'all' ? 'Everyone' : KINDS.find(k => k[0] === show)[1];
+  const shownChildren = shown.reduce((t, r) => t + r.m.students, 0);
+
+  // Money: expected each month from those paying, due soon and overdue.
+  const paying = rows.filter(x => x.b.state === 'paid' || x.b.state === 'overdue');
+  const overdue = paying.filter(x => x.b.owed > 0);
+  const dueSoon = rows.filter(x => x.b.state === 'paid' && x.b.warn).length;
+  const payments = income?.recent || [];
+  const openPlace = id => { const m = list.find(x => x.id === id); if (m) setModal({ kind: 'detail', m }); };
+
+  // Suhuf tab: a line each, its figure on the right, opening its pop-up.
+  const dbPct = dbBytes == null ? null : Math.min(100, Math.round((dbBytes / DB_LIMIT_BYTES) * 100));
+  const sum3 = (a, b, k) => counts ? (counts[a]?.[k] || 0) + (counts[b]?.[k] || 0) + (counts[`${a}_school`]?.[k] || 0) : null;
+  const suhufLines = [
+    ['ai', Sparkles, 'AI this month', `${plural(totals.ai, 'request', 'requests')} · balance on Anthropic's page`, pounds(totals.ai)],
+    ['db', Database, 'Database space', dbBytes == null ? 'Checking…' : `${Math.round(dbBytes / 1048576)} MB of 512 MB on the free plan`, dbPct == null ? '' : `${dbPct}%`],
+    ['counts', PlayCircle, 'Demos & sign-ups', 'This month · last month · all time', counts ? `${sum3('demo', 'demo_du', 'thisMonth')} · ${sum3('signup', 'signup_du', 'thisMonth')}` : ''],
+    ['demos', Share2, 'Demo links', 'Maktab · Darul Uloom · School — copy or share', '3'],
+    ['alerts', Bell, 'Phone alerts', 'When a madrasah or school signs up', ''],
+  ];
+
   return (
-    <Layout title="Madaaris" subtitle="Every madrasah using the app">
-      <div className="stat-grid-v2">
-        <div className="stat-card-v2"><div className="n">{list.length}</div><div className="l">Madaaris</div></div>
-        <div className="stat-card-v2"><div className="n">{list.filter(m => m.active).length}</div><div className="l">Switched on</div></div>
-        <div className="stat-card-v2"><div className="n">{totals.students}</div><div className="l">Active students, all madaaris</div></div>
-        <div className="stat-card-v2"><div className="n">{totals.ai}</div><div className="l">AI requests this month</div></div>
+    <Layout title={TITLE} subtitle="Every maktab, Darul Uloom and school on Suhuf">
+      <div className="student-tabs" role="tablist" style={{ maxWidth: 520 }}>
+        {[['customers', 'Customers'], ['money', 'Money'], ['suhuf', 'Suhuf']].map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{l}</button>
+        ))}
       </div>
 
-      <SignupNotifications />
+      {tab === 'customers' && <>
+        <BoxRow columns={`repeat(${needCount ? 5 : 4}, minmax(0, 1fr))`} cells={[
+          ...(needCount ? [{ text: String(needCount), sub: 'Need you', tone: 'amber', onClick: () => setShow('need'), className: show === 'need' ? 'hq-picked' : undefined }] : []),
+          { text: String(list.length), sub: 'Everyone', tone: show === 'all' ? 'blue' : undefined, className: show === 'all' ? undefined : 'ct-figure', onClick: () => setShow('all') },
+          ...KINDS.map(([k, l]) => ({ text: String(kindCount(k)), sub: l, tone: show === k ? 'blue' : undefined, className: show === k ? undefined : 'ct-figure', onClick: () => setShow(k) })),
+        ]} />
+        <div style={{ height: 10 }} />
 
-      {/* Money from madaaris: received, expected each month, and who's behind. */}
-      {(() => {
-        const paying = list.map(m => ({ m, b: billing(m) })).filter(x => x.b.state === 'paid' || x.b.state === 'overdue');
-        const expected = paying.reduce((t, { m }) => t + (m.billingPlan === 'yearly' ? prices(m).yearly / 12 : prices(m).monthly), 0);
-        const overdue = paying.map(x => x.b).filter(b => b.owed > 0);
-        return (
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-header" style={{ marginBottom: 10 }}>
-              <div className="card-title"><PoundSterling size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Payments from madaaris</div>
-            </div>
-            <div className="stat-grid-v2" style={{ marginBottom: 0 }}>
-              <div className="stat-card-v2"><div className="n" style={{ color: 'var(--green-text)' }}>{income ? money(income.thisMonth) : '…'}</div><div className="l">Received this month</div></div>
-              <div className="stat-card-v2"><div className="n">{income ? money(income.last12) : '…'}</div><div className="l">Last 12 months</div></div>
-              <div className="stat-card-v2"><div className="n">{money(expected)}</div><div className="l">Expected each month</div></div>
-              <div className="stat-card-v2"><div className="n" style={{ color: overdue.length ? 'var(--red-text)' : undefined }}>{overdue.length ? money(overdue.reduce((t, b) => t + b.owed, 0)) : '£0'}</div><div className="l">{overdue.length ? `Overdue from ${overdue.length} madrasah${overdue.length === 1 ? '' : 's'}` : 'Nothing overdue'}</div></div>
-            </div>
-          </div>
-        );
-      })()}
-
-      <div className="flex items-center justify-between mb-5" style={{ flexWrap: 'wrap', gap: 12 }}>
-        <div className="text-muted text-sm">You only see counts here — each madrasah's students, fees and reports stay private to them.</div>
-        <button className="btn btn-primary" onClick={() => setModal({ kind: 'add' })}><Plus size={14} /> Add madrasah</button>
-      </div>
-
-      {list.map(m => {
-        const b = billing(m);
-        const t = tone(b);
-        const isNew = m.selfSignup && Date.now() - new Date(m.createdAt) < 14 * 864e5;
-        return (
-          <button key={m.id} type="button" className="card madrasah-card" onClick={() => setModal({ kind: 'detail', m })}
-            style={{ opacity: m.active ? 1 : 0.65 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ minWidth: 0 }}>
-                  <span className="madrasah-card-name">{m.name}</span>
-                  {m.kind !== 'maktab' && KIND_LABELS[m.kind] && <span className="badge badge-blue" style={{ marginLeft: 8, verticalAlign: '2px' }}>{KIND_LABELS[m.kind]}</span>}
-                  {isNew && <span className="badge badge-amber" style={{ marginLeft: 8, verticalAlign: '2px' }}>New</span>}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>{b.label}</span>
-              </div>
-              <div className="text-muted" style={{ fontSize: 13, marginTop: 4 }}>
-                {m.students} {m.students === 1 ? 'child' : 'children'} · {m.classes} class{m.classes === 1 ? '' : 'es'}
-                {' · '}<Sparkles size={12} style={{ verticalAlign: '-1px' }} /> {m.aiThisMonth} AI this month
-              </div>
-            </div>
-            {(b.state === 'free' || b.state === 'paid' || b.state === 'overdue') && (
-              <div className="madrasah-bar"><div style={{ width: `${Math.max(3, Math.round(b.fill * 100))}%`, background: t.bar }} /></div>
+        <div className="card">
+          <div className="hq-card-head">
+            <div className="card-title">{shownTitle}</div>
+            <div className="text-muted" style={{ fontSize: 12.5 }}>{shownChildren.toLocaleString('en-GB')} {shownKind === 'school' ? 'pupils' : shownKind === 'darul_uloom' ? 'students' : shownKind === 'maktab' ? 'children' : 'children, students and pupils'}</div>
+            {list.length > 12 && (
+              <label className="hq-find">
+                <Search size={14} aria-hidden="true" />
+                <input value={find} onChange={e => setFind(e.target.value)} placeholder="Find a name" aria-label="Find a name" />
+                {find && <button type="button" className="btn btn-icon" style={{ padding: 2 }} onClick={() => setFind('')} aria-label="Clear"><X size={13} /></button>}
+              </label>
             )}
-          </button>
-        );
-      })}
-      <div className="text-muted" style={{ fontSize: 12, margin: '2px 2px 4px' }}>
-        Bar: grey = free months · green = paid · yellow = due within 2 weeks · red = overdue. Tap a madrasah for its details and payments.
-      </div>
-
-      {/* Just for the platform owner: AI credit and the demo link to send out. */}
-      <div className="card" style={{ marginTop: 16, marginBottom: 12 }}>
-        <div className="card-title" style={{ marginBottom: 4 }}><Sparkles size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />AI credit</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>Your balance is on Anthropic's billing page — top up there.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
-          <div className="info-box"><strong>{totals.ai} · ≈ {pounds(totals.ai)}</strong><span className="info-box-label">AI requests this month</span></div>
-          <div className="info-box"><strong>{totals.aiAll} · ≈ {pounds(totals.aiAll)}</strong><span className="info-box-label">All time</span></div>
-        </div>
-        <a className="btn btn-primary" href={AI_BILLING_URL} target="_blank" rel="noopener noreferrer" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
-          <ExternalLink size={14} /> Check balance & top up
-        </a>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Costs are a rough guide (about {PENCE_PER_AI_REQUEST}p per summary).</div>
-      </div>
-
-      {dbBytes != null && (() => {
-        const pct = Math.min(100, Math.round((dbBytes / DB_LIMIT_BYTES) * 100));
-        const tone = pct >= 80 ? 'var(--red)' : pct >= 60 ? 'var(--amber)' : 'var(--green)';
-        return (
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div className="card-title" style={{ marginBottom: 4 }}><Database size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Database space</div>
-            <div className="card-sub" style={{ marginBottom: 10 }}>{Math.round(dbBytes / 1048576)} MB of 512 MB on the free plan ({pct}%).{pct >= 80 ? ' Time to move to a paid plan.' : ''}</div>
-            <div style={{ height: 8, borderRadius: 99, background: '#eef0f3', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.max(pct, 2)}%`, height: '100%', background: tone }} />
-            </div>
           </div>
-        );
-      })()}
-
-      {counts && <CountsCard counts={counts} />}
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demo links</div>
-        <div className="card-sub" style={{ marginBottom: 10 }}>Send the right one to anyone who wants to try the app — they get their own made-up madrasah or school.</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {DEMOS.map(([label, link, text]) => (
-            <div key={link} className="line-row" style={{ cursor: 'default' }}>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontWeight: 600 }}>{label}</span>
-                <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.replace(/^https?:\/\//, '')}</span>
-              </span>
-              <button className="btn btn-sm" onClick={() => copyDemo(link)} aria-label={`Copy the ${label} demo link`}><Copy size={13} /> Copy</button>
-              {typeof navigator !== 'undefined' && navigator.share && <button className="btn btn-sm" onClick={() => shareDemo(link, text)} aria-label={`Share the ${label} demo link`}><Share2 size={13} /></button>}
-            </div>
-          ))}
+          <div className="hq-lines">
+            {shown.map(({ m, b, need }) => (
+              <button key={m.id} type="button" className="line-row" onClick={() => setModal({ kind: 'detail', m })} style={{ opacity: m.active ? 1 : 0.6 }}>
+                <span className="ct-two">
+                  <span className="line-row-name">{m.name}</span>
+                  <span className="line-row-sub">
+                    {need && <b style={{ color: need.colour }}>{need.word} · </b>}
+                    {placeWords(m, !shownKind)}
+                  </span>
+                </span>
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>{b.state === 'overdue' ? `${money(b.owed)} owed` : b.label}</span>
+              </button>
+            ))}
+            {!shown.length && <div className="text-muted" style={{ fontSize: 13, padding: '6px 2px' }}>{q ? `Nothing called “${find.trim()}”.` : show === 'need' ? 'Nothing needs you right now.' : 'None yet.'}</div>}
+          </div>
+          <button className="btn" style={{ marginTop: 12 }} onClick={() => setModal({ kind: 'add', placeKind: shownKind || 'maktab' })}>
+            <Plus size={14} /> {shownKind ? `Add ${KINDS.find(k => k[0] === shownKind)[2]}` : 'Add a maktab, Darul Uloom or school'}
+          </button>
         </div>
-      </div>
+        <div className="text-muted" style={{ fontSize: 12, margin: '10px 2px 0' }}>You only see counts here — each one's children, fees and reports stay private to them.</div>
+      </>}
 
+      {tab === 'money' && <>
+        <BoxRow className="hq-boxes-4" columns={null} cells={[
+          { text: income ? money(income.thisMonth) : '…', sub: 'In this month', className: 'ct-figure' },
+          { text: income ? money(income.last12) : '…', sub: 'Last 12 months', className: 'ct-figure' },
+          dueSoon ? { text: String(dueSoon), sub: 'Due soon', tone: 'amber' } : { text: '0', sub: 'Due soon', className: 'ct-figure' },
+          overdue.length ? { text: money(overdue.reduce((t, x) => t + x.b.owed, 0)), sub: `Overdue · ${overdue.length}`, tone: 'red', onClick: () => { setShow('need'); setTab('customers'); } } : { text: '£0', sub: 'Overdue', className: 'ct-figure' },
+        ]} />
+        <div className="text-muted" style={{ fontSize: 12, margin: '4px 2px 12px' }}>
+          Expected each month from those paying: {money(paying.reduce((t, { m }) => t + (m.billingPlan === 'yearly' ? prices(m).yearly / 12 : prices(m).monthly), 0))}
+        </div>
+
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-title" style={{ marginBottom: 10 }}>Payments received</div>
+          <div className="hq-lines">
+            {(allPayments ? payments : payments.slice(0, 10)).map(p => (
+              <button key={p.id} type="button" className="line-row" onClick={() => openPlace(p.madrasahId)}>
+                <span className="ct-two">
+                  <span className="line-row-name">{p.name}</span>
+                  <span className="line-row-sub">{formatDateGB(p.paidOn)} · {p.months === 12 ? 'a year' : plural(p.months, 'month', 'months')}</span>
+                </span>
+                <span style={{ fontFamily: 'var(--font-num)', fontWeight: 600, whiteSpace: 'nowrap' }}>{money(p.amount)}</span>
+              </button>
+            ))}
+            {income && !payments.length && <div className="text-muted" style={{ fontSize: 13 }}>No payments yet — record one inside a customer.</div>}
+          </div>
+          {!allPayments && payments.length > 10 && <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={() => setAllPayments(true)}>Show all {payments.length} payments</button>}
+        </div>
+
+        <div className="card">
+          <button type="button" className="line-row" onClick={() => setModal({ kind: 'pick-invoice' })}>
+            <FileText size={16} style={{ flexShrink: 0 }} />
+            <span className="ct-two">
+              <span className="line-row-name">Make an invoice</span>
+              <span className="line-row-sub">For any customer · your bank details are kept</span>
+            </span>
+            <ChevronRight size={16} style={{ color: 'var(--text-soft)', flexShrink: 0 }} />
+          </button>
+        </div>
+      </>}
+
+      {tab === 'suhuf' && (
+        <div className="card">
+          <div className="hq-lines">
+            {suhufLines.map(([k, Icon, name, sub, fig]) => (
+              <button key={k} type="button" className="line-row" onClick={() => setModal({ kind: k })}>
+                <Icon size={16} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+                <span className="ct-two">
+                  <span className="line-row-name">{name}</span>
+                  <span className="line-row-sub">{sub}</span>
+                </span>
+                {fig && <span style={{ fontFamily: 'var(--font-num)', fontWeight: 600, whiteSpace: 'nowrap' }}>{fig}</span>}
+                <ChevronRight size={16} style={{ color: 'var(--text-soft)', flexShrink: 0 }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {modal?.kind === 'ai' && (
+        <ModalShell title="AI this month" sub="Your balance is on Anthropic's billing page — top up there." onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+            <div className="info-box"><strong>{totals.ai} · ≈ {pounds(totals.ai)}</strong><span className="info-box-label">This month</span></div>
+            <div className="info-box"><strong>{totals.aiAll} · ≈ {pounds(totals.aiAll)}</strong><span className="info-box-label">All time</span></div>
+          </div>
+          <a className="btn btn-primary" href={AI_BILLING_URL} target="_blank" rel="noopener noreferrer" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+            <ExternalLink size={14} /> Check balance & top up
+          </a>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Costs are a rough guide (about {PENCE_PER_AI_REQUEST}p per summary).</div>
+        </ModalShell>
+      )}
+      {modal?.kind === 'db' && (
+        <ModalShell title="Database space" onClose={() => setModal(null)}>
+          {dbBytes == null ? <div className="text-muted">Checking…</div> : <>
+            <div style={{ fontSize: 13, marginBottom: 10 }}>{Math.round(dbBytes / 1048576)} MB of 512 MB on the free plan ({dbPct}%).{dbPct >= 80 ? ' Time to move to a paid plan.' : ''}</div>
+            <div style={{ height: 8, borderRadius: 99, background: '#eef0f3', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.max(dbPct, 2)}%`, height: '100%', background: dbPct >= 80 ? 'var(--red)' : dbPct >= 60 ? 'var(--amber)' : 'var(--green)' }} />
+            </div>
+          </>}
+        </ModalShell>
+      )}
+      {modal?.kind === 'counts' && (
+        <ModalShell title="Demos & sign-ups" sub="Kept for good — the visitor figures in Vercel only go back 31 days." width={520} onClose={() => setModal(null)}>
+          {counts ? <CountsCard counts={counts} /> : <div className="text-muted">Loading…</div>}
+        </ModalShell>
+      )}
+      {modal?.kind === 'demos' && (
+        <ModalShell title="Demo links" sub="Send the right one to anyone who wants to try the app — they get their own made-up madrasah or school." width={480} onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {DEMOS.map(([label, link, text]) => (
+              <div key={link} className="line-row" style={{ cursor: 'default' }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{label}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.replace(/^https?:\/\//, '')}</span>
+                </span>
+                <button className="btn btn-sm" onClick={() => copyDemo(link)} aria-label={`Copy the ${label} demo link`}><Copy size={13} /> Copy</button>
+                {typeof navigator !== 'undefined' && navigator.share && <button className="btn btn-sm" onClick={() => shareDemo(link, text)} aria-label={`Share the ${label} demo link`}><Share2 size={13} /></button>}
+              </div>
+            ))}
+          </div>
+        </ModalShell>
+      )}
+      {modal?.kind === 'alerts' && (
+        <ModalShell title="Phone alerts" width={480} onClose={() => setModal(null)}>
+          <SignupNotifications />
+        </ModalShell>
+      )}
+      {modal?.kind === 'pick-invoice' && (
+        <ModalShell title="Make an invoice" sub="Which one is it for?" width={480} onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {rows.filter(r => !r.m.isYours).sort((a, b) => (a.need ? a.need.rank : 9) - (b.need ? b.need.rank : 9) || a.m.name.localeCompare(b.m.name)).map(({ m, b }) => (
+              <button key={m.id} type="button" className="line-row" onClick={() => setModal({ kind: 'invoice', m })}>
+                <span className="ct-two">
+                  <span className="line-row-name">{m.name}</span>
+                  <span className="line-row-sub">{placeWords(m, true)}</span>
+                </span>
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{b.label}</span>
+              </button>
+            ))}
+          </div>
+        </ModalShell>
+      )}
 
       {modal?.kind === 'add' && (
-        <AddModal onClose={() => setModal(null)} onCreated={async details => { setModal(null); setCreated(details); await load(); }} />
+        <AddModal startKind={modal.placeKind} onClose={() => setModal(null)} onCreated={async details => { setModal(null); setCreated(details); await load(); }} />
       )}
       {modal?.kind === 'edit' && (
         <EditModal m={modal.m} onClose={back} onSaved={async () => { back(); showToast('Saved'); await load(); }} />
@@ -295,8 +404,8 @@ function useSubmit() {
 
 const noAuto = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'off' };
 
-function AddModal({ onClose, onCreated }) {
-  const [f, setF] = useState({ name: '', code: '', headLogin: '', headPassword: '', kind: 'maktab', schoolPhase: 'primary', schoolForms: 1 });
+function AddModal({ startKind = 'maktab', onClose, onCreated }) {
+  const [f, setF] = useState({ name: '', code: '', headLogin: '', headPassword: '', kind: startKind, schoolPhase: 'primary', schoolForms: 1 });
   const [codeTouched, setCodeTouched] = useState(false);
   const { busy, error, setError, submit } = useSubmit();
   const set = (k, v) => { setError(''); setF(prev => ({ ...prev, [k]: v, ...(k === 'name' && !codeTouched ? { code: suggestCode(v) } : {}) })); };
@@ -450,9 +559,7 @@ function CountsCard({ counts }) {
   const firstDemo = [counts.demo?.since, counts.demo_du?.since, counts.demo_school?.since].filter(Boolean).sort()[0];
   const rows = [['Demos tried', 'demo', 'demo_du'], ['Sign-ups', 'signup', 'signup_du']];
   return (
-    <div className="card" style={{ marginBottom: 12 }}>
-      <div className="card-title" style={{ marginBottom: 4 }}><PlayCircle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />Demos & sign-ups</div>
-      <div className="card-sub" style={{ marginBottom: 12 }}>Kept for good — the visitor figures in Vercel only go back 31 days.</div>
+    <div>
       {rows.map(([label, a, b]) => (
         <div key={a} style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{label}</div>

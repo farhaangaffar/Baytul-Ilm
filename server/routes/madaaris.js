@@ -130,7 +130,13 @@ module.exports = requireAuth(async (req, res) => {
              COALESCE(sum(amount) FILTER (WHERE paid_on >= (now() - interval '12 months')::date), 0) AS "last12",
              COALESCE(sum(amount), 0) AS "allTime"
       FROM madrasah_payments`);
-    res.status(200).json({ thisMonth: Number(t.thisMonth), last12: Number(t.last12), allTime: Number(t.allTime) });
+    // The latest payments from every madrasah, newest first (Suhuf HQ → Money).
+    const { rows: recent } = await query(`
+      SELECT p.id::text, p.madrasah_id::text AS "madrasahId", m.name, to_char(p.paid_on, 'YYYY-MM-DD') AS "paidOn", p.amount, p.months
+      FROM madrasah_payments p JOIN madaaris m ON m.id = p.madrasah_id
+      ORDER BY p.paid_on DESC, p.id DESC LIMIT 200`);
+    res.status(200).json({ thisMonth: Number(t.thisMonth), last12: Number(t.last12), allTime: Number(t.allTime),
+      recent: recent.map(r => ({ ...r, amount: Number(r.amount), months: Number(r.months) })) });
     return;
   }
 

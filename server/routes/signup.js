@@ -101,7 +101,7 @@ module.exports = async (req, res) => {
   await notifyPlatformOwner({
     title: `New ${{ darul_uloom: 'Darul Uloom', school: 'school' }[kind] || 'madrasah'}: ${name}`,
     body: `${phone ? `${headName} · ${phone}` : headName}${school ? ` · ${school.forms} form${school.forms === 1 ? '' : 's'}, ${school.phase}` : ''}${referrer ? ` · via ${referrer}` : ''}`, // short, so it fits a phone's notification
-    emailText: `${name}${{ darul_uloom: ' (a Darul Uloom)', school: ' (a school\'s Islamic Studies department)' }[kind] || ''} has just signed up to Suhuf.${referrer ? `\nRecommended by ${referrer} (they get a month free).` : ''}\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}${school ? `\nSchool: ${school.phase}, ${school.forms} form${school.forms === 1 ? '' : 's'} of entry — £${schoolPrice(school.forms)} a year, free until ${String(madrasah.free_until).slice(0, 10)}` : ''}\n\nSee them on the Madaaris page: https://suhuf.uk/madaaris`,
+    emailText: `${name}${{ darul_uloom: ' (a Darul Uloom)', school: ' (a school\'s Islamic Studies department)' }[kind] || ''} has just signed up to Suhuf.${referrer ? `\nRecommended by ${referrer} (they get a month free).` : ''}\n\nHead: ${headName}\nEmail: ${email}\nPhone: ${phone || '—'}\nCode: ${madrasah.code}${school ? `\nSchool: ${school.phase}, ${school.forms} form${school.forms === 1 ? '' : 's'} of entry — £${schoolPrice(school.forms)} a year, free until ${String(madrasah.free_until).slice(0, 10)}` : ''}\n\nSee them in Suhuf HQ: https://suhuf.uk/madaaris`,
   }).catch(() => {});
   setSessionCookie(res, user);
   res.status(201).json({ ok: true, code: madrasah.code });

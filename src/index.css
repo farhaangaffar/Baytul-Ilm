@@ -637,13 +637,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 8px; }
 
 /* Madaaris page (platform owner): one tidy card per madrasah with a payment bar along the
    bottom, opening a pop-up with its payments, contact, size and manage buttons. */
-.madrasah-card { display: block; width: 100%; text-align: left; margin-bottom: 12px; padding: 18px 20px 0; overflow: hidden; cursor: pointer; border: none; font: inherit; color: inherit; }
-.madrasah-card:hover { box-shadow: var(--shadow-md); }
-.madrasah-card > div:first-child { padding-bottom: 16px; }
-.madrasah-card:not(:has(.madrasah-bar)) { padding-bottom: 2px; }
-.madrasah-card-name { font-family: 'Comfortaa', sans-serif; font-weight: 700; font-size: 16px; color: var(--ink); }
-.madrasah-bar { height: 8px; background: #eef1f5; margin: 0 -20px; }
-.madrasah-bar > div { height: 100%; border-radius: 0 99px 99px 0; transition: width .3s; }
 .pay-status { border-radius: 16px; padding: 14px 16px; text-align: center; margin-bottom: 4px; }
 .pay-status-big { font-family: 'Comfortaa', sans-serif; font-weight: 700; font-size: 20px; }
 .pay-status-sub { font-size: 13px; margin-top: 4px; }
@@ -1376,3 +1369,14 @@ button.ss-line { cursor: pointer; }
 /* The Homework tab's panel: the pop-up's header, words and footer, inside a card. */
 .hw-panel { padding: 0; gap: 0; }
 .hw-panel > .modal-footer { position: static; }
+
+/* Suhuf HQ (pages/Madaaris.js): the boxes along the top, a card of lines — two across on computers. */
+.hq-boxes-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.hq-picked { outline: 2px solid var(--amber-text); outline-offset: -1px; }
+.hq-card-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.hq-card-head .card-title { margin: 0; }
+.hq-find { display: flex; align-items: center; gap: 6px; margin-left: auto; background: #f1f5f9; border-radius: 999px; padding: 6px 12px; width: 240px; max-width: 100%; color: var(--text-muted); }
+.hq-find input { border: none; background: none; outline: none; font-size: 13px; width: 100%; min-width: 0; padding: 0; }
+.hq-lines { display: grid; gap: 8px; }
+@media (min-width: 900px) { .hq-lines { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .hq-find { width: 100%; margin-left: 0; } }

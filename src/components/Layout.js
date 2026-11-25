@@ -30,7 +30,7 @@ const navItems = [
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
   // Only the platform owner (the person who runs this service for every madrasah).
-  { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
+  { label:'Suhuf HQ',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
 ];
 
 // A school's Islamic Studies department (madaaris.kind 'school') has its own short menu: no fees, registers or
@@ -43,7 +43,7 @@ const schoolNav = [
   { label:'Stats',              path:'/stats',      icon:BarChart3 },
   { label:'Classes & Teachers', path:'/classes',    icon:GraduationCap, section:'Setup' },
   { label:'Settings',           path:'/settings',   icon:SettingsIcon },
-  { label:'Madaaris',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
+  { label:'Suhuf HQ',           path:'/madaaris',   icon:Building2,     section:'Platform', platform:true },
 ];
 
 // Layout remounts fresh on every navigation (each page renders its own <Layout>), so the

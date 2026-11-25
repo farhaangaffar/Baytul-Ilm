@@ -104,16 +104,15 @@ const HEAD = {
     '2 · Reports: tap a child — choose their behaviour, write the comments ("Write it for me" drafts the class teacher\'s) and get the PDF. "Print the whole class" makes one PDF.',
     '3 · Send to parents: tap Publish when the reports are ready — each family sees only their own child\'s.',
   ] },
-  '/madaaris': { title: 'Madaaris', steps: [
-    'Every madrasah using the app — you only see counts, never their children.',
-    'The bar on each card: grey = free months, green = paid, yellow = due within 2 weeks, red = overdue.',
-    'Tap a madrasah to open it. When they pay you, tap "Next month" or "A year" — or tap a month box to pay up to it.',
-    'Payments always run from the 1st: free to the end of their 6th month (a school: to the end of the term it joined), then each payment covers the next unpaid month.',
-    'Change head (inside each one): when a head left without handing over — the new head gets the login, the old one is signed out.',
-    'Invoice (inside each one) makes a PDF for the next months not paid — schools pay by bank transfer. Type your bank details once; they\'re kept.',
-    'Add a madrasah with its head\'s login, then send them their code. Edit details, passwords and switching off are inside each one.',
-    'Tap "Turn on phone notifications" (in the installed app on your phone) to hear about every new sign-up.',
-    'Your AI credit, database space, how many demos were tried and madaaris signed up (kept for good), and the three demo links (maktab, Darul Uloom, school) are at the bottom.',
+  '/madaaris': { title: 'Suhuf HQ', steps: [
+    'Three tabs: Customers (every maktab, Darul Uloom and school), Money (payments and invoices) and Suhuf (AI, database space, demos and alerts).',
+    'Customers: tap a box at the top to see just Maktabs, Darul Ulooms or Schools. "Need you" (amber) shows only those overdue, due soon or new.',
+    'Each line says where it is with paying on the right. Overdue, due-soon and new ones go to the top with a coloured word. You only see counts, never their children.',
+    'Tap one to open it. When they pay you, tap "Next month" or "A year" — or tap a month box to pay up to it. Payments always run from the 1st.',
+    'Inside each one: Edit details, Invoice, Reset head\'s password, Change head (when a head left without handing over), Switch off and Delete.',
+    'The Add button at the bottom adds the kind you are looking at, with its head\'s login — then send them their code.',
+    'Money: what came in this month and the last 12 months, what is due or overdue, every payment (tap one to open that customer), and Make an invoice.',
+    'Suhuf: AI this month, Database space, Demos & sign-ups, the three Demo links to copy or share, and Phone alerts for new sign-ups — tap a line for its details.',
   ] },
 };
 
