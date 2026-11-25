@@ -66,7 +66,13 @@ codebase (one codebase, not a fork).
   login). A login is a username or email (`users.login`), unique within its madrasah;
   people sign in with the madrasah's **code** (remembered per device,
   `src/lib/madrasahCode.js`) + login + password. One owner is the **platform owner**
-  (`platform_admin`) with the Madaaris page (`server/routes/madaaris.js`: counts only,
+  (`platform_admin`) with the Madaaris page — menu and title **Suhuf HQ** since the redesign (the owner's pick of mockups:
+  calm, three tabs **Customers | Money | Suhuf**, remembered per device. Customers: a row of boxes Need you (amber, only when
+  any: overdue, due / free ending within 2 weeks, or signed up in the last 14 days) · Everyone · Maktabs · Darul Ulooms · Schools,
+  then one card of `.line-row`s, two across from 900px — need-you ones first with a coloured word, a school's line "Primary · 2
+  forms · 205 pupils", Find a name once there are 12+, the Add button adds the kind shown. Money: In this month · Last 12 months ·
+  Due soon · Overdue boxes, Payments received lines (`?action=income` → `recent`), Make an invoice (pick who). Suhuf: a line
+  each for AI, Database space, Demos & sign-ups, Demo links, Phone alerts, each opening a pop-up) (`server/routes/madaaris.js`: counts only,
   add / rename / switch off a madrasah, reset its head's password, delete one for ever (only once
   switched off, never your own, its code typed to confirm — every table in `TABLES`, `server/demo.js`); plus an AI credit card, a database-space bar (`?action=usage`, Neon free = 0.5 GB) —
   this month's AI requests with a rough cost and a link to Anthropic's billing page — and the
