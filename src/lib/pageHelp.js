@@ -292,7 +292,7 @@ const SCHOOL_HEAD = {
   '/studies': { title: 'Islamic Studies', steps: [
     ...STUDIES_STEPS,
     'The lists are yours: "Add a surah" (or du\'aa or practical) at the bottom, and Edit inside an open line to rename it, move it to another year or remove it.',
-    '"Import marks from your spreadsheets": set your Year plan first, then choose your assessment workbook (.xlsx). Only marks come in — pupils are matched by name and each column to a surah, du\'aa or practical in your plan; a column not in the plan is left out (tick it into a year, then import again).',
+    '"Import marks from your spreadsheets": set your Year plan first, then choose your assessment workbook (.xlsx). Only marks come in — pupils are matched by name and each column to a surah, du\'aa or practical in your plan; a column named a little differently ("Entering masjid") is matched for you to check, and any column it can\'t match has a drop-down to choose which it is, or leave it out.',
   ] },
   '/classes': { title: 'Classes & Teachers', steps: [
     'Add your teachers first, then your classes — each with its year group (Reception to Year 13), so it gets that year\'s lists.',

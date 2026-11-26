@@ -31,6 +31,22 @@ function wordKind(v) {
   const ks = [/\bsura(h|t)?\b|\bsuraah|\bsurahs\b/.test(t) && 'surah', /\bdu['’`]?aa?s?\b|\bduas?\b|supplication/.test(t) && 'duaa', /practical/.test(t) && 'practical'].filter(Boolean);
   return ks.length === 1 ? ks[0] : null;
 }
+// A heading's important words, for a close match when the exact name isn't on the list: "Entering masjid" = "Entering the
+// masjid", "Loss occurs" = "When loss occurs", "Morning and evening" = "Morning and evening adhkar". Little words (the, when,
+// of, du'aa …) don't count; spellings are boiled down like plainName().
+const LITTLE = new Set(['the', 'a', 'an', 'of', 'when', 'and', 'for', 'on', 'upon', 'in', 'at', 'to', 'is', 'du', 'dua', 'duaa', 'duas', 'duaas', 'aa', 'supplication', 'surah', 'surat']);
+const wordsOf = v => String(v || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/['’`]/g, '')
+  .split(/[^a-z]+/).map(w => w.replace(/aa+/g, 'a').replace(/ee+/g, 'i').replace(/oo+/g, 'u')).filter(w => w.length > 1 && !LITTLE.has(w));
+// One item whose important words hold all the column's (or the other way round) — only when exactly one fits, the one
+// learnt in the sheet's year preferred.
+function closeItem(list, col, year) {
+  const cw = wordsOf(col);
+  if (!cw.length) return null;
+  const fits = list.filter(i => { const iw = wordsOf(i.name); return iw.length > 0 && (cw.every(w => iw.includes(w)) || iw.every(w => cw.includes(w))); });
+  if (fits.length === 1) return fits[0];
+  const inYear = fits.filter(i => year !== null && year !== undefined && i.yearGroup === year);
+  return inYear.length === 1 ? inYear[0] : null;
+}
 const isFull = c => ['name', 'names', 'fullname', 'pupilname', 'pupilsname', 'studentname', 'studentsname', 'childname', 'childsname', 'pupil', 'student'].includes(squash(c));
 
 // A legend's words → its year group: "Reception" / "EYFS" → 0, "Year 3" / "Yr 3" / "Y3 du'aas" → 3.
@@ -123,6 +139,7 @@ export default function StudiesImport({ onClose, onDone }) {
   const { user } = useAuth();
   const close = useBackToClose(true, onClose);
   const [picked, setPicked] = useState({}); // a name not found → the pupil the head chose for it (id), or none
+  const [colPicked, setColPicked] = useState({}); // a column not matched exactly → the item the head chose for it (id), or '' to leave out
   const [sheets, setSheets] = useState(null); // parsed sheets
   const [use, setUse] = useState({}); // sheet name → ticked
   const [pupils, setPupils] = useState([]);
@@ -157,7 +174,7 @@ export default function StudiesImport({ onClose, onDone }) {
       setUse(Object.fromEntries(parsed.map(s => [s.name, parsed.length === 1 || (s.year !== null && !/^\s*(19|20)\d\d\b/.test(s.name))])));
       setPupils(studs.filter(s => s.status !== 'Inactive'));
       setItems(its.items);
-      setPicked({});
+      setPicked({}); setColPicked({});
     } catch (e) { setError(e.message || 'Could not read that file — save it as .xlsx and try again.'); }
     setBusy(false);
   }
@@ -178,24 +195,35 @@ export default function StudiesImport({ onClose, onDone }) {
   // Each column finds its own list (one sheet can mix surahs, du'aas and practicals): a hint from the section row above it
   // or its own words, then the school's lists (that list first, then any), then a surah's name, then the column before it.
   const findIn = (list, col) => list.find(i => plainName(i.name) === plainName(col) || (i.kind === 'surah' && i.surah && i.surah === surahNumber(col)));
-  const kindOf = {}, itemOf = {};
+  const kindOf = {}, itemOf = {}, closeOf = {}, yearOfCol = {};
   for (const sh of chosen) {
     let prev = null;
+    const sheetKind = wordKind(sh.name); // a sheet called "Duaas" holds du'aas unless a column says otherwise
     for (const c of sh.columns) {
       if (kindOf[c]) { prev = kindOf[c]; continue; }
+      yearOfCol[c] = sh.year;
       // A surah's own name ("Bayyinah", "Qadr") always means a surah, whatever heading is above it.
-      const hint = (surahNumber(c) ? 'surah' : null) || sh.sections[c] || wordKind(c);
-      const it = (hint && findIn(items.filter(i => i.kind === hint), c)) || findIn(items, c);
+      const hint = (surahNumber(c) ? 'surah' : null) || sh.sections[c] || wordKind(c) || sheetKind;
+      const of = hint ? items.filter(i => i.kind === hint) : items;
+      let it = findIn(of, c) || findIn(items, c);
+      if (!it) { it = closeItem(of, c, sh.year) || (hint ? closeItem(items, c, sh.year) : null); if (it) closeOf[c] = it; }
       kindOf[c] = it ? it.kind : hint || (surahNumber(c) ? 'surah' : prev) || 'surah';
-      if (it) itemOf[c] = it;
+      if (it && !closeOf[c]) itemOf[c] = it;
       prev = kindOf[c];
     }
   }
-  const matchItem = col => itemOf[col];
+  // A column matched exactly is used as it is; any other can be chosen by the head (a close match is chosen for them to check).
+  const matchItem = col => {
+    if (itemOf[col]) return itemOf[col];
+    if (colPicked[col] !== undefined) return colPicked[col] ? items.find(i => String(i.id) === String(colPicked[col])) : null;
+    return closeOf[col] || null;
+  };
   const columns = [...new Set(chosen.flatMap(s => s.columns))];
   const perKind = STUDY_KINDS.map(([k, label]) => [label, columns.filter(c => kindOf[c] === k).length]).filter(([, n]) => n);
   const matched = columns.filter(c => matchItem(c));
-  const fresh = columns.filter(c => !matchItem(c)); // not in the year plan: listed, left out
+  const fresh = columns.filter(c => !matchItem(c)); // not matched (or left out): listed, their marks not imported
+  const toCheck = columns.filter(c => !itemOf[c]); // not matched exactly: a drop-down each, so the head can choose
+  const freshRef = useRef(null);
   const rowsFound = chosen.flatMap(s => s.rows);
   const unknown = [...new Set(rowsFound.filter(r => !findPupil(r.first, r.last)).map(nameOf))]; // the head can pick each one's pupil
   const nearNames = [...new Map(rowsFound.map(r => [r, findPupil(r.first, r.last)]).filter(([, m]) => m?.close)
@@ -245,8 +273,8 @@ export default function StudiesImport({ onClose, onDone }) {
             )}
             {done.left.length > 0 && (
               <div style={{ fontSize: 13, color: 'var(--amber-text)' }}>
-                {done.left.length} column{done.left.length === 1 ? ' wasn\'t' : 's weren\'t'} in your year plan, so {done.left.length === 1 ? 'its' : 'their'} marks were left out: {done.left.join(', ')}.
-                Tick {done.left.length === 1 ? 'it' : 'them'} into a year in <b>Year plan</b>, then import the file again.
+                {done.left.length} column{done.left.length === 1 ? ' was' : 's were'} left out: {done.left.join(', ')}.
+                To bring {done.left.length === 1 ? 'it' : 'them'} in, import the file again and choose which {done.left.length === 1 ? 'it is' : 'they are'} — or tick {done.left.length === 1 ? 'it' : 'them'} into a year in <b>Year plan</b> first.
               </div>
             )}
           </> : <>
@@ -284,6 +312,14 @@ export default function StudiesImport({ onClose, onDone }) {
                   <ArrowDown size={15} style={{ flexShrink: 0 }} />
                 </button>
               )}
+              {fresh.length > 0 && (
+                <button type="button" onClick={() => freshRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', fontFamily: 'var(--font)', fontSize: 13.5, fontWeight: 600, color: 'var(--amber-text)', background: 'var(--amber-light)', border: '1px solid #f1d58a', borderRadius: 'var(--r-md)', padding: '10px 12px', cursor: 'pointer' }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{fresh.length} column{fresh.length === 1 ? '' : 's'} not matched — {fresh.length === 1 ? 'its' : 'their'} marks won't come in. Choose which {fresh.length === 1 ? 'it is' : 'they are'} below.</span>
+                  <ArrowDown size={15} style={{ flexShrink: 0 }} />
+                </button>
+              )}
               {perKind.length > 0 && (
                 <div className="text-muted" style={{ fontSize: 12.5 }}>Columns found: {perKind.map(([l, n]) => `${l} ${n}`).join(' · ')}</div>
               )}
@@ -313,10 +349,36 @@ export default function StudiesImport({ onClose, onDone }) {
                   </div>
                 </div>
               )}
-              {fresh.length > 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--amber-text)', background: 'var(--amber-light)', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
-                  {fresh.length} column{fresh.length === 1 ? ' isn\'t' : 's aren\'t'} in your year plan and will be left out: {fresh.slice(0, 12).join(', ')}{fresh.length > 12 ? '…' : ''}.
-                  To bring {fresh.length === 1 ? 'its' : 'their'} marks in, tick {fresh.length === 1 ? 'it' : 'them'} into a year in Year plan first.
+              {toCheck.length > 0 && (
+                <div className="form-group" ref={freshRef} style={{ scrollMarginTop: 12, ...(fresh.length ? { border: '1px solid #f1d58a', background: 'var(--amber-light)', borderRadius: 'var(--r-md)', padding: '10px 12px' } : { background: '#f3f4f6', borderRadius: 'var(--r-md)', padding: '10px 12px' }) }}>
+                  <label>Columns to check — which surah, du'aa or practical is each?</label>
+                  <span className="text-muted" style={{ fontSize: 12 }}>
+                    Their names aren't exactly as in your Year plan. Check the ones chosen for you, pick the others, or leave a column out (e.g. a Total).
+                  </span>
+                  <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+                    {toCheck.map(c => {
+                      const cur = matchItem(c);
+                      const year = yearOfCol[c];
+                      const groups = STUDY_KINDS.map(([k, label]) => [label, items.filter(i => i.kind === k)])
+                        .filter(([, list]) => list.length);
+                      const thisYear = year !== null && year !== undefined ? items.filter(i => i.yearGroup === year && i.kind === kindOf[c]) : [];
+                      return (
+                        <div key={c} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
+                          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{c}</span>
+                          <select value={cur ? String(cur.id) : ''} aria-label={`Which is ${c}?`} onChange={e => setColPicked(x => ({ ...x, [c]: e.target.value }))}
+                            style={cur ? undefined : { color: 'var(--amber-text)' }}>
+                            <option value="">Leave out</option>
+                            {thisYear.length > 0 && <optgroup label={`${yearLabel(year)} · ${(STUDY_KINDS.find(([k]) => k === kindOf[c]) || [])[1] || ''}`}>{thisYear.map(i => <option key={`y${i.id}`} value={String(i.id)}>{i.name}</option>)}</optgroup>}
+                            {groups.map(([label, list]) => (
+                              <optgroup key={label} label={`All ${label.toLowerCase()}`}>
+                                {list.map(i => <option key={i.id} value={String(i.id)}>{i.name}{i.yearGroup !== null && i.yearGroup !== undefined ? ` · ${yearLabel(i.yearGroup)}` : ''}</option>)}
+                              </optgroup>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </>}

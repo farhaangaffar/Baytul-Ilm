@@ -34,7 +34,7 @@ export function plainName(s) {
 }
 
 // Other names a few surahs go by.
-const SURAH_ALIASES = { lahab: 111, tabbat: 111, zilzal: 99, zilzalah: 99, inshirah: 94, alamnashrah: 94, sharh: 94, yasin: 36, dahr: 76, takwir: 81, mulk: 67 };
+const SURAH_ALIASES = { dhuha: 93, lahab: 111, tabbat: 111, zilzal: 99, zilzalah: 99, inshirah: 94, alamnashrah: 94, sharh: 94, yasin: 36, dahr: 76, takwir: 81, mulk: 67 };
 const SURAH_BY_NAME = Object.fromEntries(SURAHS.map(([name], i) => [plainName(name), i + 1]));
 export const surahNumber = name => { const p = plainName(name); return SURAH_BY_NAME[p] || SURAH_ALIASES[p] || null; };
 export const surahAyahs = n => (n >= 1 && n <= 114 ? SURAHS[n - 1][1] : 0);
