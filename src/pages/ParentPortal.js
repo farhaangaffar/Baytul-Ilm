@@ -299,6 +299,63 @@ function StudiesCards({ studies, child }) {
   );
 }
 
+// A maktab's recent homework (the teacher's own words from Daily records). Was lost by accident in #116 — the page
+// went blank for any family with homework.
+const hwBox = {
+  background: '#f3f4f6', border: '1px solid transparent', color: 'var(--ink)', fontWeight: 600,
+  borderRadius: 8, padding: '5px 4px', minHeight: 40, textAlign: 'center', display: 'flex',
+  flexDirection: 'column', justifyContent: 'center', fontSize: 11.5, lineHeight: 1.25, overflow: 'hidden', minWidth: 0,
+};
+
+// A long homework note would otherwise stretch its date box into a tall, mostly-empty
+// column (both boxes sit in the same grid row and stretch to match height) — so it's
+// clamped to 3 lines with its own "Show more", detected by actual overflow rather than
+// a guessed character count, so nothing long enough to need it is ever silently clipped.
+function HomeworkRow({ h }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textRef = useRef(null);
+  useEffect(() => {
+    const el = textRef.current;
+    if (el) setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [h.text]);
+  const d = new Date(h.date + 'T12:00:00');
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.6fr) minmax(0, 1.4fr)', gap: 6, marginBottom: 6 }}>
+      <div style={hwBox}>
+        <div>{d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 500, opacity: .85 }}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+      </div>
+      <button type="button" onClick={overflows ? () => setExpanded(v => !v) : undefined}
+        style={{ ...hwBox, fontFamily: 'var(--font)', cursor: overflows ? 'pointer' : 'default' }}>
+        <div ref={textRef} style={{
+          overflowWrap: 'break-word',
+          ...(expanded ? null : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+        }}>{h.text}</div>
+        {overflows && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--teal-dark)', marginTop: 3 }}>{expanded ? 'Show less' : 'Show more'}</div>}
+      </button>
+    </div>
+  );
+}
+
+// Same "3 shown, rest hidden" pattern as Progress's Recent list — a date box and a
+// homework-text box per row.
+function HomeworkCard({ homework }) {
+  const [showAll, setShowAll] = useState(false);
+  const sorted = [...homework].sort((a, b) => b.date.localeCompare(a.date));
+  const recent = showAll ? sorted : sorted.slice(0, 3);
+  return (
+    <Section title="Homework">
+      {recent.map(h => <HomeworkRow key={h.date} h={h} />)}
+      {sorted.length > 3 && (
+        <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
+          {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
+        </button>
+      )}
+    </Section>
+  );
+}
+
 function ChildView({ child, reasons, many }) {
   const { isDarulUloom } = useAuth(); // a Darul Uloom's reports are its exam report cards
   const [data, setData] = useState(null);
