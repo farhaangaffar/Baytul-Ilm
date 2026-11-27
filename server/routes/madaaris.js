@@ -94,6 +94,7 @@ module.exports = requireAuth(async (req, res) => {
   }
 
   if (!id && req.method === 'GET' && !req.query.action) {
+    await require('./students').ensure(); // students.link_group (a child in two classes counts once)
     const { rows } = await query(`
       SELECT m.id, m.name, m.code, m.active, m.created_at AS "createdAt",
         to_char(COALESCE(m.free_until, (m.created_at + interval '6 months')::date), 'YYYY-MM-DD') AS "freeUntil",
@@ -102,7 +103,7 @@ module.exports = requireAuth(async (req, res) => {
         (SELECT string_agg(u.login, ', ' ORDER BY u.id) FROM users u WHERE u.madrasah_id = m.id AND u.role = 'owner') AS "headLogin",
         (SELECT json_agg(json_build_object('id', u.id::text, 'login', u.login, 'name', COALESCE(u.name, '')) ORDER BY u.id)
            FROM users u WHERE u.madrasah_id = m.id AND u.role = 'owner') AS heads,
-        (SELECT count(*) FROM students s WHERE s.madrasah_id = m.id AND s.status = 'Active') AS students,
+        (SELECT count(DISTINCT COALESCE(s.link_group, s.id)) FROM students s WHERE s.madrasah_id = m.id AND s.status = 'Active') AS students,
         (SELECT count(*) FROM teachers t WHERE t.madrasah_id = m.id) AS teachers,
         (SELECT count(*) FROM classes c WHERE c.madrasah_id = m.id) AS classes,
         (SELECT count(*) FROM ai_usage a WHERE a.madrasah_id = m.id AND a.created_at >= date_trunc('month', now())) AS "aiThisMonth",

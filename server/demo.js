@@ -469,6 +469,30 @@ async function bulk(c, table, cols, rows) {
 }
 
 // Builds a new demo madrasah; returns its id.
+// A child in two classes ("+ Add to another class"): a Weekend Tajweed class charged on its own, with Ibrahim Rahman
+// (the Rahman family's son, so the Parent view shows one child with two classes) and Fatimah Siddiqui also in it —
+// each a second enrolment linked to their first (students.link_group), £5 a week there.
+async function demoSecondClass(c, mid, teacherId, kids, parentId, today) {
+  await c.query(`INSERT INTO classes (id, madrasah_id, name, teacher_id, quran_type) VALUES ($1, $2, 'Weekend Tajweed', $3, 'nazira')`, [newId('C'), mid, teacherId]);
+  const both = kids.filter(k => (k.f === 'Ibrahim' && k.s === 'Rahman') || (k.f === 'Fatimah' && k.s === 'Siddiqui'));
+  const cols = ['forename', 'surname', 'dob', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone', ...DETAIL_COLS];
+  for (const k of both) {
+    const id = newId('S');
+    await c.query(`UPDATE students SET link_group = id WHERE id = $1 AND madrasah_id = $2`, [k.id, mid]);
+    await c.query(
+      `INSERT INTO students (id, madrasah_id, class, weekly_fee, enroll_date, status, notes, sort_order, link_group, ${cols.join(', ')})
+       SELECT $1, madrasah_id, 'Weekend Tajweed', 5, $3, 'Active', '', 100, id, ${cols.join(', ')} FROM students WHERE id = $2`,
+      [id, k.id, mondayOf(plus(today, -35))]);
+    if (k.family) await c.query(`INSERT INTO parent_students (user_id, student_id, madrasah_id) VALUES ($1, $2, $3)`, [parentId, id, mid]);
+    // Its own weekly fees since joining (£5), all paid but this week's.
+    for (let w = mondayOf(plus(today, -35)), n = 0; w <= mondayOf(today); w = plus(w, 7), n++) {
+      const paid = w < mondayOf(today);
+      await c.query(`INSERT INTO fees (madrasah_id, year, student_id, period, week_starting, amount, status, paid_date) VALUES ($1, $2, $3, 'week', $4, 5, $5, $6)`,
+        [mid, yearLabel(w), id, w, paid ? 'Paid' : 'Pending', paid ? w : null]);
+    }
+  }
+}
+
 async function createDemo(ipHash) {
   const r = rng(crypto.randomBytes(4).readUInt32LE(0));
   const today = iso(new Date());
@@ -634,6 +658,7 @@ async function createDemo(ipHash) {
     const { rows: [parent] } = await c.query(`INSERT INTO users (madrasah_id, login, password_hash, role) VALUES ($1, 'rahman.family', $2, 'parent') RETURNING id`, [mid, pw()]);
     const family = kids.filter(k => k.family === 'rahman');
     await bulk(c, 'parent_students', ['user_id', 'student_id', 'madrasah_id'], family.map(k => [parent.id, k.id, mid]));
+    await demoSecondClass(c, mid, teacherIds.maryam, kids, parent.id, today);
     // The family has told the madrasah about an appointment on the next school day.
     let next = plus(today, 1);
     while (!schoolDays.includes(dow(next))) next = plus(next, 1);

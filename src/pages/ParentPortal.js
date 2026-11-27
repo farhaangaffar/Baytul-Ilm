@@ -559,6 +559,10 @@ export default function ParentPortal() {
   }
   const placesLabel = 'Your places';
   const child = home?.children.find(c => c.id === active);
+  // A child in two classes (two enrolments sharing a linkGroup) is one child here: one name box, then a box per class.
+  const groupOf = c => c.linkGroup || c.id;
+  const kids = home ? home.children.filter((c, i) => home.children.findIndex(x => groupOf(x) === groupOf(c)) === i) : []; // the first enrolment stands for the child
+  const classesOf = child ? home.children.filter(c => groupOf(c) === groupOf(child)) : [];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page)' }}>
@@ -577,10 +581,10 @@ export default function ParentPortal() {
         {error && <div className="card" style={{ fontSize: 13.5 }}>{error}</div>}
         <div style={{ textAlign: 'right', marginBottom: 10 }}><PageHelpButton onClick={pageHelp.show} /></div>
         {home && home.children.length === 0 && <div className="card" style={{ fontSize: 13.5 }}>No children are linked to this login yet — please contact the madrasah office.</div>}
-        {home && home.children.length > 1 && (
+        {kids.length > 1 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            {home.children.map(c => (
-              <button key={c.id} className={`pill-tab ${active === c.id ? 'active' : ''}`} onClick={() => setActive(c.id)}>{c.forename}</button>
+            {kids.map(c => (
+              <button key={c.id} className={`pill-tab ${child && groupOf(child) === groupOf(c) ? 'active' : ''}`} onClick={() => setActive(c.id)}>{c.forename}</button>
             ))}
           </div>
         )}
@@ -588,9 +592,16 @@ export default function ParentPortal() {
           <>
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontWeight: 700, fontSize: 18 }}>{child.forename} {child.surname}</div>
-              <div className="text-muted text-sm">{child.class}{child.status === 'Inactive' ? ' · has left' : ''}</div>
+              <div className="text-muted text-sm">{classesOf.length > 1 ? classesOf.map(c => c.class).join(' · ') : child.class}{child.status === 'Inactive' ? ' · has left' : ''}</div>
             </div>
-            <ChildView key={child.id} child={child} reasons={home.absenceReasons} many={home.children.length > 1} />
+            {classesOf.length > 1 && (
+              <div className="cu-btns" style={{ gridTemplateColumns: `repeat(${Math.min(classesOf.length, 3)}, minmax(0, 1fr))`, marginBottom: 14 }}>
+                {classesOf.map(c => (
+                  <button key={c.id} type="button" className={`cu-btn ${c.id === child.id ? 'on' : ''}`} onClick={() => setActive(c.id)}>{c.class}</button>
+                ))}
+              </div>
+            )}
+            <ChildView key={child.id} child={child} reasons={home.absenceReasons} many={kids.length > 1} />
           </>
         )}
         <LegalLinks style={{ margin: '20px 0 8px' }} />
