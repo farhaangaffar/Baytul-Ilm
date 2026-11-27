@@ -12,7 +12,7 @@ import { money, getBranding } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
 import { useBackToClose } from '../lib/useBackToClose';
 import { Check, X, Pencil, Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { FeeRowList, FeeTotals } from './FeeRows';
+import { FeeRowList, FeeTotals, PayYearButton } from './FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -244,6 +244,10 @@ export default function PeriodFees({ frequency }) {
             catch (err) { showToast(err.message || 'Could not put it back'); }
           }} />
       </div>
+      <PayYearButton rows={rows} who={selected.forename} unit={unit}
+        onPayFee={f => markFeePaid(f.id, year)}
+        onPayPlanned={r => addStudentPeriod(selected.id, freq.period, r.p.start, true)}
+        onDone={async () => { await refresh(); loadPlan(); }} />
     </>);
   })();
 
