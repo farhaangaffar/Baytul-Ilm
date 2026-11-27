@@ -15,7 +15,7 @@ import { useAuth } from '../lib/AuthContext';
 import { feePer, feeFrequency, periodStarted } from '../lib/feePeriods';
 import PeriodFees from '../components/PeriodFees';
 import DuFees from './DuFees';
-import { FeeRowList, FeeTotals, shortDate } from '../components/FeeRows';
+import { FeeRowList, FeeTotals, PayYearButton, shortDate } from '../components/FeeRows';
 
 function isoToday() { return new Date().toISOString().split('T')[0]; }
 function monthLabel(ym) {
@@ -349,6 +349,10 @@ function WeeklyFees() {
         {months.length < allMonths.length && (
           <div className="fee-more"><button className="btn" onClick={() => setShowRest(true)}>Show the rest of the year</button></div>
         )}
+        <PayYearButton rows={allMonths.flatMap(m => rowsFor(getWeekStartsForMonth(m)))} who={selected.forename} unit="week"
+          onPayFee={f => markFeePaid(f.id, year)}
+          onPayPlanned={r => addStudentWeek(selected.id, r.week, true)}
+          onDone={async () => { await refresh(); loadPlan(); }} />
 
         {confirmDeleteWeek&&(
           <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setConfirmDeleteWeek(null)}>

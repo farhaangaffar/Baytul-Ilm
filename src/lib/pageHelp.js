@@ -17,6 +17,7 @@ function feesForHead() {
     dueLine,
     auto ? `Fees are added by themselves. To take a ${unit} off for everyone (a holiday), switch it off in ${where}.` : `Add a ${unit} for the class with the button above the children.`,
     `Tap a child's card to see their whole year. Tap ✏️ next to an amount to change it, or the bin to take a ${unit} off just that child (Put back undoes it).`,
+    'Paid for the whole year at once? At the bottom of a child\'s year, tap "Mark the whole year as paid" — everything not paid yet is marked paid in one go.',
   ].filter(Boolean);
 }
 
@@ -123,6 +124,7 @@ const TEACHER = {
     'Tap a fee to mark it paid. Tap it again if it was a mistake.',
     'Green is paid, red is owed and grey is not due yet. "Not due yet" is still to come — a parent paying ahead? Tap Mark paid.',
     'Tap a child to see their whole year. Amounts and removing fees are done by the head.',
+    'Paid for the whole year at once? Tap "Mark the whole year as paid" at the bottom of the child\'s year.',
   ] },
   '/records': { title: 'Daily records', steps: [
     'Pick your class, then tap a child.',

@@ -625,6 +625,9 @@ codebase (one codebase, not a fork).
   future period not removed for that child/class. **Not due yet is never owed:** an unpaid fee whose
   period hasn't started (`isDue()` / `countedFees()` in `feePeriods.js`) is left out of every total —
   Dashboard, Stats, Students, reports (`feesForReport`) and the parent portal (which doesn't show them).
+  **Mark the whole year as paid** (a maktab's ask; `PayYearButton` in FeeRows.js, at the end of a child's year — weekly and
+  monthly/termly): asks first, then marks every week/month/term of the year not paid yet (owed, not due yet, or still to come)
+  paid one by one through the same calls as tapping each, so the same rules hold (a teacher only what they could pay singly).
   Head only: ✏️ amount, bin = take it off that child (`DELETE ?id=`, or `?action=skip` if not charged yet;
   "Put back" undoes). Taking a week/month off for everyone is only in Settings (Fee weeks / Fee months).
 - Report period (Settings): **monthly** (one report per school month — the original

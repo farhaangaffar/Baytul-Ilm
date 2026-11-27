@@ -1,6 +1,7 @@
-import React from 'react';
-import { Check, Plus, Trash2, Pencil, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Plus, Trash2, Pencil, RotateCcw, CheckCheck } from 'lucide-react';
 import { money } from '../lib/branding';
+import { askConfirm, showAlert } from '../lib/dialog';
 
 // A child's fees as a list of boxes — the same look as a child's attendance month: each
 // week/month/term in its own box, tinted and striped green (paid) or red (owed); ones that
@@ -94,6 +95,42 @@ export function FeeTotals({ paid, owed, label }) {
       <div className="summary-box-v2" style={{ background: 'var(--green-light)' }}><div className="n">{money(paid)}</div><div className="l">Paid</div></div>
       <div className="summary-box-v2" style={{ background: 'var(--red-light)' }}><div className="n">{money(owed)}</div><div className="l">Owed</div></div>
       <div className="summary-box-v2" style={{ background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px #dfe3e8' }}><div className="n">{billed ? Math.round(paid / billed * 100) : 0}%</div><div className="l">Collected {label}</div></div>
+    </div>
+  );
+}
+
+// "Mark the whole year as paid" (a maktab's ask): one button at the end of a child's fees — every week/month/term of the
+// year shown not paid yet (owed, not due yet, or still to come) is marked paid, one at a time through the same calls as
+// tapping each (so the same rules apply: a teacher can only pay what they could pay one by one). Asks first.
+//   rows: the year's rows (as FeeRowList's); onPayFee(fee) / onPayPlanned(row) record one; onDone() reloads.
+export function PayYearButton({ rows, who, unit, onPayFee, onPayPlanned, onDone }) {
+  const [busy, setBusy] = useState('');
+  const todo = rows.filter(r => (r.fee && r.fee.status !== 'Paid') || (!r.fee && r.planned && !r.removed));
+  if (!todo.length) return null;
+  const total = todo.reduce((t, r) => t + Number(r.fee ? r.fee.amount : r.planned.amount), 0);
+  const n = todo.length;
+  const units = `${n} ${unit}${n === 1 ? '' : 's'}`;
+  async function run() {
+    if (!(await askConfirm(`Mark ${units} as paid for ${who}? That's ${money(total)} — everything for this year that isn't paid yet.`, { title: 'Mark the whole year as paid?', ok: 'Mark all paid' }))) return;
+    let done = 0;
+    try {
+      for (const r of todo) {
+        setBusy(`Saving ${done + 1} of ${n}…`);
+        if (r.fee) await onPayFee(r.fee); else await onPayPlanned(r);
+        done += 1;
+      }
+    } catch (err) {
+      await showAlert(`${done} of ${n} were marked paid, then this stopped: ${err.message || 'something went wrong'}.`);
+    }
+    setBusy('');
+    await onDone();
+  }
+  return (
+    <div className="fee-more">
+      <button className="btn btn-green" disabled={!!busy} onClick={run} style={{ width: '100%', maxWidth: 420, justifyContent: 'center' }}>
+        <CheckCheck size={15} /> {busy || `Mark the whole year as paid · ${money(total)}`}
+      </button>
+      {!busy && <div className="text-muted" style={{ fontSize: 12, marginTop: 6, textAlign: 'center' }}>{units} not paid yet</div>}
     </div>
   );
 }
