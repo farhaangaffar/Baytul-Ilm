@@ -48,10 +48,11 @@ module.exports = async (req, res) => {
   const mid = user.madrasahId;
   if (!(await portalOn(mid))) { res.status(403).json({ error: 'The parent portal is switched off at this madrasah.', portalOff: true }); return; }
   const mine = await childIds(user);
+  await require('./students').ensure(); // link_group (a child in two classes)
 
   if (req.method === 'GET' && !req.query.studentId) {
     const { rows } = await query(
-      `SELECT id, forename, surname, class, status FROM students WHERE id = ANY($1) AND madrasah_id = $2 ORDER BY forename`,
+      `SELECT id, forename, surname, class, status, link_group AS "linkGroup" FROM students WHERE id = ANY($1) AND madrasah_id = $2 ORDER BY forename, enroll_date NULLS FIRST`,
       [[...mine], mid]
     );
     res.status(200).json({ children: rows, absenceReasons: ABSENCE_REASONS });
@@ -149,7 +150,10 @@ module.exports = async (req, res) => {
       await query(`UPDATE students SET ${sets.join(', ')}, parent_updated_at = now() WHERE id = ANY($${values.length - 1}) AND madrasah_id = $${values.length}`, values);
     };
     const school = await isSchool(mid), keys = editable(school);
-    await update(keys.filter(k => CHILD_ONLY.has(k)), [b.studentId]);
+    // A child's health is the same in every class they're in (linked enrolments).
+    const { rows: same } = await query(`SELECT id FROM students WHERE madrasah_id = $1 AND (id = $2 OR (link_group IS NOT NULL AND link_group =
+      (SELECT link_group FROM students WHERE id = $2 AND madrasah_id = $1)))`, [mid, b.studentId]);
+    await update(keys.filter(k => CHILD_ONLY.has(k)), same.map(r => r.id).filter(x => mine.has(x)));
     await update(keys.filter(k => !CHILD_ONLY.has(k)), [...mine]);
     const { rows } = await query('SELECT * FROM students WHERE id = $1 AND madrasah_id = $2', [b.studentId, mid]);
     res.status(200).json({ ok: true, details: rows[0] ? detailsOf(rows[0], school) : {} });

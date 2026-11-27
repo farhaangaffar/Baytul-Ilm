@@ -36,6 +36,7 @@ const HEAD = {
     'Add a new child with Enroll, or a whole spreadsheet of children with Import (a workbook with several sheets brings in every sheet; children already here get their details — date of birth, contacts — filled in from it).',
     'Set up a parent login from the child\'s card (switch the parent portal on in Settings first) — then Share or WhatsApp the ready-made message to the parent.',
     'Children who have left are kept at the bottom.',
+    'A child also in another class that\'s charged separately (e.g. a weekend class)? On their card tap "+ Add to another class", choose the class and its fee. That class gets its own fees, register, records and report; the child counts once, details changed on one change on both, and parents see one child with a box for each class.',
     'Children added by Import (or whose class was deleted) show in "Not in a class" at the top — tick them (or a whole group) and choose their class.',
     'Waiting list: oldest first. Children whose parents applied online are marked "Applied online" (new until you open them).',
   ] },

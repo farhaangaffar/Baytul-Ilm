@@ -6,7 +6,7 @@ import GettingStarted from '../components/GettingStarted';
 import Recommend from '../components/Recommend';
 import SchoolDashboard from './SchoolDashboard';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getDuFees, getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
+import { countChildren, getDuFees, getStudents, getClasses, getFees, getAttendance, getWeekDates, getSpecialDays, getCurrentSchoolMonth, currentSchoolYear, formatDateGB, formatDayMonthGB, getTerms } from '../lib/store';
 import { feeFrequency, currentFeePeriod, periodStarted } from '../lib/feePeriods';
 import { money } from '../lib/branding';
 import { useAuth } from '../lib/AuthContext';
@@ -135,7 +135,7 @@ function MadrasahDashboard() {
 
       <div className="stat-grid-v2">
         <div className="stat-card-v2">
-          <div className="n">{active.length}</div>
+          <div className="n">{countChildren(active)}</div>
           <div className="l">Students</div>
           <div className="view-all" style={{color:'var(--blue)',cursor:'pointer'}} onClick={()=>appNavigate(navigate, '/students')}>View all →</div>
         </div>

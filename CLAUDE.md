@@ -547,6 +547,16 @@ codebase (one codebase, not a fork).
   details** in the portal ("Your details" → Check & update, `POST /api/parent?action=details`, `PARENT_EDITABLE`):
   contacts, home, emergency contact, health, going home — contacts/home for all the family's children, health per child;
   never name, DOB, class or fee. The child's profile shows "Updated by parent" (`parent_updated_at`).
+- **A child in two classes** (a maktab's ask — e.g. weekday Hifdh and a weekend class, **charged separately**): each class is
+  its own enrolment (a `students` row with its own class, fee, dates, status, notes — so its own fees, register, Daily records and
+  report) and they share `students.link_group` (the first enrolment's id; `db/migrate-051-student-link-group.sql`). The child's
+  card (About) lists "Also in <class>" (tap → that enrolment) and **"+ Add to another class"** (also under Class in the edit
+  pop-up; maktab only) → `AddClassModal` (class + that class's fee) → `?action=add-class` copies the name, date of birth,
+  contacts and details and the parent login links (`parent_students`). Changing a shared field (`SHARED` in students.js — name,
+  DOB, contacts, every detail) on one changes all linked; a parent's health update does too. Counted once (`countChildren()` in
+  store.js — Students, Dashboard, Classes & Teachers; Suhuf HQ counts DISTINCT). Parent portal: one name box per child, then a box
+  per class. Leaving one class = that enrolment's status. The maktab demo has a "Weekend Tajweed" class (£5/wk) with Ibrahim
+  Rahman (the Rahman family) and Fatimah Siddiqui also in it (`demoSecondClass()`).
 - **A child is never left without a class:** `students.class` is the class *name* (plain text), so deleting a class
   first moves its children (not those who have left) to another class or the Waiting list (`DELETE /api/classes?id=&moveTo=`
   — refused with 409 without one; the delete pop-up has a "Select class…" drop-down). Children whose class no longer exists

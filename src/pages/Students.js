@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import EnrollmentForm from '../components/EnrollmentForm';
 import ImportStudents from '../components/ImportStudents';
 import { LoadingState, ErrorState } from '../components/DataState';
-import { getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms, getStudiesSummary, getPupilLogins } from '../lib/store';
+import { countChildren, addStudentToClass, getStudents, deleteStudent, updateStudent, reorderStudents, avatarInitials, getClassNames, attendanceCountsFrom, attendancePctFrom, getAttendance, getFees, getDuFees, currentSchoolYear, formatDateGB, getStudentTotals, cancelRemainingFees, getAiSummaries, getTerms, getStudiesSummary, getPupilLogins } from '../lib/store';
 import { periodForKey, isTermKey } from '../lib/reportPeriods';
 import { buildReportBytes, downloadPdfBytes } from '../lib/reportPdf';
 import { useBackToClose } from '../lib/useBackToClose';
@@ -64,6 +64,11 @@ export default function Students() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [addClassFor, setAddClassFor] = useState(null); // "+ Add to another class": the child (a maktab only)
+  // After a reload, an open child's card shows their fresh details (e.g. the class they were just added to).
+  useEffect(() => {
+    setSelected(cur => (cur ? students.find(x => x.id === cur.id) || cur : cur));
+  }, [students]);
   const [editForm, setEditForm] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [toast, setToast] = useState('');
@@ -277,7 +282,7 @@ export default function Students() {
   if (loading) return <Layout title={word}><LoadingState /></Layout>;
   if (error) return <Layout title={word}><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const activeCount = students.filter(s=>s.status==='Active' && s.class!==WAITING_LIST).length;
+  const activeCount = countChildren(students.filter(s=>s.status==='Active' && s.class!==WAITING_LIST)); // a child in two classes counts once
   // Left students skew a "current" stat if included — they're a historical record
   // now, not part of today's roster.
   const rosterStudents = students.filter(s=>s.class!==WAITING_LIST && s.status!=='Inactive');
@@ -294,7 +299,7 @@ export default function Students() {
   const noClassStudents = students.filter(s=>s.status!=='Inactive' && s.class!==WAITING_LIST && !classNames.includes(s.class));
 
   return (
-    <Layout title={word} subtitle={`${students.length} enrolled`}>
+    <Layout title={word} subtitle={`${countChildren(students)} enrolled`}>
       {isSchool ? <>
         {/* The figures as one row of small white boxes, like Classes & Teachers. */}
         <BoxRow columns="repeat(4, minmax(0, 1fr))" cells={[
@@ -572,6 +577,8 @@ export default function Students() {
                       ['Daily records',leftTotals[selected.id]?.recordsCount||0],
                     ]:[]),
                     ]}/>
+                    {/* A child in two classes (each charged on its own): the other enrolments, and "+ Add to another class". */}
+                    {!isSchool && !isDarulUloom && <LinkedClasses student={selected} students={students} onOpen={setSelected} onAdd={()=>setAddClassFor(selected)}/>}
                   </InfoCard>
                   {isSchool ? (
                     <InfoCard icon={BookOpen} tone="green" title="Islamic Studies">
@@ -688,6 +695,11 @@ export default function Students() {
       {/* A school pupil's surahs, du'aas & practicals — on top of their card, which is there again on closing */}
       {studiesPupil && <PupilSheet id={studiesPupil} onClose={()=>setStudiesPupil(null)} />}
 
+      {addClassFor && (
+        <AddClassModal student={addClassFor} students={students} classNames={classNames} onClose={()=>setAddClassFor(null)}
+          onAdded={async (made)=>{ setAddClassFor(null); await load(); showToast(`${made.forename} added to ${made.class}`); }}/>
+      )}
+
       {/* Edit modal */}
       {editing&&editForm&&(
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEditing(null)}>
@@ -735,6 +747,9 @@ export default function Students() {
                 </div>
                 {!isDarulUloom && !isSchool && <div className="form-group"><label>Fee per {feeUnit()} ({currencySymbol()})</label><input type="number" value={editForm.weeklyFee} onChange={e=>setEditForm({...editForm,weeklyFee:e.target.value})}/></div>}
               </div>
+              {!isDarulUloom && !isSchool && (()=>{ const s=students.find(x=>x.id===editing); return s && s.status!=='Inactive' && s.class!==WAITING_LIST ? (
+                <div style={{marginTop:-8,marginBottom:16}}><LinkedClasses student={s} students={students} onAdd={()=>setAddClassFor(s)}/></div>
+              ) : null; })()}
               <div className="form-group"><label>Notes</label><GrowingText minRows={2} value={editForm.notes||''} onChange={e=>setEditForm({...editForm,notes:e.target.value})}/></div>
             </div>
             <div className="modal-footer">
@@ -866,6 +881,73 @@ function NotInClass({ students, classNames, onOpen, onMove }) {
             </select>
           </div>
         ) : <span className="text-muted">Add your classes on {isDarulUloom ? 'Classes & Staff' : 'Classes & Teachers'} first.</span>}
+      </div>
+    </div>
+  );
+}
+
+// A child in two classes (a maktab's ask): each class is its own enrolment, charged on its own, linked by linkGroup.
+// Shows the other classes ("Also in …", tap to open that one) and "+ Add to another class".
+function LinkedClasses({ student, students, onOpen, onAdd }) {
+  const others = student.linkGroup ? students.filter(x => x.linkGroup === student.linkGroup && x.id !== student.id) : [];
+  return (
+    <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+      {others.map(o => (
+        <button key={o.id} type="button" className="line-row" onClick={onOpen ? () => onOpen(o) : undefined} disabled={!onOpen}
+          style={onOpen ? undefined : { cursor: 'default', opacity: 1 }}>
+          <span className="ct-two">
+            <span className="line-row-name">Also in {o.class}</span>
+            <span className="line-row-sub">{o.status === 'Inactive' ? 'Left' : `${money(o.weeklyFee)}${feePer()} · charged separately`}</span>
+          </span>
+          {onOpen && <ArrowRight size={15} style={{ flexShrink: 0, color: 'var(--text-soft)' }} />}
+        </button>
+      ))}
+      {student.status !== 'Inactive' && (
+        <button type="button" className="line-row add" onClick={onAdd}><Plus size={14} /> Add to another class</button>
+      )}
+    </div>
+  );
+}
+
+// "+ Add to another class": the class and that class's own fee. The same child, with their details and parent login, is
+// added to it (students.js ?action=add-class) — fees, register, records and report there are its own.
+function AddClassModal({ student, students, classNames, onClose, onAdded }) {
+  const taken = new Set(students.filter(x => x.status !== 'Inactive' && (x.id === student.id || (student.linkGroup && x.linkGroup === student.linkGroup))).map(x => x.class));
+  const choices = classNames.filter(c => !taken.has(c));
+  const [cls, setCls] = useState(choices[0] || '');
+  const [fee, setFee] = useState(String(student.weeklyFee ?? ''));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function add() {
+    setBusy(true); setError('');
+    try { const made = await addStudentToClass(student.id, cls, fee); await onAdded(made); }
+    catch (e) { setError(e.message || 'Could not add them'); setBusy(false); }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && onClose()}>
+      <div className="modal" style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <div className="modal-title">Add {student.forename} to another class</div>
+          <button className="btn btn-icon" onClick={onClose} disabled={busy}><X size={16} /></button>
+        </div>
+        <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
+          <div className="text-muted" style={{ fontSize: 13 }}>
+            {student.forename} stays in {student.class} too. The new class has its own fee, register, records and report — their details and parent login come across, and changing details on one changes both.
+          </div>
+          {choices.length ? <>
+            <div className="form-group" style={{ marginBottom: 0 }}><label>Class</label>
+              <select value={cls} onChange={e => setCls(e.target.value)}>{choices.map(c => <option key={c} value={c}>{c}</option>)}</select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}><label>Fee for this class, per {feeUnit()} ({currencySymbol()})</label>
+              <input type="number" min="0" step="0.5" value={fee} onChange={e => setFee(e.target.value)} />
+            </div>
+          </> : <div style={{ fontSize: 13.5 }}>{student.forename} is already in every class.</div>}
+          {error && <div style={{ fontSize: 12.5, color: 'var(--red)' }}>{error}</div>}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="btn btn-primary" disabled={busy || !cls || !(Number(fee) >= 0) || fee === ''} onClick={add}><Plus size={13} />{busy ? 'Adding…' : `Add to ${cls || 'class'}`}</button>
+        </div>
       </div>
     </div>
   );

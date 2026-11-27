@@ -5,7 +5,7 @@ import { LoadingState, ErrorState } from '../components/DataState';
 import {
   getClasses, addClass, updateClass, deleteClass,
   getTeachers, addTeacher, updateTeacher, deleteTeacher, reorderTeachers,
-  getStudents, getUsers, createUser, updateUser, deleteUser, getCourse,
+  countChildren, getStudents, getUsers, createUser, updateUser, deleteUser, getCourse,
 } from '../lib/store';
 import { Plus, Pencil, Trash2, X, Save, BookOpen, Users, KeyRound, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import BoxRow from '../components/BoxRow';
@@ -76,7 +76,7 @@ export default function ClassesTeachers() {
   if (loading) return <Layout title={pageTitle}><LoadingState /></Layout>;
   if (error) return <Layout title={pageTitle}><ErrorState error={error} onRetry={load} /></Layout>;
 
-  const activeStudents = students.filter(s => s.status === 'Active').length;
+  const activeStudents = countChildren(students.filter(s => s.status === 'Active')); // a child in two classes counts once
   // Classes with no teacher. A Darul Uloom's Aalim years don't count: with no report writer,
   // the head writes their reports.
   const needsTeacher = c => !c.teacherId && !(isDarulUloom && c.courseOrder);

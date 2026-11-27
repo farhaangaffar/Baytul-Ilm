@@ -128,7 +128,8 @@ CREATE TABLE IF NOT EXISTS students (
   applied_new        BOOLEAN NOT NULL DEFAULT false,
   applied_ip         TEXT,
   parent_updated_at  TIMESTAMP,
-  sheet_class        TEXT NOT NULL DEFAULT ''  -- the class an imported child's spreadsheet named
+  sheet_class        TEXT NOT NULL DEFAULT '',  -- the class an imported child's spreadsheet named
+  link_group         TEXT                         -- a child in two classes: each enrolment shares the first one's id
 );
 CREATE INDEX IF NOT EXISTS idx_students_madrasah ON students (madrasah_id);
 

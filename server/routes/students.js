@@ -42,6 +42,9 @@ function toClient(row, forTeacher) {
     addedAt: row.added_at, appliedOnline: !!row.applied_online, appliedNew: !!row.applied_new,
     parentUpdatedAt: row.parent_updated_at,
     sheetClass: row.sheet_class || '', // the class an imported child's spreadsheet named (a hint for placing them)
+    // One child in two classes ("+ Add to another class"): each class is its own enrolment (own fees, register, records,
+    // report) and they share a link_group (the first enrolment's id). '' = in one class only.
+    linkGroup: row.link_group || '',
     ...extra,
   };
 }
@@ -55,6 +58,9 @@ const FIELD_MAP = {
   ...Object.fromEntries(DETAILS.map(([key, col]) => [key, col])),
 };
 const DETAIL_LEN = Object.fromEntries(DETAILS.map(([key, , n]) => [key, n]));
+// What a child's enrolments in different classes share: changed on one, changed on all (never class, fee, dates,
+// status or notes, which are each class's own).
+const SHARED = new Set(['forename', 'surname', 'dob', 'parent1Name', 'parent1Phone', 'parent2Name', 'parent2Phone', ...DETAILS.map(d => d[0])]);
 
 // Self-healing: adds leave_date if this DB was created before the column existed
 // (same pattern as ai_summaries.behavior in api/ai-summary.js) — no manual
@@ -71,7 +77,8 @@ function ensureLeaveDateColumn() {
     ADD COLUMN IF NOT EXISTS applied_new BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS applied_ip TEXT,
     ADD COLUMN IF NOT EXISTS parent_updated_at TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS sheet_class TEXT NOT NULL DEFAULT ''`)
+    ADD COLUMN IF NOT EXISTS sheet_class TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS link_group TEXT`)
     .catch(err => { ensured = null; throw err; });
   return ensured;
 }
@@ -155,6 +162,40 @@ module.exports = requireAuth(async (req, res) => {
       [mid, JSON.stringify(rows)]
     );
     res.status(200).json({ ok: true, added: rows.length });
+    return;
+  }
+
+  // "+ Add to another class" (a maktab's ask): the same child also goes to another class that is charged on its own:
+  // a second enrolment, copied from this one (name, date of birth, contacts, details), in that class at its own fee,
+  // linked to it (link_group) and to the same parent login(s). { studentId, class, weeklyFee }.
+  if (action === 'add-class') {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const b = req.body || {};
+    const cls = String(b.class || '').trim();
+    const fee = Number(b.weeklyFee);
+    if (!cls || !(fee >= 0)) { res.status(400).json({ error: 'Choose a class and its fee.' }); return; }
+    const { rows: [src] } = await query('SELECT * FROM students WHERE id = $1 AND madrasah_id = $2', [String(b.studentId || ''), mid]);
+    if (!src) { res.status(404).json({ error: 'Student not found' }); return; }
+    const { rows: c } = await query('SELECT 1 FROM classes WHERE madrasah_id = $1 AND name = $2', [mid, cls]);
+    if (!c.length) { res.status(400).json({ error: "That class doesn't exist." }); return; }
+    const group = src.link_group || src.id;
+    const { rows: already } = await query(
+      `SELECT 1 FROM students WHERE madrasah_id = $1 AND class = $2 AND status <> 'Inactive' AND (id = $3 OR link_group = $3)`, [mid, cls, group]);
+    if (already.length) { res.status(409).json({ error: `${src.forename} is already in ${cls}.` }); return; }
+    const newId = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const copy = ['forename', 'surname', 'dob', 'parent1_name', 'parent1_phone', 'parent2_name', 'parent2_phone', ...DETAILS.map(d => d[1])];
+    await query(
+      `INSERT INTO students (id, madrasah_id, class, weekly_fee, enroll_date, status, notes, link_group, ${copy.join(', ')})
+       SELECT $1, madrasah_id, $3, $4, (now() AT TIME ZONE 'Europe/London')::date, 'Active', '', $5, ${copy.join(', ')}
+       FROM students WHERE id = $2 AND madrasah_id = $6`,
+      [newId, src.id, cls, fee, group, mid]);
+    if (!src.link_group) await query('UPDATE students SET link_group = $1 WHERE id = $1 AND madrasah_id = $2', [src.id, mid]);
+    // The same parent login(s) see the new enrolment too (no parent logins yet: nothing to copy).
+    await query(`INSERT INTO parent_students (user_id, student_id, madrasah_id)
+                 SELECT user_id, $1, madrasah_id FROM parent_students WHERE student_id = $2 AND madrasah_id = $3
+                 ON CONFLICT DO NOTHING`, [newId, src.id, mid]).catch(() => {});
+    const { rows } = await query('SELECT * FROM students WHERE id = $1', [newId]);
+    res.status(201).json(toClient(rows[0]));
     return;
   }
 
@@ -244,12 +285,13 @@ module.exports = requireAuth(async (req, res) => {
       }
       const { rows } = await query(
         `INSERT INTO students (id, madrasah_id, forename, surname, dob, class, parent1_name, parent1_phone, parent2_name, parent2_phone, weekly_fee, enroll_date, leave_date, status, notes,
-                               ${DETAILS.map(d => d[1]).join(', ')})
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, ${DETAILS.map((d, i) => `$${16 + i}`).join(',')}) RETURNING *`,
+                               ${DETAILS.map(d => d[1]).join(', ')}, link_group)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, ${DETAILS.map((d, i) => `$${16 + i}`).join(',')}, $${16 + DETAILS.length}) RETURNING *`,
         [newId, mid, b.forename, b.surname, b.dob || null, b.class,
          b.parent1Name || '', b.parent1Phone || '', b.parent2Name || '', b.parent2Phone || '',
          b.weeklyFee ?? 15, b.enrollDate || null, b.leaveDate || null, b.status || 'Active', b.notes || '',
-         ...DETAILS.map(([key, , n]) => detail(b, key, n))]
+         ...DETAILS.map(([key, , n]) => detail(b, key, n)),
+         b.id && b.linkGroup ? String(b.linkGroup) : null] // a backup being restored keeps a child's two classes linked
       );
       res.status(201).json(toClient(rows[0]));
       return;
@@ -273,6 +315,18 @@ module.exports = requireAuth(async (req, res) => {
     values.push(id, mid);
     const { rows } = await query(`UPDATE students SET ${sets.join(', ')} WHERE id = $${values.length - 1} AND madrasah_id = $${values.length} RETURNING id`, values);
     if (!rows.length) { res.status(404).json({ error: 'Student not found' }); return; }
+    // The same child in another class gets the shared details too (name, date of birth, contacts, health ...).
+    const shared = [], svals = [];
+    Object.entries(b).forEach(([key, val]) => {
+      if (!SHARED.has(key)) return;
+      svals.push(key in DETAIL_LEN ? detail(b, key, DETAIL_LEN[key]) : val);
+      shared.push(`${FIELD_MAP[key]} = $${svals.length}`);
+    });
+    if (shared.length) {
+      svals.push(id, mid);
+      await query(`UPDATE students SET ${shared.join(', ')} WHERE madrasah_id = $${svals.length} AND id <> $${svals.length - 1}
+        AND link_group IS NOT NULL AND link_group = (SELECT link_group FROM students WHERE id = $${svals.length - 1} AND madrasah_id = $${svals.length})`, svals);
+    }
     res.status(200).json({ ok: true });
     return;
   }

@@ -260,6 +260,13 @@ export async function getStudent(id) { const list = await getStudents(); return 
 export async function addStudent(student) { autoFeesRun = null; return apiFetch('/api/students', { method: 'POST', body: JSON.stringify(student) }); }
 export const updateStudentDetails = students => apiFetch('/api/students?action=update-details', { method: 'POST', body: JSON.stringify({ students }) });
 export async function importStudents(students) { autoFeesRun = null; return apiFetch('/api/students?action=import', { method: 'POST', body: JSON.stringify({ students }) }); }
+// A child in two classes is two enrolments sharing a linkGroup — counted once.
+export const countChildren = list => new Set(list.map(s => s.linkGroup || s.id)).size;
+// "+ Add to another class": a second enrolment of the same child in another class, at its own fee (students.js ?action=add-class).
+export async function addStudentToClass(studentId, className, weeklyFee) {
+  autoFeesRun = null;
+  return apiFetch('/api/students?action=add-class', { method: 'POST', body: JSON.stringify({ studentId, class: className, weeklyFee: Number(weeklyFee) }) });
+}
 export async function updateStudent(id, data) { autoFeesRun = null; return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }); }
 export async function deleteStudent(id) { return apiFetch(`/api/students?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 // ids is the full new card order for whichever class was just reordered — every
