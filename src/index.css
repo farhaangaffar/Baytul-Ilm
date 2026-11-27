@@ -1394,3 +1394,39 @@ button.ss-line { cursor: pointer; }
 .cn-fig b { font-family: var(--font-num); font-size: 17px; font-weight: 600; }
 .cn-fig span { font-size: 11px; color: var(--text-muted); }
 .cu-inset .pay-price input { background: #fff; }
+
+/* Islamic Studies → Import marks (StudiesImport.js): four numbered steps, the big file box, a line per column, a line per value. */
+.im-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.im-step { border-radius: 9px; padding: 7px 4px; text-align: center; font-size: 11.5px; font-weight: 700; background: #f3f4f6; color: var(--text-muted); }
+.im-step b { display: block; font-family: var(--font-num); font-size: 14px; }
+.im-step.on { background: var(--teal-light); color: var(--teal-dark); outline: 1.5px solid var(--teal-mid); }
+.im-step.done { background: var(--green-light); color: var(--green-text); }
+.im-drop { border: 2px dashed #c7d2e0; background: #f8fafc; border-radius: 16px; padding: 28px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; text-align: center; }
+.im-drop:hover { border-color: var(--teal-mid); }
+.im-drop-icon { width: 48px; height: 48px; border-radius: 14px; background: var(--teal-light); color: var(--teal-dark); display: flex; align-items: center; justify-content: center; }
+.im-any { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.im-any > div { background: #f6f8fb; border-radius: 10px; padding: 9px 11px; font-size: 12.5px; line-height: 1.45; }
+.im-col { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1.25fr); gap: 8px; align-items: center; background: #f6f8fb; border-radius: 10px; padding: 8px 10px; }
+.im-col.amber { background: #fffbeb; outline: 1px solid #f1d58a; }
+.im-col.grey { opacity: .8; }
+.im-col select { width: 100%; min-width: 0; }
+.im-val { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: center; background: #f6f8fb; border-radius: 12px; padding: 9px 10px; }
+.im-val.amber { background: #fffbeb; outline: 1px solid #f1d58a; }
+.im-val-chip { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.im-text { min-width: 44px; max-width: 96px; height: 32px; padding: 0 8px; border-radius: 8px; background: #fff; border: 1px solid #dfe3e8; display: flex; align-items: center; justify-content: center; font-family: var(--font-num); font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.im-swatch { width: 46px; height: 32px; border-radius: 8px; border: 1px solid rgba(0,0,0,.12); }
+.im-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.im-lv { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 8px 2px; font: inherit; font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; text-align: center; min-width: 0; }
+.im-lv.ach { background: var(--green-light); border-color: var(--green); color: var(--green-text); }
+.im-lv.hlp { background: var(--amber-light); border-color: #e8c547; color: var(--amber-text); }
+.im-lv.inc { background: var(--red-light); border-color: var(--red); color: var(--red-text); }
+.im-lv.nas { background: #eef1f5; border-color: #94a3b8; color: #334155; }
+.im-table { border-collapse: separate; border-spacing: 3px; width: 100%; font-size: 11.5px; }
+.im-table th { font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px 2px; font-size: 10.5px; }
+.im-table th:first-child, .im-table td:first-child { text-align: left; white-space: nowrap; }
+.im-table td { text-align: center; border-radius: 6px; padding: 6px 2px; }
+.im-table td.ach { background: var(--green-light); color: var(--green-text); }
+.im-table td.hlp { background: var(--amber-light); color: var(--amber-text); }
+.im-table td.inc { background: var(--red-light); color: var(--red-text); }
+.im-table td.nas { background: #eef1f5; color: var(--text-soft); }
+@media (max-width: 520px) { .im-val { grid-template-columns: 1fr; } .im-col { grid-template-columns: 1fr; } .im-col > span[aria-hidden] { display: none; } }
